@@ -18,6 +18,7 @@ struct EditorView: View {
     @State private var fileURL: URL?
     @State private var text: String
     @State private var selection = TextSelection(location: 0, length: 0)
+    @State private var statusIndex: DocumentStatusIndex?
     @State private var pendingCursorOffset: Int?
     @State private var pendingFindRequest: UUID?
 
@@ -33,12 +34,19 @@ struct EditorView: View {
     @State private var suppressNextTextChange = false
     @State private var externalConflict: ExternalConflict?
     @State private var statusMessage = ""
+    @State private var focusRequestGate = FocusRestorationRequestGate()
+    @AccessibilityFocusState private var focusedElement: EditorFocus?
     /// The name the file was last saved under, so autosave does not rename on
     /// every keystroke as the first heading is typed.
     @State private var savedName: String?
 
     private let draftName: String
     private let onDocumentURLChange: (URL) -> Void
+
+    private enum EditorFocus: Hashable {
+        case render
+        case fileActions
+    }
 
     @Environment(DocumentStore.self) private var store
     @Environment(AppSettings.self) private var settings
@@ -53,6 +61,7 @@ struct EditorView: View {
     ) {
         _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
+        _statusIndex = State(initialValue: nil)
         _lastSavedText = State(initialValue: initialText)
         _savedName = State(initialValue: document.displayName)
         self.draftName = document.displayName
@@ -70,6 +79,9 @@ struct EditorView: View {
         .background(Color.editorBackground)
         .navigationBarHidden(true)
         .onChange(of: text) { _, _ in
+            if settings.statusBarEnabled {
+                statusIndex = DocumentStatusIndex(text: text)
+            }
             if suppressNextTextChange {
                 suppressNextTextChange = false
                 return
@@ -78,10 +90,16 @@ struct EditorView: View {
             scheduleAutosave()
         }
         .onAppear {
+            if settings.statusBarEnabled {
+                statusIndex = DocumentStatusIndex(text: text)
+            }
             // Warm the audio session now, so the cost of activating it is not
             // paid at the moment Render is tapped — that was the burst of
             // static at the start of the tone.
             if settings.renderSoundEnabled { RenderSound.shared.prepare() }
+        }
+        .onChange(of: settings.statusBarEnabled) { _, isEnabled in
+            statusIndex = isEnabled ? DocumentStatusIndex(text: text) : nil
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -95,7 +113,9 @@ struct EditorView: View {
             saveNow(announce: false)
             RenderSound.shared.stop()
         }
-        .fullScreenCover(isPresented: $showingRendered) {
+        .fullScreenCover(isPresented: $showingRendered, onDismiss: {
+            restoreFocus(to: .render)
+        }) {
             RenderedHTMLView(title: displayTitle, markdown: text)
         }
         .sheet(isPresented: $showingOutline) {
@@ -103,19 +123,31 @@ struct EditorView: View {
                 pendingCursorOffset = offset
             }
         }
-        .sheet(isPresented: $showingReference) {
+        .sheet(isPresented: $showingReference, onDismiss: {
+            restoreFocus(to: .fileActions)
+        }) {
             MarkdownReferenceView()
         }
         .alert("Rename Document", isPresented: $showingRename) {
             TextField("Name", text: $renameText)
                 .autocorrectionDisabled()
-            Button("Cancel", role: .cancel) { }
-            Button("Rename") { commitRename() }
+            Button("Cancel", role: .cancel) {
+                restoreFocus(to: .fileActions)
+            }
+            Button("Rename") {
+                commitRename()
+                if store.lastError == nil {
+                    restoreFocus(to: .fileActions)
+                }
+            }
         } message: {
             Text("Enter a new name for this document.")
         }
         .alert("ghostWriter Error", isPresented: errorBinding) {
-            Button("OK") { store.lastError = nil }
+            Button("OK") {
+                store.lastError = nil
+                restoreFocus(to: .fileActions)
+            }
         } message: {
             Text(store.lastError ?? "An unknown error occurred.")
         }
@@ -177,6 +209,7 @@ struct EditorView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .accessibilityHint("Shows this document as formatted HTML")
+                .accessibilityFocused($focusedElement, equals: .render)
 
                 Button {
                     present { showingOutline = true }
@@ -224,6 +257,7 @@ struct EditorView: View {
             }
 
             Button {
+                focusRequestGate.invalidate()
                 pendingFindRequest = UUID()
             } label: {
                 Label("Find and Replace", systemImage: "magnifyingglass")
@@ -273,6 +307,7 @@ struct EditorView: View {
         }
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
+        .accessibilityFocused($focusedElement, equals: .fileActions)
     }
 
     /// Accessibility text sizes need vertical room for the full button labels.
@@ -316,7 +351,8 @@ struct EditorView: View {
     }
 
     private var statusBarText: String {
-        DocumentStatus.calculate(text: text, selection: selection)
+        (statusIndex ?? DocumentStatusIndex(text: text))
+            .status(selection: selection)
             .description(options: statusBarOptions)
     }
 
@@ -377,11 +413,13 @@ struct EditorView: View {
     /// Dismisses the keyboard, then presents. Anything that puts content over
     /// the editor goes through this.
     private func present(_ action: @escaping () -> Void) {
+        focusRequestGate.invalidate()
         dismissKeyboard()
         action()
     }
 
     private func render() {
+        focusRequestGate.invalidate()
         dismissKeyboard()
         if settings.renderSoundEnabled { RenderSound.shared.play() }
         saveNow(announce: false)
@@ -530,6 +568,21 @@ struct EditorView: View {
         Task {
             try? await Task.sleep(for: .seconds(4))
             if statusMessage == message { statusMessage = "" }
+        }
+    }
+
+    private func restoreFocus(to target: EditorFocus) {
+        let requestID = focusRequestGate.begin()
+        focusedElement = nil
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard focusRequestGate.permits(requestID) else { return }
+            focusedElement = target
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            guard focusRequestGate.permits(requestID) else { return }
+            focusedElement = target
         }
     }
 

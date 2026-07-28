@@ -18,6 +18,27 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+/// Identifies the newest delayed accessibility-focus request. SwiftUI sheets
+/// can dismiss close together, so older callbacks must not override a newer,
+/// more relevant destination.
+struct FocusRestorationRequestGate {
+    private(set) var currentID: UUID?
+
+    mutating func begin() -> UUID {
+        let id = UUID()
+        currentID = id
+        return id
+    }
+
+    mutating func invalidate() {
+        currentID = nil
+    }
+
+    func permits(_ id: UUID) -> Bool {
+        currentID == id
+    }
+}
+
 struct LibraryView: View {
     @Environment(DocumentStore.self) private var store
     @Environment(AppSettings.self) private var settings
@@ -38,6 +59,7 @@ struct LibraryView: View {
     @State private var focusAfterEditor: LibraryFocus?
     @State private var focusAfterPresentation: LibraryFocus?
     @State private var focusAfterError: LibraryFocus?
+    @State private var focusRequestGate = FocusRestorationRequestGate()
     @State private var searchAnnounceTask: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
     @AccessibilityFocusState private var focusedElement: LibraryFocus?
@@ -168,6 +190,7 @@ struct LibraryView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
+                focusRequestGate.invalidate()
                 showingSettings = true
             } label: {
                 Label("Settings", systemImage: "gearshape")
@@ -188,6 +211,7 @@ struct LibraryView: View {
             .accessibilityFocused($focusedElement, equals: .newDocument)
 
             Button {
+                focusRequestGate.invalidate()
                 showingImporter = true
             } label: {
                 Label("Import Document", systemImage: "square.and.arrow.down")
@@ -367,7 +391,7 @@ struct LibraryView: View {
                             onShare: { share(document) },
                             onRename: { beginRename(document) },
                             onDuplicate: { duplicate(document) },
-                            onDelete: { pendingDeletion = document }
+                            onDelete: { beginDelete(document) }
                         )
                     }
                     .buttonStyle(.plain)
@@ -381,7 +405,7 @@ struct LibraryView: View {
                     // being announced a second time.
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
-                            pendingDeletion = document
+                            beginDelete(document)
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -472,6 +496,7 @@ struct LibraryView: View {
     // MARK: - Actions
 
     private func open(_ document: Document) {
+        focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
         focusAfterError = nil
@@ -480,6 +505,7 @@ struct LibraryView: View {
     }
 
     private func render(_ document: Document) {
+        focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
         focusAfterError = nil
@@ -493,6 +519,7 @@ struct LibraryView: View {
     /// Asks for a name first. The document is created only once the user
     /// confirms, so cancelling leaves nothing behind.
     private func newDocument() {
+        focusRequestGate.invalidate()
         shouldRestoreNewDocumentFocus = true
         showingNewDocument = true
     }
@@ -510,6 +537,7 @@ struct LibraryView: View {
     }
 
     private func beginRename(_ document: Document) {
+        focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         newName = document.displayName
         renamingDocument = document
@@ -540,6 +568,7 @@ struct LibraryView: View {
     }
 
     private func share(_ document: Document) {
+        focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
         do {
@@ -561,6 +590,11 @@ struct LibraryView: View {
         guard let document = pendingDeletion else { return }
         pendingDeletion = nil
         restoreFocus(to: .document(document.url))
+    }
+
+    private func beginDelete(_ document: Document) {
+        focusRequestGate.invalidate()
+        pendingDeletion = document
     }
 
     private func commitDelete() {
@@ -699,13 +733,16 @@ struct LibraryView: View {
     }
 
     private func restoreFocus(to target: LibraryFocus) {
+        let requestID = focusRequestGate.begin()
         focusedElement = nil
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard focusRequestGate.permits(requestID) else { return }
             focusedElement = target
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            guard focusRequestGate.permits(requestID) else { return }
             focusedElement = target
         }
     }

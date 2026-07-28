@@ -99,4 +99,40 @@ struct DocumentStatusTests {
 
         #expect(status.description(options: options) == "No status information selected")
     }
+
+    @Test func cachedIndexUpdatesPositionWithoutRebuildingDocumentCounts() {
+        let lines = (1...2_000).map { line in
+            line == 1_750 ? "## Destination" : "Line \(line)"
+        }
+        let text = lines.joined(separator: "\n")
+        let index = DocumentStatusIndex(text: text)
+        let destinationOffset = lines.prefix(1_749)
+            .reduce(0) { $0 + $1.count + 1 }
+
+        let start = index.status(
+            selection: TextSelection(location: 0, length: 0)
+        )
+        let destination = index.status(
+            selection: TextSelection(location: destinationOffset, length: 0)
+        )
+
+        #expect(start.lineCount == 2_000)
+        #expect(destination.lineCount == start.lineCount)
+        #expect(destination.wordCount == start.wordCount)
+        #expect(destination.characterCount == start.characterCount)
+        #expect(destination.currentLine == 1_750)
+        #expect(destination.currentColumn == 1)
+        #expect(destination.headingLevel == 2)
+    }
+
+    @Test func cachedIndexHandlesTrailingBlankLine() {
+        let index = DocumentStatusIndex(text: "First\n")
+        let status = index.status(
+            selection: TextSelection(location: 6, length: 0)
+        )
+
+        #expect(status.lineCount == 2)
+        #expect(status.currentLine == 2)
+        #expect(status.currentColumn == 1)
+    }
 }

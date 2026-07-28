@@ -155,7 +155,15 @@ struct MarkdownTextView: UIViewRepresentable {
         }
 
         if let offset = pendingCursorOffset {
-            let utf16Offset = Self.utf16Offset(for: offset, in: textView.text ?? "")
+            let currentText = textView.text ?? ""
+            let synchronizedSelection = Self.selection(
+                forRequestedCharacterOffset: offset,
+                in: currentText
+            )
+            let utf16Offset = Self.utf16Offset(
+                for: synchronizedSelection.location,
+                in: currentText
+            )
             let target = NSRange(location: utf16Offset, length: 0)
 
             // Take focus before moving the caret. Without this the editor never
@@ -178,9 +186,27 @@ struct MarkdownTextView: UIViewRepresentable {
             }
 
             DispatchQueue.main.async {
+                // Assigning selectedRange programmatically does not reliably
+                // invoke UITextViewDelegate. Mirror the same Character offset
+                // into SwiftUI so the Status Bar updates with the jump instead
+                // of waiting for the next manual cursor movement.
+                self.selection = synchronizedSelection
                 self.pendingCursorOffset = nil
             }
         }
+    }
+
+    /// Clamps an external cursor request to a valid Character boundary. Both
+    /// Outline offsets and the Status Bar use Character counts, keeping emoji
+    /// and composed characters as one position.
+    static func selection(
+        forRequestedCharacterOffset offset: Int,
+        in text: String
+    ) -> TextSelection {
+        TextSelection(
+            location: min(max(0, offset), text.count),
+            length: 0
+        )
     }
 
     /// Converts a Character offset to the UTF-16 offset UIKit expects.

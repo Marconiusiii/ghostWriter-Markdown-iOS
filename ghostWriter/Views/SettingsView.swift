@@ -19,6 +19,7 @@ struct SettingsView: View {
     @State private var showingStatusBarSettings = false
     @State private var showingMailComposer = false
     @State private var showingMailUnavailable = false
+    @State private var focusRequestGate = FocusRestorationRequestGate()
 
     private enum FocusTarget: Hashable {
         case indentation
@@ -71,6 +72,7 @@ struct SettingsView: View {
 
                     if settings.statusBarEnabled {
                         Button("Customize Status Bar") {
+                            focusRequestGate.invalidate()
                             showingStatusBarSettings = true
                         }
                         .accessibilityFocused($focusedElement, equals: .customizeStatusBar)
@@ -92,7 +94,10 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Version", value: appVersion)
-                    Button("Help") { showingHelp = true }
+                    Button("Help") {
+                        focusRequestGate.invalidate()
+                        showingHelp = true
+                    }
                         .accessibilityFocused($focusedElement, equals: .help)
                     externalLink(
                         title: "ghostWriter on the web",
@@ -176,6 +181,7 @@ struct SettingsView: View {
     }
 
     private func sendFeedback() {
+        focusRequestGate.invalidate()
         if MFMailComposeViewController.canSendMail() {
             showingMailComposer = true
         } else {
@@ -191,13 +197,16 @@ struct SettingsView: View {
     }
 
     private func restoreFocus(to target: FocusTarget) {
+        let requestID = focusRequestGate.begin()
         focusedElement = nil
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard focusRequestGate.permits(requestID) else { return }
             focusedElement = target
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            guard focusRequestGate.permits(requestID) else { return }
             focusedElement = target
         }
     }
