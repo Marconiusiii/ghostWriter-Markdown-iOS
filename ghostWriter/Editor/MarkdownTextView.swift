@@ -20,6 +20,7 @@ struct MarkdownTextView: UIViewRepresentable {
     @Binding var selection: TextSelection
 
     var smartListsEnabled: Bool
+    var editorFontDesign: EditorFontDesign
 
     /// Set by the parent to move the cursor, for example from the outline.
     /// Cleared once applied.
@@ -42,7 +43,10 @@ struct MarkdownTextView: UIViewRepresentable {
 
         // Monospaced for alignment, but scaled by Dynamic Type so it grows with
         // the reader's setting.
-        textView.font = Self.editorFont(compatibleWith: textView.traitCollection)
+        textView.font = Self.editorFont(
+            design: editorFontDesign,
+            compatibleWith: textView.traitCollection
+        )
         textView.adjustsFontForContentSizeCategory = true
 
         textView.backgroundColor = UIColor(named: "EditorBackground") ?? .systemBackground
@@ -118,6 +122,14 @@ struct MarkdownTextView: UIViewRepresentable {
     func updateUIView(_ textView: UITextView, context: Context) {
         context.coordinator.parent = self
 
+        let desiredFont = Self.editorFont(
+            design: editorFontDesign,
+            compatibleWith: textView.traitCollection
+        )
+        if textView.font?.fontName != desiredFont.fontName {
+            textView.font = desiredFont
+        }
+
         // Never write to the text view while it is being typed into. Assigning
         // `.text` resets composition state, which is precisely what breaks
         // braille screen input and dictation mid-word. External updates are
@@ -166,12 +178,28 @@ struct MarkdownTextView: UIViewRepresentable {
     /// Uses the system's already-scaled preferred body descriptor and changes
     /// only its design. Applying UIFontMetrics to preferredFont's point size
     /// would scale the same Dynamic Type preference twice at accessibility sizes.
-    private static func editorFont(compatibleWith traits: UITraitCollection) -> UIFont {
+    private static func editorFont(
+        design: EditorFontDesign,
+        compatibleWith traits: UITraitCollection
+    ) -> UIFont {
         let preferred = UIFontDescriptor.preferredFontDescriptor(
             withTextStyle: .body,
             compatibleWith: traits
         )
-        let descriptor = preferred.withDesign(.monospaced) ?? preferred
+
+        let systemDesign: UIFontDescriptor.SystemDesign
+        switch design {
+        case .monospaced:
+            systemDesign = .monospaced
+        case .system:
+            systemDesign = .default
+        case .rounded:
+            systemDesign = .rounded
+        case .serif:
+            systemDesign = .serif
+        }
+
+        let descriptor = preferred.withDesign(systemDesign) ?? preferred
         return UIFont(descriptor: descriptor, size: 0)
     }
 }

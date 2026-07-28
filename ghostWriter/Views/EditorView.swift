@@ -234,6 +234,7 @@ struct EditorView: View {
             text: $text,
             selection: $selection,
             smartListsEnabled: settings.smartListsEnabled,
+            editorFontDesign: settings.editorFontDesign,
             pendingCursorOffset: $pendingCursorOffset,
             onIndent: { applyIndent(outdent: false) },
             onOutdent: { applyIndent(outdent: true) }

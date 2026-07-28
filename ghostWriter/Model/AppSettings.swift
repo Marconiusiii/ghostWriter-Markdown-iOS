@@ -64,6 +64,27 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// The typeface used only for raw markdown editing. Every option starts with
+/// the preferred body text style, so choosing a design never opts out of
+/// Dynamic Type or its accessibility sizes.
+enum EditorFontDesign: String, CaseIterable, Identifiable {
+    case monospaced
+    case system
+    case rounded
+    case serif
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .monospaced: return "Monospaced"
+        case .system: return "System"
+        case .rounded: return "Rounded"
+        case .serif: return "Serif"
+        }
+    }
+}
+
 @Observable
 final class AppSettings {
     var indentUnit: IndentUnit {
@@ -72,6 +93,10 @@ final class AppSettings {
 
     var appearance: AppearanceMode {
         didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) }
+    }
+
+    var editorFontDesign: EditorFontDesign {
+        didSet { defaults.set(editorFontDesign.rawValue, forKey: Keys.editorFontDesign) }
     }
 
     /// The theremin sound on render. On by default because it is part of the
@@ -109,6 +134,8 @@ final class AppSettings {
             .flatMap(IndentUnit.init(rawValue:))) ?? .twoSpaces
         self.appearance = (defaults.string(forKey: Keys.appearance)
             .flatMap(AppearanceMode.init(rawValue:))) ?? .system
+        self.editorFontDesign = (defaults.string(forKey: Keys.editorFontDesign)
+            .flatMap(EditorFontDesign.init(rawValue:))) ?? .monospaced
         self.renderSoundEnabled = defaults.object(forKey: Keys.renderSound) as? Bool ?? true
         self.smartListsEnabled = defaults.object(forKey: Keys.smartLists) as? Bool ?? true
         self.announceLineStructure = defaults.object(forKey: Keys.announceStructure) as? Bool ?? true
@@ -123,6 +150,7 @@ final class AppSettings {
     private enum Keys {
         static let indentUnit = "indentUnit"
         static let appearance = "appearance"
+        static let editorFontDesign = "editorFontDesign"
         static let renderSound = "renderSoundEnabled"
         static let smartLists = "smartListsEnabled"
         static let announceStructure = "announceLineStructure"
