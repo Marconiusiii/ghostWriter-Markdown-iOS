@@ -25,6 +25,11 @@ enum GuardedSaveResult: Equatable {
     case failed
 }
 
+struct DocumentImportResult: Equatable {
+    let imported: [Document]
+    let failedFileNames: [String]
+}
+
 @Observable
 final class DocumentStore {
     private(set) var documents: [Document] = []
@@ -215,6 +220,62 @@ final class DocumentStore {
             lastError = "Could not duplicate \(document.displayName). \(error.localizedDescription)"
             return nil
         }
+    }
+
+    /// Copies selected UTF-8 markdown or text files into the app's own folder.
+    /// Reading and rewriting the text keeps imported files independent of their
+    /// source and prevents an unreadable file from becoming an empty document.
+    func importDocuments(from sourceURLs: [URL]) -> DocumentImportResult {
+        createDirectoryIfNeeded()
+        var importedURLs: [URL] = []
+        var failedNames: [String] = []
+
+        for sourceURL in sourceURLs {
+            let fileName = sourceURL.lastPathComponent
+            guard Document.isMarkdown(sourceURL) else {
+                failedNames.append(fileName)
+                continue
+            }
+
+            let hasScopedAccess = sourceURL.startAccessingSecurityScopedResource()
+            defer {
+                if hasScopedAccess {
+                    sourceURL.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            do {
+                let data = try Data(contentsOf: sourceURL)
+                guard let contents = String(data: data, encoding: .utf8) else {
+                    failedNames.append(fileName)
+                    continue
+                }
+
+                let preferredName = sourceURL
+                    .deletingPathExtension()
+                    .lastPathComponent
+                let destination = availableURL(for: preferredName)
+                try contents.write(to: destination, atomically: true, encoding: .utf8)
+                importedURLs.append(destination)
+            } catch {
+                failedNames.append(fileName)
+            }
+        }
+
+        refresh()
+        let imported = importedURLs.compactMap { importedURL in
+            documents.first { $0.url == importedURL }
+        }
+
+        if !failedNames.isEmpty {
+            let names = failedNames.joined(separator: ", ")
+            lastError = "Could not import \(names). Import markdown or plain-text files saved as UTF-8."
+        }
+
+        return DocumentImportResult(
+            imported: imported,
+            failedFileNames: failedNames
+        )
     }
 
     // MARK: - Naming

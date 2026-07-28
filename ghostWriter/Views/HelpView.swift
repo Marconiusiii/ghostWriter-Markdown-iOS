@@ -53,6 +53,7 @@ private struct HelpTopic: Identifiable {
             title: "Creating and Opening Documents",
             paragraphs: [
                 "Activate New Document in the library, enter a name, and activate Create. The document opens immediately in the Markdown Editor.",
+                "Activate Import Document to choose one or more UTF-8 markdown or plain-text files from Files. ghostWriter copies each imported file into its own folder and gives name collisions a safe numbered name.",
                 "Activate a document in the library to open it. Documents are ordinary markdown files and keep the name you gave them until you explicitly rename them."
             ]
         ),
@@ -116,7 +117,8 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Settings and Accessibility",
             paragraphs: [
-                "Settings controls indentation, automatic lists, the editor font, the app appearance, and the optional render sound.",
+                "Settings controls indentation, automatic lists, the editor font, the app appearance, the optional editor Status Bar, and the render sound.",
+                "When the Status Bar is enabled, it appears as one focus stop immediately after the editor. Customize Status Bar lets you choose current line and column, document counts, heading level, and selection counts. The status changes quietly and is spoken only when you navigate to it.",
                 "All editor font choices follow Dynamic Type, including accessibility text sizes. The interface uses native controls so VoiceOver, Voice Control, Switch Control, and hardware keyboard behavior remain consistent with the rest of iOS."
             ]
         )

@@ -99,6 +99,41 @@ final class AppSettings {
         didSet { defaults.set(editorFontDesign.rawValue, forKey: Keys.editorFontDesign) }
     }
 
+    /// Shows one concise, configurable document-status element immediately
+    /// after the editor. It is off by default so existing editing sessions do
+    /// not gain another focus stop until the writer asks for it.
+    var statusBarEnabled: Bool {
+        didSet { defaults.set(statusBarEnabled, forKey: Keys.statusBarEnabled) }
+    }
+
+    var statusShowsLineAndColumn: Bool {
+        didSet { defaults.set(statusShowsLineAndColumn, forKey: Keys.statusLineAndColumn) }
+    }
+
+    var statusShowsLineCount: Bool {
+        didSet { defaults.set(statusShowsLineCount, forKey: Keys.statusLineCount) }
+    }
+
+    var statusShowsWordCount: Bool {
+        didSet { defaults.set(statusShowsWordCount, forKey: Keys.statusWordCount) }
+    }
+
+    var statusShowsCharacterCount: Bool {
+        didSet { defaults.set(statusShowsCharacterCount, forKey: Keys.statusCharacterCount) }
+    }
+
+    var statusShowsHeadingLevel: Bool {
+        didSet { defaults.set(statusShowsHeadingLevel, forKey: Keys.statusHeadingLevel) }
+    }
+
+    var statusShowsSelectedWordCount: Bool {
+        didSet { defaults.set(statusShowsSelectedWordCount, forKey: Keys.statusSelectedWordCount) }
+    }
+
+    var statusShowsSelectedCharacterCount: Bool {
+        didSet { defaults.set(statusShowsSelectedCharacterCount, forKey: Keys.statusSelectedCharacterCount) }
+    }
+
     /// The theremin sound on render. On by default because it is part of the
     /// app's character, but it respects the silent switch and can be turned off.
     var renderSoundEnabled: Bool {
@@ -136,6 +171,14 @@ final class AppSettings {
             .flatMap(AppearanceMode.init(rawValue:))) ?? .system
         self.editorFontDesign = (defaults.string(forKey: Keys.editorFontDesign)
             .flatMap(EditorFontDesign.init(rawValue:))) ?? .monospaced
+        self.statusBarEnabled = defaults.object(forKey: Keys.statusBarEnabled) as? Bool ?? false
+        self.statusShowsLineAndColumn = defaults.object(forKey: Keys.statusLineAndColumn) as? Bool ?? true
+        self.statusShowsLineCount = defaults.object(forKey: Keys.statusLineCount) as? Bool ?? true
+        self.statusShowsWordCount = defaults.object(forKey: Keys.statusWordCount) as? Bool ?? true
+        self.statusShowsCharacterCount = defaults.object(forKey: Keys.statusCharacterCount) as? Bool ?? true
+        self.statusShowsHeadingLevel = defaults.object(forKey: Keys.statusHeadingLevel) as? Bool ?? false
+        self.statusShowsSelectedWordCount = defaults.object(forKey: Keys.statusSelectedWordCount) as? Bool ?? false
+        self.statusShowsSelectedCharacterCount = defaults.object(forKey: Keys.statusSelectedCharacterCount) as? Bool ?? false
         self.renderSoundEnabled = defaults.object(forKey: Keys.renderSound) as? Bool ?? true
         self.smartListsEnabled = defaults.object(forKey: Keys.smartLists) as? Bool ?? true
         self.announceLineStructure = defaults.object(forKey: Keys.announceStructure) as? Bool ?? true
@@ -151,6 +194,14 @@ final class AppSettings {
         static let indentUnit = "indentUnit"
         static let appearance = "appearance"
         static let editorFontDesign = "editorFontDesign"
+        static let statusBarEnabled = "statusBarEnabled"
+        static let statusLineAndColumn = "statusShowsLineAndColumn"
+        static let statusLineCount = "statusShowsLineCount"
+        static let statusWordCount = "statusShowsWordCount"
+        static let statusCharacterCount = "statusShowsCharacterCount"
+        static let statusHeadingLevel = "statusShowsHeadingLevel"
+        static let statusSelectedWordCount = "statusShowsSelectedWordCount"
+        static let statusSelectedCharacterCount = "statusShowsSelectedCharacterCount"
         static let renderSound = "renderSoundEnabled"
         static let smartLists = "smartListsEnabled"
         static let announceStructure = "announceLineStructure"

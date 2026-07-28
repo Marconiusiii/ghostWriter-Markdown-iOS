@@ -16,6 +16,7 @@
 
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct LibraryView: View {
     @Environment(DocumentStore.self) private var store
@@ -32,8 +33,24 @@ struct LibraryView: View {
     @State private var showingShare = false
     @State private var openedDocument: DocumentSession?
     @State private var showingNewDocument = false
+    @State private var showingImporter = false
+    @State private var shouldRestoreNewDocumentFocus = false
+    @State private var focusAfterEditor: LibraryFocus?
+    @State private var focusAfterPresentation: LibraryFocus?
+    @State private var focusAfterError: LibraryFocus?
     @State private var searchAnnounceTask: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
+    @AccessibilityFocusState private var focusedElement: LibraryFocus?
+
+    private enum LibraryFocus: Hashable {
+        case settings
+        case newDocument
+        case importDocument
+        case sort
+        case search
+        case documentsHeading
+        case document(URL)
+    }
 
     var body: some View {
         NavigationStack {
@@ -51,13 +68,25 @@ struct LibraryView: View {
             // rather than duplicating it above the content.
             .navigationBarHidden(true)
             .navigationDestination(item: $openedDocument) { session in
-                EditorView(document: session.document, initialText: session.text)
+                EditorView(
+                    document: session.document,
+                    initialText: session.text,
+                    onDocumentURLChange: { url in
+                        focusAfterEditor = .document(url)
+                    }
+                )
             }
             // Saving no longer republishes the store's list — that churn was
             // what let the editor lose track of its file — so the library
             // re-reads the folder when it comes back into view.
             .onChange(of: openedDocument) { _, value in
-                if value == nil { store.refresh() }
+                if value == nil {
+                    store.refresh()
+                    if let target = focusAfterEditor {
+                        restoreFocus(to: availableFocus(target))
+                        focusAfterEditor = nil
+                    }
+                }
             }
             .onChange(of: searchText) { _, _ in
                 scheduleSearchAnnouncement()
@@ -67,38 +96,59 @@ struct LibraryView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.refresh() }
         }
-        .sheet(isPresented: $showingSettings) { SettingsView() }
-        .sheet(isPresented: $showingNewDocument) {
+        .sheet(isPresented: $showingSettings, onDismiss: {
+            restoreFocus(to: .settings)
+        }) {
+            SettingsView()
+        }
+        .sheet(isPresented: $showingNewDocument, onDismiss: {
+            if shouldRestoreNewDocumentFocus {
+                restoreFocus(to: .newDocument)
+            }
+            shouldRestoreNewDocumentFocus = false
+        }) {
             NewDocumentView { name in
                 createDocument(named: name)
             }
         }
-        .fullScreenCover(item: $renderingSession) { session in
+        .fullScreenCover(item: $renderingSession, onDismiss: {
+            restorePresentationFocus()
+        }) { session in
             RenderedHTMLView(
                 title: session.title,
                 markdown: session.markdown
             )
         }
-        .sheet(isPresented: $showingShare) { ShareSheet(items: shareItems) }
+        .sheet(isPresented: $showingShare, onDismiss: {
+            restorePresentationFocus()
+        }) {
+            ShareSheet(items: shareItems)
+        }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: importContentTypes,
+            allowsMultipleSelection: true
+        ) { result in
+            handleImport(result)
+        }
         .alert("Rename Document", isPresented: renameBinding) {
             TextField("Name", text: $newName)
                 .autocorrectionDisabled()
-            Button("Cancel", role: .cancel) { renamingDocument = nil }
+            Button("Cancel", role: .cancel) { cancelRename() }
             Button("Rename") { commitRename() }
         } message: {
             Text("Enter a new name for this document.")
         }
         .alert("Delete Document?", isPresented: deleteBinding) {
-            Button("Cancel", role: .cancel) { pendingDeletion = nil }
+            Button("Cancel", role: .cancel) { cancelDelete() }
             Button("Delete", role: .destructive) {
-                if let document = pendingDeletion { store.delete(document) }
-                pendingDeletion = nil
+                commitDelete()
             }
         } message: {
             Text(pendingDeletion.map { "\($0.displayName) will be deleted. This cannot be undone." } ?? "")
         }
         .alert("ghostWriter Error", isPresented: errorBinding) {
-            Button("OK") { store.lastError = nil }
+            Button("OK") { dismissError() }
         } message: {
             Text(store.lastError ?? "An unknown error occurred.")
         }
@@ -123,6 +173,7 @@ struct LibraryView: View {
                 Label("Settings", systemImage: "gearshape")
             }
             .buttonStyle(.bordered)
+            .accessibilityFocused($focusedElement, equals: .settings)
 
             // New Document is the primary action, so it comes straight after
             // Settings rather than being buried among the list filters.
@@ -134,7 +185,18 @@ struct LibraryView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .accessibilityFocused($focusedElement, equals: .newDocument)
 
+            Button {
+                showingImporter = true
+            } label: {
+                Label("Import Document", systemImage: "square.and.arrow.down")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .accessibilityHint("Copies markdown or plain-text files into ghostWriter")
+            .accessibilityFocused($focusedElement, equals: .importDocument)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -144,11 +206,9 @@ struct LibraryView: View {
     /// Two clearly separated groups under their own headings, rather than two
     /// pickers whose options run together as one undifferentiated list.
     private var sortMenu: some View {
-        @Bindable var settings = settings
-
         return Menu {
             Section("Sort By") {
-                Picker("Sort By", selection: $settings.sort.field) {
+                Picker("Sort By", selection: sortFieldBinding) {
                     ForEach(DocumentSortField.allCases) { field in
                         Text(field.label).tag(field)
                     }
@@ -158,7 +218,7 @@ struct LibraryView: View {
             }
 
             Section("Sort Order") {
-                Picker("Sort Order", selection: $settings.sort.direction) {
+                Picker("Sort Order", selection: sortDirectionBinding) {
                     ForEach(SortDirection.allCases) { direction in
                         Text(direction.label(for: settings.sort.field)).tag(direction)
                     }
@@ -172,6 +232,7 @@ struct LibraryView: View {
         .buttonStyle(.bordered)
         .accessibilityLabel("Sort")
         .accessibilityValue(settings.sort.spokenDescription)
+        .accessibilityFocused($focusedElement, equals: .sort)
     }
 
     /// An ordinary text field rather than `.searchable`, so it stays where it is
@@ -203,6 +264,7 @@ struct LibraryView: View {
                             .stroke(Color.ghostBorder, lineWidth: 1)
                     )
                     .accessibilityLabel("Search")
+                    .accessibilityFocused($focusedElement, equals: .search)
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
                             Spacer()
@@ -233,6 +295,7 @@ struct LibraryView: View {
     private func clearSearch() {
         searchText = ""
         searchFocused = true
+        restoreFocus(to: .search)
         announceCount(prefix: "Showing")
     }
 
@@ -263,6 +326,7 @@ struct LibraryView: View {
                 .font(.title2.bold())
                 .foregroundStyle(Color.ghostAccent)
                 .accessibilityAddTraits(.isHeader)
+                .accessibilityFocused($focusedElement, equals: .documentsHeading)
 
             sortMenu
             searchField
@@ -307,6 +371,10 @@ struct LibraryView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .document(document.url)
+                    )
                     // Swipe actions serve touch users. VoiceOver users get the
                     // same capabilities through the row's custom actions, so
                     // these are hidden from assistive technology rather than
@@ -404,12 +472,18 @@ struct LibraryView: View {
     // MARK: - Actions
 
     private func open(_ document: Document) {
+        focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
+        focusAfterError = nil
+        focusAfterEditor = .document(document.url)
         openedDocument = DocumentSession(document: document, text: text)
     }
 
     private func render(_ document: Document) {
+        focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
+        focusAfterError = nil
+        focusAfterPresentation = .document(document.url)
         renderingSession = RenderedDocumentSession(
             title: document.displayName,
             markdown: text
@@ -419,33 +493,54 @@ struct LibraryView: View {
     /// Asks for a name first. The document is created only once the user
     /// confirms, so cancelling leaves nothing behind.
     private func newDocument() {
+        shouldRestoreNewDocumentFocus = true
         showingNewDocument = true
     }
 
     /// Creates the file with the chosen name and opens it.
     private func createDocument(named name: String) {
+        focusAfterError = .newDocument
         guard let url = store.createDocument(named: name, contents: "") else { return }
+        focusAfterError = nil
+        shouldRestoreNewDocumentFocus = false
         store.refresh()
         guard let document = Document(fileURL: url) else { return }
+        focusAfterEditor = .document(url)
         openedDocument = DocumentSession(document: document, text: "")
     }
 
     private func beginRename(_ document: Document) {
+        focusAfterError = .document(document.url)
         newName = document.displayName
         renamingDocument = document
     }
 
     private func commitRename() {
         guard let document = renamingDocument else { return }
-        store.rename(at: document.url, to: newName)
+        let renamedURL = store.rename(at: document.url, to: newName)
         renamingDocument = nil
+        if let renamedURL {
+            focusAfterError = nil
+            restoreFocus(to: .document(renamedURL))
+        }
+    }
+
+    private func cancelRename() {
+        guard let document = renamingDocument else { return }
+        renamingDocument = nil
+        restoreFocus(to: .document(document.url))
     }
 
     private func duplicate(_ document: Document) {
-        store.duplicate(document)
+        focusAfterError = .document(document.url)
+        if let copy = store.duplicate(document) {
+            focusAfterError = nil
+            restoreFocus(to: .document(copy.url))
+        }
     }
 
     private func share(_ document: Document) {
+        focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
         do {
             let url = try ShareItemBuilder.makeFile(
@@ -454,31 +549,165 @@ struct LibraryView: View {
                 format: .markdown
             )
             shareItems = [url]
+            focusAfterError = nil
+            focusAfterPresentation = .document(document.url)
             showingShare = true
         } catch {
             store.lastError = "Could not prepare \(document.displayName) for sharing. \(error.localizedDescription)"
         }
     }
 
+    private func cancelDelete() {
+        guard let document = pendingDeletion else { return }
+        pendingDeletion = nil
+        restoreFocus(to: .document(document.url))
+    }
+
+    private func commitDelete() {
+        guard let document = pendingDeletion else { return }
+        let before = visibleDocuments
+        let deletedIndex = before.firstIndex(of: document)
+        let nextURL: URL?
+
+        if let deletedIndex, deletedIndex + 1 < before.count {
+            nextURL = before[deletedIndex + 1].url
+        } else if let deletedIndex, deletedIndex > 0 {
+            nextURL = before[deletedIndex - 1].url
+        } else {
+            nextURL = nil
+        }
+
+        focusAfterError = nextURL.map(LibraryFocus.document) ?? .documentsHeading
+        store.delete(document)
+        pendingDeletion = nil
+
+        guard store.lastError == nil else { return }
+        focusAfterError = nil
+        if let nextURL, visibleDocuments.contains(where: { $0.url == nextURL }) {
+            restoreFocus(to: .document(nextURL))
+        } else {
+            restoreFocus(to: .documentsHeading)
+        }
+    }
+
     private var renameBinding: Binding<Bool> {
         Binding(
             get: { renamingDocument != nil },
-            set: { if !$0 { renamingDocument = nil } }
+            set: {
+                if !$0, renamingDocument != nil {
+                    cancelRename()
+                }
+            }
         )
     }
 
     private var deleteBinding: Binding<Bool> {
         Binding(
             get: { pendingDeletion != nil },
-            set: { if !$0 { pendingDeletion = nil } }
+            set: {
+                if !$0, pendingDeletion != nil {
+                    cancelDelete()
+                }
+            }
         )
     }
 
     private var errorBinding: Binding<Bool> {
         Binding(
             get: { store.lastError != nil },
-            set: { if !$0 { store.lastError = nil } }
+            set: {
+                if !$0, store.lastError != nil {
+                    dismissError()
+                }
+            }
         )
+    }
+
+    private var sortFieldBinding: Binding<DocumentSortField> {
+        Binding(
+            get: { settings.sort.field },
+            set: { field in
+                var updatedSort = settings.sort
+                updatedSort.field = field
+                settings.sort = updatedSort
+                restoreFocus(to: .sort)
+            }
+        )
+    }
+
+    private var sortDirectionBinding: Binding<SortDirection> {
+        Binding(
+            get: { settings.sort.direction },
+            set: { direction in
+                var updatedSort = settings.sort
+                updatedSort.direction = direction
+                settings.sort = updatedSort
+                restoreFocus(to: .sort)
+            }
+        )
+    }
+
+    private var importContentTypes: [UTType] {
+        ["md", "markdown", "mdown", "txt"].compactMap {
+            UTType(filenameExtension: $0)
+        }
+    }
+
+    private func handleImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            let importResult = store.importDocuments(from: urls)
+            let target = importResult.imported.first
+                .map { LibraryFocus.document($0.url) }
+                ?? .importDocument
+
+            if importResult.failedFileNames.isEmpty {
+                focusAfterError = nil
+                restoreFocus(to: target)
+            } else {
+                focusAfterError = target
+            }
+        case .failure(let error):
+            let nsError = error as NSError
+            if nsError.code == NSUserCancelledError {
+                restoreFocus(to: .importDocument)
+            } else {
+                focusAfterError = .importDocument
+                store.lastError = "Could not import the selected files. \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func dismissError() {
+        store.lastError = nil
+        restoreFocus(to: availableFocus(focusAfterError ?? .documentsHeading))
+        focusAfterError = nil
+    }
+
+    private func restorePresentationFocus() {
+        guard let target = focusAfterPresentation else { return }
+        focusAfterPresentation = nil
+        restoreFocus(to: availableFocus(target))
+    }
+
+    private func availableFocus(_ target: LibraryFocus) -> LibraryFocus {
+        if case .document(let url) = target,
+           !visibleDocuments.contains(where: { $0.url == url }) {
+            return .documentsHeading
+        }
+        return target
+    }
+
+    private func restoreFocus(to target: LibraryFocus) {
+        focusedElement = nil
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            focusedElement = target
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            focusedElement = target
+        }
     }
 }
 

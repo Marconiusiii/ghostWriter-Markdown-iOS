@@ -38,6 +38,7 @@ struct EditorView: View {
     @State private var savedName: String?
 
     private let draftName: String
+    private let onDocumentURLChange: (URL) -> Void
 
     @Environment(DocumentStore.self) private var store
     @Environment(AppSettings.self) private var settings
@@ -45,18 +46,26 @@ struct EditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    init(document: Document, initialText: String) {
+    init(
+        document: Document,
+        initialText: String,
+        onDocumentURLChange: @escaping (URL) -> Void = { _ in }
+    ) {
         _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
         _lastSavedText = State(initialValue: initialText)
         _savedName = State(initialValue: document.displayName)
         self.draftName = document.displayName
+        self.onDocumentURLChange = onDocumentURLChange
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             editor
+            if settings.statusBarEnabled {
+                statusBar
+            }
         }
         .background(Color.editorBackground)
         .navigationBarHidden(true)
@@ -291,6 +300,38 @@ struct EditorView: View {
         )
     }
 
+    /// A single, quiet focus stop after the editor. Updating this text never
+    /// posts an announcement, so it cannot compete with typing feedback. A
+    /// writer hears it only by navigating out of the editor and into the bar.
+    private var statusBar: some View {
+        Text(statusBarText)
+            .font(.footnote)
+            .foregroundStyle(Color.ghostMuted)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.panelBackground)
+            .accessibilityIdentifier("editor-status-bar")
+    }
+
+    private var statusBarText: String {
+        DocumentStatus.calculate(text: text, selection: selection)
+            .description(options: statusBarOptions)
+    }
+
+    private var statusBarOptions: DocumentStatusOptions {
+        DocumentStatusOptions(
+            lineAndColumn: settings.statusShowsLineAndColumn,
+            lineCount: settings.statusShowsLineCount,
+            wordCount: settings.statusShowsWordCount,
+            characterCount: settings.statusShowsCharacterCount,
+            headingLevel: settings.statusShowsHeadingLevel,
+            selectedWordCount: settings.statusShowsSelectedWordCount,
+            selectedCharacterCount: settings.statusShowsSelectedCharacterCount
+        )
+    }
+
     // MARK: - Title
 
     /// The document's name. Chosen by the user when the document was created,
@@ -433,6 +474,7 @@ struct EditorView: View {
         ) else { return }
 
         fileURL = newURL
+        onDocumentURLChange(newURL)
         savedName = newURL.deletingPathExtension().lastPathComponent
         lastSavedText = text
         hasUnsavedChanges = false
@@ -466,6 +508,7 @@ struct EditorView: View {
 
         if let renamed = store.rename(at: url, to: trimmed) {
             fileURL = renamed
+            onDocumentURLChange(renamed)
             savedName = renamed.deletingPathExtension().lastPathComponent
             announce("Renamed to \(savedName ?? trimmed).")
         } else {

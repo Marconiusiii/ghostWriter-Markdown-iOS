@@ -14,9 +14,20 @@ import UIKit
 struct SettingsView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
+    @AccessibilityFocusState private var focusedElement: FocusTarget?
     @State private var showingHelp = false
+    @State private var showingStatusBarSettings = false
     @State private var showingMailComposer = false
     @State private var showingMailUnavailable = false
+
+    private enum FocusTarget: Hashable {
+        case indentation
+        case theme
+        case editorFont
+        case customizeStatusBar
+        case help
+        case feedback
+    }
 
     var body: some View {
         @Bindable var settings = settings
@@ -29,6 +40,8 @@ struct SettingsView: View {
                             Text(unit.label).tag(unit)
                         }
                     }
+                    .pickerStyle(.menu)
+                    .accessibilityFocused($focusedElement, equals: .indentation)
 
                     Toggle("Automatic Lists", isOn: $settings.smartListsEnabled)
                         .accessibilityHint("Continues bullets and numbering when you press return")
@@ -40,12 +53,32 @@ struct SettingsView: View {
                             Text(mode.label).tag(mode)
                         }
                     }
+                    .pickerStyle(.menu)
+                    .accessibilityFocused($focusedElement, equals: .theme)
 
                     Picker("Editor Font", selection: $settings.editorFontDesign) {
                         ForEach(EditorFontDesign.allCases) { design in
                             Text(design.label).tag(design)
                         }
                     }
+                    .pickerStyle(.menu)
+                    .accessibilityFocused($focusedElement, equals: .editorFont)
+                }
+
+                Section {
+                    Toggle("Status Bar", isOn: $settings.statusBarEnabled)
+                        .accessibilityHint("Shows selected document information after the editor")
+
+                    if settings.statusBarEnabled {
+                        Button("Customize Status Bar") {
+                            showingStatusBarSettings = true
+                        }
+                        .accessibilityFocused($focusedElement, equals: .customizeStatusBar)
+                    }
+                } header: {
+                    Text("Editor Status")
+                } footer: {
+                    Text("The status bar is one focus stop beneath the editor and does not interrupt typing.")
                 }
 
                 Section {
@@ -60,9 +93,18 @@ struct SettingsView: View {
                 Section {
                     LabeledContent("Version", value: appVersion)
                     Button("Help") { showingHelp = true }
-                    Link("ghostWriter on the web", destination: URL(string: "https://marconius.com/fun/ghostWriter/")!)
+                        .accessibilityFocused($focusedElement, equals: .help)
+                    externalLink(
+                        title: "ghostWriter on the web",
+                        url: "https://marconius.com/fun/ghostWriter/"
+                    )
+                    externalLink(
+                        title: "Privacy Policy",
+                        url: "https://marconius.com/gwPrivacy/"
+                    )
                     Button("Send Feedback", action: sendFeedback)
                         .accessibilityHint("Opens an in-app email with app and system information included")
+                        .accessibilityFocused($focusedElement, equals: .feedback)
                 } header: {
                     Text("About")
                 } footer: {
@@ -80,10 +122,19 @@ struct SettingsView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingHelp) {
+        .sheet(isPresented: $showingHelp, onDismiss: {
+            restoreFocus(to: .help)
+        }) {
             HelpView()
         }
-        .sheet(isPresented: $showingMailComposer) {
+        .sheet(isPresented: $showingStatusBarSettings, onDismiss: {
+            restoreFocus(to: .customizeStatusBar)
+        }) {
+            StatusBarSettingsView()
+        }
+        .sheet(isPresented: $showingMailComposer, onDismiss: {
+            restoreFocus(to: .feedback)
+        }) {
             MailComposerView(
                 recipient: FeedbackMailDraft.recipient,
                 subject: FeedbackMailDraft.subject,
@@ -94,10 +145,22 @@ struct SettingsView: View {
         .alert("Mail Is Not Available", isPresented: $showingMailUnavailable) {
             Button("Copy Email Address") {
                 UIPasteboard.general.string = FeedbackMailDraft.recipient
+                restoreFocus(to: .feedback)
             }
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {
+                restoreFocus(to: .feedback)
+            }
         } message: {
             Text("Mail is not configured on this device. You can copy the feedback address and use it in another mail app.")
+        }
+        .onChange(of: settings.indentUnit) { _, _ in
+            restoreFocus(to: .indentation)
+        }
+        .onChange(of: settings.appearance) { _, _ in
+            restoreFocus(to: .theme)
+        }
+        .onChange(of: settings.editorFontDesign) { _, _ in
+            restoreFocus(to: .editorFont)
         }
     }
 
@@ -109,7 +172,7 @@ struct SettingsView: View {
 
     private var copyright: String {
         let year = Calendar.current.component(.year, from: .now)
-        return "Copyright © \(year) Marco Salsiccia"
+        return "© \(year) Marco Salsiccia"
     }
 
     private func sendFeedback() {
@@ -118,5 +181,81 @@ struct SettingsView: View {
         } else {
             showingMailUnavailable = true
         }
+    }
+
+    private func externalLink(title: String, url: String) -> some View {
+        Link(title, destination: URL(string: url)!)
+            .accessibilityAddTraits(.isLink)
+            .accessibilityRemoveTraits(.isButton)
+            .accessibilityHint("Opens in external browser")
+    }
+
+    private func restoreFocus(to target: FocusTarget) {
+        focusedElement = nil
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            focusedElement = target
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            focusedElement = target
+        }
+    }
+}
+
+private struct StatusBarSettingsView: View {
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        @Bindable var settings = settings
+
+        return NavigationStack {
+            Form {
+                Section("Status Information") {
+                    Toggle("Current Line and Column", isOn: $settings.statusShowsLineAndColumn)
+                    Toggle("Line Count", isOn: $settings.statusShowsLineCount)
+                    Toggle("Word Count", isOn: $settings.statusShowsWordCount)
+                    Toggle("Character Count", isOn: $settings.statusShowsCharacterCount)
+                    Toggle("Heading Level", isOn: $settings.statusShowsHeadingLevel)
+                    Toggle("Selected Word Count", isOn: $settings.statusShowsSelectedWordCount)
+                    Toggle(
+                        "Selected Character Count",
+                        isOn: $settings.statusShowsSelectedCharacterCount
+                    )
+                }
+
+                Section("Sample Status") {
+                    Text(sampleStatus)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .navigationTitle("Customize Status Bar")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private var sampleStatus: String {
+        let text = "# Sample heading\nA short status bar example."
+        let status = DocumentStatus.calculate(
+            text: text,
+            selection: TextSelection(location: 2, length: 6)
+        )
+        return status.description(
+            options: DocumentStatusOptions(
+                lineAndColumn: settings.statusShowsLineAndColumn,
+                lineCount: settings.statusShowsLineCount,
+                wordCount: settings.statusShowsWordCount,
+                characterCount: settings.statusShowsCharacterCount,
+                headingLevel: settings.statusShowsHeadingLevel,
+                selectedWordCount: settings.statusShowsSelectedWordCount,
+                selectedCharacterCount: settings.statusShowsSelectedCharacterCount
+            )
+        )
     }
 }

@@ -240,4 +240,64 @@ struct DocumentStoreTests {
 
         #expect(try Data(contentsOf: url) == original)
     }
+
+    @Test func importCopiesUTF8MarkdownIntoTheLibrary() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        let sourceDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ghostWriterImport-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: sourceDirectory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: sourceDirectory) }
+        let source = sourceDirectory.appendingPathComponent("Imported.markdown")
+        try "# Imported\nBody".write(to: source, atomically: true, encoding: .utf8)
+
+        let result = store.importDocuments(from: [source])
+
+        #expect(result.failedFileNames.isEmpty)
+        #expect(result.imported.count == 1)
+        #expect(result.imported.first?.displayName == "Imported")
+        if let imported = result.imported.first {
+            #expect(try store.text(for: imported) == "# Imported\nBody")
+        }
+    }
+
+    @Test func importAvoidsNameCollisions() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        _ = store.createDocument(named: "Note", contents: "existing")
+        let sourceDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ghostWriterImport-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: sourceDirectory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: sourceDirectory) }
+        let source = sourceDirectory.appendingPathComponent("Note.txt")
+        try "imported".write(to: source, atomically: true, encoding: .utf8)
+
+        let result = store.importDocuments(from: [source])
+
+        #expect(result.imported.first?.displayName == "Note 2")
+        store.refresh()
+        #expect(store.documents.count == 2)
+    }
+
+    @Test func importRejectsInvalidUTF8WithoutCreatingAnEmptyFile() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        let source = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Unreadable-\(UUID().uuidString).md")
+        defer { try? FileManager.default.removeItem(at: source) }
+        try Data([0xff, 0xfe, 0xfd]).write(to: source)
+
+        let result = store.importDocuments(from: [source])
+
+        #expect(result.imported.isEmpty)
+        #expect(result.failedFileNames == [source.lastPathComponent])
+        #expect(store.documents.isEmpty)
+        #expect(store.lastError?.contains("UTF-8") == true)
+    }
 }
