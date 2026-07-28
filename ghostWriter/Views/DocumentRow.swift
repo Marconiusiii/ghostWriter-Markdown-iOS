@@ -18,6 +18,7 @@ struct DocumentRow: View {
     let onRender: () -> Void
     let onShare: () -> Void
     let onRename: () -> Void
+    let onDuplicate: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -39,11 +40,14 @@ struct DocumentRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Opens in the editor")
-        // The actions you reach with a rotor swipe. These give VoiceOver users
-        // the same capabilities that swipe actions give touch users.
+        // The complete set of row actions, declared once. The swipe actions on
+        // the list row are deliberately NOT duplicated here — SwiftUI already
+        // exposes those to VoiceOver, and declaring the same action in both
+        // places is what made every action appear twice.
         .accessibilityAction(named: "View rendered HTML", onRender)
         .accessibilityAction(named: "Share", onShare)
         .accessibilityAction(named: "Rename", onRename)
+        .accessibilityAction(named: "Duplicate", onDuplicate)
         .accessibilityAction(named: "Delete", onDelete)
     }
 

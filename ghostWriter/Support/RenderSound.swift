@@ -4,16 +4,16 @@
 //
 //  The theremin wobble that plays when markdown is rendered.
 //
-//  An earlier version of this produced static, for three reasons worth
-//  recording so they are not repeated: the buffer was scheduled with
-//  `.interrupts` which cut a playing tone off mid-cycle at a non-zero sample;
-//  the amplitude envelope started and ended at non-zero values, so every tone
-//  began and ended with a click; and the engine was torn down while a buffer
-//  was still playing, which produced a burst of noise on leaving the editor.
+//  This deliberately does NOT use AVAudioEngine. Two earlier attempts did, and
+//  both produced a burst of static at the moment of playback: starting an audio
+//  engine and activating the audio session are not instantaneous, and doing
+//  either while a buffer is being scheduled makes the output graph produce
+//  garbage for the first few milliseconds.
 //
-//  This version builds one continuous buffer with a smooth envelope that starts
-//  and ends at exact silence, never interrupts a playing tone, and lets the
-//  engine idle rather than being stopped mid-sound.
+//  Instead the tone is synthesised once into an in-memory WAV, and played with
+//  AVAudioPlayer. There is no live audio graph to glitch, the player is fully
+//  prepared before anything is heard, and the audio session is activated at
+//  startup rather than at the moment of the tap.
 //
 
 import AVFoundation
@@ -23,85 +23,75 @@ import Foundation
 final class RenderSound {
     static let shared = RenderSound()
 
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
+    private var players: [AVAudioPlayer] = []
+    private var sessionReady = false
     private let sampleRate: Double = 44_100
-    private var isConfigured = false
-    private var isPlaying = false
 
     private init() {}
 
-    /// Plays one render tone. Does nothing if a tone is already sounding, so
-    /// repeated taps cannot layer or clip each other.
-    func play() {
-        guard !isPlaying else { return }
-
+    /// Prepares the audio session ahead of first use. Called when the editor
+    /// appears, so the cost is paid before the user ever taps Render.
+    func prepare() {
+        guard !sessionReady else { return }
         do {
-            try configureIfNeeded()
-            guard let buffer = makeToneBuffer() else { return }
-
-            isPlaying = true
-            // No `.interrupts`. Cutting a waveform off mid-cycle is what
-            // produces a click, and repeated clicks are the static.
-            player.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
-                Task { @MainActor in self?.isPlaying = false }
-            }
-
-            if !player.isPlaying { player.play() }
+            // `.ambient` obeys the physical silent switch and mixes with other
+            // audio rather than interrupting it.
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true, options: [])
+            sessionReady = true
         } catch {
-            isPlaying = false
+            sessionReady = false
         }
     }
 
-    /// Called when leaving the editor. The engine is paused rather than stopped
-    /// so nothing is torn down underneath a sounding buffer.
+    /// Plays one render tone.
+    func play() {
+        prepare()
+
+        guard let data = makeWAVData(),
+              let player = try? AVAudioPlayer(data: data) else { return }
+
+        player.volume = 0.7
+        // `prepareToPlay` loads buffers and readies the hardware. Skipping it is
+        // what leaves the first milliseconds of output undefined.
+        guard player.prepareToPlay() else { return }
+
+        // Held until playback finishes; an AVAudioPlayer that goes out of scope
+        // stops mid-sound, which is itself an audible cut.
+        players.append(player)
+        player.play()
+
+        let duration = player.duration + 0.2
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(duration))
+            self?.players.removeAll { !$0.isPlaying }
+        }
+    }
+
+    /// Called when leaving the editor.
     func stop() {
-        guard isConfigured else { return }
-        player.stop()
-        engine.pause()
-        isPlaying = false
+        // Fade rather than cut, so stopping never produces a click of its own.
+        for player in players where player.isPlaying {
+            player.setVolume(0, fadeDuration: 0.08)
+        }
+        let finishing = players
+        players.removeAll()
+        Task {
+            try? await Task.sleep(for: .seconds(0.15))
+            finishing.forEach { $0.stop() }
+        }
     }
 
-    private func configureIfNeeded() throws {
-        guard !isConfigured else {
-            if !engine.isRunning { try engine.start() }
-            return
-        }
+    // MARK: - Synthesis
 
-        // `.ambient` obeys the physical silent switch and mixes with other
-        // audio rather than interrupting it.
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-        try session.setActive(true, options: [])
-
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1) else {
-            throw SoundError.formatUnavailable
-        }
-
-        engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: format)
-        engine.prepare()
-        try engine.start()
-
-        isConfigured = true
-    }
-
-    /// Synthesises the tone. Frequency glides smoothly between waypoints and the
-    /// envelope starts and ends at exact zero, so there is no discontinuity at
-    /// either edge.
-    private func makeToneBuffer() -> AVAudioPCMBuffer? {
+    /// Renders the tone to a complete WAV in memory.
+    private func makeWAVData() -> Data? {
         let duration = Double.random(in: 0.85...1.25)
-        let frameCount = AVAudioFrameCount(duration * sampleRate)
+        let frameCount = Int(duration * sampleRate)
+        guard frameCount > 0 else { return nil }
 
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1),
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount),
-              let channel = buffer.floatChannelData?[0] else {
-            return nil
-        }
-        buffer.frameLength = frameCount
-
-        // Pitch waypoints, in the spirit of the web app's four ramps but kept
-        // in a narrower band so the glide stays smooth at this sample rate.
+        // Pitch waypoints, in the spirit of the web app's four ramps.
         let waypoints = [
             Double.random(in: 240...380),
             Double.random(in: 300...520),
@@ -112,18 +102,20 @@ final class RenderSound {
 
         let vibratoRate = Double.random(in: 4.5...7.5)
         let vibratoDepth = Double.random(in: 8...18)
-        let peakAmplitude = Float.random(in: 0.10...0.16)
+        let peak = 0.28
+
+        var samples = [Int16]()
+        samples.reserveCapacity(frameCount)
 
         var phase = 0.0
         var vibratoPhase = 0.0
         let total = Double(frameCount)
 
-        for frame in 0..<Int(frameCount) {
+        for frame in 0..<frameCount {
             let progress = Double(frame) / total
 
-            // Smoothly interpolate across the waypoints using a cosine ease,
-            // which has no corner at the segment boundaries — a linear ramp
-            // would put a kink in the pitch curve and you would hear it.
+            // Cosine ease between waypoints. A linear ramp would put a corner in
+            // the pitch curve, and a corner is audible.
             let scaled = progress * Double(waypoints.count - 1)
             let index = min(Int(scaled), waypoints.count - 2)
             let t = scaled - Double(index)
@@ -133,14 +125,13 @@ final class RenderSound {
             let vibrato = sin(vibratoPhase) * vibratoDepth
             let instantaneous = max(60, frequency + vibrato)
 
-            // A raised-cosine window over the whole tone. This is exactly zero
-            // at both ends, which is what removes the click.
-            let window = Float(0.5 - 0.5 * cos(2 * .pi * progress))
-            // Shape it so the tone swells quickly and tails off, while still
-            // reaching silence at both edges.
-            let envelope = peakAmplitude * window * Float(1.0 - progress * 0.35)
+            // Raised-cosine window: exactly zero at both ends, so the waveform
+            // begins and ends at silence with no step discontinuity.
+            let window = 0.5 - 0.5 * cos(2 * .pi * progress)
+            let amplitude = peak * window * (1 - progress * 0.3)
 
-            channel[frame] = Float(sin(phase)) * envelope
+            let value = sin(phase) * amplitude
+            samples.append(Int16(max(-1, min(1, value)) * 32_000))
 
             phase += 2 * .pi * instantaneous / sampleRate
             if phase > 2 * .pi { phase -= 2 * .pi }
@@ -148,10 +139,48 @@ final class RenderSound {
             if vibratoPhase > 2 * .pi { vibratoPhase -= 2 * .pi }
         }
 
-        return buffer
+        return wavData(from: samples)
     }
 
-    private enum SoundError: Error {
-        case formatUnavailable
+    /// Wraps 16-bit mono samples in a minimal WAV container.
+    private func wavData(from samples: [Int16]) -> Data {
+        let channels: UInt16 = 1
+        let bitsPerSample: UInt16 = 16
+        let byteRate = UInt32(sampleRate) * UInt32(channels) * UInt32(bitsPerSample / 8)
+        let blockAlign = channels * (bitsPerSample / 8)
+        let dataSize = UInt32(samples.count * MemoryLayout<Int16>.size)
+
+        var data = Data()
+
+        func append(_ string: String) {
+            data.append(contentsOf: Array(string.utf8))
+        }
+        func append32(_ value: UInt32) {
+            withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) }
+        }
+        func append16(_ value: UInt16) {
+            withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) }
+        }
+
+        append("RIFF")
+        append32(36 + dataSize)
+        append("WAVE")
+
+        append("fmt ")
+        append32(16)
+        append16(1)                      // PCM
+        append16(channels)
+        append32(UInt32(sampleRate))
+        append32(byteRate)
+        append16(blockAlign)
+        append16(bitsPerSample)
+
+        append("data")
+        append32(dataSize)
+        for sample in samples {
+            withUnsafeBytes(of: sample.littleEndian) { data.append(contentsOf: $0) }
+        }
+
+        return data
     }
 }

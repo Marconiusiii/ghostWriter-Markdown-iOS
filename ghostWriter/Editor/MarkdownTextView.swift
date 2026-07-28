@@ -63,6 +63,12 @@ struct MarkdownTextView: UIViewRepresentable {
         textView.smartInsertDeleteType = .no
         textView.spellCheckingType = .default
 
+        // A bare text view is announced only as "text field". Naming it says
+        // what you have landed in. This is a label on a native control, not a
+        // replacement for its behaviour — the value, traits, and all typing
+        // feedback remain the text view's own.
+        textView.accessibilityLabel = "Markdown Editor"
+
         textView.text = text
         textView.inputAccessoryView = makeAccessoryToolbar(coordinator: context.coordinator)
         context.coordinator.textView = textView
@@ -125,8 +131,25 @@ struct MarkdownTextView: UIViewRepresentable {
         if let offset = pendingCursorOffset {
             let utf16Offset = Self.utf16Offset(for: offset, in: textView.text ?? "")
             let target = NSRange(location: utf16Offset, length: 0)
+
+            // Take focus before moving the caret. Without this the editor never
+            // becomes first responder, so after the outline sheet closes
+            // VoiceOver has nothing to land on and falls back to the first
+            // element on the screen — the Back button.
+            if !textView.isFirstResponder {
+                textView.becomeFirstResponder()
+            }
+
             textView.selectedRange = target
             textView.scrollRangeToVisible(target)
+
+            // Then hand VoiceOver focus to the editor explicitly. The sheet
+            // dismissal moves focus on its own, so this has to happen after
+            // that settles or it is immediately overridden.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                textView.selectedRange = target
+                UIAccessibility.post(notification: .screenChanged, argument: textView)
+            }
 
             DispatchQueue.main.async {
                 self.pendingCursorOffset = nil

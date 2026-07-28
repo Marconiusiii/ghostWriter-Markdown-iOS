@@ -67,6 +67,12 @@ struct EditorView: View {
             hasUnsavedChanges = true
             scheduleAutosave()
         }
+        .onAppear {
+            // Warm the audio session now, so the cost of activating it is not
+            // paid at the moment Render is tapped — that was the burst of
+            // static at the start of the tone.
+            if settings.renderSoundEnabled { RenderSound.shared.prepare() }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { saveNow(announce: false) }
         }
@@ -222,22 +228,66 @@ struct EditorView: View {
         return savedName ?? draftName
     }
 
+    /// The first meaningful line of the document, with markdown syntax removed.
+    ///
+    /// Every markdown marker is stripped, not just a well-formed heading. A
+    /// half-typed "# " is still a heading in progress, and a bullet or quote
+    /// marker is punctuation rather than a name — leaving any of it in produced
+    /// filenames like "#".
     private var derivedName: String {
         for rawLine in text.components(separatedBy: "\n") {
-            let line = rawLine.trimmingCharacters(in: .whitespaces)
-            if line.isEmpty { continue }
-
-            if let level = LineAnalyzer.headingLevel(line) {
-                let title = String(line.dropFirst(level))
-                    .trimmingCharacters(in: .whitespaces)
-                    .replacingOccurrences(of: "#+$", with: "", options: .regularExpression)
-                    .trimmingCharacters(in: .whitespaces)
-                if !title.isEmpty { return String(title.prefix(80)) }
-            }
-
-            return String(line.prefix(80))
+            let stripped = EditorView.stripMarkdownSyntax(rawLine)
+            if stripped.isEmpty { continue }
+            return String(stripped.prefix(80))
         }
         return ""
+    }
+
+    /// Removes leading block markers and inline emphasis from a line so it can
+    /// be used as a document name.
+    static func stripMarkdownSyntax(_ rawLine: String) -> String {
+        var line = rawLine.trimmingCharacters(in: .whitespaces)
+
+        // Leading block markers: heading hashes, blockquote arrows, list
+        // bullets, and numbered-list markers.
+        while true {
+            let before = line
+
+            if line.hasPrefix("#") {
+                line = String(line.drop { $0 == "#" }).trimmingCharacters(in: .whitespaces)
+            }
+            if line.hasPrefix(">") {
+                line = String(line.drop { $0 == ">" }).trimmingCharacters(in: .whitespaces)
+            }
+            if let first = line.first, "-*+".contains(first),
+               line.dropFirst().first == " " {
+                line = String(line.dropFirst()).trimmingCharacters(in: .whitespaces)
+            }
+            if let match = line.firstMatch(of: /^\d+[.)]\s+/) {
+                line = String(line[match.range.upperBound...])
+            }
+            // A task box follows the bullet that was just removed.
+            if line.hasPrefix("[ ] ") || line.lowercased().hasPrefix("[x] ") {
+                line = String(line.dropFirst(4))
+            }
+
+            if line == before { break }
+        }
+
+        // Trailing hashes on a closed ATX heading.
+        line = line.replacingOccurrences(of: "#+$", with: "", options: .regularExpression)
+
+        // Inline emphasis and code markers, which are punctuation in a name.
+        line = line.replacingOccurrences(of: "[*_`~]", with: "", options: .regularExpression)
+
+        // Link syntax: keep the visible text, drop the target.
+        line = line.replacingOccurrences(
+            of: #"!?\[([^\]]*)\]\([^)]*\)"#,
+            with: "$1",
+            options: .regularExpression
+        )
+
+        return line.trimmingCharacters(in: .whitespaces)
     }
 
     // MARK: - Actions

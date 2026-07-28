@@ -36,7 +36,6 @@ struct LibraryView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                controls
                 documentArea
             }
             .background(Color.pageBackground)
@@ -92,8 +91,9 @@ struct LibraryView: View {
 
     // MARK: - Header
 
-    /// First element on the screen and first in code. A real heading, so the
-    /// heading rotor finds it.
+    /// The screen's reading order, written in the order it should be heard:
+    /// app heading, Settings, New Document, then the Documents heading with the
+    /// controls that act on that list directly beneath it.
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("ghostWriter Markdown")
@@ -102,55 +102,64 @@ struct LibraryView: View {
                 .accessibilityAddTraits(.isHeader)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Settings comes after the heading, in code and on screen.
             Button {
                 showingSettings = true
             } label: {
                 Label("Settings", systemImage: "gearshape")
             }
             .buttonStyle(.bordered)
+
+            // New Document is the primary action, so it comes straight after
+            // Settings rather than being buried among the list filters.
+            Button {
+                newDocument()
+            } label: {
+                Label("New Document", systemImage: "square.and.pencil")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+
+            Text("Documents")
+                .font(.title2.bold())
+                .foregroundStyle(Color.ghostAccent)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.top, 4)
+
+            // Sort and Search belong to the document list, so they sit with its
+            // heading, after it rather than before.
+            sortMenu
+            searchField
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 12)
     }
 
-    // MARK: - Controls
-
-    /// Sort and search sit together, directly after Settings and before the
-    /// list they act on.
-    private var controls: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 12) {
-                sortMenu
-                Spacer(minLength: 0)
-                Button {
-                    newDocument()
-                } label: {
-                    Label("New Document", systemImage: "square.and.pencil")
-                }
-                .buttonStyle(.borderedProminent)
-            }
-
-            searchField
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
-    }
-
+    /// Two clearly separated groups under their own headings, rather than two
+    /// pickers whose options run together as one undifferentiated list.
     private var sortMenu: some View {
         @Bindable var settings = settings
 
         return Menu {
-            Picker("Sort By", selection: $settings.sort.field) {
-                ForEach(DocumentSortField.allCases) { field in
-                    Text(field.label).tag(field)
+            Section("Sort By") {
+                Picker("Sort By", selection: $settings.sort.field) {
+                    ForEach(DocumentSortField.allCases) { field in
+                        Text(field.label).tag(field)
+                    }
                 }
+                .pickerStyle(.inline)
+                .labelsHidden()
             }
-            Picker("Order", selection: $settings.sort.direction) {
-                ForEach(SortDirection.allCases) { direction in
-                    Text(direction.label(for: settings.sort.field)).tag(direction)
+
+            Section("Sort Order") {
+                Picker("Sort Order", selection: $settings.sort.direction) {
+                    ForEach(SortDirection.allCases) { direction in
+                        Text(direction.label(for: settings.sort.field)).tag(direction)
+                    }
                 }
+                .pickerStyle(.inline)
+                .labelsHidden()
             }
         } label: {
             Label("Sort", systemImage: "arrow.up.arrow.down")
@@ -160,38 +169,45 @@ struct LibraryView: View {
         .accessibilityValue(settings.sort.spokenDescription)
     }
 
-    /// An ordinary text field rather than `.searchable`, so it stays where it
-    /// is written: above the list, not below it.
+    /// An ordinary text field rather than `.searchable`, so it stays where it is
+    /// written. The visible label and the field are combined into a single
+    /// element, so navigating does not stop on the word "Search" and then again
+    /// on the field it names.
     private var searchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(Color.ghostMuted)
-                .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Search")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.ghostText)
 
-            TextField("Search documents", text: $searchText)
-                .textFieldStyle(.plain)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                .accessibilityLabel("Search documents")
+            HStack(spacing: 8) {
+                TextField("", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
 
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(Color.ghostMuted)
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Color.ghostMuted)
+                    }
+                    .accessibilityLabel("Clear search")
                 }
-                .accessibilityLabel("Clear search")
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.panelBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.ghostBorder, lineWidth: 1)
+            )
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Color.panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.ghostBorder, lineWidth: 1)
-        )
+        // Combine keeps the label and field as one stop while leaving the
+        // field itself editable and the clear button reachable.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Search")
     }
 
     // MARK: - List
@@ -219,21 +235,29 @@ struct LibraryView: View {
                             onRender: { renderingDocument = document },
                             onShare: { share(document) },
                             onRename: { beginRename(document) },
+                            onDuplicate: { duplicate(document) },
                             onDelete: { pendingDeletion = document }
                         )
                     }
                     .buttonStyle(.plain)
+                    // Swipe actions serve touch users. VoiceOver users get the
+                    // same capabilities through the row's custom actions, so
+                    // these are hidden from assistive technology rather than
+                    // being announced a second time.
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             pendingDeletion = document
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
+                        .accessibilityHidden(true)
+
                         Button {
                             beginRename(document)
                         } label: {
                             Label("Rename", systemImage: "pencil")
                         }
+                        .accessibilityHidden(true)
                     }
                     .swipeActions(edge: .leading) {
                         Button {
@@ -241,11 +265,14 @@ struct LibraryView: View {
                         } label: {
                             Label("Render", systemImage: "doc.richtext")
                         }
+                        .accessibilityHidden(true)
+
                         Button {
                             share(document)
                         } label: {
                             Label("Share", systemImage: "square.and.arrow.up")
                         }
+                        .accessibilityHidden(true)
                     }
                 }
             } header: {
@@ -335,6 +362,10 @@ struct LibraryView: View {
         guard let document = renamingDocument else { return }
         store.rename(at: document.url, to: newName)
         renamingDocument = nil
+    }
+
+    private func duplicate(_ document: Document) {
+        store.duplicate(document)
     }
 
     private func share(_ document: Document) {
