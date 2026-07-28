@@ -53,7 +53,7 @@ assistive technology users are especially welcome.
 - Navigate long documents through a heading-based Outline
 - Render Markdown as structured HTML inside the app
 - Share complete standalone HTML, Markdown, or plain-text files
-- Use local or externally hosted images through standard Markdown syntax
+- Insert links and externally hosted images through guided native forms
 - Customize the information presented in the editor Status Bar
 - Choose an editor typeface without losing Dynamic Type support
 

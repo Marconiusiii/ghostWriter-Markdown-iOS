@@ -26,6 +26,10 @@ struct EditorView: View {
     @State private var showingOutline = false
     @State private var showingReference = false
     @State private var showingRename = false
+    @State private var insertionKind: MarkdownInsertionKind?
+    @State private var insertionSelection = TextSelection(location: 0, length: 0)
+    @State private var insertionInitialText = ""
+    @State private var pendingInsertionResult: MarkdownInsertionResult?
     @State private var renameText = ""
 
     @State private var saveTask: Task<Void, Never>?
@@ -62,6 +66,9 @@ struct EditorView: View {
         _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
         _statusIndex = State(initialValue: nil)
+        _pendingCursorOffset = State(
+            initialValue: EditorPositionStore.shared.position(for: document.url)
+        )
         _lastSavedText = State(initialValue: initialText)
         _savedName = State(initialValue: document.displayName)
         self.draftName = document.displayName
@@ -105,11 +112,13 @@ struct EditorView: View {
             if phase == .active {
                 checkForExternalChanges()
             } else {
+                persistEditingPosition()
                 saveNow(announce: false)
             }
         }
         .onDisappear {
             saveTask?.cancel()
+            persistEditingPosition()
             saveNow(announce: false)
             RenderSound.shared.stop()
         }
@@ -127,6 +136,29 @@ struct EditorView: View {
             restoreFocus(to: .fileActions)
         }) {
             MarkdownReferenceView()
+        }
+        .sheet(item: $insertionKind, onDismiss: finishInsertionPresentation) { kind in
+            MarkdownInsertionView(
+                kind: kind,
+                initialText: insertionInitialText
+            ) { descriptiveText, address in
+                switch kind {
+                case .link:
+                    pendingInsertionResult = MarkdownInsertion.link(
+                        in: text,
+                        selection: insertionSelection,
+                        label: descriptiveText,
+                        address: address
+                    )
+                case .image:
+                    pendingInsertionResult = MarkdownInsertion.image(
+                        in: text,
+                        selection: insertionSelection,
+                        alternativeText: descriptiveText,
+                        address: address
+                    )
+                }
+            }
         }
         .alert("Rename Document", isPresented: $showingRename) {
             TextField("Name", text: $renameText)
@@ -248,6 +280,22 @@ struct EditorView: View {
                 present { showingRename = true }
             } label: {
                 Label("Rename Document", systemImage: "pencil")
+            }
+
+            Menu {
+                Button {
+                    beginInsertion(.link)
+                } label: {
+                    Label("Link", systemImage: "link")
+                }
+
+                Button {
+                    beginInsertion(.image)
+                } label: {
+                    Label("Image from Web", systemImage: "photo")
+                }
+            } label: {
+                Label("Insert Markdown", systemImage: "plus")
             }
 
             Button {
@@ -436,7 +484,36 @@ struct EditorView: View {
         UIAccessibility.post(notification: .announcement, argument: result.announcement)
     }
 
+    private func beginInsertion(_ kind: MarkdownInsertionKind) {
+        insertionSelection = selection
+        insertionInitialText = kind == .link
+            ? MarkdownInsertion.selectedText(in: text, selection: selection)
+            : ""
+        pendingInsertionResult = nil
+        present { insertionKind = kind }
+    }
+
+    private func finishInsertionPresentation() {
+        guard let result = pendingInsertionResult else {
+            restoreFocus(to: .fileActions)
+            return
+        }
+
+        pendingInsertionResult = nil
+        text = result.text
+        selection = result.selection
+        pendingCursorOffset = result.selection.location
+    }
+
     // MARK: - Saving
+
+    private func persistEditingPosition() {
+        guard let url = fileURL else { return }
+        EditorPositionStore.shared.save(
+            position: min(max(0, selection.location), text.count),
+            for: url
+        )
+    }
 
     private func scheduleAutosave() {
         saveTask?.cancel()
@@ -506,11 +583,15 @@ struct EditorView: View {
     }
 
     private func saveCurrentTextAsNewDocument(preferredName: String) {
+        let previousURL = fileURL
         guard let newURL = store.createDocument(
             named: preferredName,
             contents: text
         ) else { return }
 
+        if let previousURL {
+            EditorPositionStore.shared.migratePosition(from: previousURL, to: newURL)
+        }
         fileURL = newURL
         onDocumentURLChange(newURL)
         savedName = newURL.deletingPathExtension().lastPathComponent
@@ -545,6 +626,7 @@ struct EditorView: View {
         guard let url = fileURL else { return }
 
         if let renamed = store.rename(at: url, to: trimmed) {
+            EditorPositionStore.shared.migratePosition(from: url, to: renamed)
             fileURL = renamed
             onDocumentURLChange(renamed)
             savedName = renamed.deletingPathExtension().lastPathComponent

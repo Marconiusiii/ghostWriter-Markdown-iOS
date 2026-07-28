@@ -110,6 +110,7 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Links and External Images",
             paragraphs: [
+                "Open File Actions, choose Insert Markdown, then choose Link or Image from Web. The Link form uses selected text as its starting link text. After insertion, ghostWriter returns the insertion point and VoiceOver focus to the editor.",
                 "Rendered links open outside ghostWriter in the appropriate app. Images can use addresses from outside sources through standard markdown image syntax.",
                 "Rendering a document that contains an external image may contact the server that hosts that image. ghostWriter does not control the availability or privacy practices of an outside server."
             ]

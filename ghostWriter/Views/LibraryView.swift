@@ -60,6 +60,7 @@ struct LibraryView: View {
     @State private var focusAfterPresentation: LibraryFocus?
     @State private var focusAfterError: LibraryFocus?
     @State private var focusRequestGate = FocusRestorationRequestGate()
+    @State private var searchIndex = DocumentSearchIndex.empty
     @State private var searchAnnounceTask: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
     @AccessibilityFocusState private var focusedElement: LibraryFocus?
@@ -115,6 +116,22 @@ struct LibraryView: View {
             }
         }
         .onAppear { store.refresh() }
+        .task(id: searchSources) {
+            let sources = searchSources
+            let buildTask = Task.detached(priority: .utility) {
+                DocumentSearchIndex.build(from: sources)
+            }
+            let rebuilt = await withTaskCancellationHandler {
+                await buildTask.value
+            } onCancel: {
+                buildTask.cancel()
+            }
+            guard !Task.isCancelled else { return }
+            searchIndex = rebuilt
+            if !trimmedSearch.isEmpty {
+                scheduleSearchAnnouncement()
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.refresh() }
         }
@@ -470,6 +487,17 @@ struct LibraryView: View {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var searchSources: [DocumentSearchSource] {
+        store.documents.map {
+            DocumentSearchSource(
+                url: $0.url,
+                displayName: $0.displayName,
+                modified: $0.modified,
+                byteCount: $0.byteCount
+            )
+        }
+    }
+
     private var visibleDocuments: [Document] {
         let query = trimmedSearch
         let filtered: [Document]
@@ -478,9 +506,11 @@ struct LibraryView: View {
             filtered = store.documents
         } else {
             filtered = store.documents.filter { document in
-                if document.displayName.localizedCaseInsensitiveContains(query) { return true }
-                return (try? store.text(for: document, reportFailure: false))?
-                    .localizedCaseInsensitiveContains(query) == true
+                searchIndex.matches(
+                    documentURL: document.url,
+                    displayName: document.displayName,
+                    query: query
+                )
             }
         }
 
