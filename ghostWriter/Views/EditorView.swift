@@ -23,10 +23,8 @@ struct EditorView: View {
     @State private var showingRendered = false
     @State private var showingOutline = false
     @State private var showingReference = false
-    @State private var showingShare = false
     @State private var showingRename = false
     @State private var renameText = ""
-    @State private var shareItems: [Any] = []
 
     @State private var saveTask: Task<Void, Never>?
     @State private var hasUnsavedChanges = false
@@ -85,9 +83,6 @@ struct EditorView: View {
         }
         .sheet(isPresented: $showingReference) {
             MarkdownReferenceView()
-        }
-        .sheet(isPresented: $showingShare) {
-            ShareSheet(items: shareItems)
         }
         .alert("Rename Document", isPresented: $showingRename) {
             TextField("Name", text: $renameText)
@@ -186,8 +181,25 @@ struct EditorView: View {
             }
 
             Menu {
-                ForEach(ShareItemBuilder.Format.allCases) { format in
-                    Button(format.label) { present { share(as: format) } }
+                ShareLink(
+                    item: markdownShareFile,
+                    preview: SharePreview("\(displayTitle), Markdown")
+                ) {
+                    Text("Markdown")
+                }
+
+                ShareLink(
+                    item: plainTextShareFile,
+                    preview: SharePreview("\(displayTitle), Plain Text")
+                ) {
+                    Text("Plain Text")
+                }
+
+                ShareLink(
+                    item: htmlShareFile,
+                    preview: SharePreview("\(displayTitle), HTML")
+                ) {
+                    Text("HTML")
                 }
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
@@ -234,6 +246,29 @@ struct EditorView: View {
     /// and changed only by an explicit rename — never inferred from the text.
     private var displayTitle: String {
         savedName ?? draftName
+    }
+
+    private var shareFileName: String {
+        DocumentStore.sanitize(displayTitle)
+    }
+
+    private var markdownShareFile: MarkdownShareFile {
+        MarkdownShareFile(fileName: shareFileName, contents: text)
+    }
+
+    private var plainTextShareFile: PlainTextShareFile {
+        PlainTextShareFile(fileName: shareFileName, contents: text)
+    }
+
+    private var htmlShareFile: HTMLShareFile {
+        HTMLShareFile(
+            fileName: shareFileName,
+            contents: ShareItemBuilder.contents(
+                title: displayTitle,
+                markdown: text,
+                format: .html
+            )
+        )
     }
 
     // MARK: - Actions
@@ -318,21 +353,6 @@ struct EditorView: View {
         guard let url = fileURL,
               let document = Document(fileURL: url) else { return }
         if store.duplicate(document) != nil { announce("Duplicated.") }
-    }
-
-    private func share(as format: ShareItemBuilder.Format) {
-        saveNow(announce: false)
-        do {
-            let url = try ShareItemBuilder.makeFile(
-                title: displayTitle,
-                markdown: text,
-                format: format
-            )
-            shareItems = [url]
-            showingShare = true
-        } catch {
-            store.lastError = "Could not prepare \(displayTitle) for sharing. \(error.localizedDescription)"
-        }
     }
 
     private func announce(_ message: String) {

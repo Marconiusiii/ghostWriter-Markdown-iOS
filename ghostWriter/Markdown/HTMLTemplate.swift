@@ -58,7 +58,14 @@ enum HTMLTemplate {
     /// A standalone document for export or sharing. Font sizing is left to the
     /// receiving application rather than pinned to this device's settings.
     static func exportDocument(title: String, body: String) -> String {
-        """
+        let heading = title.isEmpty
+            ? ""
+            : "<h1 class=\"document-title\">\(MarkdownRenderer.escape(title))</h1>"
+        let content = body.isEmpty
+            ? "<p class=\"empty-state\">This document is empty.</p>"
+            : body
+
+        return """
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -71,7 +78,8 @@ enum HTMLTemplate {
         </head>
         <body>
         <main>
-        \(body)
+        \(heading)
+        \(content)
         </main>
         </body>
         </html>
