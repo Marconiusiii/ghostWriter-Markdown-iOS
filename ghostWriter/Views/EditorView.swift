@@ -49,13 +49,6 @@ struct EditorView: View {
         self.draftName = document.displayName
     }
 
-    init(draftNamed name: String) {
-        _fileURL = State(initialValue: nil)
-        _text = State(initialValue: "")
-        _savedName = State(initialValue: nil)
-        self.draftName = name
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -160,15 +153,17 @@ struct EditorView: View {
 
     private var fileActionsMenu: some View {
         Menu {
+            // Each item puts the keyboard away before presenting, so nothing
+            // appears underneath it.
             Button {
                 renameText = displayTitle
-                showingRename = true
+                present { showingRename = true }
             } label: {
                 Label("Rename Document", systemImage: "pencil")
             }
 
             Button {
-                showingReference = true
+                present { showingReference = true }
             } label: {
                 Label("Markdown Reference", systemImage: "questionmark.circle")
             }
@@ -183,7 +178,7 @@ struct EditorView: View {
 
             Menu {
                 ForEach(ShareItemBuilder.Format.allCases) { format in
-                    Button(format.label) { share(as: format) }
+                    Button(format.label) { present { share(as: format) } }
                 }
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
@@ -196,10 +191,6 @@ struct EditorView: View {
             }
         } label: {
             Label("File Actions", systemImage: "ellipsis.circle")
-        } primaryAction: {
-            // Put the keyboard away before the menu appears, so it does not
-            // cover the menu it is opening.
-            dismissKeyboard()
         }
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
@@ -220,74 +211,10 @@ struct EditorView: View {
 
     // MARK: - Title
 
-    /// The document's name, taken from its first heading, then its first
-    /// non-empty line, then the name it was created with.
+    /// The document's name. Chosen by the user when the document was created,
+    /// and changed only by an explicit rename — never inferred from the text.
     private var displayTitle: String {
-        if let savedName, derivedName.isEmpty { return savedName }
-        if !derivedName.isEmpty { return derivedName }
-        return savedName ?? draftName
-    }
-
-    /// The first meaningful line of the document, with markdown syntax removed.
-    ///
-    /// Every markdown marker is stripped, not just a well-formed heading. A
-    /// half-typed "# " is still a heading in progress, and a bullet or quote
-    /// marker is punctuation rather than a name — leaving any of it in produced
-    /// filenames like "#".
-    private var derivedName: String {
-        for rawLine in text.components(separatedBy: "\n") {
-            let stripped = EditorView.stripMarkdownSyntax(rawLine)
-            if stripped.isEmpty { continue }
-            return String(stripped.prefix(80))
-        }
-        return ""
-    }
-
-    /// Removes leading block markers and inline emphasis from a line so it can
-    /// be used as a document name.
-    static func stripMarkdownSyntax(_ rawLine: String) -> String {
-        var line = rawLine.trimmingCharacters(in: .whitespaces)
-
-        // Leading block markers: heading hashes, blockquote arrows, list
-        // bullets, and numbered-list markers.
-        while true {
-            let before = line
-
-            if line.hasPrefix("#") {
-                line = String(line.drop { $0 == "#" }).trimmingCharacters(in: .whitespaces)
-            }
-            if line.hasPrefix(">") {
-                line = String(line.drop { $0 == ">" }).trimmingCharacters(in: .whitespaces)
-            }
-            if let first = line.first, "-*+".contains(first),
-               line.dropFirst().first == " " {
-                line = String(line.dropFirst()).trimmingCharacters(in: .whitespaces)
-            }
-            if let match = line.firstMatch(of: /^\d+[.)]\s+/) {
-                line = String(line[match.range.upperBound...])
-            }
-            // A task box follows the bullet that was just removed.
-            if line.hasPrefix("[ ] ") || line.lowercased().hasPrefix("[x] ") {
-                line = String(line.dropFirst(4))
-            }
-
-            if line == before { break }
-        }
-
-        // Trailing hashes on a closed ATX heading.
-        line = line.replacingOccurrences(of: "#+$", with: "", options: .regularExpression)
-
-        // Inline emphasis and code markers, which are punctuation in a name.
-        line = line.replacingOccurrences(of: "[*_`~]", with: "", options: .regularExpression)
-
-        // Link syntax: keep the visible text, drop the target.
-        line = line.replacingOccurrences(
-            of: #"!?\[([^\]]*)\]\([^)]*\)"#,
-            with: "$1",
-            options: .regularExpression
-        )
-
-        return line.trimmingCharacters(in: .whitespaces)
+        savedName ?? draftName
     }
 
     // MARK: - Actions
@@ -336,34 +263,19 @@ struct EditorView: View {
         }
     }
 
-    /// Writes the document. Once a file exists it is always overwritten in
-    /// place — the file is never recreated, and it is never renamed by
-    /// autosave. Renaming happens only when the user asks for it.
+    /// Writes the document. The file always exists by the time the editor is on
+    /// screen — it is created with the name the user gave — so this only ever
+    /// overwrites in place. It never creates and never renames.
     private func saveNow(announce shouldAnnounce: Bool) {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         guard hasUnsavedChanges || shouldAnnounce else { return }
+        guard let url = fileURL else { return }
 
-        if let url = fileURL {
-            if store.save(text: text, to: url) {
-                hasUnsavedChanges = false
-                if shouldAnnounce { announce("Saved.") }
-            } else if shouldAnnounce {
-                announce("Could not save.")
-            }
-            return
+        if store.save(text: text, to: url) {
+            hasUnsavedChanges = false
+            if shouldAnnounce { announce("Saved.") }
+        } else if shouldAnnounce {
+            announce("Could not save.")
         }
-
-        // First save only: create the file.
-        let name = derivedName.isEmpty ? draftName : derivedName
-        guard let created = store.createDocument(named: name, contents: text) else {
-            if shouldAnnounce { announce("Could not save.") }
-            return
-        }
-
-        fileURL = created
-        savedName = created.deletingPathExtension().lastPathComponent
-        hasUnsavedChanges = false
-        if shouldAnnounce { announce("Saved.") }
     }
 
     private func commitRename() {
@@ -371,12 +283,7 @@ struct EditorView: View {
         guard !trimmed.isEmpty else { return }
 
         saveNow(announce: false)
-        guard let url = fileURL else {
-            // Not on disk yet, so just remember the name for the first save.
-            savedName = trimmed
-            announce("Renamed to \(trimmed).")
-            return
-        }
+        guard let url = fileURL else { return }
 
         if let renamed = store.rename(at: url, to: trimmed) {
             fileURL = renamed

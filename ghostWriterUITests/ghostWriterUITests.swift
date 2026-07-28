@@ -16,8 +16,10 @@ final class ghostWriterUITests: XCTestCase {
     func testAppLaunches() throws {
         let app = XCUIApplication()
         app.launch()
+        // The heading is ordinary content rather than a navigation title, so
+        // that reading order follows code order.
         XCTAssertTrue(
-            app.navigationBars["ghostWriter"].waitForExistence(timeout: 10),
+            app.staticTexts["ghostWriter Markdown"].waitForExistence(timeout: 10),
             "The app should launch to the library screen."
         )
     }

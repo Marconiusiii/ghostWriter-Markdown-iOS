@@ -15,6 +15,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct LibraryView: View {
     @Environment(DocumentStore.self) private var store
@@ -30,7 +31,9 @@ struct LibraryView: View {
     @State private var shareItems: [Any] = []
     @State private var showingShare = false
     @State private var openedDocument: DocumentSession?
-    @State private var draftDocument: DraftDocument?
+    @State private var showingNewDocument = false
+    @State private var searchAnnounceTask: Task<Void, Never>?
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -45,17 +48,14 @@ struct LibraryView: View {
             .navigationDestination(item: $openedDocument) { session in
                 EditorView(document: session.document, initialText: session.text)
             }
-            .navigationDestination(item: $draftDocument) { draft in
-                EditorView(draftNamed: draft.suggestedName)
-            }
             // Saving no longer republishes the store's list — that churn was
             // what let the editor lose track of its file — so the library
             // re-reads the folder when it comes back into view.
             .onChange(of: openedDocument) { _, value in
                 if value == nil { store.refresh() }
             }
-            .onChange(of: draftDocument) { _, value in
-                if value == nil { store.refresh() }
+            .onChange(of: searchText) { _, _ in
+                scheduleSearchAnnouncement()
             }
         }
         .onAppear { store.refresh() }
@@ -63,6 +63,11 @@ struct LibraryView: View {
             if phase == .active { store.refresh() }
         }
         .sheet(isPresented: $showingSettings) { SettingsView() }
+        .sheet(isPresented: $showingNewDocument) {
+            NewDocumentView { name in
+                createDocument(named: name)
+            }
+        }
         .fullScreenCover(item: $renderingDocument) { document in
             RenderedHTMLView(
                 title: document.displayName,
@@ -120,16 +125,6 @@ struct LibraryView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
 
-            Text("Documents")
-                .font(.title2.bold())
-                .foregroundStyle(Color.ghostAccent)
-                .accessibilityAddTraits(.isHeader)
-                .padding(.top, 4)
-
-            // Sort and Search belong to the document list, so they sit with its
-            // heading, after it rather than before.
-            sortMenu
-            searchField
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -175,45 +170,95 @@ struct LibraryView: View {
     /// on the field it names.
     private var searchField: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Search")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.ghostText)
-
             HStack(spacing: 8) {
+                Text("Search")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.ghostText)
+
                 TextField("", text: $searchText)
                     .textFieldStyle(.plain)
                     .autocorrectionDisabled()
                     .submitLabel(.search)
-
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(Color.ghostMuted)
-                    }
-                    .accessibilityLabel("Clear search")
-                }
+                    .focused($searchFocused)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color.panelBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.ghostBorder, lineWidth: 1)
+                    )
+                    // The visible label and the field read as one element, so
+                    // navigating does not stop on the word "Search" and then
+                    // again on the field it names.
+                    .accessibilityLabel("Search")
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color.panelBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.ghostBorder, lineWidth: 1)
-            )
+
+            // Only present while there is something to clear.
+            if !trimmedSearch.isEmpty {
+                Button {
+                    clearSearch()
+                } label: {
+                    Label("Clear Search", systemImage: "xmark.circle.fill")
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Clears the search and shows all documents")
+            }
         }
-        // Combine keeps the label and field as one stop while leaving the
-        // field itself editable and the clear button reachable.
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Search")
+    }
+
+    /// Clears the query, restores the full list, and puts focus back on the
+    /// field — the Clear button itself is about to disappear, so leaving focus
+    /// on it would strand VoiceOver on nothing.
+    private func clearSearch() {
+        searchText = ""
+        searchFocused = true
+        announceCount(prefix: "Showing")
+    }
+
+    /// Waits for typing to settle, then says how many documents match. Firing
+    /// on every keystroke would talk over the letters being typed.
+    private func scheduleSearchAnnouncement() {
+        searchAnnounceTask?.cancel()
+        searchAnnounceTask = Task {
+            try? await Task.sleep(for: .milliseconds(900))
+            guard !Task.isCancelled else { return }
+            announceCount(prefix: "Showing")
+        }
+    }
+
+    private func announceCount(prefix: String) {
+        let count = visibleDocuments.count
+        let noun = count == 1 ? "document" : "documents"
+        UIAccessibility.post(notification: .announcement, argument: "\(prefix) \(count) \(noun)")
     }
 
     // MARK: - List
 
-    @ViewBuilder
+    /// "Documents" is the heading. The count is ordinary text beneath the
+    /// search field, where it doubles as the search result announcement.
     private var documentArea: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Documents")
+                .font(.title2.bold())
+                .foregroundStyle(Color.ghostAccent)
+                .accessibilityAddTraits(.isHeader)
+
+            sortMenu
+            searchField
+
+            Text(countDescription)
+                .font(.subheadline)
+                .foregroundStyle(Color.ghostMuted)
+                .accessibilityAddTraits(.updatesFrequently)
+
+            list
+        }
+        .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private var list: some View {
         if store.documents.isEmpty {
             emptyLibrary
         } else if visibleDocuments.isEmpty {
@@ -224,9 +269,11 @@ struct LibraryView: View {
     }
 
     private var documentList: some View {
+        // No section header here: the count heading above this list is the
+        // heading for it, and repeating it would be a second announcement of
+        // the same thing.
         List {
-            Section {
-                ForEach(visibleDocuments) { document in
+            ForEach(visibleDocuments) { document in
                     Button {
                         open(document)
                     } label: {
@@ -274,12 +321,14 @@ struct LibraryView: View {
                         }
                         .accessibilityHidden(true)
                     }
-                }
-            } header: {
-                Text(countDescription)
+                    // The surrounding stack supplies the horizontal padding, so
+                    // the list rows do not add their own on top of it.
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                    .listRowBackground(Color.clear)
             }
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
     }
 
     private var emptyLibrary: some View {
@@ -316,8 +365,12 @@ struct LibraryView: View {
 
     // MARK: - Data
 
+    private var trimmedSearch: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var visibleDocuments: [Document] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = trimmedSearch
         let filtered: [Document]
 
         if query.isEmpty {
@@ -334,7 +387,8 @@ struct LibraryView: View {
 
     private var countDescription: String {
         let count = visibleDocuments.count
-        return count == 1 ? "1 document" : "\(count) documents"
+        let noun = count == 1 ? "document" : "documents"
+        return trimmedSearch.isEmpty ? "\(count) \(noun)" : "Showing \(count) \(noun)"
     }
 
     // MARK: - Actions
@@ -346,11 +400,18 @@ struct LibraryView: View {
         )
     }
 
-    /// Opens the editor on a blank draft. Nothing is written to disk until the
-    /// user actually types something, so the library is never littered with
-    /// empty "Untitled" files from a mis-tap.
+    /// Asks for a name first. The document is created only once the user
+    /// confirms, so cancelling leaves nothing behind.
     private func newDocument() {
-        draftDocument = DraftDocument(suggestedName: "Untitled")
+        showingNewDocument = true
+    }
+
+    /// Creates the file with the chosen name and opens it.
+    private func createDocument(named name: String) {
+        guard let url = store.createDocument(named: name, contents: "") else { return }
+        store.refresh()
+        guard let document = Document(fileURL: url) else { return }
+        openedDocument = DocumentSession(document: document, text: "")
     }
 
     private func beginRename(_ document: Document) {
@@ -401,8 +462,3 @@ struct DocumentSession: Identifiable, Hashable {
     var id: URL { document.url }
 }
 
-/// A document that does not exist on disk yet.
-struct DraftDocument: Identifiable, Hashable {
-    let suggestedName: String
-    var id: String { suggestedName }
-}
