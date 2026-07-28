@@ -108,9 +108,10 @@ private struct HelpTopic: Identifiable {
             ]
         ),
         HelpTopic(
-            title: "Links and External Images",
+            title: "Inserting Markdown",
             paragraphs: [
-                "Open File Actions, choose Insert Markdown, then choose Link or Image from Web. The Link form uses selected text as its starting link text. After insertion, ghostWriter returns the insertion point and VoiceOver focus to the editor.",
+                "Activate Insert between Outline and File Actions to open the Markdown insertion menu. It provides links, images from the web, bold, italic, inline code, headings, block quotes, code blocks, bulleted lists, numbered lists, task lists, and horizontal rules.",
+                "The Link form uses selected text as its starting link text. Inline formatting wraps selected text, while headings and list actions operate on the current line or selected lines. After insertion, ghostWriter returns the insertion point and VoiceOver focus to the editor.",
                 "Rendered links open outside ghostWriter in the appropriate app. Images can use addresses from outside sources through standard markdown image syntax.",
                 "Rendering a document that contains an external image may contact the server that hosts that image. ghostWriter does not control the availability or privacy practices of an outside server."
             ]

@@ -49,6 +49,7 @@ struct EditorView: View {
 
     private enum EditorFocus: Hashable {
         case render
+        case insert
         case fileActions
     }
 
@@ -233,30 +234,7 @@ struct EditorView: View {
                 .accessibilityAddTraits(.isHeader)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            actionLayout {
-                Button {
-                    render()
-                } label: {
-                    Label("Render", systemImage: "doc.richtext")
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityHint("Shows this document as formatted HTML")
-                .accessibilityFocused($focusedElement, equals: .render)
-
-                Button {
-                    present { showingOutline = true }
-                } label: {
-                    Label("Outline", systemImage: "list.bullet.indent")
-                }
-                .buttonStyle(.bordered)
-                .accessibilityHint("Shows a list of document headings")
-
-                fileActionsMenu
-
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Spacer(minLength: 0)
-                }
-            }
+            editorActions
 
             if !statusMessage.isEmpty {
                 Text(statusMessage)
@@ -271,18 +249,55 @@ struct EditorView: View {
         .background(Color.panelBackground)
     }
 
-    private var fileActionsMenu: some View {
-        Menu {
-            // Each item puts the keyboard away before presenting, so nothing
-            // appears underneath it.
-            Button {
-                renameText = displayTitle
-                present { showingRename = true }
-            } label: {
-                Label("Rename Document", systemImage: "pencil")
+    @ViewBuilder
+    private var editorActions: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 12) {
+                renderButton
+                outlineButton
+                insertMenu
+                fileActionsMenu
             }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    renderButton
+                    outlineButton
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 12) {
+                    insertMenu
+                    fileActionsMenu
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
 
-            Menu {
+    private var renderButton: some View {
+        Button {
+            render()
+        } label: {
+            Label("Render", systemImage: "doc.richtext")
+        }
+        .buttonStyle(.borderedProminent)
+        .accessibilityHint("Shows this document as formatted HTML")
+        .accessibilityFocused($focusedElement, equals: .render)
+    }
+
+    private var outlineButton: some View {
+        Button {
+            present { showingOutline = true }
+        } label: {
+            Label("Outline", systemImage: "list.bullet.indent")
+        }
+        .buttonStyle(.bordered)
+        .accessibilityHint("Shows a list of document headings")
+    }
+
+    private var insertMenu: some View {
+        Menu {
+            Section("Links and Media") {
                 Button {
                     beginInsertion(.link)
                 } label: {
@@ -294,8 +309,71 @@ struct EditorView: View {
                 } label: {
                     Label("Image from Web", systemImage: "photo")
                 }
+            }
+
+            Section("Inline Formatting") {
+                Button("Bold") {
+                    applyInsertion(MarkdownInsertion.bold(in: text, selection: selection))
+                }
+                Button("Italic") {
+                    applyInsertion(MarkdownInsertion.italic(in: text, selection: selection))
+                }
+                Button("Inline Code") {
+                    applyInsertion(MarkdownInsertion.inlineCode(in: text, selection: selection))
+                }
+            }
+
+            Section("Headings") {
+                ForEach(1...6, id: \.self) { level in
+                    Button("Heading Level \(level)") {
+                        applyInsertion(
+                            MarkdownInsertion.heading(
+                                level: level,
+                                in: text,
+                                selection: selection
+                            )
+                        )
+                    }
+                }
+            }
+
+            Section("Blocks and Lists") {
+                Button("Block Quote") {
+                    applyInsertion(MarkdownInsertion.blockQuote(in: text, selection: selection))
+                }
+                Button("Code Block") {
+                    applyInsertion(MarkdownInsertion.codeBlock(in: text, selection: selection))
+                }
+                Button("Bulleted List") {
+                    applyInsertion(MarkdownInsertion.bulletedList(in: text, selection: selection))
+                }
+                Button("Numbered List") {
+                    applyInsertion(MarkdownInsertion.numberedList(in: text, selection: selection))
+                }
+                Button("Task List") {
+                    applyInsertion(MarkdownInsertion.taskList(in: text, selection: selection))
+                }
+                Button("Horizontal Rule") {
+                    applyInsertion(MarkdownInsertion.horizontalRule(in: text, selection: selection))
+                }
+            }
+        } label: {
+            Label("Insert", systemImage: "plus")
+        }
+        .buttonStyle(.bordered)
+        .accessibilityLabel("Insert")
+        .accessibilityFocused($focusedElement, equals: .insert)
+    }
+
+    private var fileActionsMenu: some View {
+        Menu {
+            // Each item puts the keyboard away before presenting, so nothing
+            // appears underneath it.
+            Button {
+                renameText = displayTitle
+                present { showingRename = true }
             } label: {
-                Label("Insert Markdown", systemImage: "plus")
+                Label("Rename Document", systemImage: "pencil")
             }
 
             Button {
@@ -356,16 +434,6 @@ struct EditorView: View {
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
         .accessibilityFocused($focusedElement, equals: .fileActions)
-    }
-
-    /// Accessibility text sizes need vertical room for the full button labels.
-    /// AnyLayout keeps one real set of native controls, and therefore one stable
-    /// VoiceOver sequence, while changing only their visual arrangement.
-    private var actionLayout: AnyLayout {
-        if dynamicTypeSize.isAccessibilitySize {
-            return AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
-        }
-        return AnyLayout(HStackLayout(spacing: 12))
     }
 
     // MARK: - Editor
@@ -495,11 +563,17 @@ struct EditorView: View {
 
     private func finishInsertionPresentation() {
         guard let result = pendingInsertionResult else {
-            restoreFocus(to: .fileActions)
+            restoreFocus(to: .insert)
             return
         }
 
         pendingInsertionResult = nil
+        applyInsertion(result)
+    }
+
+    private func applyInsertion(_ result: MarkdownInsertionResult) {
+        focusRequestGate.invalidate()
+        dismissKeyboard()
         text = result.text
         selection = result.selection
         pendingCursorOffset = result.selection.location

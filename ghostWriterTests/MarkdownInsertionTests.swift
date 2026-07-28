@@ -62,4 +62,81 @@ struct MarkdownInsertionTests {
 
         #expect(result.text == "Draft[Source](https://example.com)")
     }
+
+    @Test func inlineFormattingWrapsSelectionOrPlacesCaretBetweenMarkers() {
+        let selected = MarkdownInsertion.bold(
+            in: "Make this strong",
+            selection: TextSelection(location: 5, length: 4)
+        )
+        let empty = MarkdownInsertion.italic(
+            in: "Write ",
+            selection: TextSelection(location: 6, length: 0)
+        )
+        let code = MarkdownInsertion.inlineCode(
+            in: "Use value",
+            selection: TextSelection(location: 4, length: 5)
+        )
+
+        #expect(selected.text == "Make **this** strong")
+        #expect(selected.selection.location == 13)
+        #expect(empty.text == "Write **")
+        #expect(empty.selection.location == 7)
+        #expect(code.text == "Use `value`")
+    }
+
+    @Test func headingReplacesAnExistingHeadingMarker() {
+        let result = MarkdownInsertion.heading(
+            level: 3,
+            in: "Before\n# Title\nAfter",
+            selection: TextSelection(location: 10, length: 0)
+        )
+
+        #expect(result.text == "Before\n### Title\nAfter")
+        #expect(result.selection.location == 16)
+    }
+
+    @Test func lineActionsTransformEverySelectedLine() {
+        let text = "One\nTwo\nThree"
+        let quote = MarkdownInsertion.blockQuote(
+            in: text,
+            selection: TextSelection(location: 0, length: 7)
+        )
+        let numbered = MarkdownInsertion.numberedList(
+            in: text,
+            selection: TextSelection(location: 0, length: 7)
+        )
+        let tasks = MarkdownInsertion.taskList(
+            in: "- One\n2. Two",
+            selection: TextSelection(location: 0, length: 12)
+        )
+
+        #expect(quote.text == "> One\n> Two\nThree")
+        #expect(numbered.text == "1. One\n2. Two\nThree")
+        #expect(tasks.text == "- [ ] One\n- [ ] Two")
+    }
+
+    @Test func codeBlockPlacesCaretInsideAnEmptyFence() {
+        let empty = MarkdownInsertion.codeBlock(
+            in: "",
+            selection: TextSelection(location: 0, length: 0)
+        )
+        let selected = MarkdownInsertion.codeBlock(
+            in: "swift",
+            selection: TextSelection(location: 0, length: 5)
+        )
+
+        #expect(empty.text == "```\n\n```")
+        #expect(empty.selection.location == 4)
+        #expect(selected.text == "```\nswift\n```")
+        #expect(selected.selection.location == 13)
+    }
+
+    @Test func horizontalRulePreservesSurroundingParagraphBoundaries() {
+        let result = MarkdownInsertion.horizontalRule(
+            in: "BeforeAfter",
+            selection: TextSelection(location: 6, length: 0)
+        )
+
+        #expect(result.text == "Before\n\n---\n\nAfter")
+    }
 }
