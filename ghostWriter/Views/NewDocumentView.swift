@@ -31,8 +31,6 @@ struct NewDocumentView: View {
                         .submitLabel(.done)
                         .accessibilityLabel("Document name")
                         .onSubmit(create)
-                } header: {
-                    Text("Document Name")
                 } footer: {
                     Text("The document is saved as a markdown file with this name. You can rename it later from File Actions.")
                 }
@@ -46,6 +44,11 @@ struct NewDocumentView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create", action: create)
                         .disabled(trimmedName.isEmpty)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Dismiss") { nameFieldFocused = false }
+                        .accessibilityLabel("Dismiss keyboard")
                 }
             }
             .onAppear {

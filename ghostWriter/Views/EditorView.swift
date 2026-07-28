@@ -109,7 +109,7 @@ struct EditorView: View {
                 Label("Documents", systemImage: "chevron.left")
             }
             .buttonStyle(.bordered)
-            .accessibilityLabel("Back to documents")
+            .accessibilityLabel("Back")
 
             Text(displayTitle)
                 .font(.title2.bold())
@@ -132,6 +132,7 @@ struct EditorView: View {
                     Label("Outline", systemImage: "list.bullet.indent")
                 }
                 .buttonStyle(.bordered)
+                .accessibilityHint("Shows a list of document headings")
 
                 fileActionsMenu
 
