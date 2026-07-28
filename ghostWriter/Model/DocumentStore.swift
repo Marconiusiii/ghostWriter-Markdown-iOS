@@ -20,8 +20,8 @@ final class DocumentStore {
 
     private let fileManager = FileManager.default
 
-    /// The user-visible folder. Created on first access; if creation fails we
-    /// fall back to the Documents directory itself so the app stays usable.
+    /// The user-visible folder. Created on first access; creation failures are
+    /// exposed through `lastError` rather than silently changing storage paths.
     let directory: URL
 
     init(directory: URL? = nil) {
@@ -36,7 +36,11 @@ final class DocumentStore {
 
     private func createDirectoryIfNeeded() {
         guard !fileManager.fileExists(atPath: directory.path) else { return }
-        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        do {
+            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        } catch {
+            lastError = "Could not open the ghostWriter folder. \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Reading
@@ -54,20 +58,33 @@ final class DocumentStore {
             .isRegularFileKey
         ]
 
-        guard let urls = try? fileManager.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: keys,
-            options: [.skipsHiddenFiles]
-        ) else {
-            documents = []
-            return
+        do {
+            let urls = try fileManager.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: keys,
+                options: [.skipsHiddenFiles]
+            )
+            documents = urls.compactMap(Document.init(fileURL:))
+        } catch {
+            // Keep the last successfully loaded library visible. Replacing it
+            // with an empty array would falsely tell the user that their files
+            // had disappeared.
+            lastError = "Could not refresh the document library. \(error.localizedDescription)"
         }
-
-        documents = urls.compactMap(Document.init(fileURL:))
     }
 
-    func text(for document: Document) -> String {
-        (try? String(contentsOf: document.url, encoding: .utf8)) ?? ""
+    /// Loads a document without turning a read or decoding failure into an empty
+    /// document. Callers must handle the error before opening an editable view,
+    /// otherwise typing into that view could overwrite the unreadable original.
+    func text(for document: Document, reportFailure: Bool = true) throws -> String {
+        do {
+            return try String(contentsOf: document.url, encoding: .utf8)
+        } catch {
+            if reportFailure {
+                lastError = "Could not open \(document.displayName). The original file was not changed. \(error.localizedDescription)"
+            }
+            throw error
+        }
     }
 
     // MARK: - Writing

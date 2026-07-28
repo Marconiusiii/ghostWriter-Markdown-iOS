@@ -24,7 +24,7 @@ struct LibraryView: View {
 
     @State private var searchText = ""
     @State private var showingSettings = false
-    @State private var renderingDocument: Document?
+    @State private var renderingSession: RenderedDocumentSession?
     @State private var renamingDocument: Document?
     @State private var pendingDeletion: Document?
     @State private var newName = ""
@@ -73,10 +73,10 @@ struct LibraryView: View {
                 createDocument(named: name)
             }
         }
-        .fullScreenCover(item: $renderingDocument) { document in
+        .fullScreenCover(item: $renderingSession) { session in
             RenderedHTMLView(
-                title: document.displayName,
-                markdown: store.text(for: document)
+                title: session.title,
+                markdown: session.markdown
             )
         }
         .sheet(isPresented: $showingShare) { ShareSheet(items: shareItems) }
@@ -96,6 +96,11 @@ struct LibraryView: View {
             }
         } message: {
             Text(pendingDeletion.map { "\($0.displayName) will be deleted. This cannot be undone." } ?? "")
+        }
+        .alert("ghostWriter Error", isPresented: errorBinding) {
+            Button("OK") { store.lastError = nil }
+        } message: {
+            Text(store.lastError ?? "An unknown error occurred.")
         }
     }
 
@@ -285,7 +290,7 @@ struct LibraryView: View {
                     } label: {
                         DocumentRow(
                             document: document,
-                            onRender: { renderingDocument = document },
+                            onRender: { render(document) },
                             onShare: { share(document) },
                             onRename: { beginRename(document) },
                             onDuplicate: { duplicate(document) },
@@ -314,7 +319,7 @@ struct LibraryView: View {
                     }
                     .swipeActions(edge: .leading) {
                         Button {
-                            renderingDocument = document
+                            render(document)
                         } label: {
                             Label("Render", systemImage: "doc.richtext")
                         }
@@ -373,7 +378,8 @@ struct LibraryView: View {
         } else {
             filtered = store.documents.filter { document in
                 if document.displayName.localizedCaseInsensitiveContains(query) { return true }
-                return store.text(for: document).localizedCaseInsensitiveContains(query)
+                return (try? store.text(for: document, reportFailure: false))?
+                    .localizedCaseInsensitiveContains(query) == true
             }
         }
 
@@ -389,9 +395,15 @@ struct LibraryView: View {
     // MARK: - Actions
 
     private func open(_ document: Document) {
-        openedDocument = DocumentSession(
-            document: document,
-            text: store.text(for: document)
+        guard let text = try? store.text(for: document) else { return }
+        openedDocument = DocumentSession(document: document, text: text)
+    }
+
+    private func render(_ document: Document) {
+        guard let text = try? store.text(for: document) else { return }
+        renderingSession = RenderedDocumentSession(
+            title: document.displayName,
+            markdown: text
         )
     }
 
@@ -425,13 +437,18 @@ struct LibraryView: View {
     }
 
     private func share(_ document: Document) {
-        guard let url = ShareItemBuilder.makeFile(
-            title: document.displayName,
-            markdown: store.text(for: document),
-            format: .markdown
-        ) else { return }
-        shareItems = [url]
-        showingShare = true
+        guard let text = try? store.text(for: document) else { return }
+        do {
+            let url = try ShareItemBuilder.makeFile(
+                title: document.displayName,
+                markdown: text,
+                format: .markdown
+            )
+            shareItems = [url]
+            showingShare = true
+        } catch {
+            store.lastError = "Could not prepare \(document.displayName) for sharing. \(error.localizedDescription)"
+        }
     }
 
     private var renameBinding: Binding<Bool> {
@@ -447,6 +464,13 @@ struct LibraryView: View {
             set: { if !$0 { pendingDeletion = nil } }
         )
     }
+
+    private var errorBinding: Binding<Bool> {
+        Binding(
+            get: { store.lastError != nil },
+            set: { if !$0 { store.lastError = nil } }
+        )
+    }
 }
 
 /// Pairs a document with its loaded text, so the editor receives both at once.
@@ -457,3 +481,8 @@ struct DocumentSession: Identifiable, Hashable {
     var id: URL { document.url }
 }
 
+struct RenderedDocumentSession: Identifiable {
+    let id = UUID()
+    let title: String
+    let markdown: String
+}

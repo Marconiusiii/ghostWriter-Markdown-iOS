@@ -20,7 +20,7 @@ struct RenderedHTMLView: View {
     let markdown: String
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(AppSettings.self) private var settings
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
@@ -40,8 +40,16 @@ struct RenderedHTMLView: View {
         HTMLTemplate.document(
             title: title,
             body: MarkdownRenderer.html(from: markdown),
-            baseFontPointSize: UIFont.preferredFont(forTextStyle: .body).pointSize
+            baseFontPointSize: baseFontPointSize
         )
+    }
+
+    private var baseFontPointSize: CGFloat {
+        // Reading the SwiftUI value makes the HTML regenerate when Dynamic Type
+        // changes while the preview is open. UIFont then supplies the matching
+        // platform point size for the web document.
+        _ = dynamicTypeSize
+        return UIFont.preferredFont(forTextStyle: .body).pointSize
     }
 }
 

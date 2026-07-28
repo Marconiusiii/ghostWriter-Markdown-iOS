@@ -20,6 +20,7 @@ struct DocumentRow: View {
     let onRename: () -> Void
     let onDuplicate: () -> Void
     let onDelete: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -27,7 +28,7 @@ struct DocumentRow: View {
                 .font(.headline)
                 .foregroundStyle(Color.ghostText)
 
-            HStack(spacing: 12) {
+            metadataLayout {
                 Label(DateFormatting.short(document.modified), systemImage: "pencil")
                 Label(DateFormatting.short(document.created), systemImage: "calendar")
             }
@@ -53,5 +54,12 @@ struct DocumentRow: View {
 
     private var accessibilityLabel: String {
         "\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))"
+    }
+
+    private var metadataLayout: AnyLayout {
+        if dynamicTypeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+        }
+        return AnyLayout(HStackLayout(spacing: 12))
     }
 }

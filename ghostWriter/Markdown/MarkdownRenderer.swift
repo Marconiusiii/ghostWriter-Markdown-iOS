@@ -392,7 +392,11 @@ enum MarkdownRenderer {
                 }
             }
 
-            parts.append(trimmed)
+            // Remove indentation used for paragraph layout, but preserve trailing
+            // spaces because two or more of them are Markdown's hard-break
+            // syntax.
+            let paragraphText = String(line.drop { $0 == " " || $0 == "\t" })
+            parts.append(paragraphText)
             index += 1
         }
 
@@ -403,6 +407,9 @@ enum MarkdownRenderer {
             var hardBreak = false
             if text.hasSuffix("\\") {
                 text.removeLast()
+                hardBreak = true
+            } else if text.hasSuffix("  ") {
+                text = text.trimmingCharacters(in: .whitespaces)
                 hardBreak = true
             }
             var piece = inline(text, definitions: definitions)

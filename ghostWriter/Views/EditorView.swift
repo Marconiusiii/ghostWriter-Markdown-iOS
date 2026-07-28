@@ -41,6 +41,7 @@ struct EditorView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(document: Document, initialText: String) {
         _fileURL = State(initialValue: document.url)
@@ -96,6 +97,11 @@ struct EditorView: View {
         } message: {
             Text("Enter a new name for this document.")
         }
+        .alert("ghostWriter Error", isPresented: errorBinding) {
+            Button("OK") { store.lastError = nil }
+        } message: {
+            Text(store.lastError ?? "An unknown error occurred.")
+        }
     }
 
     // MARK: - Header
@@ -117,7 +123,7 @@ struct EditorView: View {
                 .accessibilityAddTraits(.isHeader)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 12) {
+            actionLayout {
                 Button {
                     render()
                 } label: {
@@ -136,7 +142,9 @@ struct EditorView: View {
 
                 fileActionsMenu
 
-                Spacer(minLength: 0)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 0)
+                }
             }
 
             if !statusMessage.isEmpty {
@@ -195,6 +203,16 @@ struct EditorView: View {
         }
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
+    }
+
+    /// Accessibility text sizes need vertical room for the full button labels.
+    /// AnyLayout keeps one real set of native controls, and therefore one stable
+    /// VoiceOver sequence, while changing only their visual arrangement.
+    private var actionLayout: AnyLayout {
+        if dynamicTypeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+        }
+        return AnyLayout(HStackLayout(spacing: 12))
     }
 
     // MARK: - Editor
@@ -304,16 +322,17 @@ struct EditorView: View {
 
     private func share(as format: ShareItemBuilder.Format) {
         saveNow(announce: false)
-        guard let url = ShareItemBuilder.makeFile(
-            title: displayTitle,
-            markdown: text,
-            format: format
-        ) else {
-            announce("Could not prepare the file.")
-            return
+        do {
+            let url = try ShareItemBuilder.makeFile(
+                title: displayTitle,
+                markdown: text,
+                format: format
+            )
+            shareItems = [url]
+            showingShare = true
+        } catch {
+            store.lastError = "Could not prepare \(displayTitle) for sharing. \(error.localizedDescription)"
         }
-        shareItems = [url]
-        showingShare = true
     }
 
     private func announce(_ message: String) {
@@ -323,5 +342,12 @@ struct EditorView: View {
             try? await Task.sleep(for: .seconds(4))
             if statusMessage == message { statusMessage = "" }
         }
+    }
+
+    private var errorBinding: Binding<Bool> {
+        Binding(
+            get: { store.lastError != nil },
+            set: { if !$0 { store.lastError = nil } }
+        )
     }
 }

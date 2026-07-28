@@ -48,9 +48,10 @@ enum ShareItemBuilder {
         }
     }
 
-    /// Writes the document in the requested format to a temporary file and
-    /// returns its URL, or nil if writing failed.
-    static func makeFile(title: String, markdown: String, format: Format) -> URL? {
+    /// Writes the document in the requested format to a temporary file. Errors
+    /// are thrown so the presenting view can explain what failed rather than
+    /// making the Share action appear unresponsive.
+    static func makeFile(title: String, markdown: String, format: Format) throws -> URL {
         let contents: String
         switch format {
         case .markdown, .plainText:
@@ -67,11 +68,7 @@ enum ShareItemBuilder {
             .appendingPathComponent(safeName)
             .appendingPathExtension(format.fileExtension)
 
-        do {
-            try contents.write(to: url, atomically: true, encoding: .utf8)
-            return url
-        } catch {
-            return nil
-        }
+        try contents.write(to: url, atomically: true, encoding: .utf8)
+        return url
     }
 }

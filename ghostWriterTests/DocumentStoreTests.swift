@@ -41,7 +41,7 @@ struct DocumentStoreTests {
 
         store.refresh()
         #expect(store.documents.count == 1, "Autosave must never create extra files")
-        #expect(store.text(for: store.documents[0]) == "pass 20")
+        #expect(try store.text(for: store.documents[0]) == "pass 20")
     }
 
     @Test func savingDoesNotRepublishTheDocumentList() throws {
@@ -93,7 +93,7 @@ struct DocumentStoreTests {
 
         store.refresh()
         #expect(store.documents.count == 1, "Rename must move the file, not copy it")
-        #expect(store.text(for: store.documents[0]) == "body")
+        #expect(try store.text(for: store.documents[0]) == "body")
     }
 
     @Test func renameToSameNameIsANoOp() throws {
@@ -118,5 +118,32 @@ struct DocumentStoreTests {
         #expect(!DocumentStore.sanitize("../../etc/passwd").contains("/"))
         #expect(DocumentStore.sanitize("   ") == "Untitled")
         #expect(DocumentStore.sanitize("Perfectly Fine") == "Perfectly Fine")
+    }
+
+    @Test func invalidUTF8IsNotPresentedAsAnEmptyDocument() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = store.createDocument(named: "Encoded elsewhere") else {
+            Issue.record("Could not create the document")
+            return
+        }
+        let original = Data([0xff, 0xfe, 0xfd])
+        try original.write(to: url)
+        store.refresh()
+
+        guard let document = store.documents.first else {
+            Issue.record("The invalid UTF-8 file should still appear in the library")
+            return
+        }
+
+        do {
+            _ = try store.text(for: document)
+            Issue.record("Invalid UTF-8 must produce a loading error")
+        } catch {
+            #expect(store.lastError?.contains("original file was not changed") == true)
+        }
+
+        #expect(try Data(contentsOf: url) == original)
     }
 }

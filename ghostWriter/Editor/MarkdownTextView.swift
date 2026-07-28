@@ -42,9 +42,7 @@ struct MarkdownTextView: UIViewRepresentable {
 
         // Monospaced for alignment, but scaled by Dynamic Type so it grows with
         // the reader's setting.
-        let body = UIFont.preferredFont(forTextStyle: .body)
-        let monospaced = UIFont.monospacedSystemFont(ofSize: body.pointSize, weight: .regular)
-        textView.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: monospaced)
+        textView.font = Self.editorFont(compatibleWith: textView.traitCollection)
         textView.adjustsFontForContentSizeCategory = true
 
         textView.backgroundColor = UIColor(named: "EditorBackground") ?? .systemBackground
@@ -163,5 +161,17 @@ struct MarkdownTextView: UIViewRepresentable {
         guard characterOffset < text.count else { return text.utf16.count }
         let index = text.index(text.startIndex, offsetBy: characterOffset)
         return text.utf16.distance(from: text.utf16.startIndex, to: index)
+    }
+
+    /// Uses the system's already-scaled preferred body descriptor and changes
+    /// only its design. Applying UIFontMetrics to preferredFont's point size
+    /// would scale the same Dynamic Type preference twice at accessibility sizes.
+    private static func editorFont(compatibleWith traits: UITraitCollection) -> UIFont {
+        let preferred = UIFontDescriptor.preferredFontDescriptor(
+            withTextStyle: .body,
+            compatibleWith: traits
+        )
+        let descriptor = preferred.withDesign(.monospaced) ?? preferred
+        return UIFont(descriptor: descriptor, size: 0)
     }
 }
