@@ -40,7 +40,12 @@ struct LibraryView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 documentArea
+                // Holds the content at the top of the screen. Without this the
+                // stack sizes to its contents and centres itself vertically
+                // once the list is short or empty.
+                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color.pageBackground)
             // The heading below is the screen's title, so the bar is hidden
             // rather than duplicating it above the content.
@@ -165,15 +170,19 @@ struct LibraryView: View {
     }
 
     /// An ordinary text field rather than `.searchable`, so it stays where it is
-    /// written. The visible label and the field are combined into a single
-    /// element, so navigating does not stop on the word "Search" and then again
-    /// on the field it names.
+    /// written. VoiceOver reaches exactly one element here: the field itself,
+    /// labelled "Search". The visible label beside it is decoration.
     private var searchField: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
+                // Visible for sighted users only. It is hidden from VoiceOver
+                // because the field below already carries "Search" as its
+                // label — leaving it visible to assistive technology makes it
+                // a separate stop that says the same word twice.
                 Text("Search")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.ghostText)
+                    .accessibilityHidden(true)
 
                 TextField("", text: $searchText)
                     .textFieldStyle(.plain)
@@ -188,9 +197,6 @@ struct LibraryView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(Color.ghostBorder, lineWidth: 1)
                     )
-                    // The visible label and the field read as one element, so
-                    // navigating does not stop on the word "Search" and then
-                    // again on the field it names.
                     .accessibilityLabel("Search")
             }
 
@@ -331,36 +337,25 @@ struct LibraryView: View {
         .scrollContentBackground(.hidden)
     }
 
+    // Neither empty state carries a heading. The Documents heading and the
+    // count text above already say there is nothing here, so a third element
+    // repeating it is just another stop on the way to the New Document button.
+    // What remains is the one thing the count does not convey: what to do next.
+
     private var emptyLibrary: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Text("No Documents")
-                .font(.title2.bold())
-                .accessibilityAddTraits(.isHeader)
-            Text("Tap New Document to start writing in markdown.")
-                .font(.body)
-                .foregroundStyle(Color.ghostMuted)
-                .multilineTextAlignment(.center)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 24)
+        Text("Tap New Document to start writing in markdown.")
+            .font(.body)
+            .foregroundStyle(Color.ghostMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 4)
     }
 
     private var noSearchResults: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Text("No Results")
-                .font(.title2.bold())
-                .accessibilityAddTraits(.isHeader)
-            Text("No documents match \(searchText).")
-                .font(.body)
-                .foregroundStyle(Color.ghostMuted)
-                .multilineTextAlignment(.center)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 24)
+        Text("No documents match \(trimmedSearch).")
+            .font(.body)
+            .foregroundStyle(Color.ghostMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 4)
     }
 
     // MARK: - Data
