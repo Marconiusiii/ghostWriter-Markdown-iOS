@@ -1,0 +1,176 @@
+//
+//  DocumentStore.swift
+//  ghostWriter
+//
+//  Owns the ghostWriter folder inside the app's Documents directory. That
+//  folder is exposed to the Files app, so the filesystem is the single source
+//  of truth: the user can rename, delete, or add files outside the app and we
+//  simply re-read rather than trying to keep a parallel database in sync.
+//
+
+import Foundation
+import Observation
+
+@Observable
+final class DocumentStore {
+    private(set) var documents: [Document] = []
+    /// Set when a filesystem operation fails so the UI can surface it rather
+    /// than failing silently. Cleared once the user dismisses it.
+    var lastError: String?
+
+    private let fileManager = FileManager.default
+
+    /// The user-visible folder. Created on first access; if creation fails we
+    /// fall back to the Documents directory itself so the app stays usable.
+    let directory: URL
+
+    init(directory: URL? = nil) {
+        if let directory {
+            self.directory = directory
+        } else {
+            let documentsRoot = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            self.directory = documentsRoot.appendingPathComponent("ghostWriter", isDirectory: true)
+        }
+        createDirectoryIfNeeded()
+    }
+
+    private func createDirectoryIfNeeded() {
+        guard !fileManager.fileExists(atPath: directory.path) else { return }
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+
+    // MARK: - Reading
+
+    /// Re-reads the directory. Called on appear and whenever the app returns to
+    /// the foreground, because files may have changed in the Files app while we
+    /// were backgrounded.
+    func refresh() {
+        createDirectoryIfNeeded()
+
+        let keys: [URLResourceKey] = [
+            .creationDateKey,
+            .contentModificationDateKey,
+            .fileSizeKey,
+            .isRegularFileKey
+        ]
+
+        guard let urls = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: keys,
+            options: [.skipsHiddenFiles]
+        ) else {
+            documents = []
+            return
+        }
+
+        documents = urls.compactMap(Document.init(fileURL:))
+    }
+
+    func text(for document: Document) -> String {
+        (try? String(contentsOf: document.url, encoding: .utf8)) ?? ""
+    }
+
+    // MARK: - Writing
+
+    /// Writes text to a document. Uses an atomic write so a crash mid-save
+    /// cannot leave a half-written file where the user's note used to be.
+    @discardableResult
+    func save(text: String, to document: Document) -> Document? {
+        do {
+            try text.write(to: document.url, atomically: true, encoding: .utf8)
+            refresh()
+            return documents.first { $0.url == document.url }
+        } catch {
+            lastError = "Could not save \(document.displayName). \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    /// Creates a new empty document, choosing a name that does not collide with
+    /// an existing file.
+    func createDocument(named preferredName: String = "Untitled") -> Document? {
+        createDirectoryIfNeeded()
+        let url = availableURL(for: preferredName)
+
+        do {
+            try "".write(to: url, atomically: true, encoding: .utf8)
+            refresh()
+            return documents.first { $0.url == url }
+        } catch {
+            lastError = "Could not create a new document. \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    func delete(_ document: Document) {
+        do {
+            try fileManager.removeItem(at: document.url)
+            refresh()
+        } catch {
+            lastError = "Could not delete \(document.displayName). \(error.localizedDescription)"
+        }
+    }
+
+    /// Renames a document. Returns the renamed Document, or nil if the rename
+    /// failed. A no-op rename (same name) succeeds without touching disk so the
+    /// title field can call this freely on every commit.
+    @discardableResult
+    func rename(_ document: Document, to newName: String) -> Document? {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return document }
+        guard trimmed != document.displayName else { return document }
+
+        let destination = availableURL(for: trimmed)
+
+        do {
+            try fileManager.moveItem(at: document.url, to: destination)
+            refresh()
+            return documents.first { $0.url == destination }
+        } catch {
+            lastError = "Could not rename to \(trimmed). \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    func duplicate(_ document: Document) -> Document? {
+        let destination = availableURL(for: "\(document.displayName) copy")
+        do {
+            try fileManager.copyItem(at: document.url, to: destination)
+            refresh()
+            return documents.first { $0.url == destination }
+        } catch {
+            lastError = "Could not duplicate \(document.displayName). \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    // MARK: - Naming
+
+    /// Strips characters that are illegal in a filename and collapses the rest,
+    /// so a heading pasted into the title field cannot produce an unwritable
+    /// path or escape the ghostWriter folder.
+    static func sanitize(_ name: String) -> String {
+        let illegal = CharacterSet(charactersIn: "/\\:?%*|\"<>")
+        let cleaned = name
+            .components(separatedBy: illegal)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? "Untitled" : String(cleaned.prefix(120))
+    }
+
+    /// Finds a free URL for a name, appending " 2", " 3" and so on if needed.
+    private func availableURL(for name: String) -> URL {
+        let base = DocumentStore.sanitize(name)
+        var candidate = directory.appendingPathComponent(base).appendingPathExtension("md")
+        var counter = 2
+
+        while fileManager.fileExists(atPath: candidate.path) {
+            candidate = directory
+                .appendingPathComponent("\(base) \(counter)")
+                .appendingPathExtension("md")
+            counter += 1
+        }
+
+        return candidate
+    }
+}

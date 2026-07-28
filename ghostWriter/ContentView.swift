@@ -7,18 +7,16 @@
 
 import SwiftUI
 
+/// Root of the app. The library is the home screen; everything else is reached
+/// from it.
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        LibraryView()
     }
 }
 
 #Preview {
     ContentView()
+        .environment(DocumentStore())
+        .environment(AppSettings())
 }

@@ -2,42 +2,23 @@
 //  ghostWriterUITests.swift
 //  ghostWriterUITests
 //
-//  Created by Marco Salsiccia on 7/27/26.
+//  This target exists because the Xcode template created it, and an empty test
+//  bundle fails to load. Real testing of this app happens on a physical device
+//  with VoiceOver, which is the only place its accessibility behaviour can be
+//  meaningfully judged — so there is deliberately no UI automation here.
 //
 
 import XCTest
 
 final class ghostWriterUITests: XCTestCase {
 
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
-        continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testAppLaunches() throws {
         let app = XCUIApplication()
         app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
-    }
-
-    @MainActor
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
+        XCTAssertTrue(
+            app.navigationBars["ghostWriter"].waitForExistence(timeout: 10),
+            "The app should launch to the library screen."
+        )
     }
 }
