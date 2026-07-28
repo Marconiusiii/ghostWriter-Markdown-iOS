@@ -49,6 +49,15 @@ struct LibraryView: View {
             .navigationDestination(item: $draftDocument) { draft in
                 EditorView(draftNamed: draft.suggestedName)
             }
+            // Saving no longer republishes the store's list — that churn was
+            // what let the editor lose track of its file — so the library
+            // re-reads the folder when it comes back into view.
+            .onChange(of: openedDocument) { _, value in
+                if value == nil { store.refresh() }
+            }
+            .onChange(of: draftDocument) { _, value in
+                if value == nil { store.refresh() }
+            }
         }
         .onAppear { store.refresh() }
         .onChange(of: scenePhase) { _, phase in
@@ -324,7 +333,7 @@ struct LibraryView: View {
 
     private func commitRename() {
         guard let document = renamingDocument else { return }
-        store.rename(document, to: newName)
+        store.rename(at: document.url, to: newName)
         renamingDocument = nil
     }
 

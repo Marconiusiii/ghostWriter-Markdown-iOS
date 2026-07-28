@@ -74,28 +74,32 @@ final class DocumentStore {
 
     /// Writes text to a document. Uses an atomic write so a crash mid-save
     /// cannot leave a half-written file where the user's note used to be.
+    /// Writes text to an existing file path. This never creates a second file:
+    /// the URL is the identity, and writing to the same URL overwrites it.
     @discardableResult
-    func save(text: String, to document: Document) -> Document? {
+    func save(text: String, to url: URL) -> Bool {
         do {
-            try text.write(to: document.url, atomically: true, encoding: .utf8)
-            refresh()
-            return documents.first { $0.url == document.url }
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            // Deliberately does NOT call refresh(). Refreshing republishes the
+            // documents array on every autosave, which churns observed state
+            // while the editor is on screen. The library re-reads on appear and
+            // on foreground instead.
+            return true
         } catch {
-            lastError = "Could not save \(document.displayName). \(error.localizedDescription)"
-            return nil
+            lastError = "Could not save. \(error.localizedDescription)"
+            return false
         }
     }
 
-    /// Creates a new empty document, choosing a name that does not collide with
-    /// an existing file.
-    func createDocument(named preferredName: String = "Untitled") -> Document? {
+    /// Creates a new file with the given contents, choosing a name that does not
+    /// collide with an existing file. Returns the URL it settled on.
+    func createDocument(named preferredName: String = "Untitled", contents: String = "") -> URL? {
         createDirectoryIfNeeded()
         let url = availableURL(for: preferredName)
 
         do {
-            try "".write(to: url, atomically: true, encoding: .utf8)
-            refresh()
-            return documents.first { $0.url == url }
+            try contents.write(to: url, atomically: true, encoding: .utf8)
+            return url
         } catch {
             lastError = "Could not create a new document. \(error.localizedDescription)"
             return nil
@@ -111,21 +115,22 @@ final class DocumentStore {
         }
     }
 
-    /// Renames a document. Returns the renamed Document, or nil if the rename
-    /// failed. A no-op rename (same name) succeeds without touching disk so the
-    /// title field can call this freely on every commit.
+    /// Renames the file at `url`. Returns the new URL, or nil if it failed.
+    /// A no-op rename returns the original URL without touching disk.
     @discardableResult
-    func rename(_ document: Document, to newName: String) -> Document? {
+    func rename(at url: URL, to newName: String) -> URL? {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return document }
-        guard trimmed != document.displayName else { return document }
+        guard !trimmed.isEmpty else { return url }
+
+        let currentName = url.deletingPathExtension().lastPathComponent
+        guard trimmed != currentName else { return url }
 
         let destination = availableURL(for: trimmed)
 
         do {
-            try fileManager.moveItem(at: document.url, to: destination)
+            try fileManager.moveItem(at: url, to: destination)
             refresh()
-            return documents.first { $0.url == destination }
+            return destination
         } catch {
             lastError = "Could not rename to \(trimmed). \(error.localizedDescription)"
             return nil

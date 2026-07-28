@@ -27,6 +27,26 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         self.parent = parent
     }
 
+    // MARK: - Keyboard accessory actions
+
+    @objc func handleIndent() {
+        parent.onIndent()
+    }
+
+    @objc func handleOutdent() {
+        parent.onOutdent()
+    }
+
+    @objc func handleDismissKeyboard() {
+        textView?.resignFirstResponder()
+    }
+
+    /// Puts the keyboard away from outside the text view, used before showing a
+    /// menu or sheet so it does not sit over the presented content.
+    func dismissKeyboard() {
+        textView?.resignFirstResponder()
+    }
+
     // MARK: - Typing
 
     func textView(
@@ -61,15 +81,44 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
             if let textRange = textRange(in: textView, from: replaceRange) {
                 textView.replace(textRange, withText: "")
             }
+            announce("List ended")
         } else {
             // Continue the list by inserting only the newline and next marker
             // at the caret. `insertText` goes through the normal input path, so
             // undo, autocorrect state, and assistive input all behave.
             textView.insertText("\n" + marker.nextItemPrefix)
+            announce(continuationAnnouncement(for: marker))
         }
 
         parent.text = textView.text ?? ""
         return false
+    }
+
+    /// Describes the item that was just created. Without this the only feedback
+    /// is the boundary-reached tone, which says nothing about what happened.
+    private func continuationAnnouncement(for marker: ListMarker) -> String {
+        let depth = LineAnalyzer.indentColumns(of: marker.indent) / 2
+
+        let base: String
+        switch marker.style {
+        case .unordered:
+            base = marker.taskBox != nil ? "Task added" : "Bullet added"
+        case .ordered(let number):
+            base = "Item \(number + 1) added"
+        }
+
+        return depth > 0 ? "\(base), level \(depth + 1)" : base
+    }
+
+    /// Speaks a short state change. This fires only on a deliberate structural
+    /// transition — creating or ending a list item — never while typing
+    /// ordinary text, so it does not talk over the user's own input echo.
+    private func announce(_ message: String) {
+        // A brief delay lets the text view finish its own edit announcement
+        // first, so the two do not collide and cut each other off.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            UIAccessibility.post(notification: .announcement, argument: message)
+        }
     }
 
     private func textRange(in textView: UITextView, from nsRange: NSRange) -> UITextRange? {

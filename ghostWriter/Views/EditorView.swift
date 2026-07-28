@@ -2,21 +2,20 @@
 //  EditorView.swift
 //  ghostWriter
 //
-//  The writing screen: a heading, the actions, then the editor. Nothing else.
-//  No search field, no rendered preview beside it, no title text field
-//  competing with the text view for focus.
+//  The writing screen: a heading, the actions, then the editor.
 //
-//  The document's name comes from its first heading, or failing that its first
-//  line of text, so a writer never has to name a file before writing in it.
-//  Renaming is an explicit action in the File Actions menu.
+//  The document is tracked by its file URL rather than by a Document value.
+//  That matters: the store republishes its document list whenever it re-reads
+//  the folder, and holding a value type across that could leave this screen
+//  pointing at a stale record and writing a second file. A URL is stable.
 //
 
 import SwiftUI
 import UIKit
 
 struct EditorView: View {
-    /// Nil until the document has been written to disk for the first time.
-    @State private var document: Document?
+    /// The file being edited. Nil until the first save creates it.
+    @State private var fileURL: URL?
     @State private var text: String
     @State private var selection = TextSelection(location: 0, length: 0)
     @State private var pendingCursorOffset: Int?
@@ -32,8 +31,10 @@ struct EditorView: View {
     @State private var saveTask: Task<Void, Never>?
     @State private var hasUnsavedChanges = false
     @State private var statusMessage = ""
+    /// The name the file was last saved under, so autosave does not rename on
+    /// every keystroke as the first heading is typed.
+    @State private var savedName: String?
 
-    /// The name used until the file exists on disk.
     private let draftName: String
 
     @Environment(DocumentStore.self) private var store
@@ -41,17 +42,17 @@ struct EditorView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
 
-    /// Opens an existing document.
     init(document: Document, initialText: String) {
-        _document = State(initialValue: document)
+        _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
+        _savedName = State(initialValue: document.displayName)
         self.draftName = document.displayName
     }
 
-    /// Opens a blank draft that is not on disk yet.
     init(draftNamed name: String) {
-        _document = State(initialValue: nil)
+        _fileURL = State(initialValue: nil)
         _text = State(initialValue: "")
+        _savedName = State(initialValue: nil)
         self.draftName = name
     }
 
@@ -83,7 +84,7 @@ struct EditorView: View {
             }
         }
         .sheet(isPresented: $showingReference) {
-            MarkdownReferenceView { snippet in insert(snippet) }
+            MarkdownReferenceView()
         }
         .sheet(isPresented: $showingShare) {
             ShareSheet(items: shareItems)
@@ -100,8 +101,6 @@ struct EditorView: View {
 
     // MARK: - Header
 
-    /// Back, then the document name as a heading, then the actions. Read in
-    /// that order because they are written in that order.
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             Button {
@@ -129,7 +128,7 @@ struct EditorView: View {
                 .accessibilityHint("Shows this document as formatted HTML")
 
                 Button {
-                    showingOutline = true
+                    present { showingOutline = true }
                 } label: {
                     Label("Outline", systemImage: "list.bullet.indent")
                 }
@@ -191,6 +190,10 @@ struct EditorView: View {
             }
         } label: {
             Label("File Actions", systemImage: "ellipsis.circle")
+        } primaryAction: {
+            // Put the keyboard away before the menu appears, so it does not
+            // cover the menu it is opening.
+            dismissKeyboard()
         }
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
@@ -203,49 +206,20 @@ struct EditorView: View {
             text: $text,
             selection: $selection,
             smartListsEnabled: settings.smartListsEnabled,
-            pendingCursorOffset: $pendingCursorOffset
+            pendingCursorOffset: $pendingCursorOffset,
+            onIndent: { applyIndent(outdent: false) },
+            onOutdent: { applyIndent(outdent: true) }
         )
-        .toolbar { keyboardToolbar }
-    }
-
-    /// Indent, outdent, and an explicit Dismiss so the keyboard can always be
-    /// put away.
-    @ToolbarContentBuilder
-    private var keyboardToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .keyboard) {
-            Button {
-                applyIndent(outdent: true)
-            } label: {
-                Label("Outdent", systemImage: "decrease.indent")
-            }
-            .accessibilityLabel("Outdent")
-
-            Button {
-                applyIndent(outdent: false)
-            } label: {
-                Label("Indent", systemImage: "increase.indent")
-            }
-            .accessibilityLabel("Indent")
-
-            Spacer()
-
-            Button {
-                dismissKeyboard()
-            } label: {
-                Label("Dismiss Keyboard", systemImage: "keyboard.chevron.compact.down")
-            }
-            .accessibilityLabel("Dismiss keyboard")
-        }
     }
 
     // MARK: - Title
 
     /// The document's name, taken from its first heading, then its first
-    /// non-empty line, then the name it was created with. This is why there is
-    /// no title field to fill in before writing.
+    /// non-empty line, then the name it was created with.
     private var displayTitle: String {
+        if let savedName, derivedName.isEmpty { return savedName }
         if !derivedName.isEmpty { return derivedName }
-        return document?.displayName ?? draftName
+        return savedName ?? draftName
     }
 
     private var derivedName: String {
@@ -261,7 +235,6 @@ struct EditorView: View {
                 if !title.isEmpty { return String(title.prefix(80)) }
             }
 
-            // Not a heading, so use the first line of prose instead.
             return String(line.prefix(80))
         }
         return ""
@@ -278,7 +251,15 @@ struct EditorView: View {
         )
     }
 
+    /// Dismisses the keyboard, then presents. Anything that puts content over
+    /// the editor goes through this.
+    private func present(_ action: @escaping () -> Void) {
+        dismissKeyboard()
+        action()
+    }
+
     private func render() {
+        dismissKeyboard()
         if settings.renderSoundEnabled { RenderSound.shared.play() }
         saveNow(announce: false)
         showingRendered = true
@@ -291,23 +272,10 @@ struct EditorView: View {
 
         text = result.text
         pendingCursorOffset = result.selection.location
-        announce(result.announcement)
+        UIAccessibility.post(notification: .announcement, argument: result.announcement)
     }
 
-    private func insert(_ snippet: String) {
-        let characters = Array(text)
-        let cursor = min(max(selection.location, 0), characters.count)
-
-        let before = String(characters[0..<cursor])
-        let after = String(characters[cursor...])
-        let needsLeading = !before.isEmpty && !before.hasSuffix("\n")
-        let needsTrailing = !after.isEmpty && !after.hasPrefix("\n")
-
-        let insertion = (needsLeading ? "\n" : "") + snippet + (needsTrailing ? "\n" : "")
-        text = before + insertion + after
-        pendingCursorOffset = cursor + insertion.count
-        announce("Example inserted.")
-    }
+    // MARK: - Saving
 
     private func scheduleAutosave() {
         saveTask?.cancel()
@@ -318,30 +286,34 @@ struct EditorView: View {
         }
     }
 
+    /// Writes the document. Once a file exists it is always overwritten in
+    /// place — the file is never recreated, and it is never renamed by
+    /// autosave. Renaming happens only when the user asks for it.
     private func saveNow(announce shouldAnnounce: Bool) {
-        // A draft is only written once there is something in it, so tapping
-        // New Document and backing out leaves no empty file behind.
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         guard hasUnsavedChanges || shouldAnnounce else { return }
 
-        if let existing = document {
-            if store.save(text: text, to: existing) != nil {
+        if let url = fileURL {
+            if store.save(text: text, to: url) {
                 hasUnsavedChanges = false
                 if shouldAnnounce { announce("Saved.") }
             } else if shouldAnnounce {
                 announce("Could not save.")
             }
-        } else {
-            // First save: create the file using the derived name.
-            let name = derivedName.isEmpty ? draftName : derivedName
-            guard let created = store.createDocument(named: name) else {
-                if shouldAnnounce { announce("Could not save.") }
-                return
-            }
-            document = store.save(text: text, to: created) ?? created
-            hasUnsavedChanges = false
-            if shouldAnnounce { announce("Saved.") }
+            return
         }
+
+        // First save only: create the file.
+        let name = derivedName.isEmpty ? draftName : derivedName
+        guard let created = store.createDocument(named: name, contents: text) else {
+            if shouldAnnounce { announce("Could not save.") }
+            return
+        }
+
+        fileURL = created
+        savedName = created.deletingPathExtension().lastPathComponent
+        hasUnsavedChanges = false
+        if shouldAnnounce { announce("Saved.") }
     }
 
     private func commitRename() {
@@ -349,11 +321,17 @@ struct EditorView: View {
         guard !trimmed.isEmpty else { return }
 
         saveNow(announce: false)
-        guard let existing = document else { return }
+        guard let url = fileURL else {
+            // Not on disk yet, so just remember the name for the first save.
+            savedName = trimmed
+            announce("Renamed to \(trimmed).")
+            return
+        }
 
-        if let renamed = store.rename(existing, to: trimmed) {
-            document = renamed
-            announce("Renamed to \(renamed.displayName).")
+        if let renamed = store.rename(at: url, to: trimmed) {
+            fileURL = renamed
+            savedName = renamed.deletingPathExtension().lastPathComponent
+            announce("Renamed to \(savedName ?? trimmed).")
         } else {
             announce("Could not rename.")
         }
@@ -361,8 +339,9 @@ struct EditorView: View {
 
     private func duplicate() {
         saveNow(announce: false)
-        guard let existing = document else { return }
-        if store.duplicate(existing) != nil { announce("Duplicated.") }
+        guard let url = fileURL,
+              let document = Document(fileURL: url) else { return }
+        if store.duplicate(document) != nil { announce("Duplicated.") }
     }
 
     private func share(as format: ShareItemBuilder.Format) {
@@ -381,6 +360,7 @@ struct EditorView: View {
 
     private func announce(_ message: String) {
         statusMessage = message
+        UIAccessibility.post(notification: .announcement, argument: message)
         Task {
             try? await Task.sleep(for: .seconds(4))
             if statusMessage == message { statusMessage = "" }

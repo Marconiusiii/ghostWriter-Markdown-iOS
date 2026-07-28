@@ -25,6 +25,13 @@ struct MarkdownTextView: UIViewRepresentable {
     /// Cleared once applied.
     @Binding var pendingCursorOffset: Int?
 
+    /// Keyboard accessory actions. These are supplied by the editor screen and
+    /// attached to the text view as its input accessory view, which is the only
+    /// placement that reliably reaches a UIViewRepresentable — SwiftUI's
+    /// `.keyboard` toolbar placement does not apply to a hosted UIKit view.
+    var onIndent: () -> Void = {}
+    var onOutdent: () -> Void = {}
+
     func makeCoordinator() -> EditorCoordinator {
         EditorCoordinator(self)
     }
@@ -57,8 +64,51 @@ struct MarkdownTextView: UIViewRepresentable {
         textView.spellCheckingType = .default
 
         textView.text = text
+        textView.inputAccessoryView = makeAccessoryToolbar(coordinator: context.coordinator)
+        context.coordinator.textView = textView
 
         return textView
+    }
+
+    /// The bar above the on-screen keyboard: indent, outdent, and an explicit
+    /// Dismiss. Built with UIBarButtonItem so it belongs to the text view's own
+    /// input accessory, which means it appears for every input mode.
+    private func makeAccessoryToolbar(coordinator: EditorCoordinator) -> UIToolbar {
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+
+        let outdent = UIBarButtonItem(
+            image: UIImage(systemName: "decrease.indent"),
+            style: .plain,
+            target: coordinator,
+            action: #selector(EditorCoordinator.handleOutdent)
+        )
+        outdent.accessibilityLabel = "Outdent"
+
+        let indent = UIBarButtonItem(
+            image: UIImage(systemName: "increase.indent"),
+            style: .plain,
+            target: coordinator,
+            action: #selector(EditorCoordinator.handleIndent)
+        )
+        indent.accessibilityLabel = "Indent"
+
+        let flexible = UIBarButtonItem(
+            barButtonSystemItem: .flexibleSpace,
+            target: nil,
+            action: nil
+        )
+
+        let dismiss = UIBarButtonItem(
+            title: "Dismiss",
+            style: .done,
+            target: coordinator,
+            action: #selector(EditorCoordinator.handleDismissKeyboard)
+        )
+        dismiss.accessibilityLabel = "Dismiss keyboard"
+
+        toolbar.items = [outdent, indent, flexible, dismiss]
+        return toolbar
     }
 
     func updateUIView(_ textView: UITextView, context: Context) {

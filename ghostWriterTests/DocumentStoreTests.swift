@@ -1,0 +1,122 @@
+//
+//  DocumentStoreTests.swift
+//  ghostWriterTests
+//
+//  These exist because autosave shipped a bug that created a new file on every
+//  save instead of overwriting one. That is the kind of failure that quietly
+//  destroys someone's work, so the save path is pinned down here.
+//
+
+import Foundation
+import Testing
+@testable import ghostWriter
+
+@MainActor
+struct DocumentStoreTests {
+
+    /// Each test gets its own throwaway directory.
+    private func makeStore() -> DocumentStore {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ghostWriterTests-\(UUID().uuidString)", isDirectory: true)
+        return DocumentStore(directory: directory)
+    }
+
+    private func cleanUp(_ store: DocumentStore) {
+        try? FileManager.default.removeItem(at: store.directory)
+    }
+
+    @Test func repeatedSavesOverwriteOneFile() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = store.createDocument(named: "Note", contents: "first") else {
+            Issue.record("Could not create the document")
+            return
+        }
+
+        // Simulate autosave firing many times, as it would while typing.
+        for pass in 2...20 {
+            #expect(store.save(text: "pass \(pass)", to: url))
+        }
+
+        store.refresh()
+        #expect(store.documents.count == 1, "Autosave must never create extra files")
+        #expect(store.text(for: store.documents[0]) == "pass 20")
+    }
+
+    @Test func savingDoesNotRepublishTheDocumentList() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = store.createDocument(named: "Note", contents: "body") else {
+            Issue.record("Could not create the document")
+            return
+        }
+        store.refresh()
+        let before = store.documents
+
+        store.save(text: "changed", to: url)
+
+        // The published array must be untouched by a save. Republishing it on
+        // every keystroke is what caused the editor to lose its file handle and
+        // create duplicates.
+        #expect(store.documents == before)
+    }
+
+    @Test func createAvoidsNameCollisions() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        let first = store.createDocument(named: "Note", contents: "one")
+        let second = store.createDocument(named: "Note", contents: "two")
+
+        #expect(first != nil)
+        #expect(second != nil)
+        #expect(first != second, "A second document with the same name needs its own file")
+
+        store.refresh()
+        #expect(store.documents.count == 2)
+    }
+
+    @Test func renameMovesTheSameFile() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = store.createDocument(named: "Before", contents: "body") else {
+            Issue.record("Could not create the document")
+            return
+        }
+
+        let renamed = store.rename(at: url, to: "After")
+        #expect(renamed != nil)
+        #expect(renamed?.deletingPathExtension().lastPathComponent == "After")
+
+        store.refresh()
+        #expect(store.documents.count == 1, "Rename must move the file, not copy it")
+        #expect(store.text(for: store.documents[0]) == "body")
+    }
+
+    @Test func renameToSameNameIsANoOp() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = store.createDocument(named: "Note", contents: "body") else {
+            Issue.record("Could not create the document")
+            return
+        }
+
+        let result = store.rename(at: url, to: "Note")
+        #expect(result == url)
+
+        store.refresh()
+        #expect(store.documents.count == 1)
+    }
+
+    @Test func sanitizeStripsPathCharacters() {
+        // A title is derived from user text, so it must never be able to escape
+        // the folder or produce an unwritable path.
+        #expect(!DocumentStore.sanitize("../../etc/passwd").contains("/"))
+        #expect(DocumentStore.sanitize("   ") == "Untitled")
+        #expect(DocumentStore.sanitize("Perfectly Fine") == "Perfectly Fine")
+    }
+}
