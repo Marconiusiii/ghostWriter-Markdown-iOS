@@ -26,6 +26,10 @@ struct MarkdownTextView: UIViewRepresentable {
     /// Cleared once applied.
     @Binding var pendingCursorOffset: Int?
 
+    /// A new identifier requests the system Find and Replace navigator. An
+    /// identifier instead of a Boolean ensures one request is handled once.
+    @Binding var pendingFindRequest: UUID?
+
     /// Keyboard accessory actions. These are supplied by the editor screen and
     /// attached to the text view as its input accessory view, which is the only
     /// placement that reliably reaches a UIViewRepresentable — SwiftUI's
@@ -64,6 +68,7 @@ struct MarkdownTextView: UIViewRepresentable {
         textView.smartDashesType = .no
         textView.smartInsertDeleteType = .no
         textView.spellCheckingType = .default
+        textView.isFindInteractionEnabled = true
 
         // A bare text view is announced only as "text field". Naming it says
         // what you have landed in. This is a label on a native control, not a
@@ -136,6 +141,17 @@ struct MarkdownTextView: UIViewRepresentable {
         // only applied when the view does not have focus.
         if textView.text != text, !textView.isFirstResponder {
             textView.text = text
+        }
+
+        if let request = pendingFindRequest {
+            DispatchQueue.main.async {
+                guard self.pendingFindRequest == request else { return }
+                self.pendingFindRequest = nil
+                if !textView.isFirstResponder {
+                    textView.becomeFirstResponder()
+                }
+                textView.findInteraction?.presentFindNavigator(showingReplace: true)
+            }
         }
 
         if let offset = pendingCursorOffset {

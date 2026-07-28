@@ -203,6 +203,15 @@ struct LibraryView: View {
                             .stroke(Color.ghostBorder, lineWidth: 1)
                     )
                     .accessibilityLabel("Search")
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button("Dismiss") {
+                                searchFocused = false
+                            }
+                            .accessibilityLabel("Dismiss keyboard")
+                        }
+                    }
             }
 
             // Only present while there is something to clear.

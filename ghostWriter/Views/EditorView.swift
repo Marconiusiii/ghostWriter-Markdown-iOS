@@ -19,6 +19,7 @@ struct EditorView: View {
     @State private var text: String
     @State private var selection = TextSelection(location: 0, length: 0)
     @State private var pendingCursorOffset: Int?
+    @State private var pendingFindRequest: UUID?
 
     @State private var showingRendered = false
     @State private var showingOutline = false
@@ -28,6 +29,9 @@ struct EditorView: View {
 
     @State private var saveTask: Task<Void, Never>?
     @State private var hasUnsavedChanges = false
+    @State private var lastSavedText: String
+    @State private var suppressNextTextChange = false
+    @State private var externalConflict: ExternalConflict?
     @State private var statusMessage = ""
     /// The name the file was last saved under, so autosave does not rename on
     /// every keystroke as the first heading is typed.
@@ -44,6 +48,7 @@ struct EditorView: View {
     init(document: Document, initialText: String) {
         _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
+        _lastSavedText = State(initialValue: initialText)
         _savedName = State(initialValue: document.displayName)
         self.draftName = document.displayName
     }
@@ -56,6 +61,10 @@ struct EditorView: View {
         .background(Color.editorBackground)
         .navigationBarHidden(true)
         .onChange(of: text) { _, _ in
+            if suppressNextTextChange {
+                suppressNextTextChange = false
+                return
+            }
             hasUnsavedChanges = true
             scheduleAutosave()
         }
@@ -66,7 +75,11 @@ struct EditorView: View {
             if settings.renderSoundEnabled { RenderSound.shared.prepare() }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { saveNow(announce: false) }
+            if phase == .active {
+                checkForExternalChanges()
+            } else {
+                saveNow(announce: false)
+            }
         }
         .onDisappear {
             saveTask?.cancel()
@@ -97,6 +110,36 @@ struct EditorView: View {
         } message: {
             Text(store.lastError ?? "An unknown error occurred.")
         }
+        .alert(
+            externalConflict?.title ?? "Document Changed",
+            isPresented: externalConflictBinding,
+            presenting: externalConflict
+        ) { conflict in
+            switch conflict {
+            case .changed(let externalText):
+                Button("Save Mine as a Copy") {
+                    saveCurrentTextAsNewDocument(
+                        preferredName: "\(displayTitle) copy"
+                    )
+                }
+                Button("Reload External Version", role: .destructive) {
+                    reloadExternalVersion(externalText)
+                }
+                Button("Cancel", role: .cancel) { }
+            case .missing:
+                Button("Save as New Document") {
+                    saveCurrentTextAsNewDocument(
+                        preferredName: displayTitle
+                    )
+                }
+                Button("Close Without Saving", role: .destructive) {
+                    closeWithoutSaving()
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+        } message: { conflict in
+            Text(conflict.message)
+        }
     }
 
     // MARK: - Header
@@ -104,8 +147,7 @@ struct EditorView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             Button {
-                saveNow(announce: false)
-                dismiss()
+                closeEditor()
             } label: {
                 Label("Documents", systemImage: "chevron.left")
             }
@@ -172,6 +214,13 @@ struct EditorView: View {
                 Label("Markdown Reference", systemImage: "questionmark.circle")
             }
 
+            Button {
+                pendingFindRequest = UUID()
+            } label: {
+                Label("Find and Replace", systemImage: "magnifyingglass")
+            }
+            .keyboardShortcut("f", modifiers: .command)
+
             Divider()
 
             Button {
@@ -236,6 +285,7 @@ struct EditorView: View {
             smartListsEnabled: settings.smartListsEnabled,
             editorFontDesign: settings.editorFontDesign,
             pendingCursorOffset: $pendingCursorOffset,
+            pendingFindRequest: $pendingFindRequest,
             onIndent: { applyIndent(outdent: false) },
             onOutdent: { applyIndent(outdent: true) }
         )
@@ -325,12 +375,85 @@ struct EditorView: View {
         guard hasUnsavedChanges || shouldAnnounce else { return }
         guard let url = fileURL else { return }
 
-        if store.save(text: text, to: url) {
+        switch store.save(
+            text: text,
+            to: url,
+            ifUnchangedFrom: lastSavedText
+        ) {
+        case .saved:
+            lastSavedText = text
             hasUnsavedChanges = false
             if shouldAnnounce { announce("Saved.") }
-        } else if shouldAnnounce {
-            announce("Could not save.")
+        case .changedOnDisk(let externalText):
+            showExternalConflict(.changed(externalText))
+        case .missing:
+            showExternalConflict(.missing)
+        case .failed:
+            if shouldAnnounce { announce("Could not save.") }
         }
+    }
+
+    /// Checks as soon as the app returns from Files, rather than waiting for
+    /// the next keystroke and autosave attempt to reveal the conflict.
+    private func checkForExternalChanges() {
+        guard externalConflict == nil, let url = fileURL else { return }
+
+        switch store.diskState(for: url, expectedContents: lastSavedText) {
+        case .unchanged:
+            break
+        case .changed(let externalText):
+            showExternalConflict(.changed(externalText))
+        case .missing:
+            showExternalConflict(.missing)
+        case .unreadable:
+            break
+        }
+    }
+
+    private func showExternalConflict(_ conflict: ExternalConflict) {
+        saveTask?.cancel()
+        dismissKeyboard()
+        externalConflict = conflict
+    }
+
+    private func reloadExternalVersion(_ externalText: String) {
+        dismissKeyboard()
+        suppressNextTextChange = true
+        text = externalText
+        lastSavedText = externalText
+        hasUnsavedChanges = false
+        externalConflict = nil
+        announce("Reloaded the version from Files.")
+    }
+
+    private func saveCurrentTextAsNewDocument(preferredName: String) {
+        guard let newURL = store.createDocument(
+            named: preferredName,
+            contents: text
+        ) else { return }
+
+        fileURL = newURL
+        savedName = newURL.deletingPathExtension().lastPathComponent
+        lastSavedText = text
+        hasUnsavedChanges = false
+        externalConflict = nil
+        announce("Saved as \(savedName ?? preferredName).")
+    }
+
+    /// The custom Back button must not leave while an attempted guarded save
+    /// still has local work outstanding. That would make Cancel on a conflict
+    /// alert meaningless and discard the in-memory version when the view closes.
+    private func closeEditor() {
+        saveNow(announce: false)
+        guard !hasUnsavedChanges else { return }
+        dismiss()
+    }
+
+    private func closeWithoutSaving() {
+        saveTask?.cancel()
+        hasUnsavedChanges = false
+        externalConflict = nil
+        dismiss()
     }
 
     private func commitRename() {
@@ -338,6 +461,7 @@ struct EditorView: View {
         guard !trimmed.isEmpty else { return }
 
         saveNow(announce: false)
+        guard !hasUnsavedChanges else { return }
         guard let url = fileURL else { return }
 
         if let renamed = store.rename(at: url, to: trimmed) {
@@ -351,6 +475,7 @@ struct EditorView: View {
 
     private func duplicate() {
         saveNow(announce: false)
+        guard !hasUnsavedChanges else { return }
         guard let url = fileURL,
               let document = Document(fileURL: url) else { return }
         if store.duplicate(document) != nil { announce("Duplicated.") }
@@ -370,5 +495,35 @@ struct EditorView: View {
             get: { store.lastError != nil },
             set: { if !$0 { store.lastError = nil } }
         )
+    }
+
+    private var externalConflictBinding: Binding<Bool> {
+        Binding(
+            get: { externalConflict != nil },
+            set: { if !$0 { externalConflict = nil } }
+        )
+    }
+}
+
+private enum ExternalConflict {
+    case changed(String)
+    case missing
+
+    var title: String {
+        switch self {
+        case .changed:
+            return "Document Changed in Files"
+        case .missing:
+            return "Document Removed in Files"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .changed:
+            return "This document changed outside ghostWriter. Save your current work as a copy or reload the external version."
+        case .missing:
+            return "This document was removed outside ghostWriter. Save your current work as a new document or close without saving."
+        }
     }
 }

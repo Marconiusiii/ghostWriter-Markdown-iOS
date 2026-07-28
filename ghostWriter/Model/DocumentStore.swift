@@ -11,6 +11,20 @@
 import Foundation
 import Observation
 
+enum DocumentDiskState: Equatable {
+    case unchanged
+    case changed(String)
+    case missing
+    case unreadable
+}
+
+enum GuardedSaveResult: Equatable {
+    case saved
+    case changedOnDisk(String)
+    case missing
+    case failed
+}
+
 @Observable
 final class DocumentStore {
     private(set) var documents: [Document] = []
@@ -88,6 +102,43 @@ final class DocumentStore {
     }
 
     // MARK: - Writing
+
+    /// Compares the current file with the contents the editor last loaded or
+    /// successfully saved. Contents are used rather than timestamps because
+    /// filesystem timestamp precision differs between storage providers.
+    func diskState(for url: URL, expectedContents: String) -> DocumentDiskState {
+        guard fileManager.fileExists(atPath: url.path) else { return .missing }
+
+        do {
+            let currentContents = try String(contentsOf: url, encoding: .utf8)
+            return currentContents == expectedContents
+                ? .unchanged
+                : .changed(currentContents)
+        } catch {
+            lastError = "Could not check \(url.deletingPathExtension().lastPathComponent) for changes. \(error.localizedDescription)"
+            return .unreadable
+        }
+    }
+
+    /// Saves only if the file still contains the version the editor expects.
+    /// This prevents autosave from silently overwriting changes made in Files
+    /// or recreating a document that was deliberately deleted elsewhere.
+    func save(
+        text: String,
+        to url: URL,
+        ifUnchangedFrom expectedContents: String
+    ) -> GuardedSaveResult {
+        switch diskState(for: url, expectedContents: expectedContents) {
+        case .unchanged:
+            return save(text: text, to: url) ? .saved : .failed
+        case .changed(let externalContents):
+            return .changedOnDisk(externalContents)
+        case .missing:
+            return .missing
+        case .unreadable:
+            return .failed
+        }
+    }
 
     /// Writes text to a document. Uses an atomic write so a crash mid-save
     /// cannot leave a half-written file where the user's note used to be.

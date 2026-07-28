@@ -44,6 +44,100 @@ struct DocumentStoreTests {
         #expect(try store.text(for: store.documents[0]) == "pass 20")
     }
 
+    @Test func guardedSaveWritesWhenTheFileIsUnchanged() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = store.createDocument(named: "Note", contents: "first") else {
+            Issue.record("Could not create the document")
+            return
+        }
+
+        let result = store.save(
+            text: "second",
+            to: url,
+            ifUnchangedFrom: "first"
+        )
+
+        #expect(result == .saved)
+        #expect(try String(contentsOf: url, encoding: .utf8) == "second")
+    }
+
+    @Test func guardedSaveDoesNotOverwriteAnExternalChange() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = store.createDocument(named: "Note", contents: "original") else {
+            Issue.record("Could not create the document")
+            return
+        }
+        try "changed in Files".write(to: url, atomically: true, encoding: .utf8)
+
+        let result = store.save(
+            text: "changed in ghostWriter",
+            to: url,
+            ifUnchangedFrom: "original"
+        )
+
+        #expect(result == .changedOnDisk("changed in Files"))
+        #expect(try String(contentsOf: url, encoding: .utf8) == "changed in Files")
+    }
+
+    @Test func guardedSaveDoesNotRecreateAnExternallyDeletedFile() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = store.createDocument(named: "Note", contents: "original") else {
+            Issue.record("Could not create the document")
+            return
+        }
+        try FileManager.default.removeItem(at: url)
+
+        let result = store.save(
+            text: "changed in ghostWriter",
+            to: url,
+            ifUnchangedFrom: "original"
+        )
+
+        #expect(result == .missing)
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
+
+    @Test func conflictCopyPreservesBothVersions() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let originalURL = store.createDocument(
+            named: "Note",
+            contents: "original"
+        ) else {
+            Issue.record("Could not create the document")
+            return
+        }
+        try "external version".write(
+            to: originalURL,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = store.save(
+            text: "editor version",
+            to: originalURL,
+            ifUnchangedFrom: "original"
+        )
+        let copyURL = store.createDocument(
+            named: "Note copy",
+            contents: "editor version"
+        )
+
+        #expect(result == .changedOnDisk("external version"))
+        #expect(copyURL != nil)
+        #expect(try String(contentsOf: originalURL, encoding: .utf8) == "external version")
+        if let copyURL {
+            #expect(try String(contentsOf: copyURL, encoding: .utf8) == "editor version")
+        }
+    }
+
     @Test func savingDoesNotRepublishTheDocumentList() throws {
         let store = makeStore()
         defer { cleanUp(store) }
