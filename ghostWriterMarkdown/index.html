@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="ghostWriter is a lightweight Markdown editor for iPhone and iPad, designed for focused writing, effortless navigation, and accessible document creation.">
+    <meta name="theme-color" content="#23433a">
+
+    <title>ghostWriter — Markdown without losing your place</title>
+
+    <link rel="canonical" href="https://marconius.com/ghostWriterMarkdown/">
+    <link rel="icon" href="https://marconius.com/pastWork/favicon.ico" type="image/x-icon">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="ghostWriter — Markdown without losing your place">
+    <meta property="og:description" content="A lightweight, accessible Markdown editor made for focused writing and easy navigation.">
+    <meta property="og:url" content="https://marconius.com/ghostWriterMarkdown/">
+    <meta property="og:image" content="https://marconius.com/ghostWriterMarkdown/ghostWriter-icon.png">
+    <meta property="og:image:alt" content="The ghostWriter app icon, showing a friendly ghost holding a pencil.">
+
+    <style>
+        :root {
+            color-scheme: light dark;
+            --page: #f5f0e8;
+            --surface: #fffaf3;
+            --surface-strong: #ffffff;
+            --ink: #1f1b18;
+            --muted: #534a42;
+            --accent: #23433a;
+            --accent-soft: #dce9e2;
+            --border: #8b7f70;
+            --focus: #a83b12;
+            --shadow: 0 1.25rem 3.5rem rgb(42 35 30 / 12%);
+            --content-width: 72rem;
+            --reading-width: 46rem;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            min-width: 20rem;
+            margin: 0;
+            background:
+                radial-gradient(circle at 90% 4%, rgb(35 67 58 / 12%), transparent 28rem),
+                var(--page);
+            color: var(--ink);
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(1rem, 0.96rem + 0.22vw, 1.16rem);
+            line-height: 1.65;
+        }
+
+        img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration-thickness: 0.11em;
+            text-underline-offset: 0.2em;
+        }
+
+        a:hover {
+            text-decoration-thickness: 0.18em;
+        }
+
+        :focus-visible {
+            outline: 0.2rem solid var(--focus);
+            outline-offset: 0.25rem;
+            border-radius: 0.15rem;
+        }
+
+        .skip-link {
+            position: absolute;
+            z-index: 10;
+            top: 0.75rem;
+            left: 0.75rem;
+            padding: 0.65rem 0.9rem;
+            transform: translateY(-180%);
+            background: var(--surface-strong);
+            color: var(--ink);
+            border: 0.125rem solid var(--focus);
+            border-radius: 0.35rem;
+        }
+
+        .skip-link:focus {
+            transform: translateY(0);
+        }
+
+        .site-header,
+        main,
+        .site-footer {
+            width: min(calc(100% - 2rem), var(--content-width));
+            margin-inline: auto;
+        }
+
+        .site-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            padding-block: 1.15rem;
+            border-bottom: 0.0625rem solid var(--border);
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--ink);
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .brand img {
+            width: 2.75rem;
+            border-radius: 0.65rem;
+        }
+
+        nav ul,
+        .footer-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem 1.15rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        nav a {
+            display: inline-block;
+            padding-block: 0.35rem;
+        }
+
+        main {
+            padding-block: clamp(2.75rem, 7vw, 6.5rem);
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(17rem, 25rem);
+            align-items: center;
+            gap: clamp(2.5rem, 7vw, 6rem);
+            min-height: 38rem;
+        }
+
+        .availability {
+            margin: 1.25rem 0 0;
+            color: var(--muted);
+        }
+
+        h1,
+        h2,
+        h3 {
+            margin-block: 0 0.75rem;
+            line-height: 1.12;
+            text-wrap: balance;
+        }
+
+        h1 {
+            max-width: 11ch;
+            font-size: clamp(2.8rem, 8vw, 5.8rem);
+            letter-spacing: -0.045em;
+        }
+
+        h2 {
+            font-size: clamp(2rem, 5vw, 3.45rem);
+            letter-spacing: -0.025em;
+        }
+
+        h3 {
+            font-size: clamp(1.3rem, 2.3vw, 1.7rem);
+        }
+
+        p {
+            margin-block: 0 1rem;
+        }
+
+        .lede {
+            max-width: 38rem;
+            margin-top: 1.4rem;
+            color: var(--muted);
+            font-size: clamp(1.15rem, 2vw, 1.4rem);
+            line-height: 1.55;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-top: 1.8rem;
+        }
+
+        .action {
+            display: inline-flex;
+            min-height: 2.85rem;
+            align-items: center;
+            justify-content: center;
+            padding: 0.65rem 1.1rem;
+            border: 0.125rem solid var(--accent);
+            border-radius: 999rem;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .action.primary {
+            background: var(--accent);
+            color: #ffffff;
+        }
+
+        .action.secondary {
+            background: transparent;
+            color: var(--accent);
+        }
+
+        .device {
+            width: min(100%, 23rem);
+            margin-inline: auto;
+            padding: 0.55rem;
+            overflow: hidden;
+            background: #050505;
+            border: 0.1rem solid #55504c;
+            border-radius: 2.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .device img {
+            width: 100%;
+            border-radius: 2rem;
+        }
+
+        .content-block {
+            padding-block: clamp(4rem, 9vw, 8rem);
+        }
+
+        .intro {
+            max-width: var(--reading-width);
+            margin-bottom: 2.5rem;
+            color: var(--muted);
+            font-size: 1.15em;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .feature {
+            padding: clamp(1.3rem, 3vw, 2rem);
+            background: var(--surface);
+            border: 0.0625rem solid var(--border);
+            border-radius: 1rem;
+        }
+
+        .feature p {
+            margin-bottom: 0;
+            color: var(--muted);
+        }
+
+        .feature.signature {
+            grid-column: span 2;
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+        }
+
+        .feature.signature p {
+            max-width: 38rem;
+            color: #f0f5f2;
+        }
+
+        .showcase {
+            display: grid;
+            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+            align-items: center;
+            gap: clamp(2.5rem, 8vw, 7rem);
+        }
+
+        .showcase.reverse {
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        }
+
+        .showcase-copy {
+            max-width: 36rem;
+        }
+
+        .showcase-copy p {
+            color: var(--muted);
+        }
+
+        .image-pair {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .image-pair .device {
+            border-radius: 1.5rem;
+        }
+
+        .image-pair .device img {
+            border-radius: 1.15rem;
+        }
+
+        figure {
+            margin: 0;
+        }
+
+        figcaption {
+            margin-top: 0.75rem;
+            color: var(--muted);
+            font-size: 0.88rem;
+            text-align: center;
+        }
+
+        .statement {
+            padding: clamp(1.75rem, 5vw, 3.5rem);
+            background: var(--surface);
+            border: 0.0625rem solid var(--border);
+            border-radius: 1.25rem;
+            box-shadow: var(--shadow);
+        }
+
+        .statement h2 {
+            max-width: 18ch;
+        }
+
+        .statement p {
+            max-width: var(--reading-width);
+            color: var(--muted);
+        }
+
+        .privacy-note {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: clamp(2rem, 6vw, 5rem);
+            padding: clamp(2rem, 5vw, 4rem);
+            background: var(--accent-soft);
+            border-radius: 1.25rem;
+        }
+
+        .privacy-note p {
+            color: var(--muted);
+        }
+
+        .lore {
+            max-width: var(--reading-width);
+            margin-inline: auto;
+            text-align: center;
+        }
+
+        .lore-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.75rem 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .site-footer {
+            padding-block: 2rem 3rem;
+            border-top: 0.0625rem solid var(--border);
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .site-footer p {
+            margin-top: 1.25rem;
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 52rem) {
+            .hero,
+            .showcase,
+            .showcase.reverse,
+            .privacy-note {
+                grid-template-columns: 1fr;
+            }
+
+            .hero {
+                min-height: auto;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .feature.signature {
+                grid-column: span 2;
+            }
+
+            .showcase.reverse .showcase-copy {
+                order: -1;
+            }
+        }
+
+        @media (max-width: 36rem) {
+            .site-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .feature-grid,
+            .image-pair {
+                grid-template-columns: 1fr;
+            }
+
+            .feature.signature {
+                grid-column: auto;
+            }
+
+            h1 {
+                font-size: clamp(2.65rem, 16vw, 4rem);
+            }
+
+            .image-pair .device {
+                width: min(100%, 19rem);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto;
+            }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --page: #13100f;
+                --surface: #1c1816;
+                --surface-strong: #251f1c;
+                --ink: #f2ebe1;
+                --muted: #d1c4b8;
+                --accent: #b7d7c9;
+                --accent-soft: #25342f;
+                --border: #6f665d;
+                --focus: #f28d49;
+                --shadow: 0 1.25rem 3.5rem rgb(0 0 0 / 35%);
+            }
+
+            body {
+                background:
+                    radial-gradient(circle at 90% 4%, rgb(183 215 201 / 10%), transparent 28rem),
+                    var(--page);
+            }
+
+            .action.primary {
+                color: #13211d;
+            }
+
+            .feature.signature {
+                background: #294b42;
+                color: #ffffff;
+                border-color: #b7d7c9;
+            }
+
+            .feature.signature p {
+                color: #eef6f2;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <header class="site-header">
+        <a class="brand" href="https://marconius.com/ghostWriterMarkdown/">
+            <img src="ghostWriter-icon.png" alt="">
+            <span>ghostWriter</span>
+        </a>
+
+        <nav>
+            <ul>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#accessibility">Accessibility</a></li>
+                <li><a href="#privacy">Privacy</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main id="main-content">
+        <div class="hero">
+            <div>
+                <h1>Write in Markdown. Never lose your place.</h1>
+                <p class="lede">ghostWriter is a lightweight editor that keeps long documents approachable, turns Markdown into polished pages, and makes the tools you need easy to find.</p>
+                <p class="availability">The app has been submitted to the App Store for review.</p>
+                <div class="actions">
+                    <a class="action primary" href="https://marconius.com/fun/ghostWriter/">Try ghostWriter on the web</a>
+                    <a class="action secondary" href="https://github.com/Marconiusiii/ghostWriter/">View the project</a>
+                </div>
+            </div>
+
+            <figure>
+                <div class="device">
+                    <img src="editor.png" alt="ghostWriter editing an Apple Pie Markdown document, with Outline, Insert, and File Actions above the editor and document statistics below it." fetchpriority="high">
+                </div>
+                <figcaption>The ghostWriter editor</figcaption>
+            </figure>
+        </div>
+
+        <div class="content-block" id="features">
+            <h2>A clear path through every draft</h2>
+            <p class="intro">Whether you are jotting down a short note or shaping a long article, ghostWriter keeps the writing space simple while useful tools remain close at hand.</p>
+
+            <div class="feature-grid">
+                <div class="feature signature">
+                    <h3>Your document has a map</h3>
+                    <p>Outline gathers every heading into one useful list. Choose one and ghostWriter takes you straight to that point in the document, so a long draft never becomes a maze.</p>
+                </div>
+
+                <div class="feature">
+                    <h3>Know where you are</h3>
+                    <p>A customizable Status Bar can show the current line and column, line count, word count, character count, and other details you care about.</p>
+                </div>
+
+                <div class="feature">
+                    <h3>Markdown made handy</h3>
+                    <p>Insert Actions help with headings, links, web images, lists, quotations, code, and more. Use them with selected text or begin something new.</p>
+                </div>
+
+                <div class="feature">
+                    <h3>Files stay organized</h3>
+                    <p>Search, sort, pin, rename, duplicate, delete, and restore documents from a straightforward Library.</p>
+                </div>
+
+                <div class="feature">
+                    <h3>Share the finished result</h3>
+                    <p>Preview your Markdown as a polished page, then share the original Markdown, plain text, or a complete web page document.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-block showcase">
+            <div class="showcase-copy">
+                <h2>Write plainly. Render beautifully.</h2>
+                <p>Your Markdown stays comfortable to edit, while Render gives you a clean view of the finished document. Headings, lists, links, quotations, and other structure carry through to the result.</p>
+                <p>When it is ready to leave ghostWriter, share it in the format that fits the moment.</p>
+            </div>
+
+            <div class="image-pair">
+                <figure>
+                    <div class="device">
+                        <img src="editor.png" alt="The Apple Pie document written in Markdown in ghostWriter." loading="lazy">
+                    </div>
+                    <figcaption>Write</figcaption>
+                </figure>
+
+                <figure>
+                    <div class="device">
+                        <img src="render.png" alt="The same Apple Pie document rendered with headings, paragraphs, and a formatted ingredient list." loading="lazy">
+                    </div>
+                    <figcaption>Render</figcaption>
+                </figure>
+            </div>
+        </div>
+
+        <div class="content-block showcase reverse">
+            <figure>
+                <div class="device">
+                    <img src="settings.png" alt="ghostWriter settings for automatic lists, keyboard shortcuts, theme, editor font, Status Bar, and render sound." loading="lazy">
+                </div>
+                <figcaption>Settings that let the editor fit you</figcaption>
+            </figure>
+
+            <div class="showcase-copy">
+                <h2>Make the editor yours</h2>
+                <p>Choose the font and appearance you find most comfortable. Adjust the Status Bar, automatic lists, keyboard shortcuts, and sound without crowding the editor itself.</p>
+                <p>ghostWriter gives you useful choices, then gets out of the way.</p>
+            </div>
+        </div>
+
+        <div class="content-block" id="accessibility">
+            <div class="statement">
+                <h2>Designed to work well from the beginning</h2>
+                <p>Clear organization, meaningful control names, scalable text, strong contrast, keyboard support, predictable focus, and thoughtful VoiceOver behavior are part of ghostWriter’s design—not extras added after the fact.</p>
+                <p>The result is an editor that respects how different people read, navigate, and write while keeping the experience pleasantly uncomplicated.</p>
+            </div>
+        </div>
+
+        <div class="content-block" id="privacy">
+            <div class="privacy-note">
+                <div>
+                    <h2>Private by design</h2>
+                </div>
+                <div>
+                    <p>ghostWriter does not require an account and does not include advertising, analytics, or tracking. Your documents are stored with the app unless you choose to export or share them.</p>
+                    <p>If you add an image from the web, ghostWriter uses the address you provide when displaying that image. The details are available in the <a href="https://marconius.com/gwPrivacy/">Privacy Policy</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-block lore">
+            <h2>Why ghostWriter?</h2>
+            <p>The original ghostWriter began as a mischievous web experiment that quietly changed a few words whenever a document was rendered. It eventually grew into a real Markdown editor and teaching tool.</p>
+            <p>The iOS app leaves your words exactly where you put them—for now.</p>
+            <div class="lore-links">
+                <a href="https://marconius.com/fun/gw/">Visit the spooky original</a>
+                <a href="https://marconius.com/fun/ghostWriter/">Use ghostWriter on the web</a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <ul class="footer-links">
+            <li><a href="https://marconius.com/">marconius.com</a></li>
+            <li><a href="https://marconius.com/gwPrivacy/">Privacy Policy</a></li>
+            <li><a href="https://github.com/Marconiusiii/ghostWriter/">GitHub</a></li>
+            <li><a href="mailto:marco@marconius.com?subject=ghostWriter%20Markdown%20Feedback">Send Feedback</a></li>
+        </ul>
+        <p>&copy; 2026 Marco Salsiccia</p>
+    </footer>
+</body>
+</html>
