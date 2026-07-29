@@ -52,8 +52,8 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Creating and Opening Documents",
             paragraphs: [
-                "New Document creates a named markdown file and opens it for editing.",
-                "Import Document copies one or more UTF-8 markdown or plain-text files from Files into ghostWriter. Name conflicts receive a safe numbered name.",
+                "New creates a named markdown file and opens it for editing.",
+                "Import copies one or more UTF-8 markdown or plain-text files from Files into ghostWriter. Name conflicts receive a safe numbered name.",
                 "Choose any document in the library to open it."
             ]
         ),
@@ -107,7 +107,7 @@ private struct HelpTopic: Identifiable {
                 "Sort changes the field and direction used to arrange documents. Tap a document to open it, or use its Actions menu for rendering, sharing, renaming, duplicating, and deleting.",
                 "Swipe left on a document for Rename and Delete. Swipe right for Render and Share. Duplicate is available from the Actions menu.",
                 "Pin keeps an important document at the beginning of the Library. Pinned documents remain first with every sort option. Last Opened sorts documents by the most recent time they were opened in the editor.",
-                "Delete moves a document to Recently Deleted. Open Recently Deleted from the Library to restore a document or delete it permanently.",
+                "Delete moves a document to Deleted. Open Deleted from the Library to restore a document or delete it permanently.",
                 "Jump to Line in File Actions moves the cursor to the beginning of a numbered line. Line numbers begin at 1."
             ]
         ),
@@ -115,7 +115,7 @@ private struct HelpTopic: Identifiable {
             title: "Keyboard Shortcuts",
             paragraphs: [
                 "Keyboard Shortcuts can be turned on or off under Editing in Settings.",
-                "Use Command-N for New Document, Command-O for Import Document, and Command-comma for Settings.",
+                "Use Command-N for New, Command-O for Import, and Command-comma for Settings.",
                 "While editing, use Command-S for Save Now, Command-F for Find and Replace, Command-R for Render, Command-Shift-O for Outline, Command-Shift-I for Insert, Command-J for Jump to Line, and Command-W to close the editor.",
                 "Press Escape to dismiss the editor keyboard."
             ]

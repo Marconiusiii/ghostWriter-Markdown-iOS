@@ -44,6 +44,7 @@ struct LibraryView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var searchText = ""
     @State private var showingSettings = false
@@ -80,15 +81,13 @@ struct LibraryView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 0) {
+            List {
                 header
                 documentArea
-                // Holds the content at the top of the screen. Without this the
-                // stack sizes to its contents and centres itself vertically
-                // once the list is short or empty.
-                Spacer(minLength: 0)
+                list
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .background(Color.pageBackground)
             // The heading below is the screen's title, so the bar is hidden
             // rather than duplicating it above the content.
@@ -233,11 +232,12 @@ struct LibraryView: View {
             Button {
                 newDocument()
             } label: {
-                Label("New Document", systemImage: "square.and.pencil")
+                Label("New", systemImage: "square.and.pencil")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .accessibilityLabel("New document")
             .accessibilityFocused($focusedElement, equals: .newDocument)
             .keyboardShortcut(shortcut("n", modifiers: .command))
 
@@ -245,11 +245,12 @@ struct LibraryView: View {
                 focusRequestGate.invalidate()
                 showingImporter = true
             } label: {
-                Label("Import Document", systemImage: "square.and.arrow.down")
+                Label("Import", systemImage: "square.and.arrow.down")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .accessibilityLabel("Import document")
             .accessibilityHint("Copies markdown or plain-text files into ghostWriter")
             .accessibilityFocused($focusedElement, equals: .importDocument)
             .keyboardShortcut(shortcut("o", modifiers: .command))
@@ -259,7 +260,7 @@ struct LibraryView: View {
                 showingRecentlyDeleted = true
             } label: {
                 HStack {
-                    Label("Recently Deleted", systemImage: "trash")
+                    Label("Deleted", systemImage: "trash")
                     Spacer()
                     Text("\(store.recentlyDeletedDocuments.count)")
                 }
@@ -268,13 +269,15 @@ struct LibraryView: View {
             .buttonStyle(.bordered)
             .controlSize(.large)
             .accessibilityLabel(
-                "Recently Deleted, \(recentlyDeletedCountDescription)"
+                "Deleted, \(recentlyDeletedCountDescription)"
             )
             .accessibilityFocused($focusedElement, equals: .recentlyDeleted)
         }
-        .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 12)
+        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     /// Two clearly separated groups under their own headings, rather than two
@@ -314,7 +317,7 @@ struct LibraryView: View {
     /// labelled "Search". The visible label beside it is decoration.
     private var searchField: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+            searchControlLayout {
                 // Visible for sighted users only. It is hidden from VoiceOver
                 // because the field below already carries "Search" as its
                 // label — leaving it visible to assistive technology makes it
@@ -363,6 +366,13 @@ struct LibraryView: View {
         }
     }
 
+    private var searchControlLayout: AnyLayout {
+        if dynamicTypeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+        }
+        return AnyLayout(HStackLayout(spacing: 8))
+    }
+
     /// Clears the query, restores the full list, and puts focus back on the
     /// field — the Clear button itself is about to disappear, so leaving focus
     /// on it would strand VoiceOver on nothing.
@@ -409,10 +419,10 @@ struct LibraryView: View {
                 .font(.subheadline)
                 .foregroundStyle(Color.ghostMuted)
                 .accessibilityAddTraits(.updatesFrequently)
-
-            list
         }
-        .padding(.horizontal, 16)
+        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     @ViewBuilder
@@ -430,31 +440,12 @@ struct LibraryView: View {
         // No section header here: the count heading above this list is the
         // heading for it, and repeating it would be a second announcement of
         // the same thing.
-        List {
-            ForEach(visibleDocuments) { document in
-                HStack(spacing: 8) {
-                    Button {
-                        open(document)
-                    } label: {
-                        DocumentRow(
-                            document: document,
-                            isPinned: libraryMetadata.isPinned(document.url),
-                            onTogglePin: { togglePin(document) },
-                            onRender: { render(document) },
-                            onShare: { share(document) },
-                            onRename: { beginRename(document) },
-                            onDuplicate: { duplicate(document) },
-                            onDelete: { beginDelete(document) }
-                        )
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityFocused(
-                        $focusedElement,
-                        equals: .document(document.url)
-                    )
-
-                    DocumentActionsMenu(
+        ForEach(visibleDocuments) { document in
+            documentActionLayout {
+                Button {
+                    open(document)
+                } label: {
+                    DocumentRow(
                         document: document,
                         isPinned: libraryMetadata.isPinned(document.url),
                         onTogglePin: { togglePin(document) },
@@ -464,50 +455,74 @@ struct LibraryView: View {
                         onDuplicate: { duplicate(document) },
                         onDelete: { beginDelete(document) }
                     )
-                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                    // Swipe actions serve touch users. VoiceOver users get the
-                    // same capabilities through the row's custom actions, so
-                    // these are hidden from assistive technology rather than
-                    // being announced a second time.
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            beginDelete(document)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                        .accessibilityHidden(true)
+                .buttonStyle(.plain)
+                .accessibilityFocused(
+                    $focusedElement,
+                    equals: .document(document.url)
+                )
 
-                        Button {
-                            beginRename(document)
-                        } label: {
-                            Label("Rename", systemImage: "pencil")
-                        }
-                        .accessibilityHidden(true)
-                    }
-                    .swipeActions(edge: .leading) {
-                        Button {
-                            render(document)
-                        } label: {
-                            Label("Render", systemImage: "doc.richtext")
-                        }
-                        .accessibilityHidden(true)
-
-                        Button {
-                            share(document)
-                        } label: {
-                            Label("Share", systemImage: "square.and.arrow.up")
-                        }
-                        .accessibilityHidden(true)
-                    }
-                    // The surrounding stack supplies the horizontal padding, so
-                    // the list rows do not add their own on top of it.
-                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-                    .listRowBackground(Color.clear)
+                DocumentActionsMenu(
+                    document: document,
+                    isPinned: libraryMetadata.isPinned(document.url),
+                    onTogglePin: { togglePin(document) },
+                    onRender: { render(document) },
+                    onShare: { share(document) },
+                    onRename: { beginRename(document) },
+                    onDuplicate: { duplicate(document) },
+                    onDelete: { beginDelete(document) }
+                )
+                .buttonStyle(.bordered)
             }
+            // Swipe actions serve touch users. VoiceOver users get the
+            // same capabilities through the row's custom actions, so
+            // these are hidden from assistive technology rather than
+            // being announced a second time.
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button(role: .destructive) {
+                    beginDelete(document)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .accessibilityHidden(true)
+
+                Button {
+                    beginRename(document)
+                } label: {
+                    Label("Rename", systemImage: "pencil")
+                }
+                .accessibilityHidden(true)
+            }
+            .swipeActions(edge: .leading) {
+                Button {
+                    render(document)
+                } label: {
+                    Label("Render", systemImage: "doc.richtext")
+                }
+                .accessibilityHidden(true)
+
+                Button {
+                    share(document)
+                } label: {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+                .accessibilityHidden(true)
+            }
+            // The surrounding stack supplies the horizontal padding, so
+            // the list rows do not add their own on top of it.
+            .listRowInsets(
+                EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
+            )
+            .listRowBackground(Color.clear)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
+    }
+
+    private var documentActionLayout: AnyLayout {
+        if dynamicTypeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+        }
+        return AnyLayout(HStackLayout(spacing: 8))
     }
 
     // Neither empty state carries a heading. The Documents heading and the
@@ -516,7 +531,7 @@ struct LibraryView: View {
     // What remains is the one thing the count does not convey: what to do next.
 
     private var emptyLibrary: some View {
-        Text("Tap New Document to start writing in markdown.")
+        Text("Tap New to start writing in markdown.")
             .font(.body)
             .foregroundStyle(Color.ghostMuted)
             .frame(maxWidth: .infinity, alignment: .leading)

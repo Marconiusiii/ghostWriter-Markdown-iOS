@@ -13,6 +13,7 @@ struct RecentlyDeletedView: View {
     @Environment(DocumentStore.self) private var store
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var pendingPermanentDeletion: Document?
     @State private var showingEmptyConfirmation = false
@@ -114,7 +115,7 @@ struct RecentlyDeletedView: View {
     private var deletedList: some View {
         List {
             ForEach(deletedDocuments) { document in
-                HStack(spacing: 8) {
+                deletedDocumentLayout {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(document.displayName)
                             .font(.headline)
@@ -161,6 +162,13 @@ struct RecentlyDeletedView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    private var deletedDocumentLayout: AnyLayout {
+        if dynamicTypeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+        }
+        return AnyLayout(HStackLayout(spacing: 8))
     }
 
     private var deletedDocuments: [Document] {

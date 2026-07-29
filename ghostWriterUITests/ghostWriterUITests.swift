@@ -24,11 +24,39 @@ final class ghostWriterUITests: XCTestCase {
     }
 
     @MainActor
+    func testLibraryCommandsRemainAvailableAtLargestTextSize() throws {
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-UIPreferredContentSizeCategoryName",
+            "UICTContentSizeCategoryAccessibilityXXXL"
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["New document"].exists)
+        XCTAssertTrue(app.buttons["Import document"].exists)
+
+        let deleted = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Deleted,")
+        ).firstMatch
+        XCTAssertTrue(deleted.exists)
+
+        let search = app.textFields["Search"]
+        if !search.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(
+            search.waitForExistence(timeout: 5),
+            "The scrolling Library should keep Search reachable at the largest text size."
+        )
+    }
+
+    @MainActor
     func testJumpToLineReportsAnUnavailableLine() throws {
         let app = XCUIApplication()
         app.launch()
 
-        app.buttons["New Document"].tap()
+        app.buttons["New document"].tap()
 
         let nameField = app.textFields["Document name"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))

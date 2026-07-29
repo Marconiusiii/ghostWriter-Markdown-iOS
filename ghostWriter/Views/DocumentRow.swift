@@ -26,7 +26,7 @@ struct DocumentRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+            titleLayout {
                 Text(document.displayName)
                     .font(.headline)
                     .foregroundStyle(Color.ghostText)
@@ -91,6 +91,13 @@ struct DocumentRow: View {
             return AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
         }
         return AnyLayout(HStackLayout(spacing: 12))
+    }
+
+    private var titleLayout: AnyLayout {
+        if dynamicTypeSize.isAccessibilitySize {
+            return AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+        }
+        return AnyLayout(HStackLayout(spacing: 8))
     }
 }
 
