@@ -16,6 +16,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AccessibilityFocusState private var focusedElement: FocusTarget?
     @State private var showingHelp = false
+    @State private var showingWhyGhostWriter = false
     @State private var showingStatusBarSettings = false
     @State private var showingMailComposer = false
     @State private var showingMailUnavailable = false
@@ -27,6 +28,7 @@ struct SettingsView: View {
         case editorFont
         case customizeStatusBar
         case help
+        case whyGhostWriter
         case feedback
     }
 
@@ -102,6 +104,15 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Version", value: appVersion)
+                    Button("Why ghostWriter?") {
+                        focusRequestGate.invalidate()
+                        showingWhyGhostWriter = true
+                    }
+                    .accessibilityHint("Opens the lore of ghostWriter")
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .whyGhostWriter
+                    )
                     externalLink(
                         title: "ghostWriter on the web",
                         url: "https://marconius.com/fun/ghostWriter/"
@@ -141,6 +152,12 @@ struct SettingsView: View {
             restoreFocus(to: .help)
         }) {
             HelpView()
+        }
+        .sheet(isPresented: $showingWhyGhostWriter, onDismiss: {
+            restoreFocus(to: .whyGhostWriter)
+        }) {
+            WhyGhostWriterView()
+                .presentationDragIndicator(.hidden)
         }
         .sheet(isPresented: $showingStatusBarSettings, onDismiss: {
             restoreFocus(to: .customizeStatusBar)
