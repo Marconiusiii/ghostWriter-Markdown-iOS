@@ -94,11 +94,6 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Version", value: appVersion)
-                    Button("Help") {
-                        focusRequestGate.invalidate()
-                        showingHelp = true
-                    }
-                        .accessibilityFocused($focusedElement, equals: .help)
                     externalLink(
                         title: "ghostWriter on the web",
                         url: "https://marconius.com/fun/ghostWriter/"
@@ -122,8 +117,15 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Back") { dismiss() }
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Help") {
+                        focusRequestGate.invalidate()
+                        showingHelp = true
+                    }
+                    .accessibilityFocused($focusedElement, equals: .help)
                 }
             }
         }
@@ -242,8 +244,8 @@ private struct StatusBarSettingsView: View {
             .navigationTitle("Customize Status Bar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Back") { dismiss() }
                 }
             }
         }

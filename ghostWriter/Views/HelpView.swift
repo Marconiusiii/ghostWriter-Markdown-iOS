@@ -34,8 +34,8 @@ struct HelpView: View {
             .navigationTitle("Help")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Back") { dismiss() }
                 }
             }
         }
@@ -120,14 +120,6 @@ private struct HelpTopic: Identifiable {
                 "Bulleted List creates an unordered list. Numbered List creates an ordered sequence. Task List creates items with checked or unchecked states.",
                 "Block Quote identifies quoted material. Horizontal Rule adds a thematic break between sections.",
                 "Rendering a document that contains an external image may contact the server that hosts that image. ghostWriter does not control the availability or privacy practices of an outside server."
-            ]
-        ),
-        HelpTopic(
-            title: "Settings",
-            paragraphs: [
-                "Settings controls indentation, automatic lists, the editor font, the app appearance, the optional editor Status Bar, and the render sound.",
-                "Customize Status Bar chooses which position, document, heading, and selection details appear beneath the editor.",
-                "Every editor font choice continues to follow the device’s preferred text size."
             ]
         )
     ]
