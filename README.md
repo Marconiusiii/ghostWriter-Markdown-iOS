@@ -51,6 +51,7 @@ assistive technology users are especially welcome.
 - Continue bulleted, numbered, and task lists automatically
 - Indent and outdent using tabs, two spaces, or four spaces
 - Navigate long documents through a heading-based Outline
+- Jump directly to a numbered line from File Actions
 - Render Markdown as structured HTML inside the app
 - Share complete standalone HTML, Markdown, or plain-text files
 - Insert links, external images, formatting, headings, quotes, code, and lists

@@ -29,8 +29,8 @@ struct RenderedHTMLView: View {
                 .navigationTitle("Rendered")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { dismiss() }
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Back") { dismiss() }
                     }
                 }
         }

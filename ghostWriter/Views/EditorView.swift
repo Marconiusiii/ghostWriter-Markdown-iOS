@@ -26,11 +26,14 @@ struct EditorView: View {
     @State private var showingOutline = false
     @State private var showingReference = false
     @State private var showingRename = false
+    @State private var showingJumpToLine = false
     @State private var showingInsertActions = false
     @State private var insertionSelection = TextSelection(location: 0, length: 0)
     @State private var insertionInitialText = ""
     @State private var pendingInsertionResult: MarkdownInsertionResult?
     @State private var renameText = ""
+    @State private var jumpLineText = ""
+    @State private var jumpLineError: LineNavigationError?
 
     @State private var saveTask: Task<Void, Never>?
     @State private var hasUnsavedChanges = false
@@ -162,6 +165,36 @@ struct EditorView: View {
             }
         } message: {
             Text("Enter a new name for this document.")
+        }
+        .alert("Jump to Line", isPresented: $showingJumpToLine) {
+            TextField("Line number", text: $jumpLineText)
+                .keyboardType(.numberPad)
+            Button("Cancel", role: .cancel) {
+                restoreFocus(to: .fileActions)
+            }
+            Button("Jump") {
+                jumpToLine()
+            }
+        } message: {
+            Text(
+                "Enter a line number from 1 through \(LineNavigation.lineCount(in: text))."
+            )
+        }
+        .alert(
+            jumpLineError?.title ?? "Could Not Jump",
+            isPresented: jumpLineErrorBinding,
+            presenting: jumpLineError
+        ) { _ in
+            Button("Try Again") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    showingJumpToLine = true
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                restoreFocus(to: .fileActions)
+            }
+        } message: { error in
+            Text(error.message)
         }
         .alert("ghostWriter Error", isPresented: errorBinding) {
             Button("OK") {
@@ -316,6 +349,13 @@ struct EditorView: View {
                 Label("Find and Replace", systemImage: "magnifyingglass")
             }
             .keyboardShortcut("f", modifiers: .command)
+
+            Button {
+                jumpLineText = ""
+                present { showingJumpToLine = true }
+            } label: {
+                Label("Jump to Line…", systemImage: "arrow.down.to.line")
+            }
 
             Divider()
 
@@ -507,6 +547,19 @@ struct EditorView: View {
         pendingCursorOffset = result.selection.location
     }
 
+    private func jumpToLine() {
+        switch LineNavigation.destination(for: jumpLineText, in: text) {
+        case .success(let offset):
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                pendingCursorOffset = offset
+            }
+        case .failure(let error):
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                jumpLineError = error
+            }
+        }
+    }
+
     // MARK: - Saving
 
     private func persistEditingPosition() {
@@ -674,6 +727,13 @@ struct EditorView: View {
         Binding(
             get: { store.lastError != nil },
             set: { if !$0 { store.lastError = nil } }
+        )
+    }
+
+    private var jumpLineErrorBinding: Binding<Bool> {
+        Binding(
+            get: { jumpLineError != nil },
+            set: { if !$0 { jumpLineError = nil } }
         )
     }
 
