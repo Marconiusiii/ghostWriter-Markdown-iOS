@@ -46,6 +46,18 @@ struct EditorPositionStoreTests {
         #expect(store.position(for: url) == 0)
     }
 
+    @Test func permanentDeletionRemovesSavedPosition() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let store = EditorPositionStore(defaults: testDefaults.defaults)
+        let url = URL(fileURLWithPath: "/tmp/Deleted.md")
+
+        store.save(position: 88, for: url)
+        store.removePosition(for: url)
+
+        #expect(store.position(for: url) == nil)
+    }
+
     private func makeDefaults() -> (defaults: UserDefaults, suiteName: String) {
         let suiteName = "ghostWriterPositionTests-\(UUID().uuidString)"
         return (UserDefaults(suiteName: suiteName)!, suiteName)

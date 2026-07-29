@@ -33,6 +33,7 @@ struct DocumentImportResult: Equatable {
 @Observable
 final class DocumentStore {
     private(set) var documents: [Document] = []
+    private(set) var recentlyDeletedDocuments: [Document] = []
     /// Set when a filesystem operation fails so the UI can surface it rather
     /// than failing silently. Cleared once the user dismisses it.
     var lastError: String?
@@ -42,6 +43,7 @@ final class DocumentStore {
     /// The user-visible folder. Created on first access; creation failures are
     /// exposed through `lastError` rather than silently changing storage paths.
     let directory: URL
+    let recentlyDeletedDirectory: URL
 
     init(directory: URL? = nil) {
         if let directory {
@@ -50,13 +52,21 @@ final class DocumentStore {
             let documentsRoot = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             self.directory = documentsRoot.appendingPathComponent("ghostWriter", isDirectory: true)
         }
+        self.recentlyDeletedDirectory = self.directory
+            .appendingPathComponent("Recently Deleted", isDirectory: true)
         createDirectoryIfNeeded()
     }
 
     private func createDirectoryIfNeeded() {
-        guard !fileManager.fileExists(atPath: directory.path) else { return }
         do {
-            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+            try fileManager.createDirectory(
+                at: recentlyDeletedDirectory,
+                withIntermediateDirectories: true
+            )
         } catch {
             lastError = "Could not open the ghostWriter folder. \(error.localizedDescription)"
         }
@@ -70,26 +80,35 @@ final class DocumentStore {
     func refresh() {
         createDirectoryIfNeeded()
 
-        let keys: [URLResourceKey] = [
-            .creationDateKey,
-            .contentModificationDateKey,
-            .fileSizeKey,
-            .isRegularFileKey
-        ]
-
         do {
-            let urls = try fileManager.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: keys,
-                options: [.skipsHiddenFiles]
-            )
-            documents = urls.compactMap(Document.init(fileURL:))
+            documents = try documents(in: directory)
         } catch {
             // Keep the last successfully loaded library visible. Replacing it
             // with an empty array would falsely tell the user that their files
             // had disappeared.
             lastError = "Could not refresh the document library. \(error.localizedDescription)"
         }
+
+        do {
+            recentlyDeletedDocuments = try documents(in: recentlyDeletedDirectory)
+        } catch {
+            lastError = "Could not refresh Recently Deleted. \(error.localizedDescription)"
+        }
+    }
+
+    private func documents(in directory: URL) throws -> [Document] {
+        let keys: [URLResourceKey] = [
+            .creationDateKey,
+            .contentModificationDateKey,
+            .fileSizeKey,
+            .isRegularFileKey
+        ]
+        let urls = try fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: keys,
+            options: [.skipsHiddenFiles]
+        )
+        return urls.compactMap(Document.init(fileURL:))
     }
 
     /// Loads a document without turning a read or decoding failure into an empty
@@ -179,12 +198,50 @@ final class DocumentStore {
         }
     }
 
-    func delete(_ document: Document) {
+    @discardableResult
+    func moveToRecentlyDeleted(_ document: Document) -> URL? {
+        createDirectoryIfNeeded()
+        let destination = availableURL(
+            forFileName: document.fileName,
+            in: recentlyDeletedDirectory
+        )
+
+        do {
+            try fileManager.moveItem(at: document.url, to: destination)
+            refresh()
+            return destination
+        } catch {
+            lastError = "Could not delete \(document.displayName). \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    @discardableResult
+    func restore(_ document: Document) -> URL? {
+        let destination = availableURL(
+            forFileName: document.fileName,
+            in: directory
+        )
+
+        do {
+            try fileManager.moveItem(at: document.url, to: destination)
+            refresh()
+            return destination
+        } catch {
+            lastError = "Could not restore \(document.displayName). \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    @discardableResult
+    func deletePermanently(_ document: Document) -> Bool {
         do {
             try fileManager.removeItem(at: document.url)
             refresh()
+            return true
         } catch {
-            lastError = "Could not delete \(document.displayName). \(error.localizedDescription)"
+            lastError = "Could not permanently delete \(document.displayName). \(error.localizedDescription)"
+            return false
         }
     }
 
@@ -302,6 +359,30 @@ final class DocumentStore {
             candidate = directory
                 .appendingPathComponent("\(base) \(counter)")
                 .appendingPathExtension("md")
+            counter += 1
+        }
+
+        return candidate
+    }
+
+    /// Finds a free path while preserving an existing document's extension.
+    /// Moving to and from Recently Deleted must not silently turn `.txt` or
+    /// `.markdown` files into `.md` files.
+    private func availableURL(forFileName fileName: String, in directory: URL) -> URL {
+        let source = URL(fileURLWithPath: fileName)
+        let base = DocumentStore.sanitize(
+            source.deletingPathExtension().lastPathComponent
+        )
+        let pathExtension = source.pathExtension.isEmpty ? "md" : source.pathExtension
+        var candidate = directory
+            .appendingPathComponent(base)
+            .appendingPathExtension(pathExtension)
+        var counter = 2
+
+        while fileManager.fileExists(atPath: candidate.path) {
+            candidate = directory
+                .appendingPathComponent("\(base) \(counter)")
+                .appendingPathExtension(pathExtension)
             counter += 1
         }
 

@@ -45,11 +45,26 @@ struct DocumentRow: View {
         // the list row are deliberately NOT duplicated here — SwiftUI already
         // exposes those to VoiceOver, and declaring the same action in both
         // places is what made every action appear twice.
-        .accessibilityAction(named: "View rendered HTML", onRender)
-        .accessibilityAction(named: "Share", onShare)
-        .accessibilityAction(named: "Rename", onRename)
-        .accessibilityAction(named: "Duplicate", onDuplicate)
-        .accessibilityAction(named: "Delete", onDelete)
+        .accessibilityAction(
+            named: "Render \(document.displayName)",
+            onRender
+        )
+        .accessibilityAction(
+            named: "Share \(document.displayName)",
+            onShare
+        )
+        .accessibilityAction(
+            named: "Rename \(document.displayName)",
+            onRename
+        )
+        .accessibilityAction(
+            named: "Duplicate \(document.displayName)",
+            onDuplicate
+        )
+        .accessibilityAction(
+            named: "Delete \(document.displayName)",
+            onDelete
+        )
     }
 
     private var accessibilityLabel: String {
@@ -61,5 +76,61 @@ struct DocumentRow: View {
             return AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
         }
         return AnyLayout(HStackLayout(spacing: 12))
+    }
+}
+
+/// A visible, discoverable counterpart to swipe and custom accessibility
+/// actions. It remains in the accessibility hierarchy for Switch Control,
+/// Voice Control, keyboard navigation, and VoiceOver. Every accessible name
+/// starts with its visible label and ends with the document name.
+struct DocumentActionsMenu: View {
+    let document: Document
+    let onRender: () -> Void
+    let onShare: () -> Void
+    let onRename: () -> Void
+    let onDuplicate: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        Menu {
+            actionButton(
+                "Render",
+                systemImage: "doc.richtext",
+                action: onRender
+            )
+            actionButton(
+                "Share",
+                systemImage: "square.and.arrow.up",
+                action: onShare
+            )
+            actionButton(
+                "Rename",
+                systemImage: "pencil",
+                action: onRename
+            )
+            actionButton(
+                "Duplicate",
+                systemImage: "doc.on.doc",
+                action: onDuplicate
+            )
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete", systemImage: "trash")
+            }
+            .accessibilityLabel("Delete \(document.displayName)")
+        } label: {
+            Label("Actions", systemImage: "ellipsis.circle")
+        }
+        .accessibilityLabel("Actions for \(document.displayName)")
+    }
+
+    private func actionButton(
+        _ title: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+        }
+        .accessibilityLabel("\(title) \(document.displayName)")
     }
 }

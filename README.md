@@ -43,7 +43,8 @@ assistive technology users are especially welcome.
 
 ## Features
 
-- Create, open, rename, duplicate, import, share, and delete Markdown documents
+- Create, open, rename, duplicate, import, share, and recover Markdown documents
+- Restore deleted documents or remove them permanently through Recently Deleted
 - Store documents as ordinary files that are visible in the Files app
 - Automatically save changes while protecting against external file conflicts
 - Search document names and contents
@@ -118,6 +119,9 @@ xcodebuild -project ghostWriter.xcodeproj -scheme ghostWriter -showdestinations
 Documents are stored locally as Markdown files in the app's `ghostWriter`
 Documents folder. The folder is available through the Files app so writers can
 copy, move, back up, or manage their work outside ghostWriter.
+
+Deleted documents move into the `Recently Deleted` folder and remain there
+until restored or permanently deleted by the user.
 
 ghostWriter has no accounts, advertising, or analytics and does not collect
 user data. A rendered document can request an externally hosted image when its

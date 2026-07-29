@@ -46,6 +46,7 @@ struct LibraryView: View {
 
     @State private var searchText = ""
     @State private var showingSettings = false
+    @State private var showingRecentlyDeleted = false
     @State private var renderingSession: RenderedDocumentSession?
     @State private var renamingDocument: Document?
     @State private var pendingDeletion: Document?
@@ -69,6 +70,7 @@ struct LibraryView: View {
         case settings
         case newDocument
         case importDocument
+        case recentlyDeleted
         case sort
         case search
         case documentsHeading
@@ -140,6 +142,11 @@ struct LibraryView: View {
         }) {
             SettingsView()
         }
+        .sheet(isPresented: $showingRecentlyDeleted, onDismiss: {
+            restoreFocus(to: .recentlyDeleted)
+        }) {
+            RecentlyDeletedView()
+        }
         .sheet(isPresented: $showingNewDocument, onDismiss: {
             if shouldRestoreNewDocumentFocus {
                 restoreFocus(to: .newDocument)
@@ -180,11 +187,15 @@ struct LibraryView: View {
         }
         .alert("Delete Document?", isPresented: deleteBinding) {
             Button("Cancel", role: .cancel) { cancelDelete() }
-            Button("Delete", role: .destructive) {
+            Button("Move to Recently Deleted", role: .destructive) {
                 commitDelete()
             }
         } message: {
-            Text(pendingDeletion.map { "\($0.displayName) will be deleted. This cannot be undone." } ?? "")
+            Text(
+                pendingDeletion.map {
+                    "\($0.displayName) will move to Recently Deleted, where it can be restored or deleted permanently."
+                } ?? ""
+            )
         }
         .alert("ghostWriter Error", isPresented: errorBinding) {
             Button("OK") { dismissError() }
@@ -238,6 +249,24 @@ struct LibraryView: View {
             .controlSize(.large)
             .accessibilityHint("Copies markdown or plain-text files into ghostWriter")
             .accessibilityFocused($focusedElement, equals: .importDocument)
+
+            Button {
+                focusRequestGate.invalidate()
+                showingRecentlyDeleted = true
+            } label: {
+                HStack {
+                    Label("Recently Deleted", systemImage: "trash")
+                    Spacer()
+                    Text("\(store.recentlyDeletedDocuments.count)")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .accessibilityLabel(
+                "Recently Deleted, \(recentlyDeletedCountDescription)"
+            )
+            .accessibilityFocused($focusedElement, equals: .recentlyDeleted)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -399,6 +428,7 @@ struct LibraryView: View {
         // the same thing.
         List {
             ForEach(visibleDocuments) { document in
+                HStack(spacing: 8) {
                     Button {
                         open(document)
                     } label: {
@@ -410,12 +440,24 @@ struct LibraryView: View {
                             onDuplicate: { duplicate(document) },
                             onDelete: { beginDelete(document) }
                         )
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.plain)
                     .accessibilityFocused(
                         $focusedElement,
                         equals: .document(document.url)
                     )
+
+                    DocumentActionsMenu(
+                        document: document,
+                        onRender: { render(document) },
+                        onShare: { share(document) },
+                        onRename: { beginRename(document) },
+                        onDuplicate: { duplicate(document) },
+                        onDelete: { beginDelete(document) }
+                    )
+                    .buttonStyle(.bordered)
+                }
                     // Swipe actions serve touch users. VoiceOver users get the
                     // same capabilities through the row's custom actions, so
                     // these are hidden from assistive technology rather than
@@ -521,6 +563,11 @@ struct LibraryView: View {
         let count = visibleDocuments.count
         let noun = count == 1 ? "document" : "documents"
         return trimmedSearch.isEmpty ? "\(count) \(noun)" : "Showing \(count) \(noun)"
+    }
+
+    private var recentlyDeletedCountDescription: String {
+        let count = store.recentlyDeletedDocuments.count
+        return "\(count) \(count == 1 ? "item" : "items")"
     }
 
     // MARK: - Actions
@@ -642,7 +689,14 @@ struct LibraryView: View {
         }
 
         focusAfterError = nextURL.map(LibraryFocus.document) ?? .documentsHeading
-        store.delete(document)
+        guard let deletedURL = store.moveToRecentlyDeleted(document) else {
+            pendingDeletion = nil
+            return
+        }
+        EditorPositionStore.shared.migratePosition(
+            from: document.url,
+            to: deletedURL
+        )
         pendingDeletion = nil
 
         guard store.lastError == nil else { return }

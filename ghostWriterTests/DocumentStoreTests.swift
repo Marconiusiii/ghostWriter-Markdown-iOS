@@ -206,6 +206,113 @@ struct DocumentStoreTests {
         #expect(store.documents.count == 1)
     }
 
+    @Test func deleteMovesDocumentToRecentlyDeleted() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        _ = store.createDocument(named: "Recoverable", contents: "Keep this")
+        store.refresh()
+
+        guard let document = store.documents.first else {
+            Issue.record("Could not create the document")
+            return
+        }
+
+        let deletedURL = store.moveToRecentlyDeleted(document)
+
+        #expect(deletedURL != nil)
+        #expect(store.documents.isEmpty)
+        #expect(store.recentlyDeletedDocuments.count == 1)
+        #expect(
+            try store.text(for: store.recentlyDeletedDocuments[0])
+                == "Keep this"
+        )
+    }
+
+    @Test func restoreReturnsDocumentToLibrary() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        _ = store.createDocument(named: "Return", contents: "Restored text")
+        store.refresh()
+
+        guard let document = store.documents.first,
+              store.moveToRecentlyDeleted(document) != nil,
+              let deleted = store.recentlyDeletedDocuments.first else {
+            Issue.record("Could not move the document to Recently Deleted")
+            return
+        }
+
+        let restoredURL = store.restore(deleted)
+
+        #expect(restoredURL != nil)
+        #expect(store.recentlyDeletedDocuments.isEmpty)
+        #expect(store.documents.count == 1)
+        #expect(try store.text(for: store.documents[0]) == "Restored text")
+    }
+
+    @Test func restoreAvoidsNameCollisions() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        _ = store.createDocument(named: "Note", contents: "deleted version")
+        store.refresh()
+
+        guard let original = store.documents.first,
+              store.moveToRecentlyDeleted(original) != nil,
+              let deleted = store.recentlyDeletedDocuments.first else {
+            Issue.record("Could not prepare Recently Deleted")
+            return
+        }
+
+        _ = store.createDocument(named: "Note", contents: "current version")
+        store.refresh()
+        let restoredURL = store.restore(deleted)
+
+        #expect(
+            restoredURL?.deletingPathExtension().lastPathComponent == "Note 2"
+        )
+        #expect(store.documents.count == 2)
+    }
+
+    @Test func recentlyDeletedPreservesOriginalExtension() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        let textFile = store.directory.appendingPathComponent("Plain.txt")
+        try "plain text".write(
+            to: textFile,
+            atomically: true,
+            encoding: .utf8
+        )
+        store.refresh()
+
+        guard let document = store.documents.first,
+              store.moveToRecentlyDeleted(document) != nil,
+              let deleted = store.recentlyDeletedDocuments.first else {
+            Issue.record("Could not prepare the text document")
+            return
+        }
+
+        #expect(deleted.url.pathExtension == "txt")
+        let restoredURL = store.restore(deleted)
+        #expect(restoredURL?.pathExtension == "txt")
+    }
+
+    @Test func permanentDeletionRemovesTheFile() {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        _ = store.createDocument(named: "Disposable", contents: "body")
+        store.refresh()
+
+        guard let document = store.documents.first,
+              store.moveToRecentlyDeleted(document) != nil,
+              let deleted = store.recentlyDeletedDocuments.first else {
+            Issue.record("Could not prepare Recently Deleted")
+            return
+        }
+
+        #expect(store.deletePermanently(deleted))
+        #expect(store.recentlyDeletedDocuments.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: deleted.url.path))
+    }
+
     @Test func sanitizeStripsPathCharacters() {
         // A title is derived from user text, so it must never be able to escape
         // the folder or produce an unwritable path.

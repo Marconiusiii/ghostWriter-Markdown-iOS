@@ -45,6 +45,12 @@ final class EditorPositionStore {
         }
     }
 
+    func removePosition(for url: URL) {
+        var updated = positions
+        guard updated.removeValue(forKey: key(for: url)) != nil else { return }
+        defaults.set(updated, forKey: storageKey)
+    }
+
     private var positions: [String: Int] {
         defaults.dictionary(forKey: storageKey)?.reduce(into: [:]) { result, item in
             if let value = item.value as? NSNumber {
