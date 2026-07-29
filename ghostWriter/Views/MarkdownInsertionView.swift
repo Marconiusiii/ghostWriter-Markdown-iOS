@@ -96,9 +96,9 @@ struct MarkdownInsertionView: View {
     private var instructions: String {
         switch kind {
         case .link:
-            return "Enter the text readers will encounter and a complete address, including its scheme."
+            return "Enter the link text and full address, such as https://example.com."
         case .image:
-            return "Enter alternative text and the complete web address of the image. Leave alternative text empty only when the image is decorative."
+            return "Enter alternative text and the full image address, such as https://example.com/photo.jpg. Leave alternative text empty only when the image is decorative."
         }
     }
 

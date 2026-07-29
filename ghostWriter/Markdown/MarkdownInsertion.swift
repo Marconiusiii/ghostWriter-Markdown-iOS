@@ -14,7 +14,68 @@ struct MarkdownInsertionResult: Equatable {
     let selection: TextSelection
 }
 
+enum MarkdownInsertionCommand: Equatable {
+    case heading(level: Int)
+    case link(label: String, address: String)
+    case image(alternativeText: String, address: String)
+    case bold
+    case italic
+    case strikethrough
+    case inlineCode
+    case codeBlock
+    case bulletedList
+    case numberedList
+    case taskList
+    case blockQuote
+    case horizontalRule
+}
+
 enum MarkdownInsertion {
+    static func apply(
+        _ command: MarkdownInsertionCommand,
+        in text: String,
+        selection: TextSelection
+    ) -> MarkdownInsertionResult {
+        switch command {
+        case .heading(let level):
+            return heading(level: level, in: text, selection: selection)
+        case .link(let label, let address):
+            return link(
+                in: text,
+                selection: selection,
+                label: label,
+                address: address
+            )
+        case .image(let alternativeText, let address):
+            return image(
+                in: text,
+                selection: selection,
+                alternativeText: alternativeText,
+                address: address
+            )
+        case .bold:
+            return bold(in: text, selection: selection)
+        case .italic:
+            return italic(in: text, selection: selection)
+        case .strikethrough:
+            return strikethrough(in: text, selection: selection)
+        case .inlineCode:
+            return inlineCode(in: text, selection: selection)
+        case .codeBlock:
+            return codeBlock(in: text, selection: selection)
+        case .bulletedList:
+            return bulletedList(in: text, selection: selection)
+        case .numberedList:
+            return numberedList(in: text, selection: selection)
+        case .taskList:
+            return taskList(in: text, selection: selection)
+        case .blockQuote:
+            return blockQuote(in: text, selection: selection)
+        case .horizontalRule:
+            return horizontalRule(in: text, selection: selection)
+        }
+    }
+
     static func selectedText(in text: String, selection: TextSelection) -> String {
         let range = safeRange(in: text, selection: selection)
         return String(text[range])
@@ -58,6 +119,13 @@ enum MarkdownInsertion {
         selection: TextSelection
     ) -> MarkdownInsertionResult {
         wrapInline(in: text, selection: selection, opening: "*", closing: "*")
+    }
+
+    static func strikethrough(
+        in text: String,
+        selection: TextSelection
+    ) -> MarkdownInsertionResult {
+        wrapInline(in: text, selection: selection, opening: "~~", closing: "~~")
     }
 
     static func inlineCode(

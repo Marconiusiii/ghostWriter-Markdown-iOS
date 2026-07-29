@@ -139,4 +139,26 @@ struct MarkdownInsertionTests {
 
         #expect(result.text == "Before\n\n---\n\nAfter")
     }
+
+    @Test func commandsApplyTheChosenPrimitive() {
+        let heading = MarkdownInsertion.apply(
+            .heading(level: 2),
+            in: "Title",
+            selection: TextSelection(location: 0, length: 0)
+        )
+        let strike = MarkdownInsertion.apply(
+            .strikethrough,
+            in: "Remove this",
+            selection: TextSelection(location: 7, length: 4)
+        )
+        let link = MarkdownInsertion.apply(
+            .link(label: "Home", address: "https://example.com"),
+            in: "",
+            selection: TextSelection(location: 0, length: 0)
+        )
+
+        #expect(heading.text == "## Title")
+        #expect(strike.text == "Remove ~~this~~")
+        #expect(link.text == "[Home](https://example.com)")
+    }
 }

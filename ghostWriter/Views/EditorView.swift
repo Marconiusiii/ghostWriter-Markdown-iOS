@@ -26,7 +26,7 @@ struct EditorView: View {
     @State private var showingOutline = false
     @State private var showingReference = false
     @State private var showingRename = false
-    @State private var insertionKind: MarkdownInsertionKind?
+    @State private var showingInsertActions = false
     @State private var insertionSelection = TextSelection(location: 0, length: 0)
     @State private var insertionInitialText = ""
     @State private var pendingInsertionResult: MarkdownInsertionResult?
@@ -138,27 +138,13 @@ struct EditorView: View {
         }) {
             MarkdownReferenceView()
         }
-        .sheet(item: $insertionKind, onDismiss: finishInsertionPresentation) { kind in
-            MarkdownInsertionView(
-                kind: kind,
-                initialText: insertionInitialText
-            ) { descriptiveText, address in
-                switch kind {
-                case .link:
-                    pendingInsertionResult = MarkdownInsertion.link(
-                        in: text,
-                        selection: insertionSelection,
-                        label: descriptiveText,
-                        address: address
-                    )
-                case .image:
-                    pendingInsertionResult = MarkdownInsertion.image(
-                        in: text,
-                        selection: insertionSelection,
-                        alternativeText: descriptiveText,
-                        address: address
-                    )
-                }
+        .sheet(isPresented: $showingInsertActions, onDismiss: finishInsertionPresentation) {
+            InsertActionsView(initialLinkText: insertionInitialText) { command in
+                pendingInsertionResult = MarkdownInsertion.apply(
+                    command,
+                    in: text,
+                    selection: insertionSelection
+                )
             }
         }
         .alert("Rename Document", isPresented: $showingRename) {
@@ -255,7 +241,7 @@ struct EditorView: View {
             VStack(alignment: .leading, spacing: 12) {
                 renderButton
                 outlineButton
-                insertMenu
+                insertButton
                 fileActionsMenu
             }
         } else {
@@ -266,7 +252,7 @@ struct EditorView: View {
                     Spacer(minLength: 0)
                 }
                 HStack(spacing: 12) {
-                    insertMenu
+                    insertButton
                     fileActionsMenu
                     Spacer(minLength: 0)
                 }
@@ -295,73 +281,13 @@ struct EditorView: View {
         .accessibilityHint("Shows a list of document headings")
     }
 
-    private var insertMenu: some View {
-        Menu {
-            Section("Links and Media") {
-                Button {
-                    beginInsertion(.link)
-                } label: {
-                    Label("Link", systemImage: "link")
-                }
-
-                Button {
-                    beginInsertion(.image)
-                } label: {
-                    Label("Image from Web", systemImage: "photo")
-                }
-            }
-
-            Section("Inline Formatting") {
-                Button("Bold") {
-                    applyInsertion(MarkdownInsertion.bold(in: text, selection: selection))
-                }
-                Button("Italic") {
-                    applyInsertion(MarkdownInsertion.italic(in: text, selection: selection))
-                }
-                Button("Inline Code") {
-                    applyInsertion(MarkdownInsertion.inlineCode(in: text, selection: selection))
-                }
-            }
-
-            Section("Headings") {
-                ForEach(1...6, id: \.self) { level in
-                    Button("Heading Level \(level)") {
-                        applyInsertion(
-                            MarkdownInsertion.heading(
-                                level: level,
-                                in: text,
-                                selection: selection
-                            )
-                        )
-                    }
-                }
-            }
-
-            Section("Blocks and Lists") {
-                Button("Block Quote") {
-                    applyInsertion(MarkdownInsertion.blockQuote(in: text, selection: selection))
-                }
-                Button("Code Block") {
-                    applyInsertion(MarkdownInsertion.codeBlock(in: text, selection: selection))
-                }
-                Button("Bulleted List") {
-                    applyInsertion(MarkdownInsertion.bulletedList(in: text, selection: selection))
-                }
-                Button("Numbered List") {
-                    applyInsertion(MarkdownInsertion.numberedList(in: text, selection: selection))
-                }
-                Button("Task List") {
-                    applyInsertion(MarkdownInsertion.taskList(in: text, selection: selection))
-                }
-                Button("Horizontal Rule") {
-                    applyInsertion(MarkdownInsertion.horizontalRule(in: text, selection: selection))
-                }
-            }
+    private var insertButton: some View {
+        Button {
+            beginInsertion()
         } label: {
-            Label("Insert", systemImage: "plus")
+            Label("Insert…", systemImage: "plus")
         }
         .buttonStyle(.bordered)
-        .accessibilityLabel("Insert")
         .accessibilityFocused($focusedElement, equals: .insert)
     }
 
@@ -552,13 +478,14 @@ struct EditorView: View {
         UIAccessibility.post(notification: .announcement, argument: result.announcement)
     }
 
-    private func beginInsertion(_ kind: MarkdownInsertionKind) {
+    private func beginInsertion() {
         insertionSelection = selection
-        insertionInitialText = kind == .link
-            ? MarkdownInsertion.selectedText(in: text, selection: selection)
-            : ""
+        insertionInitialText = MarkdownInsertion.selectedText(
+            in: text,
+            selection: selection
+        )
         pendingInsertionResult = nil
-        present { insertionKind = kind }
+        present { showingInsertActions = true }
     }
 
     private func finishInsertionPresentation() {

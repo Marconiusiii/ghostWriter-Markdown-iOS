@@ -54,7 +54,7 @@ assistive technology users are especially welcome.
 - Render Markdown as structured HTML inside the app
 - Share complete standalone HTML, Markdown, or plain-text files
 - Insert links, external images, formatting, headings, quotes, code, and lists
-  from a dedicated editor menu
+  through a dedicated Insert Actions workflow
 - Customize the information presented in the editor Status Bar
 - Choose an editor typeface without losing Dynamic Type support
 
@@ -64,7 +64,7 @@ The renderer supports common Markdown structures, including:
 
 - ATX and Setext headings
 - Paragraphs and line breaks
-- Emphasis and strong emphasis
+- Emphasis, strong emphasis, and strikethrough
 - Inline and fenced code
 - Ordered, unordered, nested, and task lists
 - Block quotations

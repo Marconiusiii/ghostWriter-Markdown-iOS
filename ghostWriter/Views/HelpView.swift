@@ -52,24 +52,24 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Creating and Opening Documents",
             paragraphs: [
-                "Activate New Document in the library, enter a name, and activate Create. The document opens immediately in the Markdown Editor.",
-                "Activate Import Document to choose one or more UTF-8 markdown or plain-text files from Files. ghostWriter copies each imported file into its own folder and gives name collisions a safe numbered name.",
-                "Activate a document in the library to open it. Documents are ordinary markdown files and keep the name you gave them until you explicitly rename them."
+                "New Document creates a named markdown file and opens it for editing.",
+                "Import Document copies one or more UTF-8 markdown or plain-text files from Files into ghostWriter. Name conflicts receive a safe numbered name.",
+                "Choose any document in the library to open it."
             ]
         ),
         HelpTopic(
             title: "The Markdown Editor",
             paragraphs: [
-                "The editor is a standard multiline text field. VoiceOver, braille screen input, dictation, selection, spelling, and hardware keyboards use the system’s normal text-editing behavior.",
+                "The Markdown Editor is where you write and revise the document’s plain-text markdown.",
                 "Markdown punctuation is kept exactly as typed. Smart quotes and smart dashes are disabled so they cannot silently change links, code, or other syntax.",
-                "Open File Actions and choose Markdown Reference whenever you need examples of supported syntax."
+                "Markdown Reference in File Actions provides examples of supported syntax."
             ]
         ),
         HelpTopic(
             title: "Saving and the Files App",
             paragraphs: [
-                "ghostWriter saves changes automatically after you pause typing and when the app moves into the background. Save Now in File Actions lets you request an immediate save and hear confirmation.",
-                "Documents are stored as markdown files in the ghostWriter folder. You can reach that folder through the Files app."
+                "ghostWriter saves changes automatically after you pause typing and when the app moves into the background. Save Now requests an immediate save.",
+                "Documents are ordinary markdown files in the ghostWriter folder, available through the Files app."
             ]
         ),
         HelpTopic(
@@ -82,15 +82,15 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Navigating with Outline",
             paragraphs: [
-                "Outline lists every markdown heading in document order and identifies its heading level. It is designed for quickly navigating long documents without losing your place.",
-                "Activate a heading to close the Outline, return to the Markdown Editor, move the insertion point to that heading, scroll it into view, and place VoiceOver focus back in the editor at that location."
+                "Outline lists every markdown heading in document order and identifies its heading level.",
+                "Choose a heading to jump directly to that location in the document."
             ]
         ),
         HelpTopic(
             title: "Rendering Documents",
             paragraphs: [
-                "Activate Render to open a formatted HTML version of the current document. Headings, lists, links, tables, quotes, code, and tasks are represented with real HTML structure.",
-                "VoiceOver can navigate the rendered document with familiar web navigation, including the heading and link rotor. Activate Done to return to the editor."
+                "Render opens a formatted HTML version of the current document. Headings, lists, links, tables, quotes, code, and tasks retain their document structure.",
+                "Done closes the rendered document and returns to the editor."
             ]
         ),
         HelpTopic(
@@ -110,18 +110,24 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Inserting Markdown",
             paragraphs: [
-                "Activate Insert between Outline and File Actions to open the Markdown insertion menu. It provides links, images from the web, bold, italic, inline code, headings, block quotes, code blocks, bulleted lists, numbered lists, task lists, and horizontal rules.",
-                "The Link form uses selected text as its starting link text. Inline formatting wraps selected text, while headings and list actions operate on the current line or selected lines. After insertion, ghostWriter returns the insertion point and VoiceOver focus to the editor.",
-                "Rendered links open outside ghostWriter in the appropriate app. Images can use addresses from outside sources through standard markdown image syntax.",
+                "Insert adds new markdown at the current position or applies compatible formatting and structure to selected text.",
+                "Headings create sections using levels 1 through 6. Level 1 is the highest level, and the remaining levels describe subsections.",
+                "Link turns text into a destination that can be opened. If text is selected, it becomes the suggested link text.",
+                "A link address begins with a scheme, which is the part before the colon that tells iOS what kind of destination to open. Use https://example.com for a secure website, http://example.com for a website without encrypted transport, mailto:name@example.com for email, tel:+15551234567 for a telephone number, or sms:+15551234567 for a text message.",
+                "Image from Web inserts an externally hosted image. Provide the image address and alternative text, or leave the alternative text empty when the image is decorative. Image addresses must begin with http:// or https://.",
+                "Bold adds strong emphasis. Italic adds ordinary emphasis. Strikethrough marks text as removed or no longer applicable.",
+                "Inline Code marks a short piece of code or literal text within a paragraph. Code Block creates a separate preformatted block for multiple lines.",
+                "Bulleted List creates an unordered list. Numbered List creates an ordered sequence. Task List creates items with checked or unchecked states.",
+                "Block Quote identifies quoted material. Horizontal Rule adds a thematic break between sections.",
                 "Rendering a document that contains an external image may contact the server that hosts that image. ghostWriter does not control the availability or privacy practices of an outside server."
             ]
         ),
         HelpTopic(
-            title: "Settings and Accessibility",
+            title: "Settings",
             paragraphs: [
                 "Settings controls indentation, automatic lists, the editor font, the app appearance, the optional editor Status Bar, and the render sound.",
-                "When the Status Bar is enabled, it appears as one focus stop immediately after the editor. Customize Status Bar lets you choose current line and column, document counts, heading level, and selection counts. The status changes quietly and is spoken only when you navigate to it.",
-                "All editor font choices follow Dynamic Type, including accessibility text sizes. The interface uses native controls so VoiceOver, Voice Control, Switch Control, and hardware keyboard behavior remain consistent with the rest of iOS."
+                "Customize Status Bar chooses which position, document, heading, and selection details appear beneath the editor.",
+                "Every editor font choice continues to follow the device’s preferred text size."
             ]
         )
     ]
