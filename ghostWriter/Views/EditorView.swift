@@ -146,6 +146,7 @@ struct EditorView: View {
                     selection: insertionSelection
                 )
             }
+            .presentationDragIndicator(.hidden)
         }
         .alert("Rename Document", isPresented: $showingRename) {
             TextField("Name", text: $renameText)

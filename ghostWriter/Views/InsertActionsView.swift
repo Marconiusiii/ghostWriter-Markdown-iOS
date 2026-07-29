@@ -39,7 +39,7 @@ struct InsertActionsView: View {
         }
         .sheet(item: $presentedCategory, onDismiss: finishCategoryPresentation) { category in
             categoryView(category)
-                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.hidden)
         }
     }
 
