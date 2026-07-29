@@ -48,7 +48,8 @@ assistive technology users are especially welcome.
 - Store documents as ordinary files that are visible in the Files app
 - Automatically save changes while protecting against external file conflicts
 - Search document names and contents
-- Sort documents by name, creation date, or modification date
+- Pin important documents at the beginning of the Library
+- Sort documents by name, creation date, modification date, or last opened date
 - Continue bulleted, numbered, and task lists automatically
 - Indent and outdent using tabs, two spaces, or four spaces
 - Navigate long documents through a heading-based Outline
@@ -59,6 +60,7 @@ assistive technology users are especially welcome.
   through a dedicated Insert Actions workflow
 - Customize the information presented in the editor Status Bar
 - Choose an editor typeface without losing Dynamic Type support
+- Use optional hardware-keyboard shortcuts for common Library and editor actions
 
 ## Supported Markdown
 

@@ -15,6 +15,8 @@ import SwiftUI
 
 struct DocumentRow: View {
     let document: Document
+    let isPinned: Bool
+    let onTogglePin: () -> Void
     let onRender: () -> Void
     let onShare: () -> Void
     let onRename: () -> Void
@@ -24,9 +26,17 @@ struct DocumentRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(document.displayName)
-                .font(.headline)
-                .foregroundStyle(Color.ghostText)
+            HStack(spacing: 8) {
+                Text(document.displayName)
+                    .font(.headline)
+                    .foregroundStyle(Color.ghostText)
+
+                if isPinned {
+                    Label("Pinned", systemImage: "pin.fill")
+                        .font(.caption)
+                        .foregroundStyle(Color.ghostAccent)
+                }
+            }
 
             metadataLayout {
                 Label(DateFormatting.short(document.modified), systemImage: "pencil")
@@ -45,6 +55,10 @@ struct DocumentRow: View {
         // the list row are deliberately NOT duplicated here — SwiftUI already
         // exposes those to VoiceOver, and declaring the same action in both
         // places is what made every action appear twice.
+        .accessibilityAction(
+            named: "\(isPinned ? "Unpin" : "Pin") \(document.displayName)",
+            onTogglePin
+        )
         .accessibilityAction(
             named: "Render \(document.displayName)",
             onRender
@@ -68,7 +82,8 @@ struct DocumentRow: View {
     }
 
     private var accessibilityLabel: String {
-        "\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))"
+        let pinDescription = isPinned ? "Pinned, " : ""
+        return "\(pinDescription)\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))"
     }
 
     private var metadataLayout: AnyLayout {
@@ -85,6 +100,8 @@ struct DocumentRow: View {
 /// starts with its visible label and ends with the document name.
 struct DocumentActionsMenu: View {
     let document: Document
+    let isPinned: Bool
+    let onTogglePin: () -> Void
     let onRender: () -> Void
     let onShare: () -> Void
     let onRename: () -> Void
@@ -93,6 +110,14 @@ struct DocumentActionsMenu: View {
 
     var body: some View {
         Menu {
+            actionButton(
+                isPinned ? "Unpin" : "Pin",
+                systemImage: isPinned ? "pin.slash" : "pin",
+                action: onTogglePin
+            )
+
+            Divider()
+
             actionButton(
                 "Render",
                 systemImage: "doc.richtext",

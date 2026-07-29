@@ -46,6 +46,14 @@ struct SettingsView: View {
 
                     Toggle("Automatic Lists", isOn: $settings.smartListsEnabled)
                         .accessibilityHint("Continues bullets and numbering when you press return")
+
+                    Toggle(
+                        "Keyboard Shortcuts",
+                        isOn: $settings.keyboardShortcutsEnabled
+                    )
+                    .accessibilityHint(
+                        "Enables ghostWriter commands for a hardware keyboard"
+                    )
                 }
 
                 Section("Appearance") {

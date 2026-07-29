@@ -42,6 +42,7 @@ struct FocusRestorationRequestGate {
 struct LibraryView: View {
     @Environment(DocumentStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var searchText = ""
@@ -225,6 +226,7 @@ struct LibraryView: View {
             }
             .buttonStyle(.bordered)
             .accessibilityFocused($focusedElement, equals: .settings)
+            .keyboardShortcut(shortcut(",", modifiers: .command))
 
             // New Document is the primary action, so it comes straight after
             // Settings rather than being buried among the list filters.
@@ -237,6 +239,7 @@ struct LibraryView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .accessibilityFocused($focusedElement, equals: .newDocument)
+            .keyboardShortcut(shortcut("n", modifiers: .command))
 
             Button {
                 focusRequestGate.invalidate()
@@ -249,6 +252,7 @@ struct LibraryView: View {
             .controlSize(.large)
             .accessibilityHint("Copies markdown or plain-text files into ghostWriter")
             .accessibilityFocused($focusedElement, equals: .importDocument)
+            .keyboardShortcut(shortcut("o", modifiers: .command))
 
             Button {
                 focusRequestGate.invalidate()
@@ -434,6 +438,8 @@ struct LibraryView: View {
                     } label: {
                         DocumentRow(
                             document: document,
+                            isPinned: libraryMetadata.isPinned(document.url),
+                            onTogglePin: { togglePin(document) },
                             onRender: { render(document) },
                             onShare: { share(document) },
                             onRename: { beginRename(document) },
@@ -450,6 +456,8 @@ struct LibraryView: View {
 
                     DocumentActionsMenu(
                         document: document,
+                        isPinned: libraryMetadata.isPinned(document.url),
+                        onTogglePin: { togglePin(document) },
                         onRender: { render(document) },
                         onShare: { share(document) },
                         onRename: { beginRename(document) },
@@ -556,7 +564,7 @@ struct LibraryView: View {
             }
         }
 
-        return settings.sort.sorted(filtered)
+        return settings.sort.sorted(filtered, metadata: libraryMetadata)
     }
 
     private var countDescription: String {
@@ -577,6 +585,7 @@ struct LibraryView: View {
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
         focusAfterError = nil
+        libraryMetadata.recordOpened(document.url)
         focusAfterEditor = .document(document.url)
         openedDocument = DocumentSession(document: document, text: text)
     }
@@ -609,6 +618,7 @@ struct LibraryView: View {
         shouldRestoreNewDocumentFocus = false
         store.refresh()
         guard let document = Document(fileURL: url) else { return }
+        libraryMetadata.recordOpened(url)
         focusAfterEditor = .document(url)
         openedDocument = DocumentSession(document: document, text: "")
     }
@@ -625,6 +635,10 @@ struct LibraryView: View {
         let renamedURL = store.rename(at: document.url, to: newName)
         renamingDocument = nil
         if let renamedURL {
+            libraryMetadata.migrateMetadata(
+                from: document.url,
+                to: renamedURL
+            )
             focusAfterError = nil
             restoreFocus(to: .document(renamedURL))
         }
@@ -642,6 +656,11 @@ struct LibraryView: View {
             focusAfterError = nil
             restoreFocus(to: .document(copy.url))
         }
+    }
+
+    private func togglePin(_ document: Document) {
+        libraryMetadata.togglePin(for: document.url)
+        restoreFocus(to: .document(document.url))
     }
 
     private func share(_ document: Document) {
@@ -694,6 +713,10 @@ struct LibraryView: View {
             return
         }
         EditorPositionStore.shared.migratePosition(
+            from: document.url,
+            to: deletedURL
+        )
+        libraryMetadata.migrateMetadata(
             from: document.url,
             to: deletedURL
         )
@@ -769,6 +792,15 @@ struct LibraryView: View {
         ["md", "markdown", "mdown", "txt"].compactMap {
             UTType(filenameExtension: $0)
         }
+    }
+
+    private func shortcut(
+        _ key: KeyEquivalent,
+        modifiers: EventModifiers
+    ) -> KeyboardShortcut? {
+        settings.keyboardShortcutsEnabled
+            ? KeyboardShortcut(key, modifiers: modifiers)
+            : nil
     }
 
     private func handleImport(_ result: Result<[URL], Error>) {

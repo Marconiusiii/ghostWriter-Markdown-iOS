@@ -21,6 +21,7 @@ struct MarkdownTextView: UIViewRepresentable {
 
     var smartListsEnabled: Bool
     var editorFontDesign: EditorFontDesign
+    var keyboardShortcutsEnabled: Bool
 
     /// Set by the parent to move the cursor, for example from the outline.
     /// Cleared once applied.
@@ -41,9 +42,10 @@ struct MarkdownTextView: UIViewRepresentable {
         EditorCoordinator(self)
     }
 
-    func makeUIView(context: Context) -> UITextView {
-        let textView = UITextView()
+    func makeUIView(context: Context) -> MarkdownEditorTextView {
+        let textView = MarkdownEditorTextView()
         textView.delegate = context.coordinator
+        textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
 
         // Monospaced for alignment, but scaled by Dynamic Type so it grows with
         // the reader's setting.
@@ -124,8 +126,12 @@ struct MarkdownTextView: UIViewRepresentable {
         return toolbar
     }
 
-    func updateUIView(_ textView: UITextView, context: Context) {
+    func updateUIView(_ textView: MarkdownEditorTextView, context: Context) {
         context.coordinator.parent = self
+
+        if textView.appKeyboardShortcutsEnabled != keyboardShortcutsEnabled {
+            textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
+        }
 
         let desiredFont = Self.editorFont(
             design: editorFontDesign,
@@ -243,5 +249,28 @@ struct MarkdownTextView: UIViewRepresentable {
 
         let descriptor = preferred.withDesign(systemDesign) ?? preferred
         return UIFont(descriptor: descriptor, size: 0)
+    }
+}
+
+final class MarkdownEditorTextView: UITextView {
+    var appKeyboardShortcutsEnabled = true
+
+    override var keyCommands: [UIKeyCommand]? {
+        var commands = super.keyCommands ?? []
+        if appKeyboardShortcutsEnabled {
+            commands.append(
+                UIKeyCommand(
+                    title: "Dismiss Keyboard",
+                    action: #selector(dismissKeyboardCommand),
+                    input: UIKeyCommand.inputEscape,
+                    modifierFlags: []
+                )
+            )
+        }
+        return commands
+    }
+
+    @objc private func dismissKeyboardCommand() {
+        resignFirstResponder()
     }
 }

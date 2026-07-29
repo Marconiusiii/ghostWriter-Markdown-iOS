@@ -13,12 +13,14 @@ struct ghostWriterApp: App {
     // environment, so every screen reads the same state.
     @State private var store = DocumentStore()
     @State private var settings = AppSettings()
+    @State private var libraryMetadata = DocumentLibraryMetadataStore()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(store)
                 .environment(settings)
+                .environment(libraryMetadata)
                 // A theme override applies to the whole app; `nil` means follow
                 // the system, which is the default.
                 .preferredColorScheme(settings.appearance.colorScheme)

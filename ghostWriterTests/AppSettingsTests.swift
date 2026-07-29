@@ -74,6 +74,18 @@ struct AppSettingsTests {
         #expect(restored.statusShowsSelectedCharacterCount)
     }
 
+    @Test func keyboardShortcutsDefaultToEnabledAndPersist() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+
+        let settings = AppSettings(defaults: testDefaults.defaults)
+        #expect(settings.keyboardShortcutsEnabled)
+
+        settings.keyboardShortcutsEnabled = false
+        let restored = AppSettings(defaults: testDefaults.defaults)
+        #expect(!restored.keyboardShortcutsEnabled)
+    }
+
     private func makeDefaults() -> (defaults: UserDefaults, suiteName: String) {
         let suiteName = "ghostWriterTests-\(UUID().uuidString)"
         return (UserDefaults(suiteName: suiteName)!, suiteName)

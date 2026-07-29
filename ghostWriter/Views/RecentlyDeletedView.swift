@@ -11,6 +11,7 @@ import SwiftUI
 
 struct RecentlyDeletedView: View {
     @Environment(DocumentStore.self) private var store
+    @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(\.dismiss) private var dismiss
 
     @State private var pendingPermanentDeletion: Document?
@@ -184,6 +185,10 @@ struct RecentlyDeletedView: View {
             from: document.url,
             to: restoredURL
         )
+        libraryMetadata.migrateMetadata(
+            from: document.url,
+            to: restoredURL
+        )
         focusAfterError = nil
         restoreFocus(to: availableFocus(nextTarget))
     }
@@ -209,6 +214,7 @@ struct RecentlyDeletedView: View {
             return
         }
         EditorPositionStore.shared.removePosition(for: document.url)
+        libraryMetadata.removeMetadata(for: document.url)
         pendingPermanentDeletion = nil
         focusAfterError = nil
         restoreFocus(to: availableFocus(nextTarget))
@@ -222,6 +228,7 @@ struct RecentlyDeletedView: View {
         for document in documents {
             guard store.deletePermanently(document) else { return }
             EditorPositionStore.shared.removePosition(for: document.url)
+            libraryMetadata.removeMetadata(for: document.url)
         }
 
         focusAfterError = nil

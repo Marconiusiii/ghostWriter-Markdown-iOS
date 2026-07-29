@@ -145,6 +145,15 @@ final class AppSettings {
         didSet { defaults.set(smartListsEnabled, forKey: Keys.smartLists) }
     }
 
+    var keyboardShortcutsEnabled: Bool {
+        didSet {
+            defaults.set(
+                keyboardShortcutsEnabled,
+                forKey: Keys.keyboardShortcuts
+            )
+        }
+    }
+
     /// Announces the structure of the current line (heading level, list depth)
     /// as the editor's accessibility value.
     var announceLineStructure: Bool {
@@ -181,6 +190,8 @@ final class AppSettings {
         self.statusShowsSelectedCharacterCount = defaults.object(forKey: Keys.statusSelectedCharacterCount) as? Bool ?? false
         self.renderSoundEnabled = defaults.object(forKey: Keys.renderSound) as? Bool ?? true
         self.smartListsEnabled = defaults.object(forKey: Keys.smartLists) as? Bool ?? true
+        self.keyboardShortcutsEnabled =
+            defaults.object(forKey: Keys.keyboardShortcuts) as? Bool ?? true
         self.announceLineStructure = defaults.object(forKey: Keys.announceStructure) as? Bool ?? true
 
         let field = (defaults.string(forKey: Keys.sortField)
@@ -204,6 +215,7 @@ final class AppSettings {
         static let statusSelectedCharacterCount = "statusShowsSelectedCharacterCount"
         static let renderSound = "renderSoundEnabled"
         static let smartLists = "smartListsEnabled"
+        static let keyboardShortcuts = "keyboardShortcutsEnabled"
         static let announceStructure = "announceLineStructure"
         static let sortField = "sortField"
         static let sortDirection = "sortDirection"

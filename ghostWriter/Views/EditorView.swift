@@ -58,6 +58,7 @@ struct EditorView: View {
 
     @Environment(DocumentStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -247,6 +248,7 @@ struct EditorView: View {
             }
             .buttonStyle(.bordered)
             .accessibilityLabel("Back")
+            .keyboardShortcut(shortcut("w", modifiers: .command))
 
             Text(displayTitle)
                 .font(.title2.bold())
@@ -303,6 +305,7 @@ struct EditorView: View {
         .buttonStyle(.borderedProminent)
         .accessibilityHint("Shows this document as formatted HTML")
         .accessibilityFocused($focusedElement, equals: .render)
+        .keyboardShortcut(shortcut("r", modifiers: .command))
     }
 
     private var outlineButton: some View {
@@ -313,6 +316,9 @@ struct EditorView: View {
         }
         .buttonStyle(.bordered)
         .accessibilityHint("Shows a list of document headings")
+        .keyboardShortcut(
+            shortcut("o", modifiers: [.command, .shift])
+        )
     }
 
     private var insertButton: some View {
@@ -323,6 +329,9 @@ struct EditorView: View {
         }
         .buttonStyle(.bordered)
         .accessibilityFocused($focusedElement, equals: .insert)
+        .keyboardShortcut(
+            shortcut("i", modifiers: [.command, .shift])
+        )
     }
 
     private var fileActionsMenu: some View {
@@ -348,7 +357,7 @@ struct EditorView: View {
             } label: {
                 Label("Find and Replace", systemImage: "magnifyingglass")
             }
-            .keyboardShortcut("f", modifiers: .command)
+            .keyboardShortcut(shortcut("f", modifiers: .command))
 
             Button {
                 jumpLineText = ""
@@ -356,6 +365,7 @@ struct EditorView: View {
             } label: {
                 Label("Jump to Line…", systemImage: "arrow.down.to.line")
             }
+            .keyboardShortcut(shortcut("j", modifiers: .command))
 
             Divider()
 
@@ -364,6 +374,7 @@ struct EditorView: View {
             } label: {
                 Label("Save Now", systemImage: "arrow.down.doc")
             }
+            .keyboardShortcut(shortcut("s", modifiers: .command))
 
             Menu {
                 ShareLink(
@@ -411,6 +422,7 @@ struct EditorView: View {
             selection: $selection,
             smartListsEnabled: settings.smartListsEnabled,
             editorFontDesign: settings.editorFontDesign,
+            keyboardShortcutsEnabled: settings.keyboardShortcutsEnabled,
             pendingCursorOffset: $pendingCursorOffset,
             pendingFindRequest: $pendingFindRequest,
             onIndent: { applyIndent(outdent: false) },
@@ -646,6 +658,14 @@ struct EditorView: View {
 
         if let previousURL {
             EditorPositionStore.shared.migratePosition(from: previousURL, to: newURL)
+            if case .missing = externalConflict {
+                libraryMetadata.migrateMetadata(
+                    from: previousURL,
+                    to: newURL
+                )
+            } else {
+                libraryMetadata.recordOpened(newURL)
+            }
         }
         fileURL = newURL
         onDocumentURLChange(newURL)
@@ -682,6 +702,7 @@ struct EditorView: View {
 
         if let renamed = store.rename(at: url, to: trimmed) {
             EditorPositionStore.shared.migratePosition(from: url, to: renamed)
+            libraryMetadata.migrateMetadata(from: url, to: renamed)
             fileURL = renamed
             onDocumentURLChange(renamed)
             savedName = renamed.deletingPathExtension().lastPathComponent
@@ -706,6 +727,15 @@ struct EditorView: View {
             try? await Task.sleep(for: .seconds(4))
             if statusMessage == message { statusMessage = "" }
         }
+    }
+
+    private func shortcut(
+        _ key: KeyEquivalent,
+        modifiers: EventModifiers
+    ) -> KeyboardShortcut? {
+        settings.keyboardShortcutsEnabled
+            ? KeyboardShortcut(key, modifiers: modifiers)
+            : nil
     }
 
     private func restoreFocus(to target: EditorFocus) {

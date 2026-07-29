@@ -19,4 +19,5 @@ struct ContentView: View {
     ContentView()
         .environment(DocumentStore())
         .environment(AppSettings())
+        .environment(DocumentLibraryMetadataStore())
 }
