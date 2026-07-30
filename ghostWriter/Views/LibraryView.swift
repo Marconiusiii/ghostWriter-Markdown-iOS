@@ -213,7 +213,7 @@ struct LibraryView: View {
         }
         .alert("Delete Document?", isPresented: deleteBinding) {
             Button("Cancel", role: .cancel) { cancelDelete() }
-            Button("Move to Recently Deleted", role: .destructive) {
+            Button("Delete", role: .destructive) {
                 commitDelete()
             }
         } message: {
@@ -478,13 +478,7 @@ struct LibraryView: View {
                 } label: {
                     DocumentRow(
                         document: document,
-                        isPinned: libraryMetadata.isPinned(document.url),
-                        onTogglePin: { togglePin(document) },
-                        onRender: { render(document) },
-                        onShare: { share(document) },
-                        onRename: { beginRename(document) },
-                        onDuplicate: { duplicate(document) },
-                        onDelete: { beginDelete(document) }
+                        isPinned: libraryMetadata.isPinned(document.url)
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -493,6 +487,36 @@ struct LibraryView: View {
                     $focusedElement,
                     equals: .document(document.url)
                 )
+                .accessibilityAction(
+                    named: "\(libraryMetadata.isPinned(document.url) ? "Unpin" : "Pin") \(document.displayName)"
+                ) {
+                    togglePin(document)
+                }
+                .accessibilityAction(
+                    named: "Render \(document.displayName)"
+                ) {
+                    render(document)
+                }
+                .accessibilityAction(
+                    named: "Share \(document.displayName)"
+                ) {
+                    share(document)
+                }
+                .accessibilityAction(
+                    named: "Rename \(document.displayName)"
+                ) {
+                    beginRename(document)
+                }
+                .accessibilityAction(
+                    named: "Duplicate \(document.displayName)"
+                ) {
+                    duplicate(document)
+                }
+                .accessibilityAction(
+                    named: "Delete \(document.displayName)"
+                ) {
+                    beginDelete(document)
+                }
 
                 if case .failed = document.availability {
                     Button("Retry Download") {

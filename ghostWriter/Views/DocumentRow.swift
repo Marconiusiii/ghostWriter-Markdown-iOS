@@ -16,12 +16,6 @@ import SwiftUI
 struct DocumentRow: View {
     let document: Document
     let isPinned: Bool
-    let onTogglePin: () -> Void
-    let onRender: () -> Void
-    let onShare: () -> Void
-    let onRename: () -> Void
-    let onDuplicate: () -> Void
-    let onDelete: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -57,34 +51,6 @@ struct DocumentRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(accessibilityHint)
-        // The complete set of row actions, declared once. The swipe actions on
-        // the list row are deliberately NOT duplicated here — SwiftUI already
-        // exposes those to VoiceOver, and declaring the same action in both
-        // places is what made every action appear twice.
-        .accessibilityAction(
-            named: "\(isPinned ? "Unpin" : "Pin") \(document.displayName)",
-            onTogglePin
-        )
-        .accessibilityAction(
-            named: "Render \(document.displayName)",
-            onRender
-        )
-        .accessibilityAction(
-            named: "Share \(document.displayName)",
-            onShare
-        )
-        .accessibilityAction(
-            named: "Rename \(document.displayName)",
-            onRename
-        )
-        .accessibilityAction(
-            named: "Duplicate \(document.displayName)",
-            onDuplicate
-        )
-        .accessibilityAction(
-            named: "Delete \(document.displayName)",
-            onDelete
-        )
     }
 
     private var accessibilityLabel: String {
