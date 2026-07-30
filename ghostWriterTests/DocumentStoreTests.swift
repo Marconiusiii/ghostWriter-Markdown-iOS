@@ -192,6 +192,124 @@ struct DocumentStoreTests {
         #expect(store.documents.map(\.displayName) == ["Cloud"])
     }
 
+    @Test func remoteOnlyDocumentRemainsVisibleWithoutBeingRead() {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterRemoteTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let store = DocumentStore(directory: directory)
+        defer { cleanUp(store) }
+        let remoteURL = directory.appendingPathComponent("Remote.md")
+
+        store.applyICloudSnapshot([
+            ICloudDocumentSnapshot(
+                url: remoteURL,
+                created: Date(timeIntervalSince1970: 100),
+                modified: Date(timeIntervalSince1970: 200),
+                byteCount: 42,
+                availability: .waitingForICloud,
+                isRecentlyDeleted: false
+            )
+        ])
+
+        #expect(store.documents.count == 1)
+        #expect(store.documents[0].displayName == "Remote")
+        #expect(store.documents[0].availability == .waitingForICloud)
+        #expect(throws: Error.self) {
+            try store.text(for: store.documents[0], reportFailure: false)
+        }
+    }
+
+    @Test func requestingRemoteDocumentStartsDownload() {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterDownloadTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        var requestedURL: URL?
+        let store = DocumentStore(
+            directory: directory,
+            startDownloadingUbiquitousItem: { requestedURL = $0 }
+        )
+        defer { cleanUp(store) }
+        let remoteURL = directory.appendingPathComponent("Remote.md")
+        store.applyICloudSnapshot([
+            ICloudDocumentSnapshot(
+                url: remoteURL,
+                created: .distantPast,
+                modified: .distantPast,
+                byteCount: 0,
+                availability: .waitingForICloud,
+                isRecentlyDeleted: false
+            )
+        ])
+
+        #expect(store.requestDownload(for: store.documents[0]))
+        #expect(requestedURL == remoteURL)
+        #expect(
+            store.documents[0].availability == .downloading(percent: nil)
+        )
+    }
+
+    @Test func failedDownloadCanBeRequestedAgain() {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterRetryTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        var attempts = 0
+        let store = DocumentStore(
+            directory: directory,
+            startDownloadingUbiquitousItem: { _ in
+                attempts += 1
+                if attempts == 1 {
+                    throw CocoaError(.fileReadNoSuchFile)
+                }
+            }
+        )
+        defer { cleanUp(store) }
+        let remoteURL = directory.appendingPathComponent("Remote.md")
+        store.applyICloudSnapshot([
+            ICloudDocumentSnapshot(
+                url: remoteURL,
+                created: .distantPast,
+                modified: .distantPast,
+                byteCount: 0,
+                availability: .waitingForICloud,
+                isRecentlyDeleted: false
+            )
+        ])
+
+        #expect(!store.requestDownload(for: store.documents[0]))
+        #expect(
+            store.documents[0].availability.statusDescription
+                == "Download failed"
+        )
+        store.lastError = nil
+        #expect(store.requestDownload(for: store.documents[0]))
+        #expect(attempts == 2)
+    }
+
+    @Test func localDocumentDoesNotRequestICloudDownload() {
+        var requestCount = 0
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterLocalDownloadTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let store = DocumentStore(
+            directory: directory,
+            startDownloadingUbiquitousItem: { _ in requestCount += 1 }
+        )
+        defer { cleanUp(store) }
+        _ = store.createDocument(named: "Local", contents: "Body")
+        store.refresh()
+
+        #expect(store.requestDownload(for: store.documents[0]))
+        #expect(requestCount == 0)
+    }
+
     @Test func createAvoidsNameCollisions() throws {
         let store = makeStore()
         defer { cleanUp(store) }

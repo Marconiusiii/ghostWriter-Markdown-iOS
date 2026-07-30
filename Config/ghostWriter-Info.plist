@@ -4,7 +4,7 @@
 <dict>
 	<key>NSUbiquitousContainers</key>
 	<dict>
-		<key>iCloud.com.marconius.ghostwriter</key>
+		<key>iCloud.com.marconius.ghostwritermarkdown</key>
 		<dict>
 			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
 			<true/>

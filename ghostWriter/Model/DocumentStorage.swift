@@ -56,7 +56,7 @@ nonisolated enum DocumentStorageKey {
 @Observable
 final class DocumentStorage {
     nonisolated static let containerIdentifier =
-        "iCloud.com.marconius.ghostwriter"
+        "iCloud.com.marconius.ghostwritermarkdown"
 
     private(set) var selectedLocation: DocumentStorageChoice
     private(set) var iCloudAvailability: ICloudAvailability = .notChecked

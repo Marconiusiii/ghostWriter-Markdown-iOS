@@ -40,6 +40,8 @@ final class DocumentStore {
     var lastError: String?
 
     private let fileAccess: CoordinatedFileAccess
+    private let startDownloadingUbiquitousItem: (URL) throws -> Void
+    private var iCloudSnapshotsByURL: [URL: ICloudDocumentSnapshot] = [:]
 
     /// The user-visible folder. Created on first access; creation failures are
     /// exposed through `lastError` rather than silently changing storage paths.
@@ -49,10 +51,15 @@ final class DocumentStore {
     init(
         directory: URL? = nil,
         storageAvailable: Bool = true,
-        fileAccess: CoordinatedFileAccess = CoordinatedFileAccess()
+        fileAccess: CoordinatedFileAccess = CoordinatedFileAccess(),
+        startDownloadingUbiquitousItem: @escaping (URL) throws -> Void = {
+            try FileManager.default.startDownloadingUbiquitousItem(at: $0)
+        }
     ) {
         self.storageAvailable = storageAvailable
         self.fileAccess = fileAccess
+        self.startDownloadingUbiquitousItem =
+            startDownloadingUbiquitousItem
         let resolvedDirectory: URL
         if let directory {
             resolvedDirectory = directory
@@ -85,6 +92,19 @@ final class DocumentStore {
         storageAvailable = true
         createDirectoryIfNeeded()
         refresh()
+    }
+
+    func applyICloudSnapshot(_ snapshots: [ICloudDocumentSnapshot]) {
+        iCloudSnapshotsByURL = Dictionary(
+            uniqueKeysWithValues: snapshots.map {
+                ($0.url.standardizedFileURL, $0)
+            }
+        )
+        refresh()
+    }
+
+    func clearICloudSnapshot() {
+        iCloudSnapshotsByURL = [:]
     }
 
     private func createDirectoryIfNeeded() {
@@ -129,7 +149,8 @@ final class DocumentStore {
             .fileSizeKey,
             .isRegularFileKey
         ]
-        return try fileAccess.read(at: directory) { coordinatedDirectory in
+        let localDocuments = try fileAccess.read(at: directory) {
+            coordinatedDirectory in
             let urls = try FileManager.default.contentsOfDirectory(
                 at: coordinatedDirectory,
                 includingPropertiesForKeys: keys,
@@ -137,12 +158,53 @@ final class DocumentStore {
             )
             return urls.compactMap(Document.init(fileURL:))
         }
+
+        let isRecentlyDeleted = directory.standardizedFileURL
+            == recentlyDeletedDirectory.standardizedFileURL
+        let relevantSnapshots = iCloudSnapshotsByURL.values.filter {
+            $0.isRecentlyDeleted == isRecentlyDeleted
+        }
+
+        var documentsByURL = Dictionary(
+            uniqueKeysWithValues: localDocuments.map {
+                ($0.url.standardizedFileURL, $0)
+            }
+        )
+        for snapshot in relevantSnapshots {
+            let url = snapshot.url.standardizedFileURL
+            if let local = documentsByURL[url] {
+                documentsByURL[url] = Document(
+                    url: url,
+                    created: local.created,
+                    modified: local.modified,
+                    byteCount: local.byteCount,
+                    availability: snapshot.availability
+                )
+            } else {
+                documentsByURL[url] = Document(
+                    url: url,
+                    created: snapshot.created,
+                    modified: snapshot.modified,
+                    byteCount: snapshot.byteCount,
+                    availability: snapshot.availability
+                )
+            }
+        }
+        return Array(documentsByURL.values)
     }
 
     /// Loads a document without turning a read or decoding failure into an empty
     /// document. Callers must handle the error before opening an editable view,
     /// otherwise typing into that view could overwrite the unreadable original.
     func text(for document: Document, reportFailure: Bool = true) throws -> String {
+        guard document.availability.isAvailable else {
+            if reportFailure {
+                lastError =
+                    "\(document.displayName) is not yet available on this device."
+            }
+            throw CocoaError(.fileReadNoSuchFile)
+        }
+
         do {
             return try fileAccess.string(at: document.url)
         } catch {
@@ -150,6 +212,27 @@ final class DocumentStore {
                 lastError = "Could not open \(document.displayName). The original file was not changed. \(error.localizedDescription)"
             }
             throw error
+        }
+    }
+
+    @discardableResult
+    func requestDownload(for document: Document) -> Bool {
+        guard !document.availability.isAvailable else { return true }
+
+        updateAvailability(
+            at: document.url,
+            to: .downloading(percent: nil)
+        )
+
+        do {
+            try startDownloadingUbiquitousItem(document.url)
+            return true
+        } catch {
+            let message =
+                "Could not download \(document.displayName) from iCloud. \(error.localizedDescription)"
+            updateAvailability(at: document.url, to: .failed(message))
+            lastError = message
+            return false
         }
     }
 
@@ -373,6 +456,48 @@ final class DocumentStore {
     }
 
     // MARK: - Naming
+
+    private func updateAvailability(
+        at url: URL,
+        to availability: DocumentAvailability
+    ) {
+        let standardizedURL = url.standardizedFileURL
+        if let snapshot = iCloudSnapshotsByURL[standardizedURL] {
+            iCloudSnapshotsByURL[standardizedURL] = ICloudDocumentSnapshot(
+                url: snapshot.url,
+                created: snapshot.created,
+                modified: snapshot.modified,
+                byteCount: snapshot.byteCount,
+                availability: availability,
+                isRecentlyDeleted: snapshot.isRecentlyDeleted
+            )
+        }
+
+        documents = documents.map { document in
+            guard document.url.standardizedFileURL == standardizedURL else {
+                return document
+            }
+            return Document(
+                url: document.url,
+                created: document.created,
+                modified: document.modified,
+                byteCount: document.byteCount,
+                availability: availability
+            )
+        }
+        recentlyDeletedDocuments = recentlyDeletedDocuments.map { document in
+            guard document.url.standardizedFileURL == standardizedURL else {
+                return document
+            }
+            return Document(
+                url: document.url,
+                created: document.created,
+                modified: document.modified,
+                byteCount: document.byteCount,
+                availability: availability
+            )
+        }
+    }
 
     /// Strips characters that are illegal in a filename and collapses the rest,
     /// so a heading pasted into the title field cannot produce an unwritable

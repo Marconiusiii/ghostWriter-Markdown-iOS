@@ -47,6 +47,7 @@ struct LibraryView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    @State private var iCloudMonitor = ICloudDocumentMonitor()
     @State private var searchText = ""
     @State private var showingSettings = false
     @State private var showingRecentlyDeleted = false
@@ -66,6 +67,8 @@ struct LibraryView: View {
     @State private var focusRequestGate = FocusRestorationRequestGate()
     @State private var searchIndex = DocumentSearchIndex.empty
     @State private var searchAnnounceTask: Task<Void, Never>?
+    @State private var pendingDocumentActions:
+        [URL: PendingDocumentAction] = [:]
     @FocusState private var searchFocused: Bool
     @AccessibilityFocusState private var focusedElement: LibraryFocus?
 
@@ -78,6 +81,13 @@ struct LibraryView: View {
         case search
         case documentsHeading
         case document(URL)
+    }
+
+    private enum PendingDocumentAction {
+        case open
+        case render
+        case share
+        case duplicate
     }
 
     var body: some View {
@@ -119,8 +129,14 @@ struct LibraryView: View {
             }
         }
         .task(id: storage.selectedLocation) {
-            let directory = await storage.prepareCurrentLocation()
-            store.useDirectory(directory)
+            await configureSelectedStorage()
+        }
+        .onChange(of: iCloudMonitor.revision) { _, _ in
+            guard storage.selectedLocation == .iCloud else { return }
+            store.applyICloudSnapshot(iCloudMonitor.snapshots)
+        }
+        .onChange(of: store.documents) { _, _ in
+            completePendingDocumentActions()
         }
         .task(id: searchSources) {
             let sources = searchSources
@@ -141,8 +157,7 @@ struct LibraryView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 Task {
-                    let directory = await storage.prepareCurrentLocation()
-                    store.useDirectory(directory)
+                    await configureSelectedStorage()
                 }
             }
         }
@@ -477,6 +492,15 @@ struct LibraryView: View {
                     equals: .document(document.url)
                 )
 
+                if case .failed = document.availability {
+                    Button("Retry Download") {
+                        retryDownload(document)
+                    }
+                    .accessibilityLabel(
+                        "Retry Download \(document.displayName)"
+                    )
+                }
+
                 DocumentActionsMenu(
                     document: document,
                     isPinned: libraryMetadata.isPinned(document.url),
@@ -620,6 +644,10 @@ struct LibraryView: View {
     // MARK: - Actions
 
     private func open(_ document: Document) {
+        perform(.open, with: document)
+    }
+
+    private func openAvailable(_ document: Document) {
         focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
@@ -630,6 +658,10 @@ struct LibraryView: View {
     }
 
     private func render(_ document: Document) {
+        perform(.render, with: document)
+    }
+
+    private func renderAvailable(_ document: Document) {
         focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
@@ -690,6 +722,10 @@ struct LibraryView: View {
     }
 
     private func duplicate(_ document: Document) {
+        perform(.duplicate, with: document)
+    }
+
+    private func duplicateAvailable(_ document: Document) {
         focusAfterError = .document(document.url)
         if let copy = store.duplicate(document) {
             focusAfterError = nil
@@ -703,6 +739,10 @@ struct LibraryView: View {
     }
 
     private func share(_ document: Document) {
+        perform(.share, with: document)
+    }
+
+    private func shareAvailable(_ document: Document) {
         focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
@@ -871,6 +911,78 @@ struct LibraryView: View {
         store.lastError = nil
         restoreFocus(to: availableFocus(focusAfterError ?? .documentsHeading))
         focusAfterError = nil
+    }
+
+    private func configureSelectedStorage() async {
+        iCloudMonitor.stop()
+
+        let directory = await storage.prepareCurrentLocation()
+        guard storage.selectedLocation == .iCloud else {
+            pendingDocumentActions = [:]
+            store.clearICloudSnapshot()
+            store.useDirectory(directory)
+            return
+        }
+
+        store.useDirectory(directory)
+        if let directory {
+            iCloudMonitor.start(rootDirectory: directory)
+        }
+    }
+
+    private func perform(
+        _ action: PendingDocumentAction,
+        with document: Document
+    ) {
+        guard document.availability.isAvailable else {
+            pendingDocumentActions[
+                document.url.standardizedFileURL
+            ] = action
+            _ = store.requestDownload(for: document)
+            return
+        }
+        performAvailable(action, with: document)
+    }
+
+    private func retryDownload(_ document: Document) {
+        let url = document.url.standardizedFileURL
+        if pendingDocumentActions[url] == nil {
+            pendingDocumentActions[url] = .open
+        }
+        _ = store.requestDownload(for: document)
+    }
+
+    private func completePendingDocumentActions() {
+        let ready = pendingDocumentActions.compactMap {
+            url, action -> (URL, PendingDocumentAction, Document)? in
+            guard let document = store.documents.first(where: {
+                $0.url.standardizedFileURL == url
+            }), document.availability.isAvailable else {
+                return nil
+            }
+            return (url, action, document)
+        }
+
+        for (url, action, document) in ready {
+            pendingDocumentActions[url] = nil
+            performAvailable(action, with: document)
+        }
+    }
+
+    private func performAvailable(
+        _ action: PendingDocumentAction,
+        with document: Document
+    ) {
+        switch action {
+        case .open:
+            openAvailable(document)
+        case .render:
+            renderAvailable(document)
+        case .share:
+            shareAvailable(document)
+        case .duplicate:
+            duplicateAvailable(document)
+        }
     }
 
     private func restorePresentationFocus() {

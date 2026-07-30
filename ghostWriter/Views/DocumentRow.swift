@@ -45,12 +45,18 @@ struct DocumentRow: View {
             .font(.caption)
             .foregroundStyle(Color.ghostMuted)
             .labelStyle(.titleAndIcon)
+
+            if let status = document.availability.statusDescription {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(Color.ghostMuted)
+            }
         }
         .padding(.vertical, 4)
         // Collapse the row into one element with one coherent sentence.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("Opens in the editor")
+        .accessibilityHint(accessibilityHint)
         // The complete set of row actions, declared once. The swipe actions on
         // the list row are deliberately NOT duplicated here — SwiftUI already
         // exposes those to VoiceOver, and declaring the same action in both
@@ -83,7 +89,15 @@ struct DocumentRow: View {
 
     private var accessibilityLabel: String {
         let pinDescription = isPinned ? "Pinned, " : ""
-        return "\(pinDescription)\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))"
+        let statusDescription = document.availability.statusDescription
+            .map { ", \($0)" } ?? ""
+        return "\(pinDescription)\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))\(statusDescription)"
+    }
+
+    private var accessibilityHint: String {
+        document.availability.isAvailable
+            ? "Opens in the editor"
+            : "Downloads this document and opens it when ready"
     }
 
     private var metadataLayout: AnyLayout {

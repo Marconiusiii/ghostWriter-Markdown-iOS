@@ -9,6 +9,13 @@ import Testing
 
 @MainActor
 struct DocumentStorageTests {
+    @Test func usesGhostWriterMarkdownICloudContainer() {
+        #expect(
+            DocumentStorage.containerIdentifier
+                == "iCloud.com.marconius.ghostwritermarkdown"
+        )
+    }
+
     @Test func defaultsToOnDeviceStorage() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }
