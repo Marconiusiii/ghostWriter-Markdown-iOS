@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct RecentlyDeletedView: View {
     @Environment(DocumentStore.self) private var store
@@ -19,10 +20,11 @@ struct RecentlyDeletedView: View {
     @State private var showingEmptyConfirmation = false
     @State private var focusAfterError: FocusTarget?
     @State private var focusRequestGate = FocusRestorationRequestGate()
+    @State private var statusMessage = ""
     @AccessibilityFocusState private var focusedElement: FocusTarget?
 
     private enum FocusTarget: Hashable {
-        case countHeading
+        case count
         case document(URL)
     }
 
@@ -32,11 +34,17 @@ struct RecentlyDeletedView: View {
                 Text(countDescription)
                     .font(.title3.bold())
                     .foregroundStyle(Color.ghostAccent)
-                    .accessibilityAddTraits(.isHeader)
                     .accessibilityFocused(
                         $focusedElement,
-                        equals: .countHeading
+                        equals: .count
                     )
+
+                if !statusMessage.isEmpty {
+                    Text(statusMessage)
+                        .font(.footnote)
+                        .foregroundStyle(Color.ghostMuted)
+                        .accessibilityAddTraits(.updatesFrequently)
+                }
 
                 if deletedDocuments.isEmpty {
                     Text("Documents moved here can be restored until they are deleted permanently.")
@@ -77,14 +85,14 @@ struct RecentlyDeletedView: View {
             Button("Cancel", role: .cancel) {
                 cancelPermanentDeletion()
             }
-            Button("Delete Permanently", role: .destructive) {
+            Button(
+                pendingPermanentDeletion.map {
+                    "Delete \($0.displayName) Permanently"
+                } ?? "Delete Permanently",
+                role: .destructive
+            ) {
                 commitPermanentDeletion()
             }
-            .accessibilityLabel(
-                pendingPermanentDeletion.map {
-                    "Delete Permanently \($0.displayName)"
-                } ?? "Delete Permanently"
-            )
         } message: {
             Text(
                 pendingPermanentDeletion.map {
@@ -94,7 +102,7 @@ struct RecentlyDeletedView: View {
         }
         .alert("Empty Recently Deleted?", isPresented: $showingEmptyConfirmation) {
             Button("Cancel", role: .cancel) {
-                restoreFocus(to: .countHeading)
+                restoreFocus(to: .count)
             }
             Button("Empty", role: .destructive) {
                 emptyRecentlyDeleted()
@@ -135,7 +143,7 @@ struct RecentlyDeletedView: View {
                         restore(document)
                     }
                     .accessibilityAction(
-                        named: "Delete Permanently \(document.displayName)"
+                        named: "Delete \(document.displayName) Permanently"
                     ) {
                         beginPermanentDeletion(document)
                     }
@@ -197,6 +205,7 @@ struct RecentlyDeletedView: View {
             to: restoredURL
         )
         focusAfterError = nil
+        announceSuccess("\(document.displayName) restored")
         restoreFocus(to: availableFocus(nextTarget))
     }
 
@@ -224,13 +233,14 @@ struct RecentlyDeletedView: View {
         libraryMetadata.removeMetadata(for: document.url)
         pendingPermanentDeletion = nil
         focusAfterError = nil
+        announceSuccess("\(document.displayName) deleted permanently")
         restoreFocus(to: availableFocus(nextTarget))
     }
 
     private func emptyRecentlyDeleted() {
         focusRequestGate.invalidate()
         let documents = deletedDocuments
-        focusAfterError = .countHeading
+        focusAfterError = .count
 
         for document in documents {
             guard store.deletePermanently(document) else { return }
@@ -239,12 +249,12 @@ struct RecentlyDeletedView: View {
         }
 
         focusAfterError = nil
-        restoreFocus(to: .countHeading)
+        restoreFocus(to: .count)
     }
 
     private func focusAfterRemoving(_ document: Document) -> FocusTarget {
         guard let index = deletedDocuments.firstIndex(of: document) else {
-            return .countHeading
+            return .count
         }
         if index + 1 < deletedDocuments.count {
             return .document(deletedDocuments[index + 1].url)
@@ -252,13 +262,13 @@ struct RecentlyDeletedView: View {
         if index > 0 {
             return .document(deletedDocuments[index - 1].url)
         }
-        return .countHeading
+        return .count
     }
 
     private func availableFocus(_ target: FocusTarget) -> FocusTarget {
         if case .document(let url) = target,
            !deletedDocuments.contains(where: { $0.url == url }) {
-            return .countHeading
+            return .count
         }
         return target
     }
@@ -280,9 +290,21 @@ struct RecentlyDeletedView: View {
 
     private func dismissError() {
         store.lastError = nil
-        let target = availableFocus(focusAfterError ?? .countHeading)
+        let target = availableFocus(focusAfterError ?? .count)
         focusAfterError = nil
         restoreFocus(to: target)
+    }
+
+    private func announceSuccess(_ message: String) {
+        statusMessage = message
+        UIAccessibility.post(notification: .announcement, argument: message)
+
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            if statusMessage == message {
+                statusMessage = ""
+            }
+        }
     }
 
     private var permanentDeletionBinding: Binding<Bool> {
@@ -321,11 +343,11 @@ private struct RecentlyDeletedActionsMenu: View {
             .accessibilityLabel("Restore \(document.displayName)")
 
             Button(role: .destructive, action: onDeletePermanently) {
-                Label("Delete Permanently", systemImage: "trash.slash")
+                Label(
+                    "Delete \(document.displayName) Permanently",
+                    systemImage: "trash.slash"
+                )
             }
-            .accessibilityLabel(
-                "Delete Permanently \(document.displayName)"
-            )
         } label: {
             Label("Actions", systemImage: "ellipsis.circle")
         }
