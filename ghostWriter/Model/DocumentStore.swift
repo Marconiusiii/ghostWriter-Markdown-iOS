@@ -35,12 +35,14 @@ final class DocumentStore {
     private(set) var documents: [Document] = []
     private(set) var recentlyDeletedDocuments: [Document] = []
     private(set) var storageAvailable: Bool
+    private(set) var usesICloudStorage: Bool
     /// Set when a filesystem operation fails so the UI can surface it rather
     /// than failing silently. Cleared once the user dismisses it.
     var lastError: String?
 
     private let fileAccess: CoordinatedFileAccess
     private let downloadUbiquitousItem: (URL) async throws -> Void
+    private let placeUbiquitousItem: (Data, URL) async throws -> Void
     private var iCloudSnapshotsByURL: [URL: ICloudDocumentSnapshot] = [:]
     private var activeDownloadURLs: Set<URL> = []
     private var confirmedAvailableVersions: [URL: Date] = [:]
@@ -54,17 +56,27 @@ final class DocumentStore {
     init(
         directory: URL? = nil,
         storageAvailable: Bool = true,
+        usesICloudStorage: Bool = false,
         fileAccess: CoordinatedFileAccess = CoordinatedFileAccess(),
         startDownloadingUbiquitousItem:
             @escaping (URL) async throws -> Void = {
                 try await CoordinatedFileAccess
                     .downloadAndVerifyUbiquitousItem(at: $0)
+            },
+        placeUbiquitousItem:
+            @escaping (Data, URL) async throws -> Void = {
+                try await CoordinatedFileAccess.placeUbiquitousItem(
+                    data: $0,
+                    at: $1
+                )
         }
     ) {
         self.storageAvailable = storageAvailable
+        self.usesICloudStorage = usesICloudStorage
         self.fileAccess = fileAccess
         self.downloadUbiquitousItem =
             startDownloadingUbiquitousItem
+        self.placeUbiquitousItem = placeUbiquitousItem
         let resolvedDirectory: URL
         if let directory {
             resolvedDirectory = directory
@@ -83,7 +95,11 @@ final class DocumentStore {
         }
     }
 
-    func useDirectory(_ directory: URL?) {
+    func useDirectory(
+        _ directory: URL?,
+        usesICloudStorage: Bool = false
+    ) {
+        self.usesICloudStorage = usesICloudStorage
         guard let directory else {
             storageAvailable = false
             documents = []
@@ -366,6 +382,21 @@ final class DocumentStore {
     /// Creates a new file with the given contents, choosing a name that does not
     /// collide with an existing file. Returns the URL it settled on.
     func createDocument(named preferredName: String = "Untitled", contents: String = "") -> URL? {
+        guard !usesICloudStorage else {
+            lastError =
+                "Could not create a new document because iCloud placement was not started."
+            return nil
+        }
+        return createLocalDocument(
+            named: preferredName,
+            contents: contents
+        )
+    }
+
+    private func createLocalDocument(
+        named preferredName: String,
+        contents: String
+    ) -> URL? {
         guard storageAvailable else {
             lastError = "Could not create a document because the selected document storage is unavailable."
             return nil
@@ -378,6 +409,37 @@ final class DocumentStore {
             return url
         } catch {
             lastError = "Could not create a new document. \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    /// Creates a new local file directly, or stages a complete iCloud file
+    /// locally before registering it with the ubiquity container.
+    func createDocument(
+        named preferredName: String = "Untitled",
+        contents: String = ""
+    ) async -> URL? {
+        guard usesICloudStorage else {
+            return createLocalDocument(
+                named: preferredName,
+                contents: contents
+            )
+        }
+        guard storageAvailable else {
+            lastError =
+                "Could not create a document because the selected document storage is unavailable."
+            return nil
+        }
+
+        createDirectoryIfNeeded()
+        let url = availableURL(for: preferredName)
+        do {
+            try await placeUbiquitousItem(Data(contents.utf8), url)
+            refresh()
+            return url
+        } catch {
+            lastError =
+                "Could not create a new document in iCloud. \(error.localizedDescription)"
             return nil
         }
     }
@@ -462,6 +524,15 @@ final class DocumentStore {
     }
 
     func duplicate(_ document: Document) -> Document? {
+        guard !usesICloudStorage else {
+            lastError =
+                "Could not duplicate \(document.displayName) because iCloud placement was not started."
+            return nil
+        }
+        return duplicateLocally(document)
+    }
+
+    private func duplicateLocally(_ document: Document) -> Document? {
         let destination = availableURL(for: "\(document.displayName) copy")
         do {
             try fileAccess.copyItem(at: document.url, to: destination)
@@ -473,10 +544,42 @@ final class DocumentStore {
         }
     }
 
+    func duplicate(_ document: Document) async -> Document? {
+        guard usesICloudStorage else {
+            return duplicateLocally(document)
+        }
+
+        let destination = availableURL(for: "\(document.displayName) copy")
+        do {
+            let data = try fileAccess.data(at: document.url)
+            try await placeUbiquitousItem(data, destination)
+            refresh()
+            return documents.first { $0.url == destination }
+        } catch {
+            lastError =
+                "Could not duplicate \(document.displayName) in iCloud. \(error.localizedDescription)"
+            return nil
+        }
+    }
+
     /// Copies selected UTF-8 markdown or text files into the app's own folder.
     /// Reading and rewriting the text keeps imported files independent of their
     /// source and prevents an unreadable file from becoming an empty document.
     func importDocuments(from sourceURLs: [URL]) -> DocumentImportResult {
+        guard !usesICloudStorage else {
+            lastError =
+                "Could not import documents because iCloud placement was not started."
+            return DocumentImportResult(
+                imported: [],
+                failedFileNames: sourceURLs.map(\.lastPathComponent)
+            )
+        }
+        return importDocumentsLocally(from: sourceURLs)
+    }
+
+    private func importDocumentsLocally(
+        from sourceURLs: [URL]
+    ) -> DocumentImportResult {
         createDirectoryIfNeeded()
         var importedURLs: [URL] = []
         var failedNames: [String] = []
@@ -529,6 +632,67 @@ final class DocumentStore {
         )
     }
 
+    func importDocuments(
+        from sourceURLs: [URL]
+    ) async -> DocumentImportResult {
+        guard usesICloudStorage else {
+            return importDocumentsLocally(from: sourceURLs)
+        }
+
+        createDirectoryIfNeeded()
+        var importedURLs: [URL] = []
+        var failedNames: [String] = []
+
+        for sourceURL in sourceURLs {
+            let fileName = sourceURL.lastPathComponent
+            guard Document.isMarkdown(sourceURL) else {
+                failedNames.append(fileName)
+                continue
+            }
+
+            let hasScopedAccess =
+                sourceURL.startAccessingSecurityScopedResource()
+            defer {
+                if hasScopedAccess {
+                    sourceURL.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            do {
+                let data = try fileAccess.data(at: sourceURL)
+                guard String(data: data, encoding: .utf8) != nil else {
+                    failedNames.append(fileName)
+                    continue
+                }
+
+                let preferredName = sourceURL
+                    .deletingPathExtension()
+                    .lastPathComponent
+                let destination = availableURL(for: preferredName)
+                try await placeUbiquitousItem(data, destination)
+                importedURLs.append(destination)
+            } catch {
+                failedNames.append(fileName)
+            }
+        }
+
+        refresh()
+        let imported = importedURLs.compactMap { importedURL in
+            documents.first { $0.url == importedURL }
+        }
+
+        if !failedNames.isEmpty {
+            let names = failedNames.joined(separator: ", ")
+            lastError =
+                "Could not import \(names). Import markdown or plain-text files saved as UTF-8."
+        }
+
+        return DocumentImportResult(
+            imported: imported,
+            failedFileNames: failedNames
+        )
+    }
+
     // MARK: - Naming
 
     private func reconciledAvailability(
@@ -541,6 +705,14 @@ final class DocumentStore {
                 return .downloading(percent: percent)
             }
             return .downloading(percent: nil)
+        }
+
+        if availability.reportsUploadState {
+            confirmedAvailableVersions[url] = max(
+                confirmedAvailableVersions[url] ?? .distantPast,
+                modified
+            )
+            return availability
         }
 
         if let confirmed = confirmedAvailableVersions[url] {

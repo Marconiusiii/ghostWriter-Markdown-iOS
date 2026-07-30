@@ -67,7 +67,10 @@ nonisolated extension Document {
             .isUbiquitousItemKey,
             .ubiquitousItemDownloadingStatusKey,
             .ubiquitousItemIsDownloadingKey,
-            .ubiquitousItemDownloadingErrorKey
+            .ubiquitousItemDownloadingErrorKey,
+            .ubiquitousItemIsUploadedKey,
+            .ubiquitousItemIsUploadingKey,
+            .ubiquitousItemUploadingErrorKey
         ]
 
         guard let values = try? fileURL.resourceValues(forKeys: keys),
@@ -82,6 +85,10 @@ nonisolated extension Document {
                 isDownloading: values.ubiquitousItemIsDownloading ?? false,
                 percentDownloaded: nil,
                 errorDescription: values.ubiquitousItemDownloadingError?
+                    .localizedDescription,
+                isUploaded: values.ubiquitousItemIsUploaded,
+                isUploading: values.ubiquitousItemIsUploading ?? false,
+                uploadErrorDescription: values.ubiquitousItemUploadingError?
                     .localizedDescription
             )
         } else {

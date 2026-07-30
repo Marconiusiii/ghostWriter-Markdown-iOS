@@ -36,16 +36,26 @@ nonisolated enum DocumentMigrationError: LocalizedError {
 nonisolated final class DocumentMigration {
     private let fileAccess: CoordinatedFileAccess
     private let fileManager: FileManager
+    private let placeUbiquitousItem: (Data, URL) throws -> Void
 
     init(
         fileAccess: CoordinatedFileAccess = CoordinatedFileAccess(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        placeUbiquitousItem:
+            ((Data, URL) throws -> Void)? = nil
     ) {
         self.fileAccess = fileAccess
         self.fileManager = fileManager
+        self.placeUbiquitousItem = placeUbiquitousItem ?? {
+            try fileAccess.placeUbiquitousItem(data: $0, at: $1)
+        }
     }
 
-    func migrate(from sourceDirectory: URL, to destinationDirectory: URL) throws
+    func migrate(
+        from sourceDirectory: URL,
+        to destinationDirectory: URL,
+        destinationUsesICloud: Bool = false
+    ) throws
         -> DocumentMigrationResult {
         guard sourceDirectory.standardizedFileURL
             != destinationDirectory.standardizedFileURL else {
@@ -71,13 +81,21 @@ nonisolated final class DocumentMigration {
                 try fileAccess.createDirectory(
                     at: destinationURL.deletingLastPathComponent()
                 )
-                try fileAccess.copyItem(
-                    at: sourceURL,
-                    to: destinationURL
-                )
+                let sourceData = try fileAccess.data(at: sourceURL)
+                if destinationUsesICloud {
+                    try placeUbiquitousItem(
+                        sourceData,
+                        destinationURL
+                    )
+                } else {
+                    try fileAccess.copyItem(
+                        at: sourceURL,
+                        to: destinationURL
+                    )
+                }
 
-                guard try fileAccess.data(at: sourceURL)
-                    == fileAccess.data(at: destinationURL) else {
+                guard sourceData
+                    == (try fileAccess.data(at: destinationURL)) else {
                     throw DocumentMigrationError.couldNotVerify(
                         sourceURL.lastPathComponent
                     )

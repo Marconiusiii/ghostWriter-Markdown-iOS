@@ -308,7 +308,7 @@ struct DocumentStoreTests {
             startDownloadingUbiquitousItem: { _ in requestCount += 1 }
         )
         defer { cleanUp(store) }
-        _ = store.createDocument(named: "Local", contents: "Body")
+        _ = await store.createDocument(named: "Local", contents: "Body")
         store.refresh()
 
         #expect(await store.requestDownload(for: store.documents[0]))
@@ -408,6 +408,96 @@ struct DocumentStoreTests {
 
         store.refresh()
         #expect(store.documents.count == 2)
+    }
+
+    @Test func iCloudCreationPlacesACompleteStagedDocument() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterCloudCreate-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        var placedData: Data?
+        var placedURL: URL?
+        let store = DocumentStore(
+            directory: directory,
+            usesICloudStorage: true,
+            placeUbiquitousItem: { data, destination in
+                placedData = data
+                placedURL = destination
+                try data.write(to: destination, options: .atomic)
+            }
+        )
+        defer { cleanUp(store) }
+
+        let createdURL = await store.createDocument(
+            named: "Cloud Note",
+            contents: "Complete contents"
+        )
+
+        #expect(createdURL == placedURL)
+        #expect(placedData == Data("Complete contents".utf8))
+        #expect(
+            try String(contentsOf: #require(createdURL), encoding: .utf8)
+                == "Complete contents"
+        )
+    }
+
+    @Test func failedICloudPlacementDoesNotCreateACloudDocument() async {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterCloudFailure-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let store = DocumentStore(
+            directory: directory,
+            usesICloudStorage: true,
+            placeUbiquitousItem: { _, _ in
+                throw CocoaError(.fileWriteUnknown)
+            }
+        )
+        defer { cleanUp(store) }
+
+        let createdURL = await store.createDocument(
+            named: "Failed",
+            contents: "Do not lose this silently"
+        )
+
+        #expect(createdURL == nil)
+        #expect(store.documents.isEmpty)
+        #expect(store.lastError?.contains("in iCloud") == true)
+    }
+
+    @Test func iCloudDuplicateUsesStagedPlacement() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterCloudDuplicate-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        var placementCount = 0
+        let store = DocumentStore(
+            directory: directory,
+            placeUbiquitousItem: { data, destination in
+                placementCount += 1
+                try data.write(to: destination, options: .atomic)
+            }
+        )
+        defer { cleanUp(store) }
+        _ = await store.createDocument(
+            named: "Original",
+            contents: "Body"
+        )
+        store.refresh()
+        store.useDirectory(directory, usesICloudStorage: true)
+
+        let duplicate = await store.duplicate(
+            try #require(store.documents.first)
+        )
+
+        #expect(placementCount == 1)
+        #expect(duplicate?.displayName == "Original copy")
+        if let duplicate {
+            #expect(try store.text(for: duplicate) == "Body")
+        }
     }
 
     @Test func renameMovesTheSameFile() throws {
@@ -636,6 +726,44 @@ struct DocumentStoreTests {
         if let imported = result.imported.first {
             #expect(try store.text(for: imported) == "# Imported\nBody")
         }
+    }
+
+    @Test func iCloudImportUsesStagedPlacement() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterCloudImport-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let source = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "Cloud Import-\(UUID().uuidString).md"
+            )
+        try "Imported through staging".write(
+            to: source,
+            atomically: true,
+            encoding: .utf8
+        )
+        defer { try? FileManager.default.removeItem(at: source) }
+        var placementCount = 0
+        let store = DocumentStore(
+            directory: directory,
+            usesICloudStorage: true,
+            placeUbiquitousItem: { data, destination in
+                placementCount += 1
+                try data.write(to: destination, options: .atomic)
+            }
+        )
+        defer { cleanUp(store) }
+
+        let result = await store.importDocuments(from: [source])
+
+        #expect(placementCount == 1)
+        #expect(result.failedFileNames.isEmpty)
+        #expect(result.imported.count == 1)
+        #expect(
+            try store.text(for: #require(result.imported.first))
+                == "Imported through staging"
+        )
     }
 
     @Test func importAvoidsNameCollisions() throws {

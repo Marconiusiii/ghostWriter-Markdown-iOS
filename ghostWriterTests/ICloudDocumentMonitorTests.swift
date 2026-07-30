@@ -116,6 +116,59 @@ struct ICloudDocumentMonitorTests {
         #expect(snapshot?.availability.statusDescription == nil)
     }
 
+    @Test func snapshotIncludesUploadProgress() {
+        let root = URL(fileURLWithPath: "/iCloud/Documents", isDirectory: true)
+        let metadata = ICloudMetadataRecord(
+            url: root.appendingPathComponent("Uploading.md"),
+            created: Date(timeIntervalSince1970: 100),
+            modified: Date(timeIntervalSince1970: 200),
+            byteCount: 12,
+            downloadingStatus:
+                URLUbiquitousItemDownloadingStatus.current.rawValue,
+            isDownloading: false,
+            percentDownloaded: nil,
+            errorDescription: nil,
+            isUploaded: false,
+            isUploading: true,
+            percentUploaded: 31.7
+        )
+
+        let snapshot = ICloudDocumentMonitor.snapshots(
+            from: [metadata],
+            rootDirectory: root
+        ).first
+
+        #expect(snapshot?.availability == .uploading(percent: 32))
+        #expect(snapshot?.availability.isAvailable == true)
+    }
+
+    @Test func snapshotIncludesUploadFailure() {
+        let root = URL(fileURLWithPath: "/iCloud/Documents", isDirectory: true)
+        let metadata = ICloudMetadataRecord(
+            url: root.appendingPathComponent("Failed.md"),
+            created: Date(timeIntervalSince1970: 100),
+            modified: Date(timeIntervalSince1970: 200),
+            byteCount: 12,
+            downloadingStatus:
+                URLUbiquitousItemDownloadingStatus.current.rawValue,
+            isDownloading: false,
+            percentDownloaded: nil,
+            errorDescription: nil,
+            isUploaded: false,
+            uploadErrorDescription: "Account unavailable"
+        )
+
+        let snapshot = ICloudDocumentMonitor.snapshots(
+            from: [metadata],
+            rootDirectory: root
+        ).first
+
+        #expect(
+            snapshot?.availability
+                == .uploadFailed("Account unavailable")
+        )
+    }
+
     private func record(
         at url: URL,
         status: String

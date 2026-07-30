@@ -689,14 +689,19 @@ struct LibraryView: View {
     /// Creates the file with the chosen name and opens it.
     private func createDocument(named name: String) {
         focusAfterError = .newDocument
-        guard let url = store.createDocument(named: name, contents: "") else { return }
-        focusAfterError = nil
-        shouldRestoreNewDocumentFocus = false
-        store.refresh()
-        guard let document = Document(fileURL: url) else { return }
-        libraryMetadata.recordOpened(url)
-        focusAfterEditor = .document(url)
-        openedDocument = DocumentSession(document: document, text: "")
+        Task {
+            guard let url = await store.createDocument(
+                named: name,
+                contents: ""
+            ) else { return }
+            focusAfterError = nil
+            shouldRestoreNewDocumentFocus = false
+            store.refresh()
+            guard let document = Document(fileURL: url) else { return }
+            libraryMetadata.recordOpened(url)
+            focusAfterEditor = .document(url)
+            openedDocument = DocumentSession(document: document, text: "")
+        }
     }
 
     private func beginRename(_ document: Document) {
@@ -732,9 +737,11 @@ struct LibraryView: View {
 
     private func duplicateAvailable(_ document: Document) {
         focusAfterError = .document(document.url)
-        if let copy = store.duplicate(document) {
-            focusAfterError = nil
-            restoreFocus(to: .document(copy.url))
+        Task {
+            if let copy = await store.duplicate(document) {
+                focusAfterError = nil
+                restoreFocus(to: .document(copy.url))
+            }
         }
     }
 
@@ -890,16 +897,18 @@ struct LibraryView: View {
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
-            let importResult = store.importDocuments(from: urls)
-            let target = importResult.imported.first
-                .map { LibraryFocus.document($0.url) }
-                ?? .importDocument
+            Task {
+                let importResult = await store.importDocuments(from: urls)
+                let target = importResult.imported.first
+                    .map { LibraryFocus.document($0.url) }
+                    ?? .importDocument
 
-            if importResult.failedFileNames.isEmpty {
-                focusAfterError = nil
-                restoreFocus(to: target)
-            } else {
-                focusAfterError = target
+                if importResult.failedFileNames.isEmpty {
+                    focusAfterError = nil
+                    restoreFocus(to: target)
+                } else {
+                    focusAfterError = target
+                }
             }
         case .failure(let error):
             let nsError = error as NSError
@@ -927,11 +936,17 @@ struct LibraryView: View {
             downloadTasks = [:]
             pendingDocumentActions = [:]
             store.clearICloudSnapshot()
-            store.useDirectory(directory)
+            store.useDirectory(
+                directory,
+                usesICloudStorage: false
+            )
             return
         }
 
-        store.useDirectory(directory)
+        store.useDirectory(
+            directory,
+            usesICloudStorage: true
+        )
         if let directory {
             iCloudMonitor.start(rootDirectory: directory)
         }

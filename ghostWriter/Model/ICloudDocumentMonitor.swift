@@ -137,7 +137,11 @@ final class ICloudDocumentMonitor: NSObject {
                     downloadingStatus: record.downloadingStatus,
                     isDownloading: record.isDownloading,
                     percentDownloaded: record.percentDownloaded,
-                    errorDescription: record.errorDescription
+                    errorDescription: record.errorDescription,
+                    isUploaded: record.isUploaded,
+                    isUploading: record.isUploading,
+                    percentUploaded: record.percentUploaded,
+                    uploadErrorDescription: record.uploadErrorDescription
                 ),
                 isRecentlyDeleted: isRecentlyDeleted
             )
@@ -194,6 +198,26 @@ final class ICloudDocumentMonitor: NSObject {
             errorDescription: (
                 item.value(
                     forAttribute: NSMetadataUbiquitousItemDownloadingErrorKey
+                ) as? NSError
+            )?.localizedDescription,
+            isUploaded: (
+                item.value(
+                    forAttribute: NSMetadataUbiquitousItemIsUploadedKey
+                ) as? NSNumber
+            )?.boolValue,
+            isUploading: (
+                item.value(
+                    forAttribute: NSMetadataUbiquitousItemIsUploadingKey
+                ) as? NSNumber
+            )?.boolValue ?? false,
+            percentUploaded: (
+                item.value(
+                    forAttribute: NSMetadataUbiquitousItemPercentUploadedKey
+                ) as? NSNumber
+            )?.doubleValue,
+            uploadErrorDescription: (
+                item.value(
+                    forAttribute: NSMetadataUbiquitousItemUploadingErrorKey
                 ) as? NSError
             )?.localizedDescription
         )

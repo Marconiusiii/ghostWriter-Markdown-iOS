@@ -95,6 +95,65 @@ struct DocumentMigrationTests {
         #expect(try String(contentsOf: source, encoding: .utf8) == "Keep me")
     }
 
+    @Test func iCloudMigrationUsesStagedPlacementBeforeCleanup() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+        let source = directories.source.appendingPathComponent("Note.md")
+        try "Move through staging".write(
+            to: source,
+            atomically: true,
+            encoding: .utf8
+        )
+        var placementCount = 0
+        let migration = DocumentMigration(
+            placeUbiquitousItem: { data, destination in
+                placementCount += 1
+                try data.write(to: destination, options: .atomic)
+            }
+        )
+
+        let result = try migration.migrate(
+            from: directories.source,
+            to: directories.destination,
+            destinationUsesICloud: true
+        )
+
+        #expect(placementCount == 1)
+        #expect(result.migrated.count == 1)
+        #expect(!FileManager.default.fileExists(atPath: source.path))
+        #expect(
+            try String(
+                contentsOf: result.migrated[0].destinationURL,
+                encoding: .utf8
+            ) == "Move through staging"
+        )
+    }
+
+    @Test func failedICloudPlacementLeavesTheSourceUntouched() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+        let source = directories.source.appendingPathComponent("Note.md")
+        try "Keep me".write(
+            to: source,
+            atomically: true,
+            encoding: .utf8
+        )
+        let migration = DocumentMigration(
+            placeUbiquitousItem: { _, _ in
+                throw CocoaError(.fileWriteUnknown)
+            }
+        )
+
+        #expect(throws: (any Error).self) {
+            try migration.migrate(
+                from: directories.source,
+                to: directories.destination,
+                destinationUsesICloud: true
+            )
+        }
+        #expect(try String(contentsOf: source, encoding: .utf8) == "Keep me")
+    }
+
     private func makeDirectories() throws -> (
         root: URL,
         source: URL,

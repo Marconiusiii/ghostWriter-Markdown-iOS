@@ -120,7 +120,8 @@ struct ICloudMigrationView: View {
                     return MigrationAttempt.success(
                         try DocumentMigration().migrate(
                             from: sourceDirectory,
-                            to: targetDirectory
+                            to: targetDirectory,
+                            destinationUsesICloud: destination == .iCloud
                         )
                     )
                 } catch {
@@ -142,7 +143,10 @@ struct ICloudMigrationView: View {
                 }
 
                 storage.select(destination)
-                store.useDirectory(targetDirectory)
+                store.useDirectory(
+                    targetDirectory,
+                    usesICloudStorage: destination == .iCloud
+                )
                 if !result.cleanupFailures.isEmpty {
                     store.lastError = "Document storage changed, but ghostWriter could not remove every old local copy."
                 }

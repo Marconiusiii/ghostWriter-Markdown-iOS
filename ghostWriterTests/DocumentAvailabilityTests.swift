@@ -84,4 +84,58 @@ struct DocumentAvailabilityTests {
         #expect(state == .failed("No network connection"))
         #expect(state.statusDescription == "Download failed")
     }
+
+    @Test func documentWaitingToUploadRemainsReadable() {
+        let state = DocumentAvailability.iCloudState(
+            downloadingStatus:
+                URLUbiquitousItemDownloadingStatus.current.rawValue,
+            isDownloading: false,
+            percentDownloaded: nil,
+            errorDescription: nil,
+            isUploaded: false
+        )
+
+        #expect(state == .waitingToUpload)
+        #expect(state.isAvailable)
+        #expect(state.statusDescription == "Waiting to Upload")
+    }
+
+    @Test func uploadProgressIsReportedWithoutBlockingTheDocument() {
+        let state = DocumentAvailability.iCloudState(
+            downloadingStatus:
+                URLUbiquitousItemDownloadingStatus.current.rawValue,
+            isDownloading: false,
+            percentDownloaded: nil,
+            errorDescription: nil,
+            isUploaded: false,
+            isUploading: true,
+            percentUploaded: 64.6
+        )
+
+        #expect(state == .uploading(percent: 65))
+        #expect(state.isAvailable)
+        #expect(
+            state.statusDescription
+                == "Uploading to iCloud, 65 percent"
+        )
+    }
+
+    @Test func uploadFailureIsVisibleWithoutHidingLocalContents() {
+        let state = DocumentAvailability.iCloudState(
+            downloadingStatus:
+                URLUbiquitousItemDownloadingStatus.current.rawValue,
+            isDownloading: false,
+            percentDownloaded: nil,
+            errorDescription: nil,
+            isUploaded: false,
+            uploadErrorDescription: "Network unavailable"
+        )
+
+        #expect(state == .uploadFailed("Network unavailable"))
+        #expect(state.isAvailable)
+        #expect(
+            state.statusDescription
+                == "Upload failed. Network unavailable"
+        )
+    }
 }

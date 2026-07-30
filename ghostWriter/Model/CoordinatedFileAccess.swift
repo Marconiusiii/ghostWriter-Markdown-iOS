@@ -10,6 +10,18 @@
 import Foundation
 
 nonisolated final class CoordinatedFileAccess {
+    static func placeUbiquitousItem(
+        data: Data,
+        at destinationURL: URL
+    ) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            try CoordinatedFileAccess().placeUbiquitousItem(
+                data: data,
+                at: destinationURL
+            )
+        }.value
+    }
+
     static func downloadAndVerifyUbiquitousItem(at url: URL) async throws {
         try FileManager.default.startDownloadingUbiquitousItem(at: url)
         try await verifyReadable(at: url)
@@ -104,6 +116,12 @@ nonisolated final class CoordinatedFileAccess {
         }
     }
 
+    func write(_ data: Data, to url: URL) throws {
+        try write(at: url, options: .forReplacing) { coordinatedURL in
+            try data.write(to: coordinatedURL, options: .atomic)
+        }
+    }
+
     func contentsOfDirectory(
         at url: URL,
         includingPropertiesForKeys keys: [URLResourceKey]
@@ -176,6 +194,39 @@ nonisolated final class CoordinatedFileAccess {
         try write(at: url, options: .forDeleting) { coordinatedURL in
             try FileManager.default.removeItem(at: coordinatedURL)
         }
+    }
+
+    /// Creates a complete local file first, then asks Foundation to register
+    /// and move it into the iCloud Documents container. Apple recommends this
+    /// path for shipping apps because a successful local write alone does not
+    /// prove that a new item has entered the iCloud upload workflow.
+    func placeUbiquitousItem(
+        data: Data,
+        at destinationURL: URL
+    ) throws {
+        let fileManager = FileManager.default
+        let stagingDirectory = fileManager.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriter-iCloud-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try fileManager.createDirectory(
+            at: stagingDirectory,
+            withIntermediateDirectories: true
+        )
+        defer {
+            try? fileManager.removeItem(at: stagingDirectory)
+        }
+
+        let stagedURL = stagingDirectory.appendingPathComponent(
+            destinationURL.lastPathComponent
+        )
+        try data.write(to: stagedURL, options: .atomic)
+        try fileManager.setUbiquitous(
+            true,
+            itemAt: stagedURL,
+            destinationURL: destinationURL
+        )
     }
 
     private func coordinateMoveOrCopy(

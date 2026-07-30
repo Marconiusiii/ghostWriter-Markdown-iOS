@@ -652,29 +652,42 @@ struct EditorView: View {
 
     private func saveCurrentTextAsNewDocument(preferredName: String) {
         let previousURL = fileURL
-        guard let newURL = store.createDocument(
-            named: preferredName,
-            contents: text
-        ) else { return }
+        let contents = text
+        let replacesMissingDocument: Bool
+        if case .missing = externalConflict {
+            replacesMissingDocument = true
+        } else {
+            replacesMissingDocument = false
+        }
 
-        if let previousURL {
-            EditorPositionStore.shared.migratePosition(from: previousURL, to: newURL)
-            if case .missing = externalConflict {
-                libraryMetadata.migrateMetadata(
+        Task {
+            guard let newURL = await store.createDocument(
+                named: preferredName,
+                contents: contents
+            ) else { return }
+
+            if let previousURL {
+                EditorPositionStore.shared.migratePosition(
                     from: previousURL,
                     to: newURL
                 )
-            } else {
-                libraryMetadata.recordOpened(newURL)
+                if replacesMissingDocument {
+                    libraryMetadata.migrateMetadata(
+                        from: previousURL,
+                        to: newURL
+                    )
+                } else {
+                    libraryMetadata.recordOpened(newURL)
+                }
             }
+            fileURL = newURL
+            onDocumentURLChange(newURL)
+            savedName = newURL.deletingPathExtension().lastPathComponent
+            lastSavedText = contents
+            hasUnsavedChanges = false
+            externalConflict = nil
+            announce("Saved as \(savedName ?? preferredName).")
         }
-        fileURL = newURL
-        onDocumentURLChange(newURL)
-        savedName = newURL.deletingPathExtension().lastPathComponent
-        lastSavedText = text
-        hasUnsavedChanges = false
-        externalConflict = nil
-        announce("Saved as \(savedName ?? preferredName).")
     }
 
     /// The custom Back button must not leave while an attempted guarded save
@@ -718,7 +731,11 @@ struct EditorView: View {
         guard !hasUnsavedChanges else { return }
         guard let url = fileURL,
               let document = Document(fileURL: url) else { return }
-        if store.duplicate(document) != nil { announce("Duplicated.") }
+        Task {
+            if await store.duplicate(document) != nil {
+                announce("Duplicated.")
+            }
+        }
     }
 
     private func announce(_ message: String) {
