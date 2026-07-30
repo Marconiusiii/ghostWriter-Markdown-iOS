@@ -13,6 +13,16 @@
 import SwiftUI
 import UIKit
 
+nonisolated enum EditorSaveFeedback {
+    static func explicitSaveMessage(
+        usesICloudStorage: Bool
+    ) -> String {
+        usesICloudStorage
+            ? "Saved. iCloud will upload changes in the background."
+            : "Saved."
+    }
+}
+
 struct EditorView: View {
     /// The file being edited. Nil until the first save creates it.
     @State private var fileURL: URL?
@@ -49,6 +59,7 @@ struct EditorView: View {
 
     private let draftName: String
     private let onDocumentURLChange: (URL) -> Void
+    private let onClose: (URL) -> Void
 
     private enum EditorFocus: Hashable {
         case render
@@ -66,7 +77,8 @@ struct EditorView: View {
     init(
         document: Document,
         initialText: String,
-        onDocumentURLChange: @escaping (URL) -> Void = { _ in }
+        onDocumentURLChange: @escaping (URL) -> Void = { _ in },
+        onClose: @escaping (URL) -> Void = { _ in }
     ) {
         _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
@@ -78,6 +90,7 @@ struct EditorView: View {
         _savedName = State(initialValue: document.displayName)
         self.draftName = document.displayName
         self.onDocumentURLChange = onDocumentURLChange
+        self.onClose = onClose
     }
 
     var body: some View {
@@ -607,7 +620,13 @@ struct EditorView: View {
         case .saved:
             lastSavedText = text
             hasUnsavedChanges = false
-            if shouldAnnounce { announce("Saved.") }
+            if shouldAnnounce {
+                announce(
+                    EditorSaveFeedback.explicitSaveMessage(
+                        usesICloudStorage: store.usesICloudStorage
+                    )
+                )
+            }
         case .changedOnDisk(let externalText):
             showExternalConflict(.changed(externalText))
         case .missing:
@@ -696,6 +715,9 @@ struct EditorView: View {
     private func closeEditor() {
         saveNow(announce: false)
         guard !hasUnsavedChanges else { return }
+        if let fileURL {
+            onClose(fileURL)
+        }
         dismiss()
     }
 
@@ -703,6 +725,9 @@ struct EditorView: View {
         saveTask?.cancel()
         hasUnsavedChanges = false
         externalConflict = nil
+        if let fileURL {
+            onClose(fileURL)
+        }
         dismiss()
     }
 

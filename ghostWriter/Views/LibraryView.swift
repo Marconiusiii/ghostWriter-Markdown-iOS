@@ -111,6 +111,15 @@ struct LibraryView: View {
                     initialText: session.text,
                     onDocumentURLChange: { url in
                         focusAfterEditor = .document(url)
+                    },
+                    onClose: { url in
+                        store.refresh()
+                        focusAfterEditor = nil
+                        restoreFocus(
+                            to: availableFocus(
+                                .document(documentURL(matching: url))
+                            )
+                        )
                     }
                 )
             }
@@ -688,6 +697,8 @@ struct LibraryView: View {
 
     /// Creates the file with the chosen name and opens it.
     private func createDocument(named name: String) {
+        focusRequestGate.invalidate()
+        shouldRestoreNewDocumentFocus = false
         focusAfterError = .newDocument
         Task {
             guard let url = await store.createDocument(
@@ -1032,6 +1043,12 @@ struct LibraryView: View {
             return .documentsHeading
         }
         return target
+    }
+
+    private func documentURL(matching url: URL) -> URL {
+        store.documents.first {
+            $0.url.standardizedFileURL == url.standardizedFileURL
+        }?.url ?? url
     }
 
     private func restoreFocus(to target: LibraryFocus) {
