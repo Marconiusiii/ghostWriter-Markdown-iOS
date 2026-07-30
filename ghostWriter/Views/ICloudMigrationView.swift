@@ -29,7 +29,7 @@ struct ICloudMigrationView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Document Storage") {
+                Section {
                     LabeledContent(
                         "Current",
                         value: storage.selectedLocation.label
@@ -53,6 +53,13 @@ struct ICloudMigrationView: View {
                         Text(errorMessage)
                     }
                 }
+
+                Section {
+                    Button(actionLabel) {
+                        beginMigration()
+                    }
+                    .disabled(isMigrating)
+                }
             }
             .navigationTitle("Change Document Storage")
             .navigationBarTitleDisplayMode(.inline)
@@ -60,12 +67,6 @@ struct ICloudMigrationView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .disabled(isMigrating)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(actionLabel) {
-                        beginMigration()
-                    }
-                    .disabled(isMigrating)
                 }
             }
         }
