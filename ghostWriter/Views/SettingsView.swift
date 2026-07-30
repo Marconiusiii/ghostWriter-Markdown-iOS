@@ -12,6 +12,9 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
+    @Environment(DocumentStorage.self) private var storage
+    @Environment(DocumentStore.self) private var store
+    @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(AppSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
     @AccessibilityFocusState private var focusedElement: FocusTarget?
@@ -20,10 +23,12 @@ struct SettingsView: View {
     @State private var showingStatusBarSettings = false
     @State private var showingMailComposer = false
     @State private var showingMailUnavailable = false
+    @State private var requestedStorageLocation: DocumentStorageChoice?
     @State private var focusRequestGate = FocusRestorationRequestGate()
 
     private enum FocusTarget: Hashable {
         case indentation
+        case documentStorage
         case theme
         case editorFont
         case customizeStatusBar
@@ -37,6 +42,26 @@ struct SettingsView: View {
 
         return NavigationStack {
             Form {
+                Section {
+                    Picker(
+                        "Document Storage",
+                        selection: documentStorageBinding
+                    ) {
+                        ForEach(DocumentStorageChoice.allCases) { location in
+                            Text(location.label).tag(location)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .documentStorage
+                    )
+                } header: {
+                    Text("Files")
+                } footer: {
+                    Text(storage.statusDescription)
+                }
+
                 Section("Editing") {
                     Picker("Indentation", selection: $settings.indentUnit) {
                         ForEach(IndentUnit.allCases) { unit in
@@ -153,6 +178,19 @@ struct SettingsView: View {
         }) {
             HelpView()
         }
+        .sheet(item: $requestedStorageLocation, onDismiss: {
+            restoreFocus(to: .documentStorage)
+        }) { destination in
+            ICloudMigrationView(
+                destination: destination,
+                onCompletion: {
+                    restoreFocus(to: .documentStorage)
+                }
+            )
+            .environment(storage)
+            .environment(store)
+            .environment(libraryMetadata)
+        }
         .sheet(isPresented: $showingWhyGhostWriter, onDismiss: {
             restoreFocus(to: .whyGhostWriter)
         }) {
@@ -200,6 +238,17 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+
+    private var documentStorageBinding: Binding<DocumentStorageChoice> {
+        Binding(
+            get: { storage.selectedLocation },
+            set: { location in
+                guard location != storage.selectedLocation else { return }
+                focusRequestGate.invalidate()
+                requestedStorageLocation = location
+            }
+        )
     }
 
     private var copyright: String {

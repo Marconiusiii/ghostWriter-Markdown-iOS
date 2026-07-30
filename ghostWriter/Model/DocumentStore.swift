@@ -34,39 +34,64 @@ struct DocumentImportResult: Equatable {
 final class DocumentStore {
     private(set) var documents: [Document] = []
     private(set) var recentlyDeletedDocuments: [Document] = []
+    private(set) var storageAvailable: Bool
     /// Set when a filesystem operation fails so the UI can surface it rather
     /// than failing silently. Cleared once the user dismisses it.
     var lastError: String?
 
-    private let fileManager = FileManager.default
+    private let fileAccess: CoordinatedFileAccess
 
     /// The user-visible folder. Created on first access; creation failures are
     /// exposed through `lastError` rather than silently changing storage paths.
-    let directory: URL
-    let recentlyDeletedDirectory: URL
+    private(set) var directory: URL
+    private(set) var recentlyDeletedDirectory: URL
 
-    init(directory: URL? = nil) {
+    init(
+        directory: URL? = nil,
+        storageAvailable: Bool = true,
+        fileAccess: CoordinatedFileAccess = CoordinatedFileAccess()
+    ) {
+        self.storageAvailable = storageAvailable
+        self.fileAccess = fileAccess
+        let resolvedDirectory: URL
         if let directory {
-            self.directory = directory
+            resolvedDirectory = directory
         } else {
             let documentsRoot = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            self.directory = documentsRoot.appendingPathComponent("ghostWriter", isDirectory: true)
+            resolvedDirectory = documentsRoot.appendingPathComponent(
+                "ghostWriter",
+                isDirectory: true
+            )
         }
-        self.recentlyDeletedDirectory = self.directory
+        self.directory = resolvedDirectory
+        self.recentlyDeletedDirectory = resolvedDirectory
             .appendingPathComponent("Recently Deleted", isDirectory: true)
+        if storageAvailable {
+            createDirectoryIfNeeded()
+        }
+    }
+
+    func useDirectory(_ directory: URL?) {
+        guard let directory else {
+            storageAvailable = false
+            documents = []
+            recentlyDeletedDocuments = []
+            return
+        }
+
+        self.directory = directory
+        self.recentlyDeletedDirectory = directory
+            .appendingPathComponent("Recently Deleted", isDirectory: true)
+        storageAvailable = true
         createDirectoryIfNeeded()
+        refresh()
     }
 
     private func createDirectoryIfNeeded() {
+        guard storageAvailable else { return }
         do {
-            try fileManager.createDirectory(
-                at: directory,
-                withIntermediateDirectories: true
-            )
-            try fileManager.createDirectory(
-                at: recentlyDeletedDirectory,
-                withIntermediateDirectories: true
-            )
+            try fileAccess.createDirectory(at: directory)
+            try fileAccess.createDirectory(at: recentlyDeletedDirectory)
         } catch {
             lastError = "Could not open the ghostWriter folder. \(error.localizedDescription)"
         }
@@ -78,6 +103,7 @@ final class DocumentStore {
     /// the foreground, because files may have changed in the Files app while we
     /// were backgrounded.
     func refresh() {
+        guard storageAvailable else { return }
         createDirectoryIfNeeded()
 
         do {
@@ -103,12 +129,14 @@ final class DocumentStore {
             .fileSizeKey,
             .isRegularFileKey
         ]
-        let urls = try fileManager.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: keys,
-            options: [.skipsHiddenFiles]
-        )
-        return urls.compactMap(Document.init(fileURL:))
+        return try fileAccess.read(at: directory) { coordinatedDirectory in
+            let urls = try FileManager.default.contentsOfDirectory(
+                at: coordinatedDirectory,
+                includingPropertiesForKeys: keys,
+                options: [.skipsHiddenFiles]
+            )
+            return urls.compactMap(Document.init(fileURL:))
+        }
     }
 
     /// Loads a document without turning a read or decoding failure into an empty
@@ -116,7 +144,7 @@ final class DocumentStore {
     /// otherwise typing into that view could overwrite the unreadable original.
     func text(for document: Document, reportFailure: Bool = true) throws -> String {
         do {
-            return try String(contentsOf: document.url, encoding: .utf8)
+            return try fileAccess.string(at: document.url)
         } catch {
             if reportFailure {
                 lastError = "Could not open \(document.displayName). The original file was not changed. \(error.localizedDescription)"
@@ -131,10 +159,11 @@ final class DocumentStore {
     /// successfully saved. Contents are used rather than timestamps because
     /// filesystem timestamp precision differs between storage providers.
     func diskState(for url: URL, expectedContents: String) -> DocumentDiskState {
-        guard fileManager.fileExists(atPath: url.path) else { return .missing }
+        guard storageAvailable else { return .unreadable }
+        guard fileAccess.itemExists(at: url) else { return .missing }
 
         do {
-            let currentContents = try String(contentsOf: url, encoding: .utf8)
+            let currentContents = try fileAccess.string(at: url)
             return currentContents == expectedContents
                 ? .unchanged
                 : .changed(currentContents)
@@ -170,8 +199,12 @@ final class DocumentStore {
     /// the URL is the identity, and writing to the same URL overwrites it.
     @discardableResult
     func save(text: String, to url: URL) -> Bool {
+        guard storageAvailable else {
+            lastError = "Could not save because the selected document storage is unavailable."
+            return false
+        }
         do {
-            try text.write(to: url, atomically: true, encoding: .utf8)
+            try fileAccess.write(text, to: url)
             // Deliberately does NOT call refresh(). Refreshing republishes the
             // documents array on every autosave, which churns observed state
             // while the editor is on screen. The library re-reads on appear and
@@ -186,11 +219,15 @@ final class DocumentStore {
     /// Creates a new file with the given contents, choosing a name that does not
     /// collide with an existing file. Returns the URL it settled on.
     func createDocument(named preferredName: String = "Untitled", contents: String = "") -> URL? {
+        guard storageAvailable else {
+            lastError = "Could not create a document because the selected document storage is unavailable."
+            return nil
+        }
         createDirectoryIfNeeded()
         let url = availableURL(for: preferredName)
 
         do {
-            try contents.write(to: url, atomically: true, encoding: .utf8)
+            try fileAccess.write(contents, to: url)
             return url
         } catch {
             lastError = "Could not create a new document. \(error.localizedDescription)"
@@ -207,7 +244,7 @@ final class DocumentStore {
         )
 
         do {
-            try fileManager.moveItem(at: document.url, to: destination)
+            try fileAccess.moveItem(at: document.url, to: destination)
             refresh()
             return destination
         } catch {
@@ -224,7 +261,7 @@ final class DocumentStore {
         )
 
         do {
-            try fileManager.moveItem(at: document.url, to: destination)
+            try fileAccess.moveItem(at: document.url, to: destination)
             refresh()
             return destination
         } catch {
@@ -236,7 +273,7 @@ final class DocumentStore {
     @discardableResult
     func deletePermanently(_ document: Document) -> Bool {
         do {
-            try fileManager.removeItem(at: document.url)
+            try fileAccess.removeItem(at: document.url)
             refresh()
             return true
         } catch {
@@ -258,7 +295,7 @@ final class DocumentStore {
         let destination = availableURL(for: trimmed)
 
         do {
-            try fileManager.moveItem(at: url, to: destination)
+            try fileAccess.moveItem(at: url, to: destination)
             refresh()
             return destination
         } catch {
@@ -270,7 +307,7 @@ final class DocumentStore {
     func duplicate(_ document: Document) -> Document? {
         let destination = availableURL(for: "\(document.displayName) copy")
         do {
-            try fileManager.copyItem(at: document.url, to: destination)
+            try fileAccess.copyItem(at: document.url, to: destination)
             refresh()
             return documents.first { $0.url == destination }
         } catch {
@@ -302,7 +339,7 @@ final class DocumentStore {
             }
 
             do {
-                let data = try Data(contentsOf: sourceURL)
+                let data = try fileAccess.data(at: sourceURL)
                 guard let contents = String(data: data, encoding: .utf8) else {
                     failedNames.append(fileName)
                     continue
@@ -312,7 +349,7 @@ final class DocumentStore {
                     .deletingPathExtension()
                     .lastPathComponent
                 let destination = availableURL(for: preferredName)
-                try contents.write(to: destination, atomically: true, encoding: .utf8)
+                try fileAccess.write(contents, to: destination)
                 importedURLs.append(destination)
             } catch {
                 failedNames.append(fileName)
@@ -355,7 +392,7 @@ final class DocumentStore {
         var candidate = directory.appendingPathComponent(base).appendingPathExtension("md")
         var counter = 2
 
-        while fileManager.fileExists(atPath: candidate.path) {
+        while fileAccess.itemExists(at: candidate) {
             candidate = directory
                 .appendingPathComponent("\(base) \(counter)")
                 .appendingPathExtension("md")
@@ -379,7 +416,7 @@ final class DocumentStore {
             .appendingPathExtension(pathExtension)
         var counter = 2
 
-        while fileManager.fileExists(atPath: candidate.path) {
+        while fileAccess.itemExists(at: candidate) {
             candidate = directory
                 .appendingPathComponent("\(base) \(counter)")
                 .appendingPathExtension(pathExtension)

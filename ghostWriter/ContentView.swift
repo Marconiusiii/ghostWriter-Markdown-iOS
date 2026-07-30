@@ -17,6 +17,7 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environment(DocumentStorage())
         .environment(DocumentStore())
         .environment(AppSettings())
         .environment(DocumentLibraryMetadataStore())

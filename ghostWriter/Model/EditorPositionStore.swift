@@ -24,7 +24,7 @@ final class EditorPositionStore {
     }
 
     func position(for url: URL) -> Int? {
-        positions[key(for: url)]
+        positions[key(for: url)] ?? positions[legacyKey(for: url)]
     }
 
     func save(position: Int, for url: URL) {
@@ -36,10 +36,13 @@ final class EditorPositionStore {
     func migratePosition(from oldURL: URL, to newURL: URL) {
         let oldKey = key(for: oldURL)
         let newKey = key(for: newURL)
-        guard oldKey != newKey else { return }
+        let oldLegacyKey = legacyKey(for: oldURL)
 
         var updated = positions
-        if let position = updated.removeValue(forKey: oldKey) {
+        let stablePosition = updated.removeValue(forKey: oldKey)
+        let legacyPosition = updated.removeValue(forKey: oldLegacyKey)
+        let position = stablePosition ?? legacyPosition
+        if let position {
             updated[newKey] = position
             defaults.set(updated, forKey: storageKey)
         }
@@ -47,7 +50,9 @@ final class EditorPositionStore {
 
     func removePosition(for url: URL) {
         var updated = positions
-        guard updated.removeValue(forKey: key(for: url)) != nil else { return }
+        let removedStable = updated.removeValue(forKey: key(for: url))
+        let removedLegacy = updated.removeValue(forKey: legacyKey(for: url))
+        guard removedStable != nil || removedLegacy != nil else { return }
         defaults.set(updated, forKey: storageKey)
     }
 
@@ -60,6 +65,10 @@ final class EditorPositionStore {
     }
 
     private func key(for url: URL) -> String {
+        DocumentStorageKey.key(for: url)
+    }
+
+    private func legacyKey(for url: URL) -> String {
         url.standardizedFileURL.path
     }
 }

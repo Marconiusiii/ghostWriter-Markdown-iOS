@@ -67,6 +67,46 @@ struct DocumentLibraryMetadataStoreTests {
         #expect(store.lastOpened(url) == nil)
     }
 
+    @Test func metadataFollowsTheDocumentFromLocalStorageToICloud() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let localURL = URL(
+            fileURLWithPath: "/local/Documents/ghostWriter/Note.md"
+        )
+        let cloudURL = URL(
+            fileURLWithPath: "/cloud/Documents/Note.md"
+        )
+        let date = Date(timeIntervalSince1970: 9_876)
+        let store = makeStore(testDefaults.defaults)
+        store.togglePin(for: localURL)
+        store.recordOpened(localURL, at: date)
+
+        store.migrateMetadata(from: localURL, to: cloudURL)
+
+        #expect(store.isPinned(cloudURL))
+        #expect(store.lastOpened(cloudURL) == date)
+    }
+
+    @Test func legacyAbsolutePathMetadataIsMigrated() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let oldURL = URL(
+            fileURLWithPath: "/local/Documents/ghostWriter/Note.md"
+        )
+        let cloudURL = URL(
+            fileURLWithPath: "/cloud/Documents/Note.md"
+        )
+        testDefaults.defaults.set(
+            [oldURL.standardizedFileURL.path],
+            forKey: "testPins"
+        )
+        let store = makeStore(testDefaults.defaults)
+
+        store.migrateMetadata(from: oldURL, to: cloudURL)
+
+        #expect(store.isPinned(cloudURL))
+    }
+
     private func makeStore(_ defaults: UserDefaults) -> DocumentLibraryMetadataStore {
         DocumentLibraryMetadataStore(
             defaults: defaults,

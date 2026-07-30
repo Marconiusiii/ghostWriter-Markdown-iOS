@@ -40,6 +40,7 @@ struct FocusRestorationRequestGate {
 }
 
 struct LibraryView: View {
+    @Environment(DocumentStorage.self) private var storage
     @Environment(DocumentStore.self) private var store
     @Environment(AppSettings.self) private var settings
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
@@ -117,7 +118,10 @@ struct LibraryView: View {
                 scheduleSearchAnnouncement()
             }
         }
-        .onAppear { store.refresh() }
+        .task(id: storage.selectedLocation) {
+            let directory = await storage.prepareCurrentLocation()
+            store.useDirectory(directory)
+        }
         .task(id: searchSources) {
             let sources = searchSources
             let buildTask = Task.detached(priority: .utility) {
@@ -135,7 +139,12 @@ struct LibraryView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { store.refresh() }
+            if phase == .active {
+                Task {
+                    let directory = await storage.prepareCurrentLocation()
+                    store.useDirectory(directory)
+                }
+            }
         }
         .sheet(isPresented: $showingSettings, onDismiss: {
             restoreFocus(to: .settings)
@@ -237,6 +246,7 @@ struct LibraryView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .disabled(!store.storageAvailable)
             .accessibilityLabel("New document")
             .accessibilityFocused($focusedElement, equals: .newDocument)
             .keyboardShortcut(shortcut("n", modifiers: .command))
@@ -250,6 +260,7 @@ struct LibraryView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .disabled(!store.storageAvailable)
             .accessibilityLabel("Import document")
             .accessibilityHint("Copies markdown or plain-text files into ghostWriter")
             .accessibilityFocused($focusedElement, equals: .importDocument)
@@ -268,6 +279,7 @@ struct LibraryView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .disabled(!store.storageAvailable)
             .accessibilityLabel(
                 "Deleted, \(recentlyDeletedCountDescription)"
             )
@@ -427,7 +439,9 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var list: some View {
-        if store.documents.isEmpty {
+        if !store.storageAvailable {
+            unavailableLibrary
+        } else if store.documents.isEmpty {
             emptyLibrary
         } else if visibleDocuments.isEmpty {
             noSearchResults
@@ -536,6 +550,16 @@ struct LibraryView: View {
             .foregroundStyle(Color.ghostMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 4)
+    }
+
+    private var unavailableLibrary: some View {
+        Text(
+            "Your selected document library is unavailable. Open Settings to check iCloud Drive or choose On This Device."
+        )
+        .font(.body)
+        .foregroundStyle(Color.ghostMuted)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
     }
 
     private var noSearchResults: some View {

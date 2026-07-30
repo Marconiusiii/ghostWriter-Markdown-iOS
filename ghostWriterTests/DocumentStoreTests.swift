@@ -157,6 +157,41 @@ struct DocumentStoreTests {
         #expect(store.documents == before)
     }
 
+    @Test func unavailableStorageCannotCreateOrSaveDocuments() {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        store.useDirectory(nil)
+
+        #expect(store.createDocument(named: "Blocked") == nil)
+        #expect(
+            !store.save(
+                text: "Blocked",
+                to: store.directory.appendingPathComponent("Blocked.md")
+            )
+        )
+        #expect(store.documents.isEmpty)
+    }
+
+    @Test func changingDirectoryShowsOnlyTheSelectedLibrary() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        _ = store.createDocument(named: "Local", contents: "Local body")
+        store.refresh()
+        #expect(store.documents.map(\.displayName) == ["Local"])
+
+        let cloudDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterCloudTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        defer { try? FileManager.default.removeItem(at: cloudDirectory) }
+        store.useDirectory(cloudDirectory)
+        _ = store.createDocument(named: "Cloud", contents: "Cloud body")
+        store.refresh()
+
+        #expect(store.documents.map(\.displayName) == ["Cloud"])
+    }
+
     @Test func createAvoidsNameCollisions() throws {
         let store = makeStore()
         defer { cleanUp(store) }
