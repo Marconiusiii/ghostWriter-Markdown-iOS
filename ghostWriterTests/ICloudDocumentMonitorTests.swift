@@ -94,6 +94,28 @@ struct ICloudDocumentMonitorTests {
         #expect(snapshot?.availability == .waitingForICloud)
     }
 
+    @Test func missingDownloadStatusDoesNotAddAVisibleFileStatus() {
+        let root = URL(fileURLWithPath: "/iCloud/Documents", isDirectory: true)
+        let metadata = ICloudMetadataRecord(
+            url: root.appendingPathComponent("Local.md"),
+            created: Date(timeIntervalSince1970: 100),
+            modified: Date(timeIntervalSince1970: 200),
+            byteCount: 12,
+            downloadingStatus: nil,
+            isDownloading: false,
+            percentDownloaded: nil,
+            errorDescription: nil
+        )
+
+        let snapshot = ICloudDocumentMonitor.snapshots(
+            from: [metadata],
+            rootDirectory: root
+        ).first
+
+        #expect(snapshot?.availability == .available)
+        #expect(snapshot?.availability.statusDescription == nil)
+    }
+
     private func record(
         at url: URL,
         status: String

@@ -539,40 +539,6 @@ struct LibraryView: View {
                 )
                 .buttonStyle(.bordered)
             }
-            // Swipe actions serve touch users. VoiceOver users get the
-            // same capabilities through the row's custom actions, so
-            // these are hidden from assistive technology rather than
-            // being announced a second time.
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                Button(role: .destructive) {
-                    beginDelete(document)
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-                .accessibilityHidden(true)
-
-                Button {
-                    beginRename(document)
-                } label: {
-                    Label("Rename", systemImage: "pencil")
-                }
-                .accessibilityHidden(true)
-            }
-            .swipeActions(edge: .leading) {
-                Button {
-                    render(document)
-                } label: {
-                    Label("Render", systemImage: "doc.richtext")
-                }
-                .accessibilityHidden(true)
-
-                Button {
-                    share(document)
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
-                .accessibilityHidden(true)
-            }
             // The surrounding stack supplies the horizontal padding, so
             // the list rows do not add their own on top of it.
             .listRowInsets(

@@ -104,8 +104,7 @@ private struct HelpTopic: Identifiable {
             title: "Searching, Sorting, and Document Actions",
             paragraphs: [
                 "The library Search field checks document names and contents. The result count updates beneath the field. Activate Clear Search to return to the full library.",
-                "Sort changes the field and direction used to arrange documents. Tap a document to open it, or use its Actions menu for rendering, sharing, renaming, duplicating, and deleting.",
-                "Swipe left on a document for Rename and Delete. Swipe right for Render and Share. Duplicate is available from the Actions menu.",
+                "Sort changes the field and direction used to arrange documents. Tap a document to open it, or use its Actions menu to pin, render, share, rename, duplicate, or delete it.",
                 "Pin keeps an important document at the beginning of the Library. Pinned documents remain first with every sort option. Last Opened sorts documents by the most recent time they were opened in the editor.",
                 "Delete moves a document to Deleted. Open Deleted from the Library to restore a document or delete it permanently.",
                 "Jump to Line in File Actions moves the cursor to the beginning of a numbered line. Line numbers begin at 1."
