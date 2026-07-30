@@ -126,6 +126,15 @@ struct EditorView: View {
         .onChange(of: settings.statusBarEnabled) { _, isEnabled in
             statusIndex = isEnabled ? DocumentStatusIndex(text: text) : nil
         }
+        .onChange(of: focusedElement) { _, element in
+            // VoiceOver activation does not pass through the touch gesture
+            // attached to the Menu. Put the keyboard away when VoiceOver
+            // reaches File Actions so it is already gone before the native
+            // menu opens.
+            if element == .fileActions {
+                dismissKeyboard()
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 checkForExternalChanges()
@@ -426,6 +435,13 @@ struct EditorView: View {
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
         .accessibilityFocused($focusedElement, equals: .fileActions)
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                // Preserve Menu's native activation while dismissing the
+                // editor keyboard for direct-touch users.
+                dismissKeyboard()
+            }
+        )
     }
 
     // MARK: - Editor
