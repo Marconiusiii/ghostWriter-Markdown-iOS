@@ -36,7 +36,6 @@ final class ICloudDocumentMonitor: NSObject {
         stop()
         self.rootDirectory = standardizedRoot
         snapshots = []
-        revision += 1
 
         NotificationCenter.default.addObserver(
             self,
@@ -76,11 +75,12 @@ final class ICloudDocumentMonitor: NSObject {
         rootDirectory = nil
     }
 
-    @objc private func metadataChanged() {
-        refreshTask?.cancel()
+    @objc private func metadataChanged(_ notification: Notification) {
+        guard refreshTask == nil else { return }
         refreshTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(150))
             guard !Task.isCancelled else { return }
+            self?.refreshTask = nil
             self?.publishCurrentResults()
         }
     }
@@ -89,10 +89,11 @@ final class ICloudDocumentMonitor: NSObject {
         guard let rootDirectory else { return }
 
         query.disableUpdates()
-        let records = query.results.compactMap { result in
-            Self.record(from: result)
+        defer { query.enableUpdates() }
+
+        let records = (0..<query.resultCount).compactMap { index in
+            Self.record(from: query.result(at: index))
         }
-        query.enableUpdates()
 
         snapshots = Self.snapshots(
             from: records,

@@ -40,8 +40,11 @@ final class DocumentStore {
     var lastError: String?
 
     private let fileAccess: CoordinatedFileAccess
-    private let startDownloadingUbiquitousItem: (URL) throws -> Void
+    private let downloadUbiquitousItem: (URL) async throws -> Void
     private var iCloudSnapshotsByURL: [URL: ICloudDocumentSnapshot] = [:]
+    private var activeDownloadURLs: Set<URL> = []
+    private var confirmedAvailableVersions: [URL: Date] = [:]
+    private var suppressedSnapshotURLs: Set<URL> = []
 
     /// The user-visible folder. Created on first access; creation failures are
     /// exposed through `lastError` rather than silently changing storage paths.
@@ -52,13 +55,15 @@ final class DocumentStore {
         directory: URL? = nil,
         storageAvailable: Bool = true,
         fileAccess: CoordinatedFileAccess = CoordinatedFileAccess(),
-        startDownloadingUbiquitousItem: @escaping (URL) throws -> Void = {
-            try FileManager.default.startDownloadingUbiquitousItem(at: $0)
+        startDownloadingUbiquitousItem:
+            @escaping (URL) async throws -> Void = {
+                try await CoordinatedFileAccess
+                    .downloadAndVerifyUbiquitousItem(at: $0)
         }
     ) {
         self.storageAvailable = storageAvailable
         self.fileAccess = fileAccess
-        self.startDownloadingUbiquitousItem =
+        self.downloadUbiquitousItem =
             startDownloadingUbiquitousItem
         let resolvedDirectory: URL
         if let directory {
@@ -95,9 +100,34 @@ final class DocumentStore {
     }
 
     func applyICloudSnapshot(_ snapshots: [ICloudDocumentSnapshot]) {
+        let incomingURLs = Set(
+            snapshots.map { $0.url.standardizedFileURL }
+        )
+        suppressedSnapshotURLs.formIntersection(incomingURLs)
+
         iCloudSnapshotsByURL = Dictionary(
-            uniqueKeysWithValues: snapshots.map {
-                ($0.url.standardizedFileURL, $0)
+            uniqueKeysWithValues: snapshots.compactMap { snapshot in
+                let url = snapshot.url.standardizedFileURL
+                guard !suppressedSnapshotURLs.contains(url) else {
+                    return nil
+                }
+
+                let availability = reconciledAvailability(
+                    snapshot.availability,
+                    for: url,
+                    modified: snapshot.modified
+                )
+                return (
+                    url,
+                    ICloudDocumentSnapshot(
+                        url: url,
+                        created: snapshot.created,
+                        modified: snapshot.modified,
+                        byteCount: snapshot.byteCount,
+                        availability: availability,
+                        isRecentlyDeleted: snapshot.isRecentlyDeleted
+                    )
+                )
             }
         )
         refresh()
@@ -105,6 +135,9 @@ final class DocumentStore {
 
     func clearICloudSnapshot() {
         iCloudSnapshotsByURL = [:]
+        activeDownloadURLs = []
+        confirmedAvailableVersions = [:]
+        suppressedSnapshotURLs = []
     }
 
     private func createDirectoryIfNeeded() {
@@ -127,7 +160,10 @@ final class DocumentStore {
         createDirectoryIfNeeded()
 
         do {
-            documents = try documents(in: directory)
+            let refreshedDocuments = try documents(in: directory)
+            if documents != refreshedDocuments {
+                documents = refreshedDocuments
+            }
         } catch {
             // Keep the last successfully loaded library visible. Replacing it
             // with an empty array would falsely tell the user that their files
@@ -136,7 +172,12 @@ final class DocumentStore {
         }
 
         do {
-            recentlyDeletedDocuments = try documents(in: recentlyDeletedDirectory)
+            let refreshedDeletedDocuments = try documents(
+                in: recentlyDeletedDirectory
+            )
+            if recentlyDeletedDocuments != refreshedDeletedDocuments {
+                recentlyDeletedDocuments = refreshedDeletedDocuments
+            }
         } catch {
             lastError = "Could not refresh Recently Deleted. \(error.localizedDescription)"
         }
@@ -206,7 +247,12 @@ final class DocumentStore {
         }
 
         do {
-            return try fileAccess.string(at: document.url)
+            let text = try fileAccess.string(at: document.url)
+            confirmAvailable(
+                at: document.url,
+                modified: document.modified
+            )
+            return text
         } catch {
             if reportFailure {
                 lastError = "Could not open \(document.displayName). The original file was not changed. \(error.localizedDescription)"
@@ -216,21 +262,39 @@ final class DocumentStore {
     }
 
     @discardableResult
-    func requestDownload(for document: Document) -> Bool {
-        guard !document.availability.isAvailable else { return true }
+    func requestDownload(for document: Document) async -> Bool {
+        let url = document.url.standardizedFileURL
+        if document.availability.isAvailable {
+            confirmAvailable(at: url, modified: document.modified)
+            return true
+        }
+        guard !activeDownloadURLs.contains(url) else { return true }
 
+        activeDownloadURLs.insert(url)
         updateAvailability(
-            at: document.url,
+            at: url,
             to: .downloading(percent: nil)
         )
 
         do {
-            try startDownloadingUbiquitousItem(document.url)
+            try await downloadUbiquitousItem(url)
+            guard !Task.isCancelled else {
+                activeDownloadURLs.remove(url)
+                return false
+            }
+
+            activeDownloadURLs.remove(url)
+            let modified = Document(fileURL: url)?.modified
+                ?? document.modified
+            confirmAvailable(at: url, modified: modified)
+            updateAvailability(at: url, to: .available)
             return true
         } catch {
+            activeDownloadURLs.remove(url)
+            guard !Task.isCancelled else { return false }
             let message =
                 "Could not download \(document.displayName) from iCloud. \(error.localizedDescription)"
-            updateAvailability(at: document.url, to: .failed(message))
+            updateAvailability(at: url, to: .failed(message))
             lastError = message
             return false
         }
@@ -328,6 +392,10 @@ final class DocumentStore {
 
         do {
             try fileAccess.moveItem(at: document.url, to: destination)
+            reconcileMove(
+                from: document.url,
+                to: destination
+            )
             refresh()
             return destination
         } catch {
@@ -345,6 +413,10 @@ final class DocumentStore {
 
         do {
             try fileAccess.moveItem(at: document.url, to: destination)
+            reconcileMove(
+                from: document.url,
+                to: destination
+            )
             refresh()
             return destination
         } catch {
@@ -357,6 +429,7 @@ final class DocumentStore {
     func deletePermanently(_ document: Document) -> Bool {
         do {
             try fileAccess.removeItem(at: document.url)
+            suppressSnapshot(at: document.url)
             refresh()
             return true
         } catch {
@@ -379,6 +452,7 @@ final class DocumentStore {
 
         do {
             try fileAccess.moveItem(at: url, to: destination)
+            reconcileMove(from: url, to: destination)
             refresh()
             return destination
         } catch {
@@ -456,6 +530,56 @@ final class DocumentStore {
     }
 
     // MARK: - Naming
+
+    private func reconciledAvailability(
+        _ availability: DocumentAvailability,
+        for url: URL,
+        modified: Date
+    ) -> DocumentAvailability {
+        if activeDownloadURLs.contains(url) {
+            if case .downloading(let percent) = availability {
+                return .downloading(percent: percent)
+            }
+            return .downloading(percent: nil)
+        }
+
+        if let confirmed = confirmedAvailableVersions[url] {
+            if modified <= confirmed {
+                return .available
+            }
+            confirmedAvailableVersions[url] = nil
+        }
+
+        if availability.isAvailable {
+            confirmedAvailableVersions[url] = modified
+        }
+        return availability
+    }
+
+    private func confirmAvailable(at url: URL, modified: Date) {
+        let standardizedURL = url.standardizedFileURL
+        let existing = confirmedAvailableVersions[standardizedURL]
+        confirmedAvailableVersions[standardizedURL] = max(
+            existing ?? .distantPast,
+            modified
+        )
+    }
+
+    private func suppressSnapshot(at url: URL) {
+        let standardizedURL = url.standardizedFileURL
+        suppressedSnapshotURLs.insert(standardizedURL)
+        iCloudSnapshotsByURL[standardizedURL] = nil
+        activeDownloadURLs.remove(standardizedURL)
+        confirmedAvailableVersions[standardizedURL] = nil
+    }
+
+    private func reconcileMove(from sourceURL: URL, to destinationURL: URL) {
+        suppressSnapshot(at: sourceURL)
+        let destination = destinationURL.standardizedFileURL
+        let modified = Document(fileURL: destination)?.modified
+            ?? .distantPast
+        confirmAvailable(at: destination, modified: modified)
+    }
 
     private func updateAvailability(
         at url: URL,

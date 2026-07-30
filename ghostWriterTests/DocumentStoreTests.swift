@@ -221,7 +221,7 @@ struct DocumentStoreTests {
         }
     }
 
-    @Test func requestingRemoteDocumentStartsDownload() {
+    @Test func requestingRemoteDocumentConfirmsReadableContents() async {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "ghostWriterDownloadTests-\(UUID().uuidString)",
@@ -230,7 +230,14 @@ struct DocumentStoreTests {
         var requestedURL: URL?
         let store = DocumentStore(
             directory: directory,
-            startDownloadingUbiquitousItem: { requestedURL = $0 }
+            startDownloadingUbiquitousItem: {
+                requestedURL = $0
+                try "Downloaded".write(
+                    to: $0,
+                    atomically: true,
+                    encoding: .utf8
+                )
+            }
         )
         defer { cleanUp(store) }
         let remoteURL = directory.appendingPathComponent("Remote.md")
@@ -245,14 +252,12 @@ struct DocumentStoreTests {
             )
         ])
 
-        #expect(store.requestDownload(for: store.documents[0]))
+        #expect(await store.requestDownload(for: store.documents[0]))
         #expect(requestedURL == remoteURL)
-        #expect(
-            store.documents[0].availability == .downloading(percent: nil)
-        )
+        #expect(store.documents[0].availability == .available)
     }
 
-    @Test func failedDownloadCanBeRequestedAgain() {
+    @Test func failedDownloadCanBeRequestedAgain() async {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "ghostWriterRetryTests-\(UUID().uuidString)",
@@ -281,17 +286,17 @@ struct DocumentStoreTests {
             )
         ])
 
-        #expect(!store.requestDownload(for: store.documents[0]))
+        #expect(!(await store.requestDownload(for: store.documents[0])))
         #expect(
             store.documents[0].availability.statusDescription
                 == "Download failed"
         )
         store.lastError = nil
-        #expect(store.requestDownload(for: store.documents[0]))
+        #expect(await store.requestDownload(for: store.documents[0]))
         #expect(attempts == 2)
     }
 
-    @Test func localDocumentDoesNotRequestICloudDownload() {
+    @Test func localDocumentDoesNotRequestICloudDownload() async {
         var requestCount = 0
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -306,8 +311,88 @@ struct DocumentStoreTests {
         _ = store.createDocument(named: "Local", contents: "Body")
         store.refresh()
 
-        #expect(store.requestDownload(for: store.documents[0]))
+        #expect(await store.requestDownload(for: store.documents[0]))
         #expect(requestCount == 0)
+    }
+
+    @Test func staleWaitingSnapshotDoesNotDowngradeConfirmedDownload() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterConfirmedDownload-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let remoteURL = directory.appendingPathComponent("Remote.md")
+        let modified = Date(timeIntervalSince1970: 200)
+        let store = DocumentStore(
+            directory: directory,
+            startDownloadingUbiquitousItem: { url in
+                try "Downloaded".write(
+                    to: url,
+                    atomically: true,
+                    encoding: .utf8
+                )
+            }
+        )
+        defer { cleanUp(store) }
+        let staleSnapshot = ICloudDocumentSnapshot(
+            url: remoteURL,
+            created: Date(timeIntervalSince1970: 100),
+            modified: modified,
+            byteCount: 10,
+            availability: .waitingForICloud,
+            isRecentlyDeleted: false
+        )
+        store.applyICloudSnapshot([staleSnapshot])
+
+        #expect(await store.requestDownload(for: store.documents[0]))
+        store.applyICloudSnapshot([staleSnapshot])
+
+        #expect(store.documents[0].availability == .available)
+        #expect(try store.text(for: store.documents[0]) == "Downloaded")
+    }
+
+    @Test func newerRemoteVersionCanReplaceConfirmedAvailability() async {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterNewerRemote-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let remoteURL = directory.appendingPathComponent("Remote.md")
+        let store = DocumentStore(
+            directory: directory,
+            startDownloadingUbiquitousItem: { url in
+                try "Downloaded".write(
+                    to: url,
+                    atomically: true,
+                    encoding: .utf8
+                )
+            }
+        )
+        defer { cleanUp(store) }
+        store.applyICloudSnapshot([
+            ICloudDocumentSnapshot(
+                url: remoteURL,
+                created: .distantPast,
+                modified: Date(timeIntervalSince1970: 200),
+                byteCount: 10,
+                availability: .waitingForICloud,
+                isRecentlyDeleted: false
+            )
+        ])
+        #expect(await store.requestDownload(for: store.documents[0]))
+
+        store.applyICloudSnapshot([
+            ICloudDocumentSnapshot(
+                url: remoteURL,
+                created: .distantPast,
+                modified: .distantFuture,
+                byteCount: 20,
+                availability: .waitingForICloud,
+                isRecentlyDeleted: false
+            )
+        ])
+
+        #expect(store.documents[0].availability == .waitingForICloud)
     }
 
     @Test func createAvoidsNameCollisions() throws {
@@ -400,6 +485,35 @@ struct DocumentStoreTests {
         #expect(store.recentlyDeletedDocuments.isEmpty)
         #expect(store.documents.count == 1)
         #expect(try store.text(for: store.documents[0]) == "Restored text")
+    }
+
+    @Test func staleICloudSnapshotDoesNotRecreateRestoredDeletion() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        _ = store.createDocument(named: "Return", contents: "Restored text")
+        store.refresh()
+
+        guard let original = store.documents.first,
+              store.moveToRecentlyDeleted(original) != nil,
+              let deleted = store.recentlyDeletedDocuments.first else {
+            Issue.record("Could not prepare Recently Deleted")
+            return
+        }
+        let staleDeletedSnapshot = ICloudDocumentSnapshot(
+            url: deleted.url,
+            created: deleted.created,
+            modified: deleted.modified,
+            byteCount: deleted.byteCount,
+            availability: .available,
+            isRecentlyDeleted: true
+        )
+        store.applyICloudSnapshot([staleDeletedSnapshot])
+
+        #expect(store.restore(deleted) != nil)
+        store.applyICloudSnapshot([staleDeletedSnapshot])
+
+        #expect(store.recentlyDeletedDocuments.isEmpty)
+        #expect(store.documents.map(\.displayName) == ["Return"])
     }
 
     @Test func restoreAvoidsNameCollisions() throws {

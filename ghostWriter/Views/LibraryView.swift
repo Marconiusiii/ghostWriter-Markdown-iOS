@@ -69,6 +69,8 @@ struct LibraryView: View {
     @State private var searchAnnounceTask: Task<Void, Never>?
     @State private var pendingDocumentActions:
         [URL: PendingDocumentAction] = [:]
+    @State private var downloadTasks:
+        [URL: Task<Void, Never>] = [:]
     @FocusState private var searchFocused: Bool
     @AccessibilityFocusState private var focusedElement: LibraryFocus?
 
@@ -918,6 +920,8 @@ struct LibraryView: View {
 
         let directory = await storage.prepareCurrentLocation()
         guard storage.selectedLocation == .iCloud else {
+            downloadTasks.values.forEach { $0.cancel() }
+            downloadTasks = [:]
             pendingDocumentActions = [:]
             store.clearICloudSnapshot()
             store.useDirectory(directory)
@@ -938,7 +942,7 @@ struct LibraryView: View {
             pendingDocumentActions[
                 document.url.standardizedFileURL
             ] = action
-            _ = store.requestDownload(for: document)
+            beginDownload(document)
             return
         }
         performAvailable(action, with: document)
@@ -949,7 +953,20 @@ struct LibraryView: View {
         if pendingDocumentActions[url] == nil {
             pendingDocumentActions[url] = .open
         }
-        _ = store.requestDownload(for: document)
+        beginDownload(document)
+    }
+
+    private func beginDownload(_ document: Document) {
+        let url = document.url.standardizedFileURL
+        guard downloadTasks[url] == nil else { return }
+
+        downloadTasks[url] = Task {
+            let succeeded = await store.requestDownload(for: document)
+            downloadTasks[url] = nil
+            if succeeded {
+                completePendingDocumentActions()
+            }
+        }
     }
 
     private func completePendingDocumentActions() {

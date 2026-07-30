@@ -11,6 +11,7 @@ import Foundation
 
 nonisolated enum DocumentAvailability: Equatable, Hashable, Sendable {
     case available
+    case checkingICloud
     case waitingForICloud
     case downloading(percent: Int?)
     case updating
@@ -24,6 +25,8 @@ nonisolated enum DocumentAvailability: Equatable, Hashable, Sendable {
         switch self {
         case .available:
             return nil
+        case .checkingICloud:
+            return "Checking iCloud"
         case .waitingForICloud:
             return "Waiting for iCloud"
         case .downloading(let percent):
@@ -63,7 +66,10 @@ nonisolated enum DocumentAvailability: Equatable, Hashable, Sendable {
         case URLUbiquitousItemDownloadingStatus.notDownloaded.rawValue:
             return .waitingForICloud
         default:
-            return .waitingForICloud
+            // iCloud metadata arrives incrementally. A missing status is not
+            // proof that the contents are remote, so do not mislabel a local
+            // document as waiting for a download.
+            return .checkingICloud
         }
     }
 }

@@ -8,6 +8,27 @@ import Testing
 @testable import ghostWriter
 
 struct CoordinatedFileAccessTests {
+    @Test func verifiesReadableContentsAwayFromTheCaller() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterReadable-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        let document = root.appendingPathComponent("Readable.md")
+        try "Body".write(
+            to: document,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        try await CoordinatedFileAccess.verifyReadable(at: document)
+    }
+
     @Test func coordinatesTheCompleteFileLifecycle() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(

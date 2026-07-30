@@ -10,6 +10,17 @@
 import Foundation
 
 nonisolated final class CoordinatedFileAccess {
+    static func downloadAndVerifyUbiquitousItem(at url: URL) async throws {
+        try FileManager.default.startDownloadingUbiquitousItem(at: url)
+        try await verifyReadable(at: url)
+    }
+
+    static func verifyReadable(at url: URL) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            _ = try CoordinatedFileAccess().data(at: url)
+        }.value
+    }
+
     func read<T>(
         at url: URL,
         options: NSFileCoordinator.ReadingOptions = [],

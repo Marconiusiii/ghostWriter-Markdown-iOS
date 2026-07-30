@@ -34,6 +34,18 @@ struct DocumentAvailabilityTests {
         #expect(state.statusDescription == "Waiting for iCloud")
     }
 
+    @Test func missingMetadataIsCheckingRatherThanWaiting() {
+        let state = DocumentAvailability.iCloudState(
+            downloadingStatus: nil,
+            isDownloading: false,
+            percentDownloaded: nil,
+            errorDescription: nil
+        )
+
+        #expect(state == .checkingICloud)
+        #expect(state.statusDescription == "Checking iCloud")
+    }
+
     @Test func downloadProgressIsClampedAndRounded() {
         let state = DocumentAvailability.iCloudState(
             downloadingStatus:
