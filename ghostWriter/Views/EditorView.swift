@@ -328,6 +328,7 @@ struct EditorView: View {
             Label("Insert…", systemImage: "plus")
         }
         .buttonStyle(.bordered)
+        .accessibilityHint("Opens list of insertable Markdown elements")
         .accessibilityFocused($focusedElement, equals: .insert)
         .keyboardShortcut(
             shortcut("i", modifiers: [.command, .shift])

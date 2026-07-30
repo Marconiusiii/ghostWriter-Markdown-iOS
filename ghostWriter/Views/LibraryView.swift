@@ -130,6 +130,16 @@ struct LibraryView: View {
                 scheduleSearchAnnouncement()
             }
         }
+        .onAppear {
+            if settings.renderSoundEnabled {
+                RenderSound.shared.prepare()
+            }
+        }
+        .onChange(of: settings.renderSoundEnabled) { _, isEnabled in
+            if isEnabled {
+                RenderSound.shared.prepare()
+            }
+        }
         .task(id: storage.selectedLocation) {
             await configureSelectedStorage()
         }
@@ -659,6 +669,9 @@ struct LibraryView: View {
         guard let text = try? store.text(for: document) else { return }
         focusAfterError = nil
         focusAfterPresentation = .document(document.url)
+        if settings.renderSoundEnabled {
+            RenderSound.shared.play()
+        }
         renderingSession = RenderedDocumentSession(
             title: document.displayName,
             markdown: text
