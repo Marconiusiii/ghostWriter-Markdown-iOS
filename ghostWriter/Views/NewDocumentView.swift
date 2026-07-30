@@ -34,6 +34,11 @@ struct NewDocumentView: View {
                 } footer: {
                     Text("The document is saved as a markdown file with this name. You can rename it later from File Actions.")
                 }
+
+                Section {
+                    Button("Create", action: create)
+                        .disabled(trimmedName.isEmpty)
+                }
             }
             .navigationTitle("New Document")
             .navigationBarTitleDisplayMode(.inline)
@@ -41,20 +46,11 @@ struct NewDocumentView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Create", action: create)
-                        .disabled(trimmedName.isEmpty)
-                }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Dismiss") { nameFieldFocused = false }
                         .accessibilityLabel("Dismiss keyboard")
                 }
-            }
-            .onAppear {
-                // Focus the field so the keyboard is ready and VoiceOver lands
-                // on the thing this screen exists to collect.
-                nameFieldFocused = true
             }
         }
     }

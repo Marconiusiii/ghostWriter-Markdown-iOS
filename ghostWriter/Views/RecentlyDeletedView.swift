@@ -47,6 +47,13 @@ struct RecentlyDeletedView: View {
                     deletedList
                 }
 
+                Button("Empty Recently Deleted", role: .destructive) {
+                    focusRequestGate.invalidate()
+                    showingEmptyConfirmation = true
+                }
+                .buttonStyle(.bordered)
+                .disabled(deletedDocuments.isEmpty)
+
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
@@ -62,14 +69,6 @@ struct RecentlyDeletedView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Back") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Empty") {
-                        focusRequestGate.invalidate()
-                        showingEmptyConfirmation = true
-                    }
-                    .accessibilityLabel("Empty Recently Deleted")
-                    .disabled(deletedDocuments.isEmpty)
                 }
             }
         }
