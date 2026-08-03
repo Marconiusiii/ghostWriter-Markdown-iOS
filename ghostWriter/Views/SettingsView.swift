@@ -268,6 +268,12 @@ struct SettingsView: View {
         .onChange(of: settings.indentUnit) { _, _ in
             restoreFocus(to: .indentation)
         }
+        .onChange(of: settings.appLaunchBehavior) { _, _ in
+            restoreFocus(to: .appLaunch)
+        }
+        .onChange(of: settings.newDocumentCreationMode) { _, _ in
+            restoreFocus(to: .newDocumentCreation)
+        }
         .onChange(of: settings.appearance) { _, _ in
             restoreFocus(to: .theme)
         }
