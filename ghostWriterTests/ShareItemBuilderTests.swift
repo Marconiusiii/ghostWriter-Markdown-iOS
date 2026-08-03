@@ -31,7 +31,7 @@ struct ShareItemBuilderTests {
         #expect(html.contains("<meta name=\"viewport\""))
         #expect(html.contains("<title>Accessible Notes</title>"))
         #expect(html.contains("<main>"))
-        #expect(html.contains("<h1 class=\"document-title\">Accessible Notes</h1>"))
+        #expect(!html.contains("<h1 class=\"document-title\">"))
         #expect(html.contains("<h2>Introduction</h2>"))
         #expect(html.contains("<strong>important</strong>"))
         #expect(html.contains("</main>"))
@@ -46,7 +46,7 @@ struct ShareItemBuilderTests {
         )
 
         #expect(html.contains("<title>Notes &lt;Draft&gt;</title>"))
-        #expect(html.contains(">Notes &lt;Draft&gt;</h1>"))
+        #expect(!html.contains(">Notes &lt;Draft&gt;</h1>"))
         #expect(!html.contains("<title>Notes <Draft></title>"))
     }
 
@@ -57,7 +57,7 @@ struct ShareItemBuilderTests {
             format: .html
         )
 
-        #expect(html.contains("<h1 class=\"document-title\">Empty Note</h1>"))
+        #expect(!html.contains("<h1"))
         #expect(html.contains("<p class=\"empty-state\">This document is empty.</p>"))
     }
 

@@ -16,20 +16,15 @@ enum HTMLTemplate {
     /// A full document for display in the in-app web view.
     ///
     /// - Parameters:
-    ///   - title: Used as the document title and as the h1 when `includeTitle`.
+    ///   - title: Used only as the HTML document title.
     ///   - body: Rendered HTML fragment.
     ///   - baseFontPointSize: The reader's current body text size, taken from
     ///     the trait environment so the web view matches the rest of the app.
     static func document(
         title: String,
         body: String,
-        baseFontPointSize: CGFloat,
-        includeTitle: Bool = true
+        baseFontPointSize: CGFloat
     ) -> String {
-        let heading = includeTitle && !title.isEmpty
-            ? "<h1 class=\"document-title\">\(MarkdownRenderer.escape(title))</h1>"
-            : ""
-
         let content = body.isEmpty
             ? "<p class=\"empty-state\">This document is empty.</p>"
             : body
@@ -47,7 +42,6 @@ enum HTMLTemplate {
         </head>
         <body>
         <main>
-        \(heading)
         \(content)
         </main>
         </body>
@@ -58,9 +52,6 @@ enum HTMLTemplate {
     /// A standalone document for export or sharing. Font sizing is left to the
     /// receiving application rather than pinned to this device's settings.
     static func exportDocument(title: String, body: String) -> String {
-        let heading = title.isEmpty
-            ? ""
-            : "<h1 class=\"document-title\">\(MarkdownRenderer.escape(title))</h1>"
         let content = body.isEmpty
             ? "<p class=\"empty-state\">This document is empty.</p>"
             : body
@@ -78,7 +69,6 @@ enum HTMLTemplate {
         </head>
         <body>
         <main>
-        \(heading)
         \(content)
         </main>
         </body>
