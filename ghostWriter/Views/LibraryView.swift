@@ -66,6 +66,12 @@ struct LibraryView: View {
     @State private var focusAfterError: LibraryFocus?
     @State private var focusRequestGate = FocusRestorationRequestGate()
     @State private var appLaunchActionGate = AppLaunchActionGate()
+    @State private var welcomeExperience = WelcomeExperience()
+    @State private var showingWelcome = false
+    @State private var welcomeDocumentURL: URL?
+    @State private var welcomePreparationFailed = false
+    @State private var isPreparingWelcomeDocument = false
+    @State private var welcomeDismissalAction: WelcomeDismissalAction?
     @State private var searchIndex = DocumentSearchIndex.empty
     @State private var searchAnnounceTask: Task<Void, Never>?
     @State private var pendingDocumentActions:
@@ -76,6 +82,7 @@ struct LibraryView: View {
     @AccessibilityFocusState private var focusedElement: LibraryFocus?
 
     private enum LibraryFocus: Hashable {
+        case appHeading
         case settings
         case newDocument
         case importDocument
@@ -91,6 +98,11 @@ struct LibraryView: View {
         case render
         case share
         case duplicate
+    }
+
+    private enum WelcomeDismissalAction {
+        case explore(URL)
+        case library
     }
 
     var body: some View {
@@ -144,6 +156,9 @@ struct LibraryView: View {
             if settings.renderSoundEnabled {
                 RenderSound.shared.prepare()
             }
+            if welcomeExperience.shouldPresent {
+                showingWelcome = true
+            }
         }
         .onChange(of: settings.renderSoundEnabled) { _, isEnabled in
             if isEnabled {
@@ -156,7 +171,10 @@ struct LibraryView: View {
         .onChange(of: iCloudMonitor.revision) { _, _ in
             guard storage.selectedLocation == .iCloud else { return }
             store.applyICloudSnapshot(iCloudMonitor.snapshots)
-            performAppLaunchBehaviorIfReady()
+            Task {
+                await prepareWelcomeDocumentIfNeeded()
+                performAppLaunchBehaviorIfReady()
+            }
         }
         .onChange(of: store.documents) { _, _ in
             completePendingDocumentActions()
@@ -183,6 +201,16 @@ struct LibraryView: View {
                     await configureSelectedStorage()
                 }
             }
+        }
+        .fullScreenCover(isPresented: $showingWelcome, onDismiss: {
+            finishWelcomeDismissal()
+        }) {
+            WelcomeView(
+                documentReady: welcomeDocumentURL != nil,
+                preparationFailed: welcomePreparationFailed,
+                onExplore: exploreWelcomeDocument,
+                onContinue: continueFromWelcome
+            )
         }
         .sheet(isPresented: $showingSettings, onDismiss: {
             restoreFocus(to: .settings)
@@ -262,6 +290,7 @@ struct LibraryView: View {
                 .font(.largeTitle.bold())
                 .foregroundStyle(Color.ghostAccent)
                 .accessibilityAddTraits(.isHeader)
+                .accessibilityFocused($focusedElement, equals: .appHeading)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
@@ -960,6 +989,7 @@ struct LibraryView: View {
                 directory,
                 usesICloudStorage: false
             )
+            await prepareWelcomeDocumentIfNeeded()
             performAppLaunchBehaviorIfReady()
             return
         }
@@ -970,12 +1000,15 @@ struct LibraryView: View {
         )
         if let directory {
             iCloudMonitor.start(rootDirectory: directory)
+        } else {
+            await prepareWelcomeDocumentIfNeeded()
         }
         performAppLaunchBehaviorIfReady()
     }
 
     private func performAppLaunchBehaviorIfReady() {
         guard !appLaunchActionGate.hasPerformed else { return }
+        guard !welcomeExperience.shouldPresent else { return }
 
         if storage.selectedLocation == .iCloud,
            case .available = storage.iCloudAvailability,
@@ -1002,6 +1035,68 @@ struct LibraryView: View {
                 return
             }
             open(document)
+        }
+    }
+
+    private func prepareWelcomeDocumentIfNeeded() async {
+        guard !isPreparingWelcomeDocument else { return }
+        guard !welcomeExperience.hasInstalledDocument
+                || welcomeExperience.shouldPresent else {
+            return
+        }
+        guard store.storageAvailable else {
+            if welcomeExperience.shouldPresent {
+                welcomePreparationFailed = true
+            }
+            return
+        }
+
+        isPreparingWelcomeDocument = true
+        defer { isPreparingWelcomeDocument = false }
+        welcomePreparationFailed = false
+        let url = await welcomeExperience.installDocumentIfNeeded(
+            in: store,
+            markdown: try WelcomeDocument.bundledMarkdown()
+        )
+        welcomeDocumentURL = url
+        if url == nil, welcomeExperience.shouldPresent {
+            welcomePreparationFailed = true
+        }
+    }
+
+    private func exploreWelcomeDocument() {
+        guard let welcomeDocumentURL else { return }
+        welcomeExperience.complete()
+        _ = appLaunchActionGate.begin()
+        welcomeDismissalAction = .explore(welcomeDocumentURL)
+        showingWelcome = false
+    }
+
+    private func continueFromWelcome() {
+        welcomeExperience.complete()
+        _ = appLaunchActionGate.begin()
+        welcomeDismissalAction = .library
+        showingWelcome = false
+    }
+
+    private func finishWelcomeDismissal() {
+        let action = welcomeDismissalAction
+        welcomeDismissalAction = nil
+
+        switch action {
+        case .explore(let url):
+            store.refresh()
+            guard let document = store.documents.first(where: {
+                $0.url.standardizedFileURL == url.standardizedFileURL
+            }) else {
+                restoreFocus(to: .appHeading)
+                return
+            }
+            open(document)
+        case .library:
+            restoreFocus(to: .appHeading)
+        case nil:
+            break
         }
     }
 

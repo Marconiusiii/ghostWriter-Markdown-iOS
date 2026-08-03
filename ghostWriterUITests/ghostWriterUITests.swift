@@ -17,7 +17,9 @@ final class ghostWriterUITests: XCTestCase {
         app.launchArguments += [
             "-documentStorageLocation", "onDevice",
             "-appLaunchBehavior", "showLibrary",
-            "-newDocumentCreationMode", "askForTitle"
+            "-newDocumentCreationMode", "askForTitle",
+            "-welcomeExperienceCompleted", "YES",
+            "-welcomeDocumentInstalled", "YES"
         ]
         app.launch()
         // The heading is ordinary content rather than a navigation title, so
@@ -36,7 +38,9 @@ final class ghostWriterUITests: XCTestCase {
         app.launchArguments += [
             "-documentStorageLocation", "onDevice",
             "-appLaunchBehavior", "startNewDocument",
-            "-newDocumentCreationMode", "askForTitle"
+            "-newDocumentCreationMode", "askForTitle",
+            "-welcomeExperienceCompleted", "YES",
+            "-welcomeDocumentInstalled", "YES"
         ]
 
         app.launch()
@@ -53,7 +57,9 @@ final class ghostWriterUITests: XCTestCase {
         app.launchArguments += [
             "-documentStorageLocation", "onDevice",
             "-appLaunchBehavior", "startNewDocument",
-            "-newDocumentCreationMode", "useTodaysDate"
+            "-newDocumentCreationMode", "useTodaysDate",
+            "-welcomeExperienceCompleted", "YES",
+            "-welcomeDocumentInstalled", "YES"
         ]
 
         app.launch()
@@ -69,7 +75,9 @@ final class ghostWriterUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += [
             "-UIPreferredContentSizeCategoryName",
-            "UICTContentSizeCategoryAccessibilityXXXL"
+            "UICTContentSizeCategoryAccessibilityXXXL",
+            "-welcomeExperienceCompleted", "YES",
+            "-welcomeDocumentInstalled", "YES"
         ]
         app.launch()
 
@@ -95,6 +103,10 @@ final class ghostWriterUITests: XCTestCase {
     @MainActor
     func testJumpToLineReportsAnUnavailableLine() throws {
         let app = XCUIApplication()
+        app.launchArguments += [
+            "-welcomeExperienceCompleted", "YES",
+            "-welcomeDocumentInstalled", "YES"
+        ]
         app.launch()
 
         app.buttons["New document"].tap()
@@ -121,6 +133,64 @@ final class ghostWriterUITests: XCTestCase {
         XCTAssertTrue(
             app.staticTexts["Line 99 does not exist. This document has 1 line."]
                 .exists
+        )
+    }
+
+    @MainActor
+    func testFirstLaunchWelcomePrecedesConfiguredLaunchBehavior() throws {
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-documentStorageLocation", "onDevice",
+            "-appLaunchBehavior", "startNewDocument",
+            "-newDocumentCreationMode", "askForTitle",
+            "-welcomeExperienceCompleted", "NO",
+            "-welcomeDocumentInstalled", "NO"
+        ]
+
+        app.launch()
+
+        XCTAssertTrue(
+            app.staticTexts["Welcome to ghostWriter Markdown"]
+                .waitForExistence(timeout: 10)
+        )
+        XCTAssertTrue(app.buttons["Explore Welcome Document"].exists)
+        XCTAssertTrue(app.buttons["Continue to Library"].exists)
+        XCTAssertFalse(app.textFields["Document name"].exists)
+
+        app.buttons["Continue to Library"].tap()
+        XCTAssertTrue(
+            app.staticTexts["ghostWriter Markdown"]
+                .waitForExistence(timeout: 5)
+        )
+        XCTAssertFalse(app.textFields["Document name"].exists)
+    }
+
+    @MainActor
+    func testWelcomeDocumentCanBeOpenedForExploration() throws {
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-documentStorageLocation", "onDevice",
+            "-appLaunchBehavior", "showLibrary",
+            "-welcomeExperienceCompleted", "NO",
+            "-welcomeDocumentInstalled", "NO"
+        ]
+
+        app.launch()
+
+        let explore = app.buttons["Explore Welcome Document"]
+        XCTAssertTrue(explore.waitForExistence(timeout: 10))
+        let ready = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == YES"),
+            object: explore
+        )
+        wait(for: [ready], timeout: 10)
+        explore.tap()
+
+        XCTAssertTrue(
+            app.buttons["File actions"].waitForExistence(timeout: 10)
+        )
+        XCTAssertTrue(
+            app.staticTexts["Welcome to ghostWriter Markdown"].exists
         )
     }
 }
