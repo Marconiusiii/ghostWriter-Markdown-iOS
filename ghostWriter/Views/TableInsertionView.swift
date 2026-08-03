@@ -29,17 +29,21 @@ struct TableInsertionView: View {
                 }
 
                 Section {
-                    Stepper(
-                        "Columns: \(columns)",
-                        value: $columns,
-                        in: 1...12
-                    )
+                    Picker("Columns", selection: $columns) {
+                        ForEach(1...12, id: \.self) { value in
+                            Text(value == 1 ? "1 column" : "\(value) columns")
+                                .tag(value)
+                        }
+                    }
+                    .pickerStyle(.wheel)
 
-                    Stepper(
-                        "Rows: \(rows)",
-                        value: $rows,
-                        in: 2...20
-                    )
+                    Picker("Rows", selection: $rows) {
+                        ForEach(2...20, id: \.self) { value in
+                            Text("\(value) rows")
+                                .tag(value)
+                        }
+                    }
+                    .pickerStyle(.wheel)
                 }
 
                 Section {
