@@ -124,11 +124,13 @@ Use pipes between cells and a row of dashes beneath the column headings:
 
 Meaningful column headings help everyone understand a table, including people navigating it with a screen reader.
 
+Insert can build this structure for you. Choose the number of columns and rows, and then replace the generated column names and empty cells with your own content.
+
 ## Use the Editor
 
 The editor keeps the Markdown punctuation visible so you always control the source text.
 
-- Insert adds headings, links, lists, quotes, code, and other elements.
+- Insert adds headings, links, lists, tables, quotes, code, and other elements.
 - Outline lists your headings and lets you jump directly to one.
 - Render opens the formatted version of your document.
 - File Actions provides saving, sharing, renaming, navigation, and the Markdown Reference.

@@ -27,6 +27,7 @@ struct InsertActionsView: View {
                 categoryButton("Emphasis…", category: .emphasis)
                 categoryButton("Code…", category: .code)
                 categoryButton("Lists…", category: .lists)
+                categoryButton("Table…", category: .table)
                 categoryButton("Blocks…", category: .blocks)
             }
             .navigationTitle("Insert Actions")
@@ -107,6 +108,10 @@ struct InsertActionsView: View {
                 ],
                 onChoose: choose
             )
+        case .table:
+            TableInsertionView {
+                choose(.table(columns: $0, rows: $1))
+            }
         case .blocks:
             InsertChoiceView(
                 title: "Blocks",
@@ -146,6 +151,7 @@ private enum InsertCategory: String, Identifiable, Hashable {
     case emphasis
     case code
     case lists
+    case table
     case blocks
 
     var id: String { rawValue }

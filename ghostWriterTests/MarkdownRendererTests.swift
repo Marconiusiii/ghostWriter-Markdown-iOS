@@ -56,6 +56,17 @@ struct MarkdownRendererTests {
         )
     }
 
+    @Test func rendersTaskStatesWithoutPlatformCheckboxControls() {
+        let html = MarkdownRenderer.html(
+            from: "- [ ] Draft document\n- [x] Share document"
+        )
+
+        #expect(html.contains("<span class=\"task-status\">Not completed:</span>"))
+        #expect(html.contains("<span class=\"task-status\">Completed:</span>"))
+        #expect(html.contains("class=\"task-indicator completed\""))
+        #expect(!html.contains("<input"))
+    }
+
     @Test func keepsMarkdownInsideCodeLiteral() {
         let html = MarkdownRenderer.html(from: "`**not bold**`")
         #expect(html == "<p><code>**not bold**</code></p>")

@@ -26,6 +26,7 @@ enum MarkdownInsertionCommand: Equatable {
     case bulletedList
     case numberedList
     case taskList
+    case table(columns: Int, rows: Int)
     case blockQuote
     case horizontalRule
 }
@@ -69,6 +70,13 @@ enum MarkdownInsertion {
             return numberedList(in: text, selection: selection)
         case .taskList:
             return taskList(in: text, selection: selection)
+        case .table(let columns, let rows):
+            return table(
+                columns: columns,
+                rows: rows,
+                in: text,
+                selection: selection
+            )
         case .blockQuote:
             return blockQuote(in: text, selection: selection)
         case .horizontalRule:
@@ -202,6 +210,62 @@ enum MarkdownInsertion {
             let (indent, content) = lineWithoutListMarker(line)
             return "\(indent)- [ ] \(content)"
         }
+    }
+
+    static func table(
+        columns: Int,
+        rows: Int,
+        in text: String,
+        selection: TextSelection
+    ) -> MarkdownInsertionResult {
+        let safeColumns = min(max(1, columns), 12)
+        let safeRows = min(max(2, rows), 20)
+        let headers = (1...safeColumns).map { "Column \($0)" }
+        let headerRow = "| " + headers.joined(separator: " | ") + " |"
+        let dividerRow = "| "
+            + Array(repeating: "---", count: safeColumns)
+                .joined(separator: " | ")
+            + " |"
+        let emptyRow = "| "
+            + Array(repeating: "", count: safeColumns)
+                .joined(separator: " | ")
+            + " |"
+        let bodyRows = Array(repeating: emptyRow, count: safeRows - 1)
+        let table = ([headerRow, dividerRow] + bodyRows)
+            .joined(separator: "\n")
+
+        let range = safeRange(in: text, selection: selection)
+        let contentBefore = String(text[..<range.lowerBound])
+        let contentAfter = String(text[range.upperBound...])
+        let leadingBreak: String
+        if contentBefore.isEmpty || contentBefore.hasSuffix("\n\n") {
+            leadingBreak = ""
+        } else if contentBefore.hasSuffix("\n") {
+            leadingBreak = "\n"
+        } else {
+            leadingBreak = "\n\n"
+        }
+
+        let trailingBreak: String
+        if contentAfter.isEmpty || contentAfter.hasPrefix("\n\n") {
+            trailingBreak = ""
+        } else if contentAfter.hasPrefix("\n") {
+            trailingBreak = "\n"
+        } else {
+            trailingBreak = "\n\n"
+        }
+
+        let replacement = leadingBreak + table + trailingBreak
+        let firstCellOffset = leadingBreak.count
+            + headerRow.count + 1
+            + dividerRow.count + 1
+            + 2
+        return replaceSelection(
+            in: text,
+            selection: selection,
+            with: replacement,
+            cursorOffset: firstCellOffset
+        )
     }
 
     static func horizontalRule(

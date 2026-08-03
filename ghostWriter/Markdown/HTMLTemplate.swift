@@ -211,7 +211,29 @@ enum HTMLTemplate {
 
         ul.contains-task-list { list-style: none; padding-left: 1.2em; }
         li.task-list-item { margin-left: -1.2em; }
-        input[type="checkbox"] { margin-right: 0.4em; }
+        .task-indicator {
+          box-sizing: border-box;
+          display: inline-block;
+          position: relative;
+          width: 1em;
+          height: 1em;
+          margin-right: 0.4em;
+          border: 2px solid currentColor;
+          border-radius: 0.15em;
+          vertical-align: -0.1em;
+        }
+        .task-indicator.completed::after {
+          content: "";
+          position: absolute;
+          left: 0.23em;
+          top: 0.01em;
+          width: 0.25em;
+          height: 0.55em;
+          border: solid currentColor;
+          border-width: 0 0.14em 0.14em 0;
+          transform: rotate(45deg);
+        }
+        .task-status { font-weight: 600; }
 
         .empty-state { color: var(--muted); font-style: italic; }
 
@@ -248,5 +270,30 @@ enum HTMLTemplate {
     blockquote { margin-inline: 0; padding-left: 1rem; border-left: 0.25rem solid currentColor; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 0.5rem 0.7rem; border: 1px solid currentColor; text-align: left; }
+    ul.contains-task-list { list-style: none; padding-left: 1.2em; }
+    li.task-list-item { margin-left: -1.2em; }
+    .task-indicator {
+      box-sizing: border-box;
+      display: inline-block;
+      position: relative;
+      width: 1em;
+      height: 1em;
+      margin-right: 0.4em;
+      border: 2px solid currentColor;
+      border-radius: 0.15em;
+      vertical-align: -0.1em;
+    }
+    .task-indicator.completed::after {
+      content: "";
+      position: absolute;
+      left: 0.23em;
+      top: 0.01em;
+      width: 0.25em;
+      height: 0.55em;
+      border: solid currentColor;
+      border-width: 0 0.14em 0.14em 0;
+      transform: rotate(45deg);
+    }
+    .task-status { font-weight: 600; }
     """
 }
