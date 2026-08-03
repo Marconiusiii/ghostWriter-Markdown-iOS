@@ -34,6 +34,11 @@ nonisolated enum DocumentMigrationError: LocalizedError {
 }
 
 nonisolated final class DocumentMigration {
+    private struct MigrationOperation {
+        let pair: DocumentMigrationPair
+        let createdDestination: Bool
+    }
+
     private let fileAccess: CoordinatedFileAccess
     private let fileManager: FileManager
     private let placeUbiquitousItem: (Data, URL) throws -> Void
@@ -54,7 +59,8 @@ nonisolated final class DocumentMigration {
     func migrate(
         from sourceDirectory: URL,
         to destinationDirectory: URL,
-        destinationUsesICloud: Bool = false
+        destinationUsesICloud: Bool = false,
+        reusableSourceTemplates: [String: Data] = [:]
     ) throws
         -> DocumentMigrationResult {
         guard sourceDirectory.standardizedFileURL
@@ -65,8 +71,12 @@ nonisolated final class DocumentMigration {
         try fileAccess.createDirectory(at: destinationDirectory)
         let sourceFiles = try fileAccess.regularFilesRecursively(
             at: sourceDirectory
-        )
-        var copiedPairs: [DocumentMigrationPair] = []
+        ).sorted {
+            $0.standardizedFileURL.path
+                .localizedStandardCompare($1.standardizedFileURL.path)
+                == .orderedAscending
+        }
+        var operations: [MigrationOperation] = []
 
         do {
             for sourceURL in sourceFiles {
@@ -76,12 +86,32 @@ nonisolated final class DocumentMigration {
                 )
                 let proposedDestination = destinationDirectory
                     .appendingPathComponent(relativePath)
+                let sourceData = try fileAccess.data(at: sourceURL)
+
+                // A bundled starter document is replaceable only while its
+                // source bytes are still pristine. Reusing an existing
+                // destination prevents reinstall migrations from creating a
+                // numbered Welcome duplicate while preserving any edits that
+                // already exist in iCloud.
+                if reusableSourceTemplates[relativePath] == sourceData,
+                   isRegularFile(at: proposedDestination) {
+                    operations.append(
+                        MigrationOperation(
+                            pair: DocumentMigrationPair(
+                                sourceURL: sourceURL,
+                                destinationURL: proposedDestination
+                            ),
+                            createdDestination: false
+                        )
+                    )
+                    continue
+                }
+
                 let destinationURL = availableURL(for: proposedDestination)
 
                 try fileAccess.createDirectory(
                     at: destinationURL.deletingLastPathComponent()
                 )
-                let sourceData = try fileAccess.data(at: sourceURL)
                 if destinationUsesICloud {
                     try placeUbiquitousItem(
                         sourceData,
@@ -101,31 +131,37 @@ nonisolated final class DocumentMigration {
                     )
                 }
 
-                copiedPairs.append(
-                    DocumentMigrationPair(
-                        sourceURL: sourceURL,
-                        destinationURL: destinationURL
+                operations.append(
+                    MigrationOperation(
+                        pair: DocumentMigrationPair(
+                            sourceURL: sourceURL,
+                            destinationURL: destinationURL
+                        ),
+                        createdDestination: true
                     )
                 )
             }
         } catch {
-            for pair in copiedPairs.reversed() {
-                try? fileAccess.removeItem(at: pair.destinationURL)
+            for operation in operations.reversed()
+            where operation.createdDestination {
+                try? fileAccess.removeItem(
+                    at: operation.pair.destinationURL
+                )
             }
             throw error
         }
 
         var cleanupFailures: [URL] = []
-        for pair in copiedPairs {
+        for operation in operations {
             do {
-                try fileAccess.removeItem(at: pair.sourceURL)
+                try fileAccess.removeItem(at: operation.pair.sourceURL)
             } catch {
-                cleanupFailures.append(pair.sourceURL)
+                cleanupFailures.append(operation.pair.sourceURL)
             }
         }
 
         return DocumentMigrationResult(
-            migrated: copiedPairs,
+            migrated: operations.map(\.pair),
             cleanupFailures: cleanupFailures
         )
     }
@@ -162,5 +198,13 @@ nonisolated final class DocumentMigration {
             }
             counter += 1
         }
+    }
+
+    private func isRegularFile(at url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        return fileManager.fileExists(
+            atPath: url.path,
+            isDirectory: &isDirectory
+        ) && !isDirectory.boolValue
     }
 }

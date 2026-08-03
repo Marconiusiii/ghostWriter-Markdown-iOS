@@ -73,6 +73,188 @@ struct DocumentMigrationTests {
         )
     }
 
+    @Test func pristineWelcomeReusesAnEditedDestination() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+
+        let source = directories.source.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let existing = directories.destination.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let pristine = Data("Bundled Welcome".utf8)
+        try pristine.write(to: source)
+        try "Edited iCloud Welcome".write(
+            to: existing,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try DocumentMigration().migrate(
+            from: directories.source,
+            to: directories.destination,
+            reusableSourceTemplates: [WelcomeDocument.fileName: pristine]
+        )
+
+        #expect(result.migrated.count == 1)
+        #expect(result.migrated[0].destinationURL == existing)
+        #expect(!FileManager.default.fileExists(atPath: source.path))
+        #expect(
+            try String(contentsOf: existing, encoding: .utf8)
+                == "Edited iCloud Welcome"
+        )
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: directories.destination
+                    .appendingPathComponent(
+                        "Welcome to ghostWriter Markdown 2.md"
+                    ).path
+            )
+        )
+    }
+
+    @Test func pristineWelcomeReusesAnIdenticalDestination() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+
+        let source = directories.source.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let existing = directories.destination.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let pristine = Data("Bundled Welcome".utf8)
+        try pristine.write(to: source)
+        try pristine.write(to: existing)
+
+        let result = try DocumentMigration().migrate(
+            from: directories.source,
+            to: directories.destination,
+            reusableSourceTemplates: [WelcomeDocument.fileName: pristine]
+        )
+
+        #expect(result.migrated.first?.destinationURL == existing)
+        #expect(!FileManager.default.fileExists(atPath: source.path))
+        #expect(try Data(contentsOf: existing) == pristine)
+    }
+
+    @Test func editedLocalWelcomeStillPreservesBothDocuments() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+
+        let source = directories.source.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let existing = directories.destination.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let pristine = Data("Bundled Welcome".utf8)
+        try "Edited local Welcome".write(
+            to: source,
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Existing iCloud Welcome".write(
+            to: existing,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try DocumentMigration().migrate(
+            from: directories.source,
+            to: directories.destination,
+            reusableSourceTemplates: [WelcomeDocument.fileName: pristine]
+        )
+        let numbered = directories.destination.appendingPathComponent(
+            "Welcome to ghostWriter Markdown 2.md"
+        )
+
+        #expect(result.migrated.first?.destinationURL == numbered)
+        #expect(
+            try String(contentsOf: existing, encoding: .utf8)
+                == "Existing iCloud Welcome"
+        )
+        #expect(
+            try String(contentsOf: numbered, encoding: .utf8)
+                == "Edited local Welcome"
+        )
+    }
+
+    @Test func pristineWelcomeMovesNormallyWithoutADestination() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+
+        let source = directories.source.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let destination = directories.destination.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let pristine = Data("Bundled Welcome".utf8)
+        try pristine.write(to: source)
+
+        let result = try DocumentMigration().migrate(
+            from: directories.source,
+            to: directories.destination,
+            reusableSourceTemplates: [WelcomeDocument.fileName: pristine]
+        )
+
+        #expect(result.migrated.first?.destinationURL == destination)
+        #expect(!FileManager.default.fileExists(atPath: source.path))
+        #expect(try Data(contentsOf: destination) == pristine)
+    }
+
+    @Test func laterFailureNeverDeletesAReusedICloudWelcome() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+
+        let welcomeSource = directories.source.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let failureSource = directories.source.appendingPathComponent(
+            "Z Migration Failure.md"
+        )
+        let existing = directories.destination.appendingPathComponent(
+            WelcomeDocument.fileName
+        )
+        let pristine = Data("Bundled Welcome".utf8)
+        try pristine.write(to: welcomeSource)
+        try "Trigger failure".write(
+            to: failureSource,
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Existing iCloud Welcome".write(
+            to: existing,
+            atomically: true,
+            encoding: .utf8
+        )
+        let migration = DocumentMigration(
+            placeUbiquitousItem: { _, _ in
+                throw CocoaError(.fileWriteUnknown)
+            }
+        )
+
+        #expect(throws: (any Error).self) {
+            try migration.migrate(
+                from: directories.source,
+                to: directories.destination,
+                destinationUsesICloud: true,
+                reusableSourceTemplates: [
+                    WelcomeDocument.fileName: pristine
+                ]
+            )
+        }
+
+        #expect(FileManager.default.fileExists(atPath: welcomeSource.path))
+        #expect(FileManager.default.fileExists(atPath: failureSource.path))
+        #expect(
+            try String(contentsOf: existing, encoding: .utf8)
+                == "Existing iCloud Welcome"
+        )
+    }
+
     @Test func failedMigrationLeavesTheSourceUntouched() throws {
         let directories = try makeDirectories()
         defer { cleanUp(directories.root) }

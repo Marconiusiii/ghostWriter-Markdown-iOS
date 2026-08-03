@@ -115,13 +115,23 @@ struct ICloudMigrationView: View {
             }
 
             let sourceDirectory = store.directory
+            let reusableSourceTemplates: [String: Data]
+            if destination == .iCloud,
+               let welcomeMarkdown = try? WelcomeDocument.bundledMarkdown() {
+                reusableSourceTemplates = [
+                    WelcomeDocument.fileName: Data(welcomeMarkdown.utf8)
+                ]
+            } else {
+                reusableSourceTemplates = [:]
+            }
             let attempt = await Task.detached(priority: .userInitiated) {
                 do {
                     return MigrationAttempt.success(
                         try DocumentMigration().migrate(
                             from: sourceDirectory,
                             to: targetDirectory,
-                            destinationUsesICloud: destination == .iCloud
+                            destinationUsesICloud: destination == .iCloud,
+                            reusableSourceTemplates: reusableSourceTemplates
                         )
                     )
                 } catch {
