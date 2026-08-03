@@ -65,6 +65,7 @@ struct LibraryView: View {
     @State private var focusAfterPresentation: LibraryFocus?
     @State private var focusAfterError: LibraryFocus?
     @State private var focusRequestGate = FocusRestorationRequestGate()
+    @State private var appLaunchActionGate = AppLaunchActionGate()
     @State private var searchIndex = DocumentSearchIndex.empty
     @State private var searchAnnounceTask: Task<Void, Never>?
     @State private var pendingDocumentActions:
@@ -155,6 +156,7 @@ struct LibraryView: View {
         .onChange(of: iCloudMonitor.revision) { _, _ in
             guard storage.selectedLocation == .iCloud else { return }
             store.applyICloudSnapshot(iCloudMonitor.snapshots)
+            performAppLaunchBehaviorIfReady()
         }
         .onChange(of: store.documents) { _, _ in
             completePendingDocumentActions()
@@ -687,12 +689,19 @@ struct LibraryView: View {
         )
     }
 
-    /// Asks for a name first. The document is created only once the user
-    /// confirms, so cancelling leaves nothing behind.
+    /// Uses the writer's selected New Document flow. Asking for a title remains
+    /// the default; the date option skips the naming sheet and uses the same
+    /// safe creation path directly.
     private func newDocument() {
         focusRequestGate.invalidate()
-        shouldRestoreNewDocumentFocus = true
-        showingNewDocument = true
+        switch settings.newDocumentCreationMode {
+        case .askForTitle:
+            shouldRestoreNewDocumentFocus = true
+            showingNewDocument = true
+        case .useTodaysDate:
+            shouldRestoreNewDocumentFocus = false
+            createDocument(named: NewDocumentTitle.today())
+        }
     }
 
     /// Creates the file with the chosen name and opens it.
@@ -951,6 +960,7 @@ struct LibraryView: View {
                 directory,
                 usesICloudStorage: false
             )
+            performAppLaunchBehaviorIfReady()
             return
         }
 
@@ -960,6 +970,38 @@ struct LibraryView: View {
         )
         if let directory {
             iCloudMonitor.start(rootDirectory: directory)
+        }
+        performAppLaunchBehaviorIfReady()
+    }
+
+    private func performAppLaunchBehaviorIfReady() {
+        guard !appLaunchActionGate.hasPerformed else { return }
+
+        if storage.selectedLocation == .iCloud,
+           case .available = storage.iCloudAvailability,
+           iCloudMonitor.revision == 0,
+           settings.appLaunchBehavior == .openLastDocument {
+            // Remote-only documents do not necessarily appear in the local
+            // directory until the metadata query completes its first gather.
+            return
+        }
+
+        guard appLaunchActionGate.begin() else { return }
+
+        switch settings.appLaunchBehavior {
+        case .showLibrary:
+            return
+        case .startNewDocument:
+            guard store.storageAvailable else { return }
+            newDocument()
+        case .openLastDocument:
+            guard store.storageAvailable,
+                  let document = libraryMetadata.mostRecentlyOpenedDocument(
+                    in: store.documents
+                  ) else {
+                return
+            }
+            open(document)
         }
     }
 

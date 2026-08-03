@@ -77,6 +77,16 @@ final class DocumentLibraryMetadataStore {
         }
     }
 
+    func mostRecentlyOpenedDocument(in documents: [Document]) -> Document? {
+        documents.compactMap { document -> (Document, Date)? in
+            guard let date = lastOpened(document.url) else { return nil }
+            return (document, date)
+        }
+        .max { left, right in
+            left.1 < right.1
+        }?.0
+    }
+
     func migrateMetadata(from oldURL: URL, to newURL: URL) {
         let oldKey = key(for: oldURL)
         let newKey = key(for: newURL)

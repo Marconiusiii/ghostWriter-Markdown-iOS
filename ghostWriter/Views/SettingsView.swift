@@ -29,6 +29,8 @@ struct SettingsView: View {
     private enum FocusTarget: Hashable {
         case indentation
         case documentStorage
+        case appLaunch
+        case newDocumentCreation
         case theme
         case editorFont
         case customizeStatusBar
@@ -60,6 +62,46 @@ struct SettingsView: View {
                     Text("Files")
                 } footer: {
                     Text(storage.statusDescription)
+                }
+
+                Section {
+                    Picker(
+                        "When App Opens",
+                        selection: $settings.appLaunchBehavior
+                    ) {
+                        ForEach(AppLaunchBehavior.allCases) { behavior in
+                            Text(behavior.label).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .appLaunch
+                    )
+                } header: {
+                    Text("App Launch")
+                } footer: {
+                    Text("Start a New Document follows your New Documents setting. Open Last Document returns to the most recently opened file when it is still available.")
+                }
+
+                Section {
+                    Picker(
+                        "When Starting a New Document",
+                        selection: $settings.newDocumentCreationMode
+                    ) {
+                        ForEach(NewDocumentCreationMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .newDocumentCreation
+                    )
+                } header: {
+                    Text("New Documents")
+                } footer: {
+                    Text("Ask for a Title opens the naming screen. Use Today’s Date creates and opens the document immediately. You can rename it later from File Actions.")
                 }
 
                 Section("Editing") {

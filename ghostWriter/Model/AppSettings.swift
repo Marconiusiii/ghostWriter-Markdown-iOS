@@ -87,6 +87,24 @@ enum EditorFontDesign: String, CaseIterable, Identifiable {
 
 @Observable
 final class AppSettings {
+    var appLaunchBehavior: AppLaunchBehavior {
+        didSet {
+            defaults.set(
+                appLaunchBehavior.rawValue,
+                forKey: Keys.appLaunchBehavior
+            )
+        }
+    }
+
+    var newDocumentCreationMode: NewDocumentCreationMode {
+        didSet {
+            defaults.set(
+                newDocumentCreationMode.rawValue,
+                forKey: Keys.newDocumentCreationMode
+            )
+        }
+    }
+
     var indentUnit: IndentUnit {
         didSet { defaults.set(indentUnit.rawValue, forKey: Keys.indentUnit) }
     }
@@ -174,6 +192,14 @@ final class AppSettings {
 
         // `object(forKey:)` distinguishes "never set" from "set to false", which
         // matters for the booleans that default to true.
+        self.appLaunchBehavior = (
+            defaults.string(forKey: Keys.appLaunchBehavior)
+                .flatMap(AppLaunchBehavior.init(rawValue:))
+        ) ?? .showLibrary
+        self.newDocumentCreationMode = (
+            defaults.string(forKey: Keys.newDocumentCreationMode)
+                .flatMap(NewDocumentCreationMode.init(rawValue:))
+        ) ?? .askForTitle
         self.indentUnit = (defaults.string(forKey: Keys.indentUnit)
             .flatMap(IndentUnit.init(rawValue:))) ?? .twoSpaces
         self.appearance = (defaults.string(forKey: Keys.appearance)
@@ -202,6 +228,8 @@ final class AppSettings {
     }
 
     private enum Keys {
+        static let appLaunchBehavior = "appLaunchBehavior"
+        static let newDocumentCreationMode = "newDocumentCreationMode"
         static let indentUnit = "indentUnit"
         static let appearance = "appearance"
         static let editorFontDesign = "editorFontDesign"

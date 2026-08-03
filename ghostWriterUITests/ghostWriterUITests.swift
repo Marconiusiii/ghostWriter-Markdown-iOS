@@ -14,6 +14,11 @@ final class ghostWriterUITests: XCTestCase {
     @MainActor
     func testAppLaunches() throws {
         let app = XCUIApplication()
+        app.launchArguments += [
+            "-documentStorageLocation", "onDevice",
+            "-appLaunchBehavior", "showLibrary",
+            "-newDocumentCreationMode", "askForTitle"
+        ]
         app.launch()
         // The heading is ordinary content rather than a navigation title, so
         // that reading order follows code order.
@@ -21,6 +26,42 @@ final class ghostWriterUITests: XCTestCase {
             app.staticTexts["ghostWriter Markdown"].waitForExistence(timeout: 10),
             "The app should launch to the library screen."
         )
+        XCTAssertFalse(app.textFields["Document name"].exists)
+        XCTAssertFalse(app.buttons["File actions"].exists)
+    }
+
+    @MainActor
+    func testAppLaunchCanStartWithTheNamingScreen() throws {
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-documentStorageLocation", "onDevice",
+            "-appLaunchBehavior", "startNewDocument",
+            "-newDocumentCreationMode", "askForTitle"
+        ]
+
+        app.launch()
+
+        XCTAssertTrue(
+            app.textFields["Document name"].waitForExistence(timeout: 10)
+        )
+        XCTAssertFalse(app.buttons["File actions"].exists)
+    }
+
+    @MainActor
+    func testAppLaunchCanCreateATodayDocumentImmediately() throws {
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-documentStorageLocation", "onDevice",
+            "-appLaunchBehavior", "startNewDocument",
+            "-newDocumentCreationMode", "useTodaysDate"
+        ]
+
+        app.launch()
+
+        XCTAssertTrue(
+            app.buttons["File actions"].waitForExistence(timeout: 10)
+        )
+        XCTAssertFalse(app.textFields["Document name"].exists)
     }
 
     @MainActor
@@ -60,6 +101,7 @@ final class ghostWriterUITests: XCTestCase {
 
         let nameField = app.textFields["Document name"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.tap()
         nameField.typeText("Jump Test \(UUID().uuidString)")
         app.buttons["Create"].tap()
 
