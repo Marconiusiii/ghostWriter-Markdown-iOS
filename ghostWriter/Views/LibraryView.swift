@@ -59,7 +59,15 @@ struct LibraryView: View {
     @State private var showingShare = false
     @State private var openedDocument: DocumentSession?
     @State private var showingNewDocument = false
+    @State private var showingNewFolder = false
+    @State private var focusAfterNewFolder: LibraryFocus?
     @State private var showingImporter = false
+    @State private var currentFolderURL: URL?
+    @State private var configuredStorageLocation: DocumentStorageChoice?
+    @State private var renamingFolder: LibraryFolder?
+    @State private var pendingFolderDeletion: LibraryFolder?
+    @State private var movingItem: LibraryItem?
+    @State private var focusAfterMove: LibraryFocus?
     @State private var shouldRestoreNewDocumentFocus = false
     @State private var focusAfterEditor: LibraryFocus?
     @State private var focusAfterPresentation: LibraryFocus?
@@ -85,11 +93,14 @@ struct LibraryView: View {
         case appHeading
         case settings
         case newDocument
+        case newFolder
         case importDocument
         case recentlyDeleted
         case sort
         case search
         case documentsHeading
+        case back
+        case folder(URL)
         case document(URL)
     }
 
@@ -232,6 +243,26 @@ struct LibraryView: View {
                 createDocument(named: name)
             }
         }
+        .sheet(isPresented: $showingNewFolder, onDismiss: {
+            restoreFocus(to: availableFocus(focusAfterNewFolder ?? .newFolder))
+            focusAfterNewFolder = nil
+        }) {
+            NewFolderView { name in
+                createFolder(named: name)
+            }
+        }
+        .sheet(item: $movingItem, onDismiss: {
+            restoreFocus(to: availableFocus(focusAfterMove ?? .documentsHeading))
+            focusAfterMove = nil
+        }) { item in
+            MoveLibraryItemView(
+                itemName: item.displayName,
+                rootDirectory: store.directory,
+                folders: store.folders,
+                excludedURLs: excludedMoveDestinations(for: item),
+                onMove: { destination in move(item, to: destination) }
+            )
+        }
         .fullScreenCover(item: $renderingSession, onDismiss: {
             restorePresentationFocus()
         }) { session in
@@ -269,6 +300,24 @@ struct LibraryView: View {
             Text(
                 pendingDeletion.map {
                     "\($0.displayName) will move to Recently Deleted, where it can be restored or deleted permanently."
+                } ?? ""
+            )
+        }
+        .alert("Rename Folder", isPresented: folderRenameBinding) {
+            TextField("Name", text: $newName)
+                .autocorrectionDisabled()
+            Button("Cancel", role: .cancel) { cancelFolderRename() }
+            Button("Rename") { commitFolderRename() }
+        } message: {
+            Text("Enter a new name for this folder.")
+        }
+        .alert("Delete Folder?", isPresented: folderDeleteBinding) {
+            Button("Cancel", role: .cancel) { cancelFolderDelete() }
+            Button("Delete", role: .destructive) { commitFolderDelete() }
+        } message: {
+            Text(
+                pendingFolderDeletion.map {
+                    "\($0.displayName) and everything inside it will move to Recently Deleted."
                 } ?? ""
             )
         }
@@ -320,6 +369,19 @@ struct LibraryView: View {
 
             Button {
                 focusRequestGate.invalidate()
+                focusAfterNewFolder = .newFolder
+                showingNewFolder = true
+            } label: {
+                Label("New Folder", systemImage: "folder.badge.plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(!store.storageAvailable)
+            .accessibilityFocused($focusedElement, equals: .newFolder)
+
+            Button {
+                focusRequestGate.invalidate()
                 showingImporter = true
             } label: {
                 Label("Import", systemImage: "square.and.arrow.down")
@@ -340,7 +402,7 @@ struct LibraryView: View {
                 HStack {
                     Label("Deleted", systemImage: "trash")
                     Spacer()
-                    Text("\(store.recentlyDeletedDocuments.count)")
+                    Text("\(store.recentlyDeletedItems.count)")
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -440,7 +502,7 @@ struct LibraryView: View {
                     Label("Clear Search", systemImage: "xmark.circle.fill")
                 }
                 .buttonStyle(.bordered)
-                .accessibilityHint("Clears the search and shows all documents")
+                .accessibilityHint("Clears the search and shows all items")
             }
         }
     }
@@ -474,8 +536,8 @@ struct LibraryView: View {
     }
 
     private func announceCount(prefix: String) {
-        let count = visibleDocuments.count
-        let noun = count == 1 ? "document" : "documents"
+        let count = visibleDocuments.count + visibleFolders.count
+        let noun = count == 1 ? "item" : "items"
         UIAccessibility.post(notification: .announcement, argument: "\(prefix) \(count) \(noun)")
     }
 
@@ -485,11 +547,19 @@ struct LibraryView: View {
     /// search field, where it doubles as the search result announcement.
     private var documentArea: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Documents")
+            Text(currentFolderHeading)
                 .font(.title2.bold())
                 .foregroundStyle(Color.ghostAccent)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityFocused($focusedElement, equals: .documentsHeading)
+
+            if currentFolderURL != nil {
+                Button("Back to \(parentFolderName)") {
+                    navigateBack()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityFocused($focusedElement, equals: .back)
+            }
 
             sortMenu
             searchField
@@ -508,19 +578,54 @@ struct LibraryView: View {
     private var list: some View {
         if !store.storageAvailable {
             unavailableLibrary
-        } else if store.documents.isEmpty {
+        } else if currentDocuments.isEmpty && currentFolders.isEmpty {
             emptyLibrary
-        } else if visibleDocuments.isEmpty {
+        } else if visibleDocuments.isEmpty && visibleFolders.isEmpty {
             noSearchResults
         } else {
             documentList
         }
     }
 
+    @ViewBuilder
     private var documentList: some View {
         // No section header here: the count heading above this list is the
         // heading for it, and repeating it would be a second announcement of
         // the same thing.
+        ForEach(visibleFolders) { folder in
+            documentActionLayout {
+                Button {
+                    open(folder)
+                } label: {
+                    FolderRow(folder: folder, itemCount: store.itemCount(in: folder))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityFocused($focusedElement, equals: .folder(folder.url))
+                .accessibilityAction(named: "Rename \(folder.displayName)") {
+                    beginRename(folder)
+                }
+                .accessibilityAction(named: "Move \(folder.displayName)") {
+                    beginMove(.folder(folder))
+                }
+                .accessibilityAction(named: "Delete \(folder.displayName)") {
+                    beginDelete(folder)
+                }
+
+                FolderActionsMenu(
+                    folder: folder,
+                    onRename: { beginRename(folder) },
+                    onMove: { beginMove(.folder(folder)) },
+                    onDelete: { beginDelete(folder) }
+                )
+                .buttonStyle(.bordered)
+            }
+            .listRowInsets(
+                EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
+            )
+            .listRowBackground(Color.clear)
+        }
+
         ForEach(visibleDocuments) { document in
             documentActionLayout {
                 Button {
@@ -557,6 +662,9 @@ struct LibraryView: View {
                 ) {
                     beginRename(document)
                 }
+                .accessibilityAction(named: "Move \(document.displayName)") {
+                    beginMove(.document(document))
+                }
                 .accessibilityAction(
                     named: "Duplicate \(document.displayName)"
                 ) {
@@ -584,6 +692,7 @@ struct LibraryView: View {
                     onRender: { render(document) },
                     onShare: { share(document) },
                     onRename: { beginRename(document) },
+                    onMove: { beginMove(.document(document)) },
                     onDuplicate: { duplicate(document) },
                     onDelete: { beginDelete(document) }
                 )
@@ -629,7 +738,7 @@ struct LibraryView: View {
     }
 
     private var noSearchResults: some View {
-        Text("No documents match \(trimmedSearch).")
+        Text("No items match \(trimmedSearch).")
             .font(.body)
             .foregroundStyle(Color.ghostMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -658,9 +767,9 @@ struct LibraryView: View {
         let filtered: [Document]
 
         if query.isEmpty {
-            filtered = store.documents
+            filtered = currentDocuments
         } else {
-            filtered = store.documents.filter { document in
+            filtered = currentDocuments.filter { document in
                 searchIndex.matches(
                     documentURL: document.url,
                     displayName: document.displayName,
@@ -672,14 +781,48 @@ struct LibraryView: View {
         return settings.sort.sorted(filtered, metadata: libraryMetadata)
     }
 
+    private var currentDirectory: URL {
+        currentFolderURL ?? store.directory
+    }
+
+    private var currentDocuments: [Document] {
+        store.documents(directlyIn: currentDirectory)
+    }
+
+    private var currentFolders: [LibraryFolder] {
+        store.folders(directlyIn: currentDirectory)
+    }
+
+    private var visibleFolders: [LibraryFolder] {
+        currentFolders.filter {
+            trimmedSearch.isEmpty
+                || $0.displayName.localizedCaseInsensitiveContains(trimmedSearch)
+        }.sorted {
+            $0.displayName.localizedStandardCompare($1.displayName)
+                == .orderedAscending
+        }
+    }
+
+    private var currentFolderHeading: String {
+        currentFolderURL?.lastPathComponent ?? "Documents"
+    }
+
+    private var parentFolderName: String {
+        guard let currentFolderURL else { return "Documents" }
+        let parent = currentFolderURL.deletingLastPathComponent()
+        return parent.standardizedFileURL == store.directory.standardizedFileURL
+            ? "Documents"
+            : parent.lastPathComponent
+    }
+
     private var countDescription: String {
-        let count = visibleDocuments.count
-        let noun = count == 1 ? "document" : "documents"
+        let count = visibleDocuments.count + visibleFolders.count
+        let noun = count == 1 ? "item" : "items"
         return trimmedSearch.isEmpty ? "\(count) \(noun)" : "Showing \(count) \(noun)"
     }
 
     private var recentlyDeletedCountDescription: String {
-        let count = store.recentlyDeletedDocuments.count
+        let count = store.recentlyDeletedItems.count
         return "\(count) \(count == 1 ? "item" : "items")"
     }
 
@@ -741,7 +884,8 @@ struct LibraryView: View {
         Task {
             guard let url = await store.createDocument(
                 named: name,
-                contents: ""
+                contents: "",
+                in: currentDirectory
             ) else { return }
             focusAfterError = nil
             shouldRestoreNewDocumentFocus = false
@@ -751,6 +895,183 @@ struct LibraryView: View {
             focusAfterEditor = .document(url)
             openedDocument = DocumentSession(document: document, text: "")
         }
+    }
+
+    private func createFolder(named name: String) {
+        focusRequestGate.invalidate()
+        guard let folder = store.createFolder(named: name, in: currentDirectory) else {
+            focusAfterError = .newFolder
+            return
+        }
+        focusAfterNewFolder = .folder(folder.url)
+    }
+
+    private func open(_ folder: LibraryFolder) {
+        focusRequestGate.invalidate()
+        searchText = ""
+        currentFolderURL = folder.url
+        restoreFocus(to: .documentsHeading)
+    }
+
+    private func navigateBack() {
+        guard let currentFolderURL else { return }
+        let childURL = currentFolderURL
+        let parent = currentFolderURL.deletingLastPathComponent()
+        self.currentFolderURL = parent.standardizedFileURL
+            == store.directory.standardizedFileURL ? nil : parent
+        searchText = ""
+        restoreFocus(to: .folder(childURL))
+    }
+
+    private func beginRename(_ folder: LibraryFolder) {
+        focusRequestGate.invalidate()
+        newName = folder.displayName
+        renamingFolder = folder
+    }
+
+    private func commitFolderRename() {
+        guard let folder = renamingFolder else { return }
+        let proposedURL = folder.url.deletingLastPathComponent()
+            .appendingPathComponent(DocumentStore.sanitize(newName), isDirectory: true)
+        let metadataPairs = store.documentMovePairs(
+            fromFolder: folder.url,
+            toFolder: proposedURL
+        )
+        let renamedURL = store.rename(folder, to: newName)
+        renamingFolder = nil
+        if let renamedURL {
+            migrateFolderMetadata(
+                metadataPairs,
+                replacingProposedRoot: proposedURL,
+                with: renamedURL
+            )
+            restoreFocus(to: .folder(renamedURL))
+        }
+    }
+
+    private func cancelFolderRename() {
+        guard let folder = renamingFolder else { return }
+        renamingFolder = nil
+        restoreFocus(to: .folder(folder.url))
+    }
+
+    private func beginDelete(_ folder: LibraryFolder) {
+        focusRequestGate.invalidate()
+        pendingFolderDeletion = folder
+    }
+
+    private func cancelFolderDelete() {
+        guard let folder = pendingFolderDeletion else { return }
+        pendingFolderDeletion = nil
+        restoreFocus(to: .folder(folder.url))
+    }
+
+    private func commitFolderDelete() {
+        guard let folder = pendingFolderDeletion else { return }
+        let siblings = visibleFolders
+        let index = siblings.firstIndex(of: folder)
+        let nextURL = index.flatMap { position -> URL? in
+            if position + 1 < siblings.count { return siblings[position + 1].url }
+            if position > 0 { return siblings[position - 1].url }
+            return nil
+        }
+        let proposedDeletedURL = store.recentlyDeletedDirectory
+            .appendingPathComponent(folder.displayName, isDirectory: true)
+        let metadataPairs = store.documentMovePairs(
+            fromFolder: folder.url,
+            toFolder: proposedDeletedURL
+        )
+        guard let deletedURL = store.moveToRecentlyDeleted(folder) else {
+            pendingFolderDeletion = nil
+            return
+        }
+        migrateFolderMetadata(
+            metadataPairs,
+            replacingProposedRoot: proposedDeletedURL,
+            with: deletedURL
+        )
+        pendingFolderDeletion = nil
+        restoreFocus(to: nextURL.map(LibraryFocus.folder) ?? .documentsHeading)
+    }
+
+    private func move(_ item: LibraryItem, to destination: URL) {
+        let oldURL = item.url
+        let proposedFolderURL = destination.appendingPathComponent(
+            item.displayName,
+            isDirectory: true
+        )
+        let folderMetadataPairs: [DocumentMigrationPair]
+        if case .folder(let folder) = item {
+            folderMetadataPairs = store.documentMovePairs(
+                fromFolder: folder.url,
+                toFolder: proposedFolderURL
+            )
+        } else {
+            folderMetadataPairs = []
+        }
+        guard let movedURL = store.move(item, to: destination) else { return }
+        switch item {
+        case .document:
+            EditorPositionStore.shared.migratePosition(from: oldURL, to: movedURL)
+            libraryMetadata.migrateMetadata(from: oldURL, to: movedURL)
+            if destination.standardizedFileURL == currentDirectory.standardizedFileURL {
+                focusAfterMove = .document(movedURL)
+            } else {
+                focusAfterMove = .documentsHeading
+            }
+        case .folder:
+            migrateFolderMetadata(
+                folderMetadataPairs,
+                replacingProposedRoot: proposedFolderURL,
+                with: movedURL
+            )
+            if destination.standardizedFileURL == currentDirectory.standardizedFileURL {
+                focusAfterMove = .folder(movedURL)
+            } else {
+                focusAfterMove = .documentsHeading
+            }
+        }
+    }
+
+    private func beginMove(_ item: LibraryItem) {
+        focusRequestGate.invalidate()
+        focusAfterMove = item.isFolder ? .folder(item.url) : .document(item.url)
+        movingItem = item
+    }
+
+    private func migrateFolderMetadata(
+        _ pairs: [DocumentMigrationPair],
+        replacingProposedRoot proposedRoot: URL,
+        with actualRoot: URL
+    ) {
+        for pair in pairs {
+            let relativeComponents = pair.destinationURL.pathComponents
+                .dropFirst(proposedRoot.pathComponents.count)
+            let actualDestination = relativeComponents.reduce(actualRoot) {
+                $0.appendingPathComponent($1)
+            }
+            EditorPositionStore.shared.migratePosition(
+                from: pair.sourceURL,
+                to: actualDestination
+            )
+            libraryMetadata.migrateMetadata(
+                from: pair.sourceURL,
+                to: actualDestination
+            )
+        }
+    }
+
+    private func excludedMoveDestinations(for item: LibraryItem) -> Set<URL> {
+        var excluded: Set<URL> = [item.url.deletingLastPathComponent().standardizedFileURL]
+        if case .folder(let folder) = item {
+            excluded.insert(folder.url.standardizedFileURL)
+            for candidate in store.folders where candidate.url.pathComponents.starts(
+                with: folder.url.pathComponents
+            ) {
+                excluded.insert(candidate.url.standardizedFileURL)
+            }
+        }
+        return excluded
     }
 
     private func beginRename(_ document: Document) {
@@ -893,6 +1214,20 @@ struct LibraryView: View {
         )
     }
 
+    private var folderRenameBinding: Binding<Bool> {
+        Binding(
+            get: { renamingFolder != nil },
+            set: { if !$0, renamingFolder != nil { cancelFolderRename() } }
+        )
+    }
+
+    private var folderDeleteBinding: Binding<Bool> {
+        Binding(
+            get: { pendingFolderDeletion != nil },
+            set: { if !$0, pendingFolderDeletion != nil { cancelFolderDelete() } }
+        )
+    }
+
     private var errorBinding: Binding<Bool> {
         Binding(
             get: { store.lastError != nil },
@@ -947,7 +1282,10 @@ struct LibraryView: View {
         switch result {
         case .success(let urls):
             Task {
-                let importResult = await store.importDocuments(from: urls)
+                let importResult = await store.importDocuments(
+                    from: urls,
+                    into: currentDirectory
+                )
                 let target = importResult.imported.first
                     .map { LibraryFocus.document($0.url) }
                     ?? .importDocument
@@ -978,8 +1316,14 @@ struct LibraryView: View {
 
     private func configureSelectedStorage() async {
         iCloudMonitor.stop()
+        if configuredStorageLocation != storage.selectedLocation {
+            currentFolderURL = nil
+            configuredStorageLocation = storage.selectedLocation
+        }
 
         let directory = await storage.prepareCurrentLocation()
+        libraryMetadata.useLibraryRoot(directory)
+        EditorPositionStore.shared.useLibraryRoot(directory)
         guard storage.selectedLocation == .iCloud else {
             downloadTasks.values.forEach { $0.cancel() }
             downloadTasks = [:]
@@ -1175,6 +1519,10 @@ struct LibraryView: View {
     }
 
     private func availableFocus(_ target: LibraryFocus) -> LibraryFocus {
+        if case .folder(let url) = target,
+           !visibleFolders.contains(where: { $0.url == url }) {
+            return .documentsHeading
+        }
         if case .document(let url) = target,
            !visibleDocuments.contains(where: { $0.url == url }) {
             return .documentsHeading

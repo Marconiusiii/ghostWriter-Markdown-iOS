@@ -33,7 +33,9 @@ struct DocumentImportResult: Equatable {
 @Observable
 final class DocumentStore {
     private(set) var documents: [Document] = []
+    private(set) var folders: [LibraryFolder] = []
     private(set) var recentlyDeletedDocuments: [Document] = []
+    private(set) var recentlyDeletedFolders: [LibraryFolder] = []
     private(set) var storageAvailable: Bool
     private(set) var usesICloudStorage: Bool
     /// Set when a filesystem operation fails so the UI can surface it rather
@@ -103,7 +105,9 @@ final class DocumentStore {
         guard let directory else {
             storageAvailable = false
             documents = []
+            folders = []
             recentlyDeletedDocuments = []
+            recentlyDeletedFolders = []
             return
         }
 
@@ -188,6 +192,15 @@ final class DocumentStore {
         }
 
         do {
+            let refreshedFolders = try libraryFolders()
+            if folders != refreshedFolders {
+                folders = refreshedFolders
+            }
+        } catch {
+            lastError = "Could not refresh the folder library. \(error.localizedDescription)"
+        }
+
+        do {
             let refreshedDeletedDocuments = try documents(
                 in: recentlyDeletedDirectory
             )
@@ -197,27 +210,39 @@ final class DocumentStore {
         } catch {
             lastError = "Could not refresh Recently Deleted. \(error.localizedDescription)"
         }
+
+
+        do {
+            let urls = try fileAccess.contentsOfDirectory(
+                at: recentlyDeletedDirectory,
+                includingPropertiesForKeys: [.isDirectoryKey]
+            )
+            recentlyDeletedFolders = urls.compactMap(LibraryFolder.init(fileURL:))
+        } catch {
+            lastError = "Could not refresh deleted folders. \(error.localizedDescription)"
+        }
     }
 
     private func documents(in directory: URL) throws -> [Document] {
-        let keys: [URLResourceKey] = [
-            .creationDateKey,
-            .contentModificationDateKey,
-            .fileSizeKey,
-            .isRegularFileKey
-        ]
-        let localDocuments = try fileAccess.read(at: directory) {
-            coordinatedDirectory in
-            let urls = try FileManager.default.contentsOfDirectory(
-                at: coordinatedDirectory,
-                includingPropertiesForKeys: keys,
-                options: [.skipsHiddenFiles]
-            )
-            return urls.compactMap(Document.init(fileURL:))
-        }
-
+        let isLibraryRoot = directory.standardizedFileURL
+            == self.directory.standardizedFileURL
         let isRecentlyDeleted = directory.standardizedFileURL
             == recentlyDeletedDirectory.standardizedFileURL
+        let urls: [URL]
+        if isRecentlyDeleted {
+            urls = try fileAccess.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [.isRegularFileKey]
+            )
+        } else {
+            urls = try fileAccess.regularFilesRecursively(at: directory)
+        }
+        let localDocuments = urls.filter { url in
+            guard Document.isMarkdown(url) else { return false }
+            guard isLibraryRoot else { return true }
+            return !Self.isDescendant(url, of: recentlyDeletedDirectory)
+        }.compactMap(Document.init(fileURL:))
+
         let relevantSnapshots = iCloudSnapshotsByURL.values.filter {
             $0.isRecentlyDeleted == isRecentlyDeleted
         }
@@ -248,6 +273,98 @@ final class DocumentStore {
             }
         }
         return Array(documentsByURL.values)
+    }
+
+    private func libraryFolders() throws -> [LibraryFolder] {
+        var urls = try fileAccess.directoriesRecursively(at: directory)
+            .filter {
+                $0.standardizedFileURL
+                    != recentlyDeletedDirectory.standardizedFileURL
+                    && !Self.isDescendant($0, of: recentlyDeletedDirectory)
+            }
+        for snapshot in iCloudSnapshotsByURL.values where !snapshot.isRecentlyDeleted {
+            var parent = snapshot.url.deletingLastPathComponent()
+            while parent.standardizedFileURL != directory.standardizedFileURL,
+                  Self.isDescendant(parent, of: directory) {
+                urls.append(parent)
+                parent.deleteLastPathComponent()
+            }
+        }
+        var foldersByURL: [URL: LibraryFolder] = [:]
+        for url in urls {
+            let standardizedURL = url.standardizedFileURL
+            foldersByURL[standardizedURL] =
+                LibraryFolder(fileURL: standardizedURL)
+                ?? LibraryFolder(url: standardizedURL)
+        }
+        return Array(foldersByURL.values)
+    }
+
+    func documents(directlyIn folderURL: URL) -> [Document] {
+        documents.filter {
+            $0.url.deletingLastPathComponent().standardizedFileURL
+                == folderURL.standardizedFileURL
+        }
+    }
+
+    func folders(directlyIn folderURL: URL) -> [LibraryFolder] {
+        folders.filter {
+            $0.url.deletingLastPathComponent().standardizedFileURL
+                == folderURL.standardizedFileURL
+        }
+    }
+
+    func itemCount(in folder: LibraryFolder) -> Int {
+        documents(directlyIn: folder.url).count
+            + folders(directlyIn: folder.url).count
+    }
+
+    func containingDirectory(for itemURL: URL) -> URL {
+        let parent = itemURL.deletingLastPathComponent()
+        var isDirectory: ObjCBool = false
+        guard isLibraryDirectory(parent),
+              FileManager.default.fileExists(
+                atPath: parent.path,
+                isDirectory: &isDirectory
+              ),
+              isDirectory.boolValue else {
+            return directory
+        }
+        return parent
+    }
+
+    func documentMovePairs(
+        fromFolder sourceFolder: URL,
+        toFolder destinationFolder: URL
+    ) -> [DocumentMigrationPair] {
+        guard let files = try? fileAccess.regularFilesRecursively(at: sourceFolder) else {
+            return []
+        }
+        return files.filter(Document.isMarkdown).map { sourceURL in
+            let relativeComponents = sourceURL.standardizedFileURL.pathComponents
+                .dropFirst(sourceFolder.standardizedFileURL.pathComponents.count)
+            let destinationURL = relativeComponents.reduce(destinationFolder) {
+                $0.appendingPathComponent($1)
+            }
+            return DocumentMigrationPair(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL
+            )
+        }
+    }
+
+    var recentlyDeletedItems: [DeletedLibraryItem] {
+        recentlyDeletedDocuments.map {
+            DeletedLibraryItem(
+                item: .document($0),
+                originalRelativePath: deletionRecord(for: $0.url)?.originalRelativePath
+            )
+        } + recentlyDeletedFolders.map {
+            DeletedLibraryItem(
+                item: .folder($0),
+                originalRelativePath: deletionRecord(for: $0.url)?.originalRelativePath
+            )
+        }
     }
 
     /// Loads a document without turning a read or decoding failure into an empty
@@ -395,14 +512,25 @@ final class DocumentStore {
 
     private func createLocalDocument(
         named preferredName: String,
-        contents: String
+        contents: String,
+        in destinationDirectory: URL? = nil
     ) -> URL? {
         guard storageAvailable else {
             lastError = "Could not create a document because the selected document storage is unavailable."
             return nil
         }
         createDirectoryIfNeeded()
-        let url = availableURL(for: preferredName)
+        let targetDirectory = destinationDirectory ?? directory
+        do {
+            try fileAccess.createDirectory(at: targetDirectory)
+        } catch {
+            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            return nil
+        }
+        let url = availableURL(
+            for: preferredName,
+            in: targetDirectory
+        )
 
         do {
             try fileAccess.write(contents, to: url)
@@ -417,12 +545,14 @@ final class DocumentStore {
     /// locally before registering it with the ubiquity container.
     func createDocument(
         named preferredName: String = "Untitled",
-        contents: String = ""
+        contents: String = "",
+        in destinationDirectory: URL? = nil
     ) async -> URL? {
         guard usesICloudStorage else {
             return createLocalDocument(
                 named: preferredName,
-                contents: contents
+                contents: contents,
+                in: destinationDirectory
             )
         }
         guard storageAvailable else {
@@ -432,7 +562,17 @@ final class DocumentStore {
         }
 
         createDirectoryIfNeeded()
-        let url = availableURL(for: preferredName)
+        let targetDirectory = destinationDirectory ?? directory
+        do {
+            try fileAccess.createDirectory(at: targetDirectory)
+        } catch {
+            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            return nil
+        }
+        let url = availableURL(
+            for: preferredName,
+            in: targetDirectory
+        )
         do {
             try await placeUbiquitousItem(Data(contents.utf8), url)
             refresh()
@@ -454,6 +594,10 @@ final class DocumentStore {
 
         do {
             try fileAccess.moveItem(at: document.url, to: destination)
+            try writeDeletionRecord(
+                originalURL: document.url,
+                deletedURL: destination
+            )
             reconcileMove(
                 from: document.url,
                 to: destination
@@ -468,13 +612,14 @@ final class DocumentStore {
 
     @discardableResult
     func restore(_ document: Document) -> URL? {
-        let destination = availableURL(
-            forFileName: document.fileName,
-            in: directory
+        let destination = restorationURL(
+            for: document.url,
+            fallbackFileName: document.fileName
         )
 
         do {
             try fileAccess.moveItem(at: document.url, to: destination)
+            removeDeletionRecord(for: document.url)
             reconcileMove(
                 from: document.url,
                 to: destination
@@ -491,11 +636,127 @@ final class DocumentStore {
     func deletePermanently(_ document: Document) -> Bool {
         do {
             try fileAccess.removeItem(at: document.url)
+            removeDeletionRecord(for: document.url)
             suppressSnapshot(at: document.url)
             refresh()
             return true
         } catch {
             lastError = "Could not permanently delete \(document.displayName). \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    @discardableResult
+    func createFolder(named preferredName: String, in parent: URL) -> LibraryFolder? {
+        guard isLibraryDirectory(parent) else {
+            lastError = "Could not create a folder outside the document library."
+            return nil
+        }
+        let destination = availableFolderURL(for: preferredName, in: parent)
+        do {
+            try fileAccess.createDirectory(at: destination)
+            refresh()
+            return LibraryFolder(fileURL: destination) ?? LibraryFolder(url: destination)
+        } catch {
+            lastError = "Could not create the folder. \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    @discardableResult
+    func rename(_ folder: LibraryFolder, to newName: String) -> URL? {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != folder.displayName else {
+            return folder.url
+        }
+        let destination = availableFolderURL(
+            for: trimmed,
+            in: folder.url.deletingLastPathComponent()
+        )
+        return moveFolder(folder, to: destination, failureVerb: "rename")
+    }
+
+    @discardableResult
+    func move(_ item: LibraryItem, to destinationDirectory: URL) -> URL? {
+        guard isLibraryDirectory(destinationDirectory) else {
+            lastError = "Could not move \(item.displayName) outside the document library."
+            return nil
+        }
+        switch item {
+        case .document(let document):
+            let destination = availableURL(
+                forFileName: document.fileName,
+                in: destinationDirectory
+            )
+            do {
+                try fileAccess.moveItem(at: document.url, to: destination)
+                reconcileMove(from: document.url, to: destination)
+                refresh()
+                return destination
+            } catch {
+                lastError = "Could not move \(document.displayName). \(error.localizedDescription)"
+                return nil
+            }
+        case .folder(let folder):
+            guard destinationDirectory.standardizedFileURL
+                    != folder.url.standardizedFileURL,
+                  !Self.isDescendant(destinationDirectory, of: folder.url) else {
+                lastError = "A folder cannot be moved inside itself."
+                return nil
+            }
+            let destination = availableFolderURL(
+                for: folder.displayName,
+                in: destinationDirectory
+            )
+            return moveFolder(folder, to: destination, failureVerb: "move")
+        }
+    }
+
+    @discardableResult
+    func moveToRecentlyDeleted(_ folder: LibraryFolder) -> URL? {
+        let destination = availableFolderURL(
+            for: folder.displayName,
+            in: recentlyDeletedDirectory
+        )
+        do {
+            try fileAccess.moveItem(at: folder.url, to: destination)
+            try writeDeletionRecord(originalURL: folder.url, deletedURL: destination)
+            suppressSnapshots(beneath: folder.url)
+            refresh()
+            return destination
+        } catch {
+            lastError = "Could not delete \(folder.displayName). \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    @discardableResult
+    func restore(_ folder: LibraryFolder) -> URL? {
+        let destination = restorationURL(
+            for: folder.url,
+            fallbackFolderName: folder.displayName
+        )
+        do {
+            try fileAccess.moveItem(at: folder.url, to: destination)
+            removeDeletionRecord(for: folder.url)
+            refresh()
+            return destination
+        } catch {
+            lastError = "Could not restore \(folder.displayName). \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    @discardableResult
+    func deletePermanently(_ folder: LibraryFolder) -> Bool {
+        do {
+            try fileAccess.removeItem(at: folder.url)
+            removeDeletionRecord(for: folder.url)
+            suppressSnapshots(beneath: folder.url)
+            refresh()
+            return true
+        } catch {
+            lastError = "Could not permanently delete \(folder.displayName). \(error.localizedDescription)"
             return false
         }
     }
@@ -510,7 +771,10 @@ final class DocumentStore {
         let currentName = url.deletingPathExtension().lastPathComponent
         guard trimmed != currentName else { return url }
 
-        let destination = availableURL(for: trimmed)
+        let destination = availableURL(
+            for: trimmed,
+            in: url.deletingLastPathComponent()
+        )
 
         do {
             try fileAccess.moveItem(at: url, to: destination)
@@ -533,7 +797,10 @@ final class DocumentStore {
     }
 
     private func duplicateLocally(_ document: Document) -> Document? {
-        let destination = availableURL(for: "\(document.displayName) copy")
+        let destination = availableURL(
+            for: "\(document.displayName) copy",
+            in: document.url.deletingLastPathComponent()
+        )
         do {
             try fileAccess.copyItem(at: document.url, to: destination)
             refresh()
@@ -549,7 +816,10 @@ final class DocumentStore {
             return duplicateLocally(document)
         }
 
-        let destination = availableURL(for: "\(document.displayName) copy")
+        let destination = availableURL(
+            for: "\(document.displayName) copy",
+            in: document.url.deletingLastPathComponent()
+        )
         do {
             let data = try fileAccess.data(at: document.url)
             try await placeUbiquitousItem(data, destination)
@@ -565,7 +835,10 @@ final class DocumentStore {
     /// Copies selected UTF-8 markdown or text files into the app's own folder.
     /// Reading and rewriting the text keeps imported files independent of their
     /// source and prevents an unreadable file from becoming an empty document.
-    func importDocuments(from sourceURLs: [URL]) -> DocumentImportResult {
+    func importDocuments(
+        from sourceURLs: [URL],
+        into destinationDirectory: URL? = nil
+    ) -> DocumentImportResult {
         guard !usesICloudStorage else {
             lastError =
                 "Could not import documents because iCloud placement was not started."
@@ -574,13 +847,27 @@ final class DocumentStore {
                 failedFileNames: sourceURLs.map(\.lastPathComponent)
             )
         }
-        return importDocumentsLocally(from: sourceURLs)
+        return importDocumentsLocally(
+            from: sourceURLs,
+            into: destinationDirectory
+        )
     }
 
     private func importDocumentsLocally(
-        from sourceURLs: [URL]
+        from sourceURLs: [URL],
+        into destinationDirectory: URL? = nil
     ) -> DocumentImportResult {
         createDirectoryIfNeeded()
+        let targetDirectory = destinationDirectory ?? directory
+        do {
+            try fileAccess.createDirectory(at: targetDirectory)
+        } catch {
+            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            return DocumentImportResult(
+                imported: [],
+                failedFileNames: sourceURLs.map(\.lastPathComponent)
+            )
+        }
         var importedURLs: [URL] = []
         var failedNames: [String] = []
 
@@ -608,7 +895,10 @@ final class DocumentStore {
                 let preferredName = sourceURL
                     .deletingPathExtension()
                     .lastPathComponent
-                let destination = availableURL(for: preferredName)
+                let destination = availableURL(
+                    for: preferredName,
+                    in: targetDirectory
+                )
                 try fileAccess.write(contents, to: destination)
                 importedURLs.append(destination)
             } catch {
@@ -633,13 +923,27 @@ final class DocumentStore {
     }
 
     func importDocuments(
-        from sourceURLs: [URL]
+        from sourceURLs: [URL],
+        into destinationDirectory: URL? = nil
     ) async -> DocumentImportResult {
         guard usesICloudStorage else {
-            return importDocumentsLocally(from: sourceURLs)
+            return importDocumentsLocally(
+                from: sourceURLs,
+                into: destinationDirectory
+            )
         }
 
         createDirectoryIfNeeded()
+        let targetDirectory = destinationDirectory ?? directory
+        do {
+            try fileAccess.createDirectory(at: targetDirectory)
+        } catch {
+            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            return DocumentImportResult(
+                imported: [],
+                failedFileNames: sourceURLs.map(\.lastPathComponent)
+            )
+        }
         var importedURLs: [URL] = []
         var failedNames: [String] = []
 
@@ -668,7 +972,10 @@ final class DocumentStore {
                 let preferredName = sourceURL
                     .deletingPathExtension()
                     .lastPathComponent
-                let destination = availableURL(for: preferredName)
+                let destination = availableURL(
+                    for: preferredName,
+                    in: targetDirectory
+                )
                 try await placeUbiquitousItem(data, destination)
                 importedURLs.append(destination)
             } catch {
@@ -753,6 +1060,29 @@ final class DocumentStore {
         confirmAvailable(at: destination, modified: modified)
     }
 
+    private func moveFolder(
+        _ folder: LibraryFolder,
+        to destination: URL,
+        failureVerb: String
+    ) -> URL? {
+        do {
+            try fileAccess.moveItem(at: folder.url, to: destination)
+            suppressSnapshots(beneath: folder.url)
+            refresh()
+            return destination
+        } catch {
+            lastError = "Could not \(failureVerb) \(folder.displayName). \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    private func suppressSnapshots(beneath folderURL: URL) {
+        let affectedURLs = iCloudSnapshotsByURL.keys.filter {
+            Self.isDescendant($0, of: folderURL)
+        }
+        affectedURLs.forEach { suppressSnapshot(at: $0) }
+    }
+
     private func updateAvailability(
         at url: URL,
         to availability: DocumentAvailability
@@ -808,7 +1138,7 @@ final class DocumentStore {
     }
 
     /// Finds a free URL for a name, appending " 2", " 3" and so on if needed.
-    private func availableURL(for name: String) -> URL {
+    private func availableURL(for name: String, in directory: URL) -> URL {
         let base = DocumentStore.sanitize(name)
         var candidate = directory.appendingPathComponent(base).appendingPathExtension("md")
         var counter = 2
@@ -820,6 +1150,20 @@ final class DocumentStore {
             counter += 1
         }
 
+        return candidate
+    }
+
+    private func availableFolderURL(for name: String, in directory: URL) -> URL {
+        let base = DocumentStore.sanitize(name)
+        var candidate = directory.appendingPathComponent(base, isDirectory: true)
+        var counter = 2
+        while fileAccess.itemExists(at: candidate) {
+            candidate = directory.appendingPathComponent(
+                "\(base) \(counter)",
+                isDirectory: true
+            )
+            counter += 1
+        }
         return candidate
     }
 
@@ -845,5 +1189,88 @@ final class DocumentStore {
         }
 
         return candidate
+    }
+
+    private func deletionRecordURL(for deletedURL: URL) -> URL {
+        recentlyDeletedDirectory.appendingPathComponent(
+            ".ghostwriter-\(deletedURL.lastPathComponent).json"
+        )
+    }
+
+    private func writeDeletionRecord(originalURL: URL, deletedURL: URL) throws {
+        let record = DeletedItemRecord(
+            originalRelativePath: relativePath(for: originalURL)
+        )
+        try fileAccess.write(
+            JSONEncoder().encode(record),
+            to: deletionRecordURL(for: deletedURL)
+        )
+    }
+
+    private func deletionRecord(for deletedURL: URL) -> DeletedItemRecord? {
+        try? JSONDecoder().decode(
+            DeletedItemRecord.self,
+            from: fileAccess.data(at: deletionRecordURL(for: deletedURL))
+        )
+    }
+
+    private func removeDeletionRecord(for deletedURL: URL) {
+        let recordURL = deletionRecordURL(for: deletedURL)
+        guard fileAccess.itemExists(at: recordURL) else { return }
+        try? fileAccess.removeItem(at: recordURL)
+    }
+
+    private func restorationParent(for deletedURL: URL) -> URL {
+        guard let record = deletionRecord(for: deletedURL) else { return directory }
+        let originalURL = directory.appendingPathComponent(record.originalRelativePath)
+        let parent = originalURL.deletingLastPathComponent()
+        var isDirectory: ObjCBool = false
+        guard isLibraryDirectory(parent),
+              FileManager.default.fileExists(
+                atPath: parent.path,
+                isDirectory: &isDirectory
+              ),
+              isDirectory.boolValue else {
+            return directory
+        }
+        return parent
+    }
+
+    private func restorationURL(for deletedURL: URL, fallbackFileName: String) -> URL {
+        availableURL(
+            forFileName: fallbackFileName,
+            in: restorationParent(for: deletedURL)
+        )
+    }
+
+    private func restorationURL(for deletedURL: URL, fallbackFolderName: String) -> URL {
+        availableFolderURL(
+            for: fallbackFolderName,
+            in: restorationParent(for: deletedURL)
+        )
+    }
+
+    private func relativePath(for url: URL) -> String {
+        let rootPath = directory.standardizedFileURL.path
+        let itemPath = url.standardizedFileURL.path
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        return itemPath.hasPrefix(prefix)
+            ? String(itemPath.dropFirst(prefix.count))
+            : url.lastPathComponent
+    }
+
+    private func isLibraryDirectory(_ url: URL) -> Bool {
+        let standardized = url.standardizedFileURL
+        return standardized == directory.standardizedFileURL
+            || (Self.isDescendant(standardized, of: directory)
+                && standardized != recentlyDeletedDirectory.standardizedFileURL
+                && !Self.isDescendant(standardized, of: recentlyDeletedDirectory))
+    }
+
+    private static func isDescendant(_ candidate: URL, of ancestor: URL) -> Bool {
+        let ancestorComponents = ancestor.standardizedFileURL.pathComponents
+        let candidateComponents = candidate.standardizedFileURL.pathComponents
+        return candidateComponents.count > ancestorComponents.count
+            && candidateComponents.starts(with: ancestorComponents)
     }
 }

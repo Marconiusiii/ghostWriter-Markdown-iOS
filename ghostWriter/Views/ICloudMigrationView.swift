@@ -144,11 +144,15 @@ struct ICloudMigrationView: View {
                 for pair in result.migrated {
                     libraryMetadata.migrateMetadata(
                         from: pair.sourceURL,
-                        to: pair.destinationURL
+                        relativeTo: sourceDirectory,
+                        to: pair.destinationURL,
+                        relativeTo: targetDirectory
                     )
                     EditorPositionStore.shared.migratePosition(
                         from: pair.sourceURL,
-                        to: pair.destinationURL
+                        relativeTo: sourceDirectory,
+                        to: pair.destinationURL,
+                        relativeTo: targetDirectory
                     )
                 }
 
@@ -157,6 +161,8 @@ struct ICloudMigrationView: View {
                     targetDirectory,
                     usesICloudStorage: destination == .iCloud
                 )
+                libraryMetadata.useLibraryRoot(targetDirectory)
+                EditorPositionStore.shared.useLibraryRoot(targetDirectory)
                 if !result.cleanupFailures.isEmpty {
                     store.lastError = "Document storage changed, but ghostWriter could not remove every old local copy."
                 }

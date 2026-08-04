@@ -40,7 +40,7 @@ struct ICloudDocumentMonitorTests {
         )
     }
 
-    @Test func snapshotIgnoresOtherFoldersAndUnsupportedFiles() {
+    @Test func snapshotIncludesNestedFoldersAndIgnoresUnsupportedFiles() {
         let root = URL(fileURLWithPath: "/iCloud/Documents", isDirectory: true)
         let records = [
             record(
@@ -59,12 +59,12 @@ struct ICloudDocumentMonitorTests {
             )
         ]
 
-        #expect(
-            ICloudDocumentMonitor.snapshots(
-                from: records,
-                rootDirectory: root
-            ).isEmpty
+        let snapshots = ICloudDocumentMonitor.snapshots(
+            from: records,
+            rootDirectory: root
         )
+        #expect(snapshots.count == 1)
+        #expect(snapshots[0].url.lastPathComponent == "Nested.md")
     }
 
     @Test func snapshotPreservesRemoteMetadataAndState() {

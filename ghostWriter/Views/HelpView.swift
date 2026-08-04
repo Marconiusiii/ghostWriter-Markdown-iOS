@@ -53,8 +53,9 @@ private struct HelpTopic: Identifiable {
             title: "Creating and Opening Documents",
             paragraphs: [
                 "New creates a named markdown file and opens it for editing.",
-                "Import copies one or more UTF-8 markdown or plain-text files from Files into ghostWriter. Name conflicts receive a safe numbered name.",
-                "Choose any document in the library to open it."
+                "New Folder creates a folder in your current location. Open a folder to see what is inside, and use Back to return to its parent folder.",
+                "Import copies one or more UTF-8 markdown or plain-text files from Files into your current folder. Name conflicts receive a safe numbered name.",
+                "Choose any document in the library to open it. Folders always appear before documents."
             ]
         ),
         HelpTopic(
@@ -104,9 +105,10 @@ private struct HelpTopic: Identifiable {
             title: "Searching, Sorting, and Document Actions",
             paragraphs: [
                 "The library Search field checks document names and contents. The result count updates beneath the field. Activate Clear Search to return to the full library.",
-                "Sort changes the field and direction used to arrange documents. Tap a document to open it, or use its Actions menu to pin, render, share, rename, duplicate, or delete it.",
+                "Sort changes the field and direction used to arrange documents. Tap a document to open it, or use its Actions menu to pin, render, share, rename, move, duplicate, or delete it.",
                 "Pin keeps an important document at the beginning of the Library. Pinned documents remain first with every sort option. Last Opened sorts documents by the most recent time they were opened in the editor.",
-                "Delete moves a document to Deleted. Open Deleted from the Library to restore a document or delete it permanently.",
+                "A folder's Actions menu lets you rename, move, or delete that folder. Deleting a folder keeps everything inside it together.",
+                "Delete moves a document or folder to Deleted. Restoring returns it to its previous folder when that folder still exists, or to Documents when it does not.",
                 "Jump to Line in File Actions moves the cursor to the beginning of a numbered line. Line numbers begin at 1."
             ]
         ),

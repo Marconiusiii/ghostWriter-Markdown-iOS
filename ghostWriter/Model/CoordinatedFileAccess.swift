@@ -170,6 +170,26 @@ nonisolated final class CoordinatedFileAccess {
         }
     }
 
+    func directoriesRecursively(at url: URL) throws -> [URL] {
+        try read(at: url) { coordinatedURL in
+            guard FileManager.default.fileExists(atPath: coordinatedURL.path) else {
+                return []
+            }
+            let keys: [URLResourceKey] = [.isDirectoryKey]
+            guard let enumerator = FileManager.default.enumerator(
+                at: coordinatedURL,
+                includingPropertiesForKeys: keys,
+                options: [.skipsHiddenFiles]
+            ) else { return [] }
+            return enumerator.compactMap { item in
+                guard let itemURL = item as? URL,
+                      let values = try? itemURL.resourceValues(forKeys: Set(keys)),
+                      values.isDirectory == true else { return nil }
+                return itemURL
+            }
+        }
+    }
+
     func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
         try coordinateMoveOrCopy(
             sourceURL: sourceURL,

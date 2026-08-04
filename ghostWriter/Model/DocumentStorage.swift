@@ -41,6 +41,19 @@ nonisolated enum DocumentStorageResolution: Sendable {
 /// Converts a file URL into an identity that is stable when the library moves
 /// between the local app container and the iCloud ubiquity container.
 nonisolated enum DocumentStorageKey {
+    static func key(for url: URL, relativeTo root: URL) -> String {
+        let standardizedURL = url.standardizedFileURL
+        let standardizedRoot = root.standardizedFileURL
+        let rootComponents = standardizedRoot.pathComponents
+        let urlComponents = standardizedURL.pathComponents
+        guard urlComponents.starts(with: rootComponents),
+              urlComponents.count > rootComponents.count else {
+            return key(for: url)
+        }
+        return urlComponents.dropFirst(rootComponents.count)
+            .joined(separator: "/")
+    }
+
     static func key(for url: URL) -> String {
         let components = url.standardizedFileURL.pathComponents
 

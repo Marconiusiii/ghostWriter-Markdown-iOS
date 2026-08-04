@@ -14,6 +14,72 @@ import Testing
 @MainActor
 struct DocumentStoreTests {
 
+    @Test func nestedFoldersContainOnlyTheirDirectItems() async throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let projects = store.createFolder(
+            named: "Projects",
+            in: store.directory
+        ), let archive = store.createFolder(
+            named: "Archive",
+            in: projects.url
+        ) else {
+            Issue.record("Could not create nested folders")
+            return
+        }
+        _ = await store.createDocument(named: "Root", contents: "root")
+        _ = await store.createDocument(named: "Project", contents: "project", in: projects.url)
+        _ = await store.createDocument(named: "Archived", contents: "archive", in: archive.url)
+        store.refresh()
+
+        #expect(store.documents.count == 3)
+        #expect(store.folders.count == 2)
+        #expect(store.documents(directlyIn: store.directory).map(\.displayName) == ["Root"])
+        #expect(store.documents(directlyIn: projects.url).map(\.displayName) == ["Project"])
+        #expect(store.folders(directlyIn: projects.url).map(\.displayName) == ["Archive"])
+    }
+
+    @Test func deletedFolderRestoresToItsOriginalParent() async throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let parent = store.createFolder(named: "Parent", in: store.directory),
+              let child = store.createFolder(named: "Child", in: parent.url) else {
+            Issue.record("Could not create folders")
+            return
+        }
+        _ = await store.createDocument(named: "Note", contents: "kept", in: child.url)
+
+        guard let deletedURL = store.moveToRecentlyDeleted(child),
+              let deletedFolder = store.recentlyDeletedFolders.first(where: {
+                  $0.url == deletedURL
+              }),
+              let restoredURL = store.restore(deletedFolder) else {
+            Issue.record("Could not delete and restore the folder")
+            return
+        }
+
+        #expect(restoredURL.deletingLastPathComponent() == parent.url)
+        #expect(FileManager.default.fileExists(
+            atPath: restoredURL.appendingPathComponent("Note.md").path
+        ))
+    }
+
+    @Test func folderCannotMoveInsideItself() {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let parent = store.createFolder(named: "Parent", in: store.directory),
+              let child = store.createFolder(named: "Child", in: parent.url) else {
+            Issue.record("Could not create folders")
+            return
+        }
+
+        #expect(store.move(.folder(parent), to: child.url) == nil)
+        #expect(FileManager.default.fileExists(atPath: parent.url.path))
+    }
+
     /// Each test gets its own throwaway directory.
     private func makeStore() -> DocumentStore {
         let directory = FileManager.default.temporaryDirectory

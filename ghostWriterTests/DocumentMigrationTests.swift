@@ -8,6 +8,31 @@ import Testing
 @testable import ghostWriter
 
 struct DocumentMigrationTests {
+    @Test func migrationPreservesNestedEmptyFolders() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+        let emptyFolder = directories.source
+            .appendingPathComponent("Projects/Archive", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: emptyFolder,
+            withIntermediateDirectories: true
+        )
+
+        let result = try DocumentMigration().migrate(
+            from: directories.source,
+            to: directories.destination
+        )
+
+        #expect(result.cleanupFailures.isEmpty)
+        var isDirectory: ObjCBool = false
+        #expect(FileManager.default.fileExists(
+            atPath: directories.destination
+                .appendingPathComponent("Projects/Archive").path,
+            isDirectory: &isDirectory
+        ))
+        #expect(isDirectory.boolValue)
+    }
+
     @Test func migratesAndVerifiesTheWholeLibrary() throws {
         let directories = try makeDirectories()
         defer { cleanUp(directories.root) }

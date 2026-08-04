@@ -14,6 +14,7 @@ final class EditorPositionStore {
 
     private let defaults: UserDefaults
     private let storageKey: String
+    private var libraryRoot: URL?
 
     init(
         defaults: UserDefaults = .standard,
@@ -21,6 +22,10 @@ final class EditorPositionStore {
     ) {
         self.defaults = defaults
         self.storageKey = storageKey
+    }
+
+    func useLibraryRoot(_ root: URL?) {
+        libraryRoot = root?.standardizedFileURL
     }
 
     func position(for url: URL) -> Int? {
@@ -34,8 +39,22 @@ final class EditorPositionStore {
     }
 
     func migratePosition(from oldURL: URL, to newURL: URL) {
-        let oldKey = key(for: oldURL)
-        let newKey = key(for: newURL)
+        migratePosition(
+            from: oldURL,
+            relativeTo: libraryRoot,
+            to: newURL,
+            relativeTo: libraryRoot
+        )
+    }
+
+    func migratePosition(
+        from oldURL: URL,
+        relativeTo oldRoot: URL?,
+        to newURL: URL,
+        relativeTo newRoot: URL?
+    ) {
+        let oldKey = key(for: oldURL, relativeTo: oldRoot)
+        let newKey = key(for: newURL, relativeTo: newRoot)
         let oldLegacyKey = legacyKey(for: oldURL)
 
         var updated = positions
@@ -65,7 +84,12 @@ final class EditorPositionStore {
     }
 
     private func key(for url: URL) -> String {
-        DocumentStorageKey.key(for: url)
+        key(for: url, relativeTo: libraryRoot)
+    }
+
+    private func key(for url: URL, relativeTo root: URL?) -> String {
+        root.map { DocumentStorageKey.key(for: url, relativeTo: $0) }
+            ?? DocumentStorageKey.key(for: url)
     }
 
     private func legacyKey(for url: URL) -> String {

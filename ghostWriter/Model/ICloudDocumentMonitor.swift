@@ -119,13 +119,11 @@ final class ICloudDocumentMonitor: NSObject {
             }
 
             let isRecentlyDeleted: Bool
-            if relativeComponents.count == 1 {
-                isRecentlyDeleted = false
-            } else if relativeComponents.count == 2,
-                      relativeComponents[0] == "Recently Deleted" {
+            if relativeComponents.first == "Recently Deleted" {
+                guard relativeComponents.count == 2 else { return nil }
                 isRecentlyDeleted = true
             } else {
-                return nil
+                isRecentlyDeleted = false
             }
 
             return ICloudDocumentSnapshot(

@@ -69,6 +69,9 @@ nonisolated final class DocumentMigration {
         }
 
         try fileAccess.createDirectory(at: destinationDirectory)
+        let sourceDirectories = try fileAccess.directoriesRecursively(
+            at: sourceDirectory
+        ).sorted { $0.pathComponents.count < $1.pathComponents.count }
         let sourceFiles = try fileAccess.regularFilesRecursively(
             at: sourceDirectory
         ).sorted {
@@ -77,8 +80,24 @@ nonisolated final class DocumentMigration {
                 == .orderedAscending
         }
         var operations: [MigrationOperation] = []
+        var createdDestinationDirectories: [URL] = []
 
         do {
+            for sourceFolder in sourceDirectories {
+                let relativeFolderPath = relativePath(
+                    of: sourceFolder,
+                    beneath: sourceDirectory
+                )
+                let destinationFolder = destinationDirectory
+                    .appendingPathComponent(
+                        relativeFolderPath,
+                        isDirectory: true
+                    )
+                if !fileManager.fileExists(atPath: destinationFolder.path) {
+                    try fileAccess.createDirectory(at: destinationFolder)
+                    createdDestinationDirectories.append(destinationFolder)
+                }
+            }
             for sourceURL in sourceFiles {
                 let relativePath = relativePath(
                     of: sourceURL,
@@ -148,6 +167,9 @@ nonisolated final class DocumentMigration {
                     at: operation.pair.destinationURL
                 )
             }
+            for directory in createdDestinationDirectories.reversed() {
+                try? fileAccess.removeItem(at: directory)
+            }
             throw error
         }
 
@@ -157,6 +179,14 @@ nonisolated final class DocumentMigration {
                 try fileAccess.removeItem(at: operation.pair.sourceURL)
             } catch {
                 cleanupFailures.append(operation.pair.sourceURL)
+            }
+        }
+
+        for sourceFolder in sourceDirectories.reversed() {
+            do {
+                try fileAccess.removeItem(at: sourceFolder)
+            } catch {
+                cleanupFailures.append(sourceFolder)
             }
         }
 

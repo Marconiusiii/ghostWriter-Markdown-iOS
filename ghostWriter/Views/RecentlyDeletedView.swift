@@ -16,7 +16,7 @@ struct RecentlyDeletedView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    @State private var pendingPermanentDeletion: Document?
+    @State private var pendingPermanentDeletion: DeletedLibraryItem?
     @State private var showingEmptyConfirmation = false
     @State private var focusAfterError: FocusTarget?
     @State private var focusRequestGate = FocusRestorationRequestGate()
@@ -25,12 +25,19 @@ struct RecentlyDeletedView: View {
 
     private enum FocusTarget: Hashable {
         case count
-        case document(URL)
+        case item(URL)
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+                Text("Recently Deleted")
+                    .font(.title.bold())
+                    .foregroundStyle(Color.ghostAccent)
+                    .accessibilityAddTraits(.isHeader)
+
+                Button("Back") { dismiss() }
+                    .buttonStyle(.bordered)
+
                 Text(countDescription)
                     .font(.title3.bold())
                     .foregroundStyle(Color.ghostAccent)
@@ -46,8 +53,8 @@ struct RecentlyDeletedView: View {
                         .accessibilityAddTraits(.updatesFrequently)
                 }
 
-                if deletedDocuments.isEmpty {
-                    Text("Documents moved here can be restored until they are deleted permanently.")
+                if deletedItems.isEmpty {
+                    Text("Documents and folders moved here can be restored until they are deleted permanently.")
                         .font(.body)
                         .foregroundStyle(Color.ghostMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -60,7 +67,7 @@ struct RecentlyDeletedView: View {
                     showingEmptyConfirmation = true
                 }
                 .buttonStyle(.bordered)
-                .disabled(deletedDocuments.isEmpty)
+                .disabled(deletedItems.isEmpty)
 
                 Spacer(minLength: 0)
             }
@@ -72,14 +79,6 @@ struct RecentlyDeletedView: View {
                 alignment: .topLeading
             )
             .background(Color.pageBackground)
-            .navigationTitle("Recently Deleted")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Back") { dismiss() }
-                }
-            }
-        }
         .onAppear { store.refresh() }
         .alert("Delete Permanently?", isPresented: permanentDeletionBinding) {
             Button("Cancel", role: .cancel) {
@@ -108,7 +107,7 @@ struct RecentlyDeletedView: View {
                 emptyRecentlyDeleted()
             }
         } message: {
-            Text("Every document in Recently Deleted will be permanently deleted. This cannot be undone.")
+            Text("Every item in Recently Deleted will be permanently deleted. This cannot be undone.")
         }
         .alert("ghostWriter Error", isPresented: errorBinding) {
             Button("OK") {
@@ -121,42 +120,42 @@ struct RecentlyDeletedView: View {
 
     private var deletedList: some View {
         List {
-            ForEach(deletedDocuments) { document in
+            ForEach(deletedItems) { item in
                 deletedDocumentLayout {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(document.displayName)
+                        Text(item.displayName)
                             .font(.headline)
                             .foregroundStyle(Color.ghostText)
-                        Text("Modified \(DateFormatting.short(document.modified))")
+                        Text(item.isFolder ? "Folder" : "Document")
                             .font(.caption)
                             .foregroundStyle(Color.ghostMuted)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(
-                        "\(document.displayName), modified \(DateFormatting.spoken(document.modified))"
+                        "\(item.displayName), \(item.isFolder ? "folder" : "document")"
                     )
-                    .accessibilityHint("Deleted document")
+                    .accessibilityHint("Deleted item")
                     .accessibilityAction(
-                        named: "Restore \(document.displayName)"
+                        named: "Restore \(item.displayName)"
                     ) {
-                        restore(document)
+                        restore(item)
                     }
                     .accessibilityAction(
-                        named: "Delete \(document.displayName) Permanently"
+                        named: "Delete \(item.displayName) Permanently"
                     ) {
-                        beginPermanentDeletion(document)
+                        beginPermanentDeletion(item)
                     }
                     .accessibilityFocused(
                         $focusedElement,
-                        equals: .document(document.url)
+                        equals: .item(item.url)
                     )
 
                     RecentlyDeletedActionsMenu(
-                        document: document,
-                        onRestore: { restore(document) },
+                        item: item,
+                        onRestore: { restore(item) },
                         onDeletePermanently: {
-                            beginPermanentDeletion(document)
+                            beginPermanentDeletion(item)
                         }
                     )
                     .buttonStyle(.bordered)
@@ -178,96 +177,142 @@ struct RecentlyDeletedView: View {
         return AnyLayout(HStackLayout(spacing: 8))
     }
 
-    private var deletedDocuments: [Document] {
-        store.recentlyDeletedDocuments.sorted {
+    private var deletedItems: [DeletedLibraryItem] {
+        store.recentlyDeletedItems.sorted {
             $0.displayName.localizedStandardCompare($1.displayName)
                 == .orderedAscending
         }
     }
 
     private var countDescription: String {
-        let count = deletedDocuments.count
-        return "\(count) \(count == 1 ? "deleted document" : "deleted documents")"
+        let count = deletedItems.count
+        return "\(count) \(count == 1 ? "deleted item" : "deleted items")"
     }
 
-    private func restore(_ document: Document) {
+    private func restore(_ item: DeletedLibraryItem) {
         focusRequestGate.invalidate()
-        let nextTarget = focusAfterRemoving(document)
-        focusAfterError = .document(document.url)
+        let nextTarget = focusAfterRemoving(item)
+        focusAfterError = .item(item.url)
 
-        guard let restoredURL = store.restore(document) else { return }
-        EditorPositionStore.shared.migratePosition(
-            from: document.url,
-            to: restoredURL
-        )
-        libraryMetadata.migrateMetadata(
-            from: document.url,
-            to: restoredURL
-        )
+        let restoredURL: URL?
+        switch item.item {
+        case .document(let document):
+            restoredURL = store.restore(document)
+            if let restoredURL {
+                EditorPositionStore.shared.migratePosition(from: document.url, to: restoredURL)
+                libraryMetadata.migrateMetadata(from: document.url, to: restoredURL)
+            }
+        case .folder(let folder):
+            let pairs = store.documentMovePairs(
+                fromFolder: folder.url,
+                toFolder: folder.url
+            )
+            restoredURL = store.restore(folder)
+            if let restoredURL {
+                migrateFolderMetadata(
+                    pairs,
+                    fromRoot: folder.url,
+                    toRoot: restoredURL
+                )
+            }
+        }
+        guard restoredURL != nil else { return }
         focusAfterError = nil
-        announceSuccess("\(document.displayName) restored")
+        announceSuccess("\(item.displayName) restored")
         restoreFocus(to: availableFocus(nextTarget))
     }
 
-    private func beginPermanentDeletion(_ document: Document) {
+    private func beginPermanentDeletion(_ item: DeletedLibraryItem) {
         focusRequestGate.invalidate()
-        pendingPermanentDeletion = document
+        pendingPermanentDeletion = item
     }
 
     private func cancelPermanentDeletion() {
-        guard let document = pendingPermanentDeletion else { return }
+        guard let item = pendingPermanentDeletion else { return }
         pendingPermanentDeletion = nil
-        restoreFocus(to: availableFocus(.document(document.url)))
+        restoreFocus(to: availableFocus(.item(item.url)))
     }
 
     private func commitPermanentDeletion() {
-        guard let document = pendingPermanentDeletion else { return }
-        let nextTarget = focusAfterRemoving(document)
-        focusAfterError = .document(document.url)
+        guard let item = pendingPermanentDeletion else { return }
+        let nextTarget = focusAfterRemoving(item)
+        focusAfterError = .item(item.url)
 
-        guard store.deletePermanently(document) else {
+        let deleted: Bool
+        switch item.item {
+        case .document(let document):
+            deleted = store.deletePermanently(document)
+            if deleted {
+                EditorPositionStore.shared.removePosition(for: document.url)
+                libraryMetadata.removeMetadata(for: document.url)
+            }
+        case .folder(let folder):
+            let pairs = store.documentMovePairs(
+                fromFolder: folder.url,
+                toFolder: folder.url
+            )
+            deleted = store.deletePermanently(folder)
+            if deleted {
+                for pair in pairs {
+                    EditorPositionStore.shared.removePosition(for: pair.sourceURL)
+                    libraryMetadata.removeMetadata(for: pair.sourceURL)
+                }
+            }
+        }
+        guard deleted else {
             pendingPermanentDeletion = nil
             return
         }
-        EditorPositionStore.shared.removePosition(for: document.url)
-        libraryMetadata.removeMetadata(for: document.url)
         pendingPermanentDeletion = nil
         focusAfterError = nil
-        announceSuccess("\(document.displayName) deleted permanently")
+        announceSuccess("\(item.displayName) deleted permanently")
         restoreFocus(to: availableFocus(nextTarget))
     }
 
     private func emptyRecentlyDeleted() {
         focusRequestGate.invalidate()
-        let documents = deletedDocuments
+        let items = deletedItems
         focusAfterError = .count
 
-        for document in documents {
-            guard store.deletePermanently(document) else { return }
-            EditorPositionStore.shared.removePosition(for: document.url)
-            libraryMetadata.removeMetadata(for: document.url)
+        for item in items {
+            switch item.item {
+            case .document(let document):
+                guard store.deletePermanently(document) else { return }
+                EditorPositionStore.shared.removePosition(for: document.url)
+                libraryMetadata.removeMetadata(for: document.url)
+            case .folder(let folder):
+                let pairs = store.documentMovePairs(
+                    fromFolder: folder.url,
+                    toFolder: folder.url
+                )
+                guard store.deletePermanently(folder) else { return }
+                for pair in pairs {
+                    EditorPositionStore.shared.removePosition(for: pair.sourceURL)
+                    libraryMetadata.removeMetadata(for: pair.sourceURL)
+                }
+            }
         }
 
         focusAfterError = nil
         restoreFocus(to: .count)
     }
 
-    private func focusAfterRemoving(_ document: Document) -> FocusTarget {
-        guard let index = deletedDocuments.firstIndex(of: document) else {
+    private func focusAfterRemoving(_ item: DeletedLibraryItem) -> FocusTarget {
+        guard let index = deletedItems.firstIndex(of: item) else {
             return .count
         }
-        if index + 1 < deletedDocuments.count {
-            return .document(deletedDocuments[index + 1].url)
+        if index + 1 < deletedItems.count {
+            return .item(deletedItems[index + 1].url)
         }
         if index > 0 {
-            return .document(deletedDocuments[index - 1].url)
+            return .item(deletedItems[index - 1].url)
         }
         return .count
     }
 
     private func availableFocus(_ target: FocusTarget) -> FocusTarget {
-        if case .document(let url) = target,
-           !deletedDocuments.contains(where: { $0.url == url }) {
+        if case .item(let url) = target,
+           !deletedItems.contains(where: { $0.url == url }) {
             return .count
         }
         return target
@@ -307,6 +352,28 @@ struct RecentlyDeletedView: View {
         }
     }
 
+    private func migrateFolderMetadata(
+        _ pairs: [DocumentMigrationPair],
+        fromRoot: URL,
+        toRoot: URL
+    ) {
+        for pair in pairs {
+            let relativeComponents = pair.sourceURL.pathComponents
+                .dropFirst(fromRoot.pathComponents.count)
+            let destinationURL = relativeComponents.reduce(toRoot) {
+                $0.appendingPathComponent($1)
+            }
+            EditorPositionStore.shared.migratePosition(
+                from: pair.sourceURL,
+                to: destinationURL
+            )
+            libraryMetadata.migrateMetadata(
+                from: pair.sourceURL,
+                to: destinationURL
+            )
+        }
+    }
+
     private var permanentDeletionBinding: Binding<Bool> {
         Binding(
             get: { pendingPermanentDeletion != nil },
@@ -331,7 +398,7 @@ struct RecentlyDeletedView: View {
 }
 
 private struct RecentlyDeletedActionsMenu: View {
-    let document: Document
+    let item: DeletedLibraryItem
     let onRestore: () -> Void
     let onDeletePermanently: () -> Void
 
@@ -340,17 +407,17 @@ private struct RecentlyDeletedActionsMenu: View {
             Button(action: onRestore) {
                 Label("Restore", systemImage: "arrow.uturn.backward")
             }
-            .accessibilityLabel("Restore \(document.displayName)")
+            .accessibilityLabel("Restore \(item.displayName)")
 
             Button(role: .destructive, action: onDeletePermanently) {
                 Label(
-                    "Delete \(document.displayName) Permanently",
+                    "Delete \(item.displayName) Permanently",
                     systemImage: "trash.slash"
                 )
             }
         } label: {
             Label("Actions", systemImage: "ellipsis.circle")
         }
-        .accessibilityLabel("Actions for \(document.displayName)")
+        .accessibilityLabel("Actions for \(item.displayName)")
     }
 }

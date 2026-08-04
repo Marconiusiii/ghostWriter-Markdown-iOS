@@ -92,6 +92,7 @@ struct DocumentActionsMenu: View {
     let onRender: () -> Void
     let onShare: () -> Void
     let onRename: () -> Void
+    let onMove: () -> Void
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
@@ -119,6 +120,11 @@ struct DocumentActionsMenu: View {
                 "Rename",
                 systemImage: "pencil",
                 action: onRename
+            )
+            actionButton(
+                "Move",
+                systemImage: "folder",
+                action: onMove
             )
             actionButton(
                 "Duplicate",

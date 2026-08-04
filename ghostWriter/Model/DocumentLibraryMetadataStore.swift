@@ -11,6 +11,7 @@ import Observation
 
 @Observable
 final class DocumentLibraryMetadataStore {
+    private(set) var libraryRoot: URL?
     private(set) var pinnedKeys: Set<String> {
         didSet {
             defaults.set(Array(pinnedKeys).sorted(), forKey: pinnedStorageKey)
@@ -45,6 +46,10 @@ final class DocumentLibraryMetadataStore {
                     result[item.key] = number.doubleValue
                 }
             } ?? [:]
+    }
+
+    func useLibraryRoot(_ root: URL?) {
+        libraryRoot = root?.standardizedFileURL
     }
 
     func isPinned(_ url: URL) -> Bool {
@@ -88,8 +93,22 @@ final class DocumentLibraryMetadataStore {
     }
 
     func migrateMetadata(from oldURL: URL, to newURL: URL) {
-        let oldKey = key(for: oldURL)
-        let newKey = key(for: newURL)
+        migrateMetadata(
+            from: oldURL,
+            relativeTo: libraryRoot,
+            to: newURL,
+            relativeTo: libraryRoot
+        )
+    }
+
+    func migrateMetadata(
+        from oldURL: URL,
+        relativeTo oldRoot: URL?,
+        to newURL: URL,
+        relativeTo newRoot: URL?
+    ) {
+        let oldKey = key(for: oldURL, relativeTo: oldRoot)
+        let newKey = key(for: newURL, relativeTo: newRoot)
         let oldLegacyKey = legacyKey(for: oldURL)
 
         let removedStablePin = pinnedKeys.remove(oldKey)
@@ -123,7 +142,12 @@ final class DocumentLibraryMetadataStore {
     }
 
     private func key(for url: URL) -> String {
-        DocumentStorageKey.key(for: url)
+        key(for: url, relativeTo: libraryRoot)
+    }
+
+    private func key(for url: URL, relativeTo root: URL?) -> String {
+        root.map { DocumentStorageKey.key(for: url, relativeTo: $0) }
+            ?? DocumentStorageKey.key(for: url)
     }
 
     private func legacyKey(for url: URL) -> String {

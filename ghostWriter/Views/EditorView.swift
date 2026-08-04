@@ -698,7 +698,8 @@ struct EditorView: View {
         Task {
             guard let newURL = await store.createDocument(
                 named: preferredName,
-                contents: contents
+                contents: contents,
+                in: previousURL.map(store.containingDirectory(for:))
             ) else { return }
 
             if let previousURL {
