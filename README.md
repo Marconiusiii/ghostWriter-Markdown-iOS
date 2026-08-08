@@ -1,163 +1,169 @@
 # ghostWriter Markdown
 
-ghostWriter Markdown is a lightweight, accessibility-first Markdown editor for
-iPhone and iPad. It is designed as a blind-first writing environment while
-remaining straightforward and comfortable for every writer.
+ghostWriter Markdown is an accessibility-first Markdown writing app for iPhone
+and iPad. It was built as a blind-first writing environment, and it stays
+comfortable and uncluttered for sighted writers too.
 
-The app keeps documents as ordinary Markdown files, uses native iOS controls,
-and provides structured HTML rendering without requiring an account, analytics,
-or a developer-operated online service.
-
-## Accessibility
-
-Accessibility is a core part of ghostWriter's interface rather than an optional
-mode. The app is developed toward WCAG 2.2 Level AA and tested with VoiceOver as
-a primary interaction method.
-
-Accessibility features include:
-
-- A predictable, linear VoiceOver reading order
-- Native controls with their expected roles and interactions
-- Outline navigation that moves the insertion point and VoiceOver focus to a
-  selected heading
-- A configurable editor Status Bar for line, column, document, heading, and
-  selection information
-- Dynamic Type support, including accessibility text sizes
-- System, monospaced, rounded, and serif editor font choices
-- Light, dark, and system appearance options
-- Native text editing, selection, dictation, braille input, and Find and Replace
-- Voice Control, Switch Control, and hardware keyboard compatibility through
-  standard iOS components
-- Accessible rendered HTML with semantic headings, lists, tables, links, and
-  landmarks
-- Reduced-motion support and visible keyboard focus in rendered documents
-- Logical focus restoration after sheets, menus, alerts, and file operations
-
-The app interface is responsible for providing an accessible editing and file
-management experience. The author of a document remains responsible for the
-accessibility of the content they create, including heading structure, link
-wording, image alternative text, and table design.
-
-Accessibility testing is an ongoing process. Reports from VoiceOver and other
-assistive technology users are especially welcome.
-
-## Features
-
-- Create, open, rename, duplicate, import, share, and recover Markdown documents
-- Restore deleted documents or remove them permanently through Recently Deleted
-- Store documents as ordinary files that are visible in the Files app
-- Automatically save changes while protecting against external file conflicts
-- Search document names and contents
-- Pin important documents at the beginning of the Library
-- Sort documents by name, creation date, modification date, or last opened date
-- Continue bulleted, numbered, and task lists automatically
-- Indent and outdent using tabs, two spaces, or four spaces
-- Navigate long documents through a heading-based Outline
-- Jump directly to a numbered line from File Actions
-- Render Markdown as structured HTML inside the app
-- Share complete standalone HTML, Markdown, or plain-text files
-- Insert links, external images, formatting, headings, quotes, code, and lists
-  through a dedicated Insert Actions workflow
-- Customize the information presented in the editor Status Bar
-- Choose an editor typeface without losing Dynamic Type support
-- Use optional hardware-keyboard shortcuts for common Library and editor actions
-
-## Supported Markdown
-
-The renderer supports common Markdown structures, including:
-
-- ATX and Setext headings
-- Paragraphs and line breaks
-- Emphasis, strong emphasis, and strikethrough
-- Inline and fenced code
-- Ordered, unordered, nested, and task lists
-- Block quotations
-- Links, reference links, and images
-- Tables with column headings and alignment
-- Horizontal rules
-
-Rendered and shared HTML documents include a complete `head` section, a
-document title, responsive viewport information, and a semantic `main` region.
-JavaScript is not used in rendered documents.
-
-## Requirements
-
-- iOS or iPadOS 17.6 or later
-- Xcode with support for the project's iOS deployment target
-- No third-party packages or external dependencies
-
-## Building
-
-1. Clone the repository:
-
-   ```sh
-   git clone https://github.com/Marconiusiii/ghostWriter.git
-   cd ghostWriter
-   ```
-
-2. Open `ghostWriter.xcodeproj` in Xcode.
-3. Select the `ghostWriter` scheme and an iPhone or iPad simulator.
-4. Build and run the app with Command-R.
-
-To run the test suite in Xcode, use Command-U. Tests can also be run from the
-command line after substituting an installed simulator name:
-
-```sh
-xcodebuild \
-  -project ghostWriter.xcodeproj \
-  -scheme ghostWriter \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
-  test
-```
-
-Available simulator destinations can be listed with:
-
-```sh
-xcodebuild -project ghostWriter.xcodeproj -scheme ghostWriter -showdestinations
-```
-
-## Files and privacy
-
-Documents are stored locally as Markdown files in the app's `ghostWriter`
-Documents folder. The folder is available through the Files app so writers can
-copy, move, back up, or manage their work outside ghostWriter.
-
-Deleted documents move into the `Recently Deleted` folder and remain there
-until restored or permanently deleted by the user.
-
-ghostWriter has no accounts, advertising, or analytics and does not collect
-user data. A rendered document can request an externally hosted image when its
-Markdown contains an external image address. Sharing sends the selected file to
-the standard iOS share sheet, after which the receiving app's privacy policy
-applies.
-
-Read the complete
-[ghostWriter Privacy Policy](https://marconius.com/gwPrivacy/).
-
-## Contributing and feedback
-
-Bug reports, accessibility findings, and focused improvements are welcome
-through [GitHub Issues](https://github.com/Marconiusiii/ghostWriter/issues).
-Please include the device, OS version, app version, assistive technology, and
-clear reproduction steps when reporting an accessibility problem.
-
-The app also includes a Send Feedback button in Settings. It opens an in-app
-mail composer and automatically includes the app and OS versions.
-
-Before contributing code, preserve the native SwiftUI control structure,
-logical reading order, Dynamic Type behavior, and existing VoiceOver focus
-contracts. In particular, Outline navigation has specialized focus management
-that keeps a writer's place in long documents.
-
-## Project links
+Your work is saved as ordinary Markdown files you can reach in the Files app.
+There are no accounts to create, nothing to subscribe to, no advertising, and
+no analytics.
 
 - [ghostWriter on the web](https://marconius.com/fun/ghostWriter/)
 - [Privacy Policy](https://marconius.com/gwPrivacy/)
-- [GitHub repository](https://github.com/Marconiusiii/ghostWriter/)
+- [Support and bug reports](https://github.com/Marconiusiii/ghostWriter/issues)
+
+## Requirements
+
+ghostWriter Markdown runs on iPhone and iPad with iOS or iPadOS 17.6 or later.
+
+## Getting started
+
+Open the app and you land in the Library, which lists every document you have
+written.
+
+1. Choose New to name a document and start writing, or choose Import to bring in a Markdown or text file you already have.
+2. Select any document in the Library to open it in the editor.
+3. Write in plain Markdown. Changes save automatically as you go, so there is no Save button to hunt for.
+4. Use Done to return to the Library.
+
+If you have never written Markdown before, open File Actions while editing
+and choose Markdown Reference for examples of everything the app supports.
+The built-in Help screen walks through each part of the app in the same
+plain language used here.
+
+## Writing and editing
+
+The editor is a standard iOS text view, so everything you already know still
+works: selection, dictation, braille input, text replacement, and Find and
+Replace.
+
+- Insert Actions adds links, images, headings, emphasis, block quotes,
+  code, lists, and horizontal rules without memorizing Markdown syntax. If you
+  have text selected, it becomes part of what gets inserted.
+- Lists continue themselves. Press Return at the end of a bulleted,
+  numbered, or task list item and the next item appears. Press Return on an
+  empty item to end the list.
+- Indentation follows your preference: a tab character, two spaces, or
+  four spaces.
+- The Status Bar under the editor reports where you are, such as line,
+  column, current heading, document name, and selection details. You choose
+  which of these appear in Settings.
+- Jump to Line in File Actions moves the cursor to the beginning of any
+  numbered line. Lines start at 1.
+
+## Finding your way around a document
+
+Outline lists every heading in the document in order, along with its
+heading level. Choosing a heading moves both the cursor and VoiceOver focus to
+that spot, so you keep your place in a long piece of writing.
+
+## Seeing the finished result
+
+Render displays the document as formatted HTML with real headings, lists,
+tables, links, and landmarks. Done returns you to the editor with your
+place intact. Rendered documents contain no JavaScript.
+
+The renderer handles the Markdown structures most writers reach for: headings,
+paragraphs, emphasis and strikethrough, inline and fenced code, ordered and
+unordered and nested and task lists, block quotes, links and reference links,
+images, tables with alignment, and horizontal rules.
+
+## Sharing and exporting
+
+Open File Actions, choose Share, and pick a format:
+
+- Markdown for the original file
+- Plain Text for the text without formatting marks
+- HTML for a complete, standalone web page
+
+Sharing hands the file to the standard iOS share sheet, so you can mail it,
+message it, save it to Files, or send it to any other app.
+
+## Organizing your Library
+
+- Search looks through both document names and document contents.
+- Pin keeps important documents at the top of the list.
+- Sort by name, creation date, modification date, or last opened date.
+- Rename and Duplicate are available from any document's actions.
+- Recently Deleted holds documents you remove, so you can restore
+  something you deleted by mistake or clear it out permanently when you are
+  sure.
+
+## Accessibility
+
+Accessibility is how ghostWriter is built, not a mode you switch on.
+
+- A predictable, linear VoiceOver reading order throughout the app
+- Native controls that announce their expected roles and behaviors
+- Outline navigation that carries VoiceOver focus to the heading you chose
+- Dynamic Type support, including the accessibility text sizes
+- System, monospaced, rounded, and serif editor typefaces
+- Light, dark, and system appearance
+- Voice Control, Switch Control, and hardware keyboard support
+- Rendered documents with semantic headings, lists, tables, links, and
+  landmarks
+- Reduced-motion support and visible keyboard focus while reading
+- Focus that returns where you expect after sheets, menus, and alerts
+
+The app is developed toward WCAG 2.2 Level AA and tested with VoiceOver as a
+primary way of using it. The app is responsible for an accessible writing and
+file management experience; the accessibility of what you write — heading
+structure, link wording, image descriptions, table design — remains in your
+hands.
+
+Accessibility work is never finished. Reports from VoiceOver and other
+assistive technology users are especially welcome.
+
+## Keyboard shortcuts
+
+With a hardware keyboard connected, Command-N creates a document, Command-O
+imports one, and Command-comma opens Settings. Escape dismisses the keyboard
+in the editor. Shortcuts can be turned on or off under Editing in
+Settings.
+
+## Your files and your privacy
+
+Documents live locally, as ordinary Markdown files, in the app's `ghostWriter`
+folder. That folder appears in the Files app, so you can copy, move, back up,
+or organize your writing outside ghostWriter whenever you want.
+
+Deleted documents move to Recently Deleted and stay there until you
+restore them or delete them permanently.
+
+ghostWriter has no accounts, no advertising, and no analytics, and it does not
+collect your data. If a document includes an image hosted on the web, viewing
+the rendered version requests that image from wherever it is hosted. Once you
+share a file, the receiving app's privacy policy applies.
+
+The full [ghostWriter Privacy Policy](https://marconius.com/gwPrivacy/) is
+available on the web.
+
+## Support
+
+Questions, problems, and feature requests all go to the same place:
+
+[ghostWriter Issues on GitHub](https://github.com/Marconiusiii/ghostWriter/issues)
+
+Choose New issue to report a bug, ask a question, or suggest an
+improvement. You will need a free GitHub account to post, and you can read
+existing reports without one. Issues are read and answered by the developer.
+
+You can also write directly to marco@marconius.com, or use the Send
+Feedback button in Settings, which opens a mail message with your app and
+iOS versions already filled in.
+
+When reporting a problem, it helps enormously to include:
+
+- Your device and iOS or iPadOS version
+- The ghostWriter version, shown in Settings
+- Any assistive technology you were using, such as VoiceOver or a braille
+  display
+- What you did, what you expected, and what happened instead
+
+Accessibility reports get priority.
 
 ## License
 
-ghostWriter Markdown is available under the
-[MIT License](LICENSE).
+ghostWriter Markdown is available under the [MIT License](LICENSE).
 
-Copyright © 2026 Marco Salsiccia.
+© 2026 Marco Salsiccia.
