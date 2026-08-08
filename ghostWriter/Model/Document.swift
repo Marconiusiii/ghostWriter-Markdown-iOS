@@ -22,6 +22,7 @@ nonisolated struct Document: Identifiable, Hashable {
     let modified: Date
     /// Size in bytes, used for the accessibility description of a row.
     let byteCount: Int
+    let availability: DocumentAvailability
 
     var id: URL { url }
 
@@ -34,6 +35,20 @@ nonisolated struct Document: Identifiable, Hashable {
 
     var fileName: String {
         url.lastPathComponent
+    }
+
+    init(
+        url: URL,
+        created: Date,
+        modified: Date,
+        byteCount: Int,
+        availability: DocumentAvailability = .available
+    ) {
+        self.url = url
+        self.created = created
+        self.modified = modified
+        self.byteCount = byteCount
+        self.availability = availability
     }
 }
 
@@ -48,7 +63,14 @@ nonisolated extension Document {
             .creationDateKey,
             .contentModificationDateKey,
             .fileSizeKey,
-            .isRegularFileKey
+            .isRegularFileKey,
+            .isUbiquitousItemKey,
+            .ubiquitousItemDownloadingStatusKey,
+            .ubiquitousItemIsDownloadingKey,
+            .ubiquitousItemDownloadingErrorKey,
+            .ubiquitousItemIsUploadedKey,
+            .ubiquitousItemIsUploadingKey,
+            .ubiquitousItemUploadingErrorKey
         ]
 
         guard let values = try? fileURL.resourceValues(forKeys: keys),
@@ -56,12 +78,34 @@ nonisolated extension Document {
             return nil
         }
 
-        self.url = fileURL
+        let availability: DocumentAvailability
+        if values.isUbiquitousItem == true {
+            availability = DocumentAvailability.iCloudState(
+                downloadingStatus: values.ubiquitousItemDownloadingStatus?.rawValue,
+                isDownloading: values.ubiquitousItemIsDownloading ?? false,
+                percentDownloaded: nil,
+                errorDescription: values.ubiquitousItemDownloadingError?
+                    .localizedDescription,
+                isUploaded: values.ubiquitousItemIsUploaded,
+                isUploading: values.ubiquitousItemIsUploading ?? false,
+                uploadErrorDescription: values.ubiquitousItemUploadingError?
+                    .localizedDescription
+            )
+        } else {
+            availability = .available
+        }
+
         // A missing timestamp is possible on some filesystems. Falling back to
         // the distant past keeps sorting total rather than crashing.
-        self.created = values.creationDate ?? .distantPast
-        self.modified = values.contentModificationDate ?? values.creationDate ?? .distantPast
-        self.byteCount = values.fileSize ?? 0
+        self.init(
+            url: fileURL,
+            created: values.creationDate ?? .distantPast,
+            modified: values.contentModificationDate
+                ?? values.creationDate
+                ?? .distantPast,
+            byteCount: values.fileSize ?? 0,
+            availability: availability
+        )
     }
 
     /// Recognised markdown extensions. `.markdown` and `.txt` are accepted so

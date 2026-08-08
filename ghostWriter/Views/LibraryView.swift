@@ -40,12 +40,14 @@ struct FocusRestorationRequestGate {
 }
 
 struct LibraryView: View {
+    @Environment(DocumentStorage.self) private var storage
     @Environment(DocumentStore.self) private var store
     @Environment(AppSettings.self) private var settings
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    @State private var iCloudMonitor = ICloudDocumentMonitor()
     @State private var searchText = ""
     @State private var showingSettings = false
     @State private var showingRecentlyDeleted = false
@@ -57,26 +59,61 @@ struct LibraryView: View {
     @State private var showingShare = false
     @State private var openedDocument: DocumentSession?
     @State private var showingNewDocument = false
+    @State private var showingNewFolder = false
+    @State private var focusAfterNewFolder: LibraryFocus?
     @State private var showingImporter = false
+    @State private var currentFolderURL: URL?
+    @State private var configuredStorageLocation: DocumentStorageChoice?
+    @State private var renamingFolder: LibraryFolder?
+    @State private var pendingFolderDeletion: LibraryFolder?
+    @State private var movingItem: LibraryItem?
+    @State private var focusAfterMove: LibraryFocus?
     @State private var shouldRestoreNewDocumentFocus = false
     @State private var focusAfterEditor: LibraryFocus?
     @State private var focusAfterPresentation: LibraryFocus?
     @State private var focusAfterError: LibraryFocus?
     @State private var focusRequestGate = FocusRestorationRequestGate()
+    @State private var appLaunchActionGate = AppLaunchActionGate()
+    @State private var welcomeExperience = WelcomeExperience()
+    @State private var showingWelcome = false
+    @State private var welcomeDocumentURL: URL?
+    @State private var welcomePreparationFailed = false
+    @State private var isPreparingWelcomeDocument = false
+    @State private var welcomeDismissalAction: WelcomeDismissalAction?
     @State private var searchIndex = DocumentSearchIndex.empty
     @State private var searchAnnounceTask: Task<Void, Never>?
+    @State private var pendingDocumentActions:
+        [URL: PendingDocumentAction] = [:]
+    @State private var downloadTasks:
+        [URL: Task<Void, Never>] = [:]
     @FocusState private var searchFocused: Bool
     @AccessibilityFocusState private var focusedElement: LibraryFocus?
 
     private enum LibraryFocus: Hashable {
+        case appHeading
         case settings
         case newDocument
+        case newFolder
         case importDocument
         case recentlyDeleted
         case sort
         case search
         case documentsHeading
+        case back
+        case folder(URL)
         case document(URL)
+    }
+
+    private enum PendingDocumentAction {
+        case open
+        case render
+        case share
+        case duplicate
+    }
+
+    private enum WelcomeDismissalAction {
+        case explore(URL)
+        case library
     }
 
     var body: some View {
@@ -98,6 +135,15 @@ struct LibraryView: View {
                     initialText: session.text,
                     onDocumentURLChange: { url in
                         focusAfterEditor = .document(url)
+                    },
+                    onClose: { url in
+                        store.refresh()
+                        focusAfterEditor = nil
+                        restoreFocus(
+                            to: availableFocus(
+                                .document(documentURL(matching: url))
+                            )
+                        )
                     }
                 )
             }
@@ -117,7 +163,33 @@ struct LibraryView: View {
                 scheduleSearchAnnouncement()
             }
         }
-        .onAppear { store.refresh() }
+        .onAppear {
+            if settings.renderSoundEnabled {
+                RenderSound.shared.prepare()
+            }
+            if welcomeExperience.shouldPresent {
+                showingWelcome = true
+            }
+        }
+        .onChange(of: settings.renderSoundEnabled) { _, isEnabled in
+            if isEnabled {
+                RenderSound.shared.prepare()
+            }
+        }
+        .task(id: storage.selectedLocation) {
+            await configureSelectedStorage()
+        }
+        .onChange(of: iCloudMonitor.revision) { _, _ in
+            guard storage.selectedLocation == .iCloud else { return }
+            store.applyICloudSnapshot(iCloudMonitor.snapshots)
+            Task {
+                await prepareWelcomeDocumentIfNeeded()
+                performAppLaunchBehaviorIfReady()
+            }
+        }
+        .onChange(of: store.documents) { _, _ in
+            completePendingDocumentActions()
+        }
         .task(id: searchSources) {
             let sources = searchSources
             let buildTask = Task.detached(priority: .utility) {
@@ -135,7 +207,21 @@ struct LibraryView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { store.refresh() }
+            if phase == .active {
+                Task {
+                    await configureSelectedStorage()
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showingWelcome, onDismiss: {
+            finishWelcomeDismissal()
+        }) {
+            WelcomeView(
+                documentReady: welcomeDocumentURL != nil,
+                preparationFailed: welcomePreparationFailed,
+                onExplore: exploreWelcomeDocument,
+                onContinue: continueFromWelcome
+            )
         }
         .sheet(isPresented: $showingSettings, onDismiss: {
             restoreFocus(to: .settings)
@@ -156,6 +242,26 @@ struct LibraryView: View {
             NewDocumentView { name in
                 createDocument(named: name)
             }
+        }
+        .sheet(isPresented: $showingNewFolder, onDismiss: {
+            restoreFocus(to: availableFocus(focusAfterNewFolder ?? .newFolder))
+            focusAfterNewFolder = nil
+        }) {
+            NewFolderView { name in
+                createFolder(named: name)
+            }
+        }
+        .sheet(item: $movingItem, onDismiss: {
+            restoreFocus(to: availableFocus(focusAfterMove ?? .documentsHeading))
+            focusAfterMove = nil
+        }) { item in
+            MoveLibraryItemView(
+                itemName: item.displayName,
+                rootDirectory: store.directory,
+                folders: store.folders,
+                excludedURLs: excludedMoveDestinations(for: item),
+                onMove: { destination in move(item, to: destination) }
+            )
         }
         .fullScreenCover(item: $renderingSession, onDismiss: {
             restorePresentationFocus()
@@ -187,13 +293,31 @@ struct LibraryView: View {
         }
         .alert("Delete Document?", isPresented: deleteBinding) {
             Button("Cancel", role: .cancel) { cancelDelete() }
-            Button("Move to Recently Deleted", role: .destructive) {
+            Button("Delete", role: .destructive) {
                 commitDelete()
             }
         } message: {
             Text(
                 pendingDeletion.map {
                     "\($0.displayName) will move to Recently Deleted, where it can be restored or deleted permanently."
+                } ?? ""
+            )
+        }
+        .alert("Rename Folder", isPresented: folderRenameBinding) {
+            TextField("Name", text: $newName)
+                .autocorrectionDisabled()
+            Button("Cancel", role: .cancel) { cancelFolderRename() }
+            Button("Rename") { commitFolderRename() }
+        } message: {
+            Text("Enter a new name for this folder.")
+        }
+        .alert("Delete Folder?", isPresented: folderDeleteBinding) {
+            Button("Cancel", role: .cancel) { cancelFolderDelete() }
+            Button("Delete", role: .destructive) { commitFolderDelete() }
+        } message: {
+            Text(
+                pendingFolderDeletion.map {
+                    "\($0.displayName) and everything inside it will move to Recently Deleted."
                 } ?? ""
             )
         }
@@ -215,6 +339,7 @@ struct LibraryView: View {
                 .font(.largeTitle.bold())
                 .foregroundStyle(Color.ghostAccent)
                 .accessibilityAddTraits(.isHeader)
+                .accessibilityFocused($focusedElement, equals: .appHeading)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
@@ -237,9 +362,23 @@ struct LibraryView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .disabled(!store.storageAvailable)
             .accessibilityLabel("New document")
             .accessibilityFocused($focusedElement, equals: .newDocument)
             .keyboardShortcut(shortcut("n", modifiers: .command))
+
+            Button {
+                focusRequestGate.invalidate()
+                focusAfterNewFolder = .newFolder
+                showingNewFolder = true
+            } label: {
+                Label("New Folder", systemImage: "folder.badge.plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(!store.storageAvailable)
+            .accessibilityFocused($focusedElement, equals: .newFolder)
 
             Button {
                 focusRequestGate.invalidate()
@@ -250,6 +389,7 @@ struct LibraryView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .disabled(!store.storageAvailable)
             .accessibilityLabel("Import document")
             .accessibilityHint("Copies markdown or plain-text files into ghostWriter")
             .accessibilityFocused($focusedElement, equals: .importDocument)
@@ -262,12 +402,13 @@ struct LibraryView: View {
                 HStack {
                     Label("Deleted", systemImage: "trash")
                     Spacer()
-                    Text("\(store.recentlyDeletedDocuments.count)")
+                    Text("\(store.recentlyDeletedItems.count)")
                 }
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .disabled(!store.storageAvailable)
             .accessibilityLabel(
                 "Deleted, \(recentlyDeletedCountDescription)"
             )
@@ -361,7 +502,7 @@ struct LibraryView: View {
                     Label("Clear Search", systemImage: "xmark.circle.fill")
                 }
                 .buttonStyle(.bordered)
-                .accessibilityHint("Clears the search and shows all documents")
+                .accessibilityHint("Clears the search and shows all items")
             }
         }
     }
@@ -395,8 +536,8 @@ struct LibraryView: View {
     }
 
     private func announceCount(prefix: String) {
-        let count = visibleDocuments.count
-        let noun = count == 1 ? "document" : "documents"
+        let count = visibleDocuments.count + visibleFolders.count
+        let noun = count == 1 ? "item" : "items"
         UIAccessibility.post(notification: .announcement, argument: "\(prefix) \(count) \(noun)")
     }
 
@@ -406,11 +547,19 @@ struct LibraryView: View {
     /// search field, where it doubles as the search result announcement.
     private var documentArea: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Documents")
+            Text(currentFolderHeading)
                 .font(.title2.bold())
                 .foregroundStyle(Color.ghostAccent)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityFocused($focusedElement, equals: .documentsHeading)
+
+            if currentFolderURL != nil {
+                Button("Back to \(parentFolderName)") {
+                    navigateBack()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityFocused($focusedElement, equals: .back)
+            }
 
             sortMenu
             searchField
@@ -427,19 +576,56 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var list: some View {
-        if store.documents.isEmpty {
+        if !store.storageAvailable {
+            unavailableLibrary
+        } else if currentDocuments.isEmpty && currentFolders.isEmpty {
             emptyLibrary
-        } else if visibleDocuments.isEmpty {
+        } else if visibleDocuments.isEmpty && visibleFolders.isEmpty {
             noSearchResults
         } else {
             documentList
         }
     }
 
+    @ViewBuilder
     private var documentList: some View {
         // No section header here: the count heading above this list is the
         // heading for it, and repeating it would be a second announcement of
         // the same thing.
+        ForEach(visibleFolders) { folder in
+            documentActionLayout {
+                Button {
+                    open(folder)
+                } label: {
+                    FolderRow(folder: folder, itemCount: store.itemCount(in: folder))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityFocused($focusedElement, equals: .folder(folder.url))
+                .accessibilityAction(named: "Rename \(folder.displayName)") {
+                    beginRename(folder)
+                }
+                .accessibilityAction(named: "Move \(folder.displayName)") {
+                    beginMove(.folder(folder))
+                }
+                .accessibilityAction(named: "Delete \(folder.displayName)") {
+                    beginDelete(folder)
+                }
+
+                FolderActionsMenu(
+                    folder: folder,
+                    onRename: { beginRename(folder) },
+                    onMove: { beginMove(.folder(folder)) },
+                    onDelete: { beginDelete(folder) }
+                )
+                .buttonStyle(.bordered)
+            }
+            .listRowInsets(
+                EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
+            )
+            .listRowBackground(Color.clear)
+        }
+
         ForEach(visibleDocuments) { document in
             documentActionLayout {
                 Button {
@@ -447,13 +633,7 @@ struct LibraryView: View {
                 } label: {
                     DocumentRow(
                         document: document,
-                        isPinned: libraryMetadata.isPinned(document.url),
-                        onTogglePin: { togglePin(document) },
-                        onRender: { render(document) },
-                        onShare: { share(document) },
-                        onRename: { beginRename(document) },
-                        onDuplicate: { duplicate(document) },
-                        onDelete: { beginDelete(document) }
+                        isPinned: libraryMetadata.isPinned(document.url)
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -462,6 +642,48 @@ struct LibraryView: View {
                     $focusedElement,
                     equals: .document(document.url)
                 )
+                .accessibilityAction(
+                    named: "\(libraryMetadata.isPinned(document.url) ? "Unpin" : "Pin") \(document.displayName)"
+                ) {
+                    togglePin(document)
+                }
+                .accessibilityAction(
+                    named: "Render \(document.displayName)"
+                ) {
+                    render(document)
+                }
+                .accessibilityAction(
+                    named: "Share \(document.displayName)"
+                ) {
+                    share(document)
+                }
+                .accessibilityAction(
+                    named: "Rename \(document.displayName)"
+                ) {
+                    beginRename(document)
+                }
+                .accessibilityAction(named: "Move \(document.displayName)") {
+                    beginMove(.document(document))
+                }
+                .accessibilityAction(
+                    named: "Duplicate \(document.displayName)"
+                ) {
+                    duplicate(document)
+                }
+                .accessibilityAction(
+                    named: "Delete \(document.displayName)"
+                ) {
+                    beginDelete(document)
+                }
+
+                if case .failed = document.availability {
+                    Button("Retry Download") {
+                        retryDownload(document)
+                    }
+                    .accessibilityLabel(
+                        "Retry Download \(document.displayName)"
+                    )
+                }
 
                 DocumentActionsMenu(
                     document: document,
@@ -470,44 +692,11 @@ struct LibraryView: View {
                     onRender: { render(document) },
                     onShare: { share(document) },
                     onRename: { beginRename(document) },
+                    onMove: { beginMove(.document(document)) },
                     onDuplicate: { duplicate(document) },
                     onDelete: { beginDelete(document) }
                 )
                 .buttonStyle(.bordered)
-            }
-            // Swipe actions serve touch users. VoiceOver users get the
-            // same capabilities through the row's custom actions, so
-            // these are hidden from assistive technology rather than
-            // being announced a second time.
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                Button(role: .destructive) {
-                    beginDelete(document)
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-                .accessibilityHidden(true)
-
-                Button {
-                    beginRename(document)
-                } label: {
-                    Label("Rename", systemImage: "pencil")
-                }
-                .accessibilityHidden(true)
-            }
-            .swipeActions(edge: .leading) {
-                Button {
-                    render(document)
-                } label: {
-                    Label("Render", systemImage: "doc.richtext")
-                }
-                .accessibilityHidden(true)
-
-                Button {
-                    share(document)
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
-                .accessibilityHidden(true)
             }
             // The surrounding stack supplies the horizontal padding, so
             // the list rows do not add their own on top of it.
@@ -538,8 +727,18 @@ struct LibraryView: View {
             .padding(.top, 4)
     }
 
+    private var unavailableLibrary: some View {
+        Text(
+            "Your selected document library is unavailable. Open Settings to check iCloud Drive or choose On This Device."
+        )
+        .font(.body)
+        .foregroundStyle(Color.ghostMuted)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
+    }
+
     private var noSearchResults: some View {
-        Text("No documents match \(trimmedSearch).")
+        Text("No items match \(trimmedSearch).")
             .font(.body)
             .foregroundStyle(Color.ghostMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -568,9 +767,9 @@ struct LibraryView: View {
         let filtered: [Document]
 
         if query.isEmpty {
-            filtered = store.documents
+            filtered = currentDocuments
         } else {
-            filtered = store.documents.filter { document in
+            filtered = currentDocuments.filter { document in
                 searchIndex.matches(
                     documentURL: document.url,
                     displayName: document.displayName,
@@ -582,20 +781,58 @@ struct LibraryView: View {
         return settings.sort.sorted(filtered, metadata: libraryMetadata)
     }
 
+    private var currentDirectory: URL {
+        currentFolderURL ?? store.directory
+    }
+
+    private var currentDocuments: [Document] {
+        store.documents(directlyIn: currentDirectory)
+    }
+
+    private var currentFolders: [LibraryFolder] {
+        store.folders(directlyIn: currentDirectory)
+    }
+
+    private var visibleFolders: [LibraryFolder] {
+        currentFolders.filter {
+            trimmedSearch.isEmpty
+                || $0.displayName.localizedCaseInsensitiveContains(trimmedSearch)
+        }.sorted {
+            $0.displayName.localizedStandardCompare($1.displayName)
+                == .orderedAscending
+        }
+    }
+
+    private var currentFolderHeading: String {
+        currentFolderURL?.lastPathComponent ?? "Documents"
+    }
+
+    private var parentFolderName: String {
+        guard let currentFolderURL else { return "Documents" }
+        let parent = currentFolderURL.deletingLastPathComponent()
+        return parent.standardizedFileURL == store.directory.standardizedFileURL
+            ? "Documents"
+            : parent.lastPathComponent
+    }
+
     private var countDescription: String {
-        let count = visibleDocuments.count
-        let noun = count == 1 ? "document" : "documents"
+        let count = visibleDocuments.count + visibleFolders.count
+        let noun = count == 1 ? "item" : "items"
         return trimmedSearch.isEmpty ? "\(count) \(noun)" : "Showing \(count) \(noun)"
     }
 
     private var recentlyDeletedCountDescription: String {
-        let count = store.recentlyDeletedDocuments.count
+        let count = store.recentlyDeletedItems.count
         return "\(count) \(count == 1 ? "item" : "items")"
     }
 
     // MARK: - Actions
 
     private func open(_ document: Document) {
+        perform(.open, with: document)
+    }
+
+    private func openAvailable(_ document: Document) {
         focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
@@ -606,36 +843,235 @@ struct LibraryView: View {
     }
 
     private func render(_ document: Document) {
+        perform(.render, with: document)
+    }
+
+    private func renderAvailable(_ document: Document) {
         focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
         focusAfterError = nil
         focusAfterPresentation = .document(document.url)
+        if settings.renderSoundEnabled {
+            RenderSound.shared.play()
+        }
         renderingSession = RenderedDocumentSession(
             title: document.displayName,
             markdown: text
         )
     }
 
-    /// Asks for a name first. The document is created only once the user
-    /// confirms, so cancelling leaves nothing behind.
+    /// Uses the writer's selected New Document flow. Asking for a title remains
+    /// the default; the date option skips the naming sheet and uses the same
+    /// safe creation path directly.
     private func newDocument() {
         focusRequestGate.invalidate()
-        shouldRestoreNewDocumentFocus = true
-        showingNewDocument = true
+        switch settings.newDocumentCreationMode {
+        case .askForTitle:
+            shouldRestoreNewDocumentFocus = true
+            showingNewDocument = true
+        case .useTodaysDate:
+            shouldRestoreNewDocumentFocus = false
+            createDocument(named: NewDocumentTitle.today())
+        }
     }
 
     /// Creates the file with the chosen name and opens it.
     private func createDocument(named name: String) {
-        focusAfterError = .newDocument
-        guard let url = store.createDocument(named: name, contents: "") else { return }
-        focusAfterError = nil
+        focusRequestGate.invalidate()
         shouldRestoreNewDocumentFocus = false
-        store.refresh()
-        guard let document = Document(fileURL: url) else { return }
-        libraryMetadata.recordOpened(url)
-        focusAfterEditor = .document(url)
-        openedDocument = DocumentSession(document: document, text: "")
+        focusAfterError = .newDocument
+        Task {
+            guard let url = await store.createDocument(
+                named: name,
+                contents: "",
+                in: currentDirectory
+            ) else { return }
+            focusAfterError = nil
+            shouldRestoreNewDocumentFocus = false
+            store.refresh()
+            guard let document = Document(fileURL: url) else { return }
+            libraryMetadata.recordOpened(url)
+            focusAfterEditor = .document(url)
+            openedDocument = DocumentSession(document: document, text: "")
+        }
+    }
+
+    private func createFolder(named name: String) {
+        focusRequestGate.invalidate()
+        guard let folder = store.createFolder(named: name, in: currentDirectory) else {
+            focusAfterError = .newFolder
+            return
+        }
+        focusAfterNewFolder = .folder(folder.url)
+    }
+
+    private func open(_ folder: LibraryFolder) {
+        focusRequestGate.invalidate()
+        searchText = ""
+        currentFolderURL = folder.url
+        restoreFocus(to: .documentsHeading)
+    }
+
+    private func navigateBack() {
+        guard let currentFolderURL else { return }
+        let childURL = currentFolderURL
+        let parent = currentFolderURL.deletingLastPathComponent()
+        self.currentFolderURL = parent.standardizedFileURL
+            == store.directory.standardizedFileURL ? nil : parent
+        searchText = ""
+        restoreFocus(to: .folder(childURL))
+    }
+
+    private func beginRename(_ folder: LibraryFolder) {
+        focusRequestGate.invalidate()
+        newName = folder.displayName
+        renamingFolder = folder
+    }
+
+    private func commitFolderRename() {
+        guard let folder = renamingFolder else { return }
+        let proposedURL = folder.url.deletingLastPathComponent()
+            .appendingPathComponent(DocumentStore.sanitize(newName), isDirectory: true)
+        let metadataPairs = store.documentMovePairs(
+            fromFolder: folder.url,
+            toFolder: proposedURL
+        )
+        let renamedURL = store.rename(folder, to: newName)
+        renamingFolder = nil
+        if let renamedURL {
+            migrateFolderMetadata(
+                metadataPairs,
+                replacingProposedRoot: proposedURL,
+                with: renamedURL
+            )
+            restoreFocus(to: .folder(renamedURL))
+        }
+    }
+
+    private func cancelFolderRename() {
+        guard let folder = renamingFolder else { return }
+        renamingFolder = nil
+        restoreFocus(to: .folder(folder.url))
+    }
+
+    private func beginDelete(_ folder: LibraryFolder) {
+        focusRequestGate.invalidate()
+        pendingFolderDeletion = folder
+    }
+
+    private func cancelFolderDelete() {
+        guard let folder = pendingFolderDeletion else { return }
+        pendingFolderDeletion = nil
+        restoreFocus(to: .folder(folder.url))
+    }
+
+    private func commitFolderDelete() {
+        guard let folder = pendingFolderDeletion else { return }
+        let siblings = visibleFolders
+        let index = siblings.firstIndex(of: folder)
+        let nextURL = index.flatMap { position -> URL? in
+            if position + 1 < siblings.count { return siblings[position + 1].url }
+            if position > 0 { return siblings[position - 1].url }
+            return nil
+        }
+        let proposedDeletedURL = store.recentlyDeletedDirectory
+            .appendingPathComponent(folder.displayName, isDirectory: true)
+        let metadataPairs = store.documentMovePairs(
+            fromFolder: folder.url,
+            toFolder: proposedDeletedURL
+        )
+        guard let deletedURL = store.moveToRecentlyDeleted(folder) else {
+            pendingFolderDeletion = nil
+            return
+        }
+        migrateFolderMetadata(
+            metadataPairs,
+            replacingProposedRoot: proposedDeletedURL,
+            with: deletedURL
+        )
+        pendingFolderDeletion = nil
+        restoreFocus(to: nextURL.map(LibraryFocus.folder) ?? .documentsHeading)
+    }
+
+    private func move(_ item: LibraryItem, to destination: URL) {
+        let oldURL = item.url
+        let proposedFolderURL = destination.appendingPathComponent(
+            item.displayName,
+            isDirectory: true
+        )
+        let folderMetadataPairs: [DocumentMigrationPair]
+        if case .folder(let folder) = item {
+            folderMetadataPairs = store.documentMovePairs(
+                fromFolder: folder.url,
+                toFolder: proposedFolderURL
+            )
+        } else {
+            folderMetadataPairs = []
+        }
+        guard let movedURL = store.move(item, to: destination) else { return }
+        switch item {
+        case .document:
+            EditorPositionStore.shared.migratePosition(from: oldURL, to: movedURL)
+            libraryMetadata.migrateMetadata(from: oldURL, to: movedURL)
+            if destination.standardizedFileURL == currentDirectory.standardizedFileURL {
+                focusAfterMove = .document(movedURL)
+            } else {
+                focusAfterMove = .documentsHeading
+            }
+        case .folder:
+            migrateFolderMetadata(
+                folderMetadataPairs,
+                replacingProposedRoot: proposedFolderURL,
+                with: movedURL
+            )
+            if destination.standardizedFileURL == currentDirectory.standardizedFileURL {
+                focusAfterMove = .folder(movedURL)
+            } else {
+                focusAfterMove = .documentsHeading
+            }
+        }
+    }
+
+    private func beginMove(_ item: LibraryItem) {
+        focusRequestGate.invalidate()
+        focusAfterMove = item.isFolder ? .folder(item.url) : .document(item.url)
+        movingItem = item
+    }
+
+    private func migrateFolderMetadata(
+        _ pairs: [DocumentMigrationPair],
+        replacingProposedRoot proposedRoot: URL,
+        with actualRoot: URL
+    ) {
+        for pair in pairs {
+            let relativeComponents = pair.destinationURL.pathComponents
+                .dropFirst(proposedRoot.pathComponents.count)
+            let actualDestination = relativeComponents.reduce(actualRoot) {
+                $0.appendingPathComponent($1)
+            }
+            EditorPositionStore.shared.migratePosition(
+                from: pair.sourceURL,
+                to: actualDestination
+            )
+            libraryMetadata.migrateMetadata(
+                from: pair.sourceURL,
+                to: actualDestination
+            )
+        }
+    }
+
+    private func excludedMoveDestinations(for item: LibraryItem) -> Set<URL> {
+        var excluded: Set<URL> = [item.url.deletingLastPathComponent().standardizedFileURL]
+        if case .folder(let folder) = item {
+            excluded.insert(folder.url.standardizedFileURL)
+            for candidate in store.folders where candidate.url.pathComponents.starts(
+                with: folder.url.pathComponents
+            ) {
+                excluded.insert(candidate.url.standardizedFileURL)
+            }
+        }
+        return excluded
     }
 
     private func beginRename(_ document: Document) {
@@ -666,10 +1102,16 @@ struct LibraryView: View {
     }
 
     private func duplicate(_ document: Document) {
+        perform(.duplicate, with: document)
+    }
+
+    private func duplicateAvailable(_ document: Document) {
         focusAfterError = .document(document.url)
-        if let copy = store.duplicate(document) {
-            focusAfterError = nil
-            restoreFocus(to: .document(copy.url))
+        Task {
+            if let copy = await store.duplicate(document) {
+                focusAfterError = nil
+                restoreFocus(to: .document(copy.url))
+            }
         }
     }
 
@@ -679,6 +1121,10 @@ struct LibraryView: View {
     }
 
     private func share(_ document: Document) {
+        perform(.share, with: document)
+    }
+
+    private func shareAvailable(_ document: Document) {
         focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
@@ -768,6 +1214,20 @@ struct LibraryView: View {
         )
     }
 
+    private var folderRenameBinding: Binding<Bool> {
+        Binding(
+            get: { renamingFolder != nil },
+            set: { if !$0, renamingFolder != nil { cancelFolderRename() } }
+        )
+    }
+
+    private var folderDeleteBinding: Binding<Bool> {
+        Binding(
+            get: { pendingFolderDeletion != nil },
+            set: { if !$0, pendingFolderDeletion != nil { cancelFolderDelete() } }
+        )
+    }
+
     private var errorBinding: Binding<Bool> {
         Binding(
             get: { store.lastError != nil },
@@ -821,16 +1281,21 @@ struct LibraryView: View {
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
-            let importResult = store.importDocuments(from: urls)
-            let target = importResult.imported.first
-                .map { LibraryFocus.document($0.url) }
-                ?? .importDocument
+            Task {
+                let importResult = await store.importDocuments(
+                    from: urls,
+                    into: currentDirectory
+                )
+                let target = importResult.imported.first
+                    .map { LibraryFocus.document($0.url) }
+                    ?? .importDocument
 
-            if importResult.failedFileNames.isEmpty {
-                focusAfterError = nil
-                restoreFocus(to: target)
-            } else {
-                focusAfterError = target
+                if importResult.failedFileNames.isEmpty {
+                    focusAfterError = nil
+                    restoreFocus(to: target)
+                } else {
+                    focusAfterError = target
+                }
             }
         case .failure(let error):
             let nsError = error as NSError
@@ -849,6 +1314,204 @@ struct LibraryView: View {
         focusAfterError = nil
     }
 
+    private func configureSelectedStorage() async {
+        iCloudMonitor.stop()
+        if configuredStorageLocation != storage.selectedLocation {
+            currentFolderURL = nil
+            configuredStorageLocation = storage.selectedLocation
+        }
+
+        let directory = await storage.prepareCurrentLocation()
+        libraryMetadata.useLibraryRoot(directory)
+        EditorPositionStore.shared.useLibraryRoot(directory)
+        guard storage.selectedLocation == .iCloud else {
+            downloadTasks.values.forEach { $0.cancel() }
+            downloadTasks = [:]
+            pendingDocumentActions = [:]
+            store.clearICloudSnapshot()
+            store.useDirectory(
+                directory,
+                usesICloudStorage: false
+            )
+            await prepareWelcomeDocumentIfNeeded()
+            performAppLaunchBehaviorIfReady()
+            return
+        }
+
+        store.useDirectory(
+            directory,
+            usesICloudStorage: true
+        )
+        if let directory {
+            iCloudMonitor.start(rootDirectory: directory)
+        } else {
+            await prepareWelcomeDocumentIfNeeded()
+        }
+        performAppLaunchBehaviorIfReady()
+    }
+
+    private func performAppLaunchBehaviorIfReady() {
+        guard !appLaunchActionGate.hasPerformed else { return }
+        guard !welcomeExperience.shouldPresent else { return }
+
+        if storage.selectedLocation == .iCloud,
+           case .available = storage.iCloudAvailability,
+           iCloudMonitor.revision == 0,
+           settings.appLaunchBehavior == .openLastDocument {
+            // Remote-only documents do not necessarily appear in the local
+            // directory until the metadata query completes its first gather.
+            return
+        }
+
+        guard appLaunchActionGate.begin() else { return }
+
+        switch settings.appLaunchBehavior {
+        case .showLibrary:
+            return
+        case .startNewDocument:
+            guard store.storageAvailable else { return }
+            newDocument()
+        case .openLastDocument:
+            guard store.storageAvailable,
+                  let document = libraryMetadata.mostRecentlyOpenedDocument(
+                    in: store.documents
+                  ) else {
+                return
+            }
+            open(document)
+        }
+    }
+
+    private func prepareWelcomeDocumentIfNeeded() async {
+        guard !isPreparingWelcomeDocument else { return }
+        guard !welcomeExperience.hasInstalledDocument
+                || welcomeExperience.shouldPresent else {
+            return
+        }
+        guard store.storageAvailable else {
+            if welcomeExperience.shouldPresent {
+                welcomePreparationFailed = true
+            }
+            return
+        }
+
+        isPreparingWelcomeDocument = true
+        defer { isPreparingWelcomeDocument = false }
+        welcomePreparationFailed = false
+        let url = await welcomeExperience.installDocumentIfNeeded(
+            in: store,
+            markdown: try WelcomeDocument.bundledMarkdown()
+        )
+        welcomeDocumentURL = url
+        if url == nil, welcomeExperience.shouldPresent {
+            welcomePreparationFailed = true
+        }
+    }
+
+    private func exploreWelcomeDocument() {
+        guard let welcomeDocumentURL else { return }
+        welcomeExperience.complete()
+        _ = appLaunchActionGate.begin()
+        welcomeDismissalAction = .explore(welcomeDocumentURL)
+        showingWelcome = false
+    }
+
+    private func continueFromWelcome() {
+        welcomeExperience.complete()
+        _ = appLaunchActionGate.begin()
+        welcomeDismissalAction = .library
+        showingWelcome = false
+    }
+
+    private func finishWelcomeDismissal() {
+        let action = welcomeDismissalAction
+        welcomeDismissalAction = nil
+
+        switch action {
+        case .explore(let url):
+            store.refresh()
+            guard let document = store.documents.first(where: {
+                $0.url.standardizedFileURL == url.standardizedFileURL
+            }) else {
+                restoreFocus(to: .appHeading)
+                return
+            }
+            open(document)
+        case .library:
+            restoreFocus(to: .appHeading)
+        case nil:
+            break
+        }
+    }
+
+    private func perform(
+        _ action: PendingDocumentAction,
+        with document: Document
+    ) {
+        guard document.availability.isAvailable else {
+            pendingDocumentActions[
+                document.url.standardizedFileURL
+            ] = action
+            beginDownload(document)
+            return
+        }
+        performAvailable(action, with: document)
+    }
+
+    private func retryDownload(_ document: Document) {
+        let url = document.url.standardizedFileURL
+        if pendingDocumentActions[url] == nil {
+            pendingDocumentActions[url] = .open
+        }
+        beginDownload(document)
+    }
+
+    private func beginDownload(_ document: Document) {
+        let url = document.url.standardizedFileURL
+        guard downloadTasks[url] == nil else { return }
+
+        downloadTasks[url] = Task {
+            let succeeded = await store.requestDownload(for: document)
+            downloadTasks[url] = nil
+            if succeeded {
+                completePendingDocumentActions()
+            }
+        }
+    }
+
+    private func completePendingDocumentActions() {
+        let ready = pendingDocumentActions.compactMap {
+            url, action -> (URL, PendingDocumentAction, Document)? in
+            guard let document = store.documents.first(where: {
+                $0.url.standardizedFileURL == url
+            }), document.availability.isAvailable else {
+                return nil
+            }
+            return (url, action, document)
+        }
+
+        for (url, action, document) in ready {
+            pendingDocumentActions[url] = nil
+            performAvailable(action, with: document)
+        }
+    }
+
+    private func performAvailable(
+        _ action: PendingDocumentAction,
+        with document: Document
+    ) {
+        switch action {
+        case .open:
+            openAvailable(document)
+        case .render:
+            renderAvailable(document)
+        case .share:
+            shareAvailable(document)
+        case .duplicate:
+            duplicateAvailable(document)
+        }
+    }
+
     private func restorePresentationFocus() {
         guard let target = focusAfterPresentation else { return }
         focusAfterPresentation = nil
@@ -856,11 +1519,21 @@ struct LibraryView: View {
     }
 
     private func availableFocus(_ target: LibraryFocus) -> LibraryFocus {
+        if case .folder(let url) = target,
+           !visibleFolders.contains(where: { $0.url == url }) {
+            return .documentsHeading
+        }
         if case .document(let url) = target,
            !visibleDocuments.contains(where: { $0.url == url }) {
             return .documentsHeading
         }
         return target
+    }
+
+    private func documentURL(matching url: URL) -> URL {
+        store.documents.first {
+            $0.url.standardizedFileURL == url.standardizedFileURL
+        }?.url ?? url
     }
 
     private func restoreFocus(to target: LibraryFocus) {

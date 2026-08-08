@@ -35,6 +35,41 @@ struct DocumentLibraryMetadataStoreTests {
         #expect(restored.lastOpened(url) == date)
     }
 
+    @Test func mostRecentlyOpenedDocumentIgnoresMissingHistory() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let store = makeStore(testDefaults.defaults)
+        let older = document("/tmp/Older.md")
+        let newer = document("/tmp/Newer.md")
+        let neverOpened = document("/tmp/Never Opened.md")
+        store.recordOpened(
+            older.url,
+            at: Date(timeIntervalSince1970: 100)
+        )
+        store.recordOpened(
+            newer.url,
+            at: Date(timeIntervalSince1970: 200)
+        )
+
+        let result = store.mostRecentlyOpenedDocument(
+            in: [neverOpened, newer, older]
+        )
+
+        #expect(result == newer)
+    }
+
+    @Test func mostRecentlyOpenedDocumentReturnsNilWithoutHistory() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let store = makeStore(testDefaults.defaults)
+
+        #expect(
+            store.mostRecentlyOpenedDocument(
+                in: [document("/tmp/Never Opened.md")]
+            ) == nil
+        )
+    }
+
     @Test func migrationMovesPinAndOpeningDate() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }
@@ -67,11 +102,60 @@ struct DocumentLibraryMetadataStoreTests {
         #expect(store.lastOpened(url) == nil)
     }
 
+    @Test func metadataFollowsTheDocumentFromLocalStorageToICloud() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let localURL = URL(
+            fileURLWithPath: "/local/Documents/ghostWriter/Note.md"
+        )
+        let cloudURL = URL(
+            fileURLWithPath: "/cloud/Documents/Note.md"
+        )
+        let date = Date(timeIntervalSince1970: 9_876)
+        let store = makeStore(testDefaults.defaults)
+        store.togglePin(for: localURL)
+        store.recordOpened(localURL, at: date)
+
+        store.migrateMetadata(from: localURL, to: cloudURL)
+
+        #expect(store.isPinned(cloudURL))
+        #expect(store.lastOpened(cloudURL) == date)
+    }
+
+    @Test func legacyAbsolutePathMetadataIsMigrated() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let oldURL = URL(
+            fileURLWithPath: "/local/Documents/ghostWriter/Note.md"
+        )
+        let cloudURL = URL(
+            fileURLWithPath: "/cloud/Documents/Note.md"
+        )
+        testDefaults.defaults.set(
+            [oldURL.standardizedFileURL.path],
+            forKey: "testPins"
+        )
+        let store = makeStore(testDefaults.defaults)
+
+        store.migrateMetadata(from: oldURL, to: cloudURL)
+
+        #expect(store.isPinned(cloudURL))
+    }
+
     private func makeStore(_ defaults: UserDefaults) -> DocumentLibraryMetadataStore {
         DocumentLibraryMetadataStore(
             defaults: defaults,
             pinnedStorageKey: "testPins",
             lastOpenedStorageKey: "testLastOpened"
+        )
+    }
+
+    private func document(_ path: String) -> Document {
+        Document(
+            url: URL(fileURLWithPath: path),
+            created: .distantPast,
+            modified: .distantPast,
+            byteCount: 0
         )
     }
 

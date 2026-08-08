@@ -11,6 +11,7 @@ import Observation
 
 @Observable
 final class DocumentLibraryMetadataStore {
+    private(set) var libraryRoot: URL?
     private(set) var pinnedKeys: Set<String> {
         didSet {
             defaults.set(Array(pinnedKeys).sorted(), forKey: pinnedStorageKey)
@@ -47,14 +48,22 @@ final class DocumentLibraryMetadataStore {
             } ?? [:]
     }
 
+    func useLibraryRoot(_ root: URL?) {
+        libraryRoot = root?.standardizedFileURL
+    }
+
     func isPinned(_ url: URL) -> Bool {
         pinnedKeys.contains(key(for: url))
+            || pinnedKeys.contains(legacyKey(for: url))
     }
 
     func togglePin(for url: URL) {
         let documentKey = key(for: url)
-        if pinnedKeys.contains(documentKey) {
+        let legacyDocumentKey = legacyKey(for: url)
+        if pinnedKeys.contains(documentKey)
+            || pinnedKeys.contains(legacyDocumentKey) {
             pinnedKeys.remove(documentKey)
+            pinnedKeys.remove(legacyDocumentKey)
         } else {
             pinnedKeys.insert(documentKey)
         }
@@ -65,21 +74,58 @@ final class DocumentLibraryMetadataStore {
     }
 
     func lastOpened(_ url: URL) -> Date? {
-        lastOpenedTimestamps[key(for: url)].map {
+        (
+            lastOpenedTimestamps[key(for: url)]
+                ?? lastOpenedTimestamps[legacyKey(for: url)]
+        ).map {
             Date(timeIntervalSince1970: $0)
         }
     }
 
-    func migrateMetadata(from oldURL: URL, to newURL: URL) {
-        let oldKey = key(for: oldURL)
-        let newKey = key(for: newURL)
-        guard oldKey != newKey else { return }
+    func mostRecentlyOpenedDocument(in documents: [Document]) -> Document? {
+        documents.compactMap { document -> (Document, Date)? in
+            guard let date = lastOpened(document.url) else { return nil }
+            return (document, date)
+        }
+        .max { left, right in
+            left.1 < right.1
+        }?.0
+    }
 
-        if pinnedKeys.remove(oldKey) != nil {
+    func migrateMetadata(from oldURL: URL, to newURL: URL) {
+        migrateMetadata(
+            from: oldURL,
+            relativeTo: libraryRoot,
+            to: newURL,
+            relativeTo: libraryRoot
+        )
+    }
+
+    func migrateMetadata(
+        from oldURL: URL,
+        relativeTo oldRoot: URL?,
+        to newURL: URL,
+        relativeTo newRoot: URL?
+    ) {
+        let oldKey = key(for: oldURL, relativeTo: oldRoot)
+        let newKey = key(for: newURL, relativeTo: newRoot)
+        let oldLegacyKey = legacyKey(for: oldURL)
+
+        let removedStablePin = pinnedKeys.remove(oldKey)
+        let removedLegacyPin = pinnedKeys.remove(oldLegacyKey)
+        if removedStablePin != nil || removedLegacyPin != nil {
             pinnedKeys.insert(newKey)
         }
 
-        if let oldTimestamp = lastOpenedTimestamps.removeValue(forKey: oldKey) {
+        let stableTimestamp = lastOpenedTimestamps.removeValue(forKey: oldKey)
+        let legacyTimestamp = lastOpenedTimestamps.removeValue(
+            forKey: oldLegacyKey
+        )
+        let oldTimestamp = max(
+            stableTimestamp ?? -.infinity,
+            legacyTimestamp ?? -.infinity
+        )
+        if oldTimestamp.isFinite {
             lastOpenedTimestamps[newKey] = max(
                 oldTimestamp,
                 lastOpenedTimestamps[newKey] ?? oldTimestamp
@@ -90,10 +136,21 @@ final class DocumentLibraryMetadataStore {
     func removeMetadata(for url: URL) {
         let documentKey = key(for: url)
         pinnedKeys.remove(documentKey)
+        pinnedKeys.remove(legacyKey(for: url))
         lastOpenedTimestamps.removeValue(forKey: documentKey)
+        lastOpenedTimestamps.removeValue(forKey: legacyKey(for: url))
     }
 
     private func key(for url: URL) -> String {
+        key(for: url, relativeTo: libraryRoot)
+    }
+
+    private func key(for url: URL, relativeTo root: URL?) -> String {
+        root.map { DocumentStorageKey.key(for: url, relativeTo: $0) }
+            ?? DocumentStorageKey.key(for: url)
+    }
+
+    private func legacyKey(for url: URL) -> String {
         url.standardizedFileURL.path
     }
 }

@@ -58,6 +58,21 @@ struct EditorPositionStoreTests {
         #expect(store.position(for: url) == nil)
     }
 
+    @Test func positionFollowsTheDocumentFromLocalStorageToICloud() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let store = EditorPositionStore(defaults: testDefaults.defaults)
+        let localURL = URL(
+            fileURLWithPath: "/local/Documents/ghostWriter/Note.md"
+        )
+        let cloudURL = URL(fileURLWithPath: "/cloud/Documents/Note.md")
+
+        store.save(position: 33, for: localURL)
+        store.migratePosition(from: localURL, to: cloudURL)
+
+        #expect(store.position(for: cloudURL) == 33)
+    }
+
     private func makeDefaults() -> (defaults: UserDefaults, suiteName: String) {
         let suiteName = "ghostWriterPositionTests-\(UUID().uuidString)"
         return (UserDefaults(suiteName: suiteName)!, suiteName)

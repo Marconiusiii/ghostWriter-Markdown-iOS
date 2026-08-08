@@ -324,9 +324,15 @@ enum MarkdownRenderer {
             if let box = marker.taskBox {
                 containsTasks = true
                 let checked = box.lowercased() == "[x]"
-                // `disabled` keeps it read-only; `checked` conveys state. This
-                // is a real checkbox so VoiceOver announces it as such.
-                body = "<input type=\"checkbox\" disabled\(checked ? " checked" : "")> " + body
+                let stateClass = checked ? " completed" : ""
+                let status = checked ? "Completed:" : "Not completed:"
+                // Rendered task lists are read-only. A styled indicator hidden
+                // from accessibility gives sighted readers a consistent
+                // checkbox while ordinary text conveys the same state reliably
+                // to screen readers.
+                body = "<span class=\"task-indicator\(stateClass)\" aria-hidden=\"true\"></span>"
+                    + "<span class=\"task-status\">\(status)</span> "
+                    + body
             }
 
             index += 1

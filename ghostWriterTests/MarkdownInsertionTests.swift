@@ -140,6 +140,64 @@ struct MarkdownInsertionTests {
         #expect(result.text == "Before\n\n---\n\nAfter")
     }
 
+    @Test func tableCreatesHeadersAndTheRequestedNumberOfRows() {
+        let result = MarkdownInsertion.table(
+            columns: 2,
+            rows: 3,
+            in: "",
+            selection: TextSelection(location: 0, length: 0)
+        )
+
+        #expect(
+            result.text == """
+            | Column 1 | Column 2 |
+            | --- | --- |
+            |  |  |
+            |  |  |
+            """
+        )
+        #expect(result.selection == TextSelection(location: 40, length: 0))
+    }
+
+    @Test func tableKeepsParagraphsSeparateAndSelectsTheFirstEmptyCell() {
+        let result = MarkdownInsertion.table(
+            columns: 1,
+            rows: 2,
+            in: "BeforeAfter",
+            selection: TextSelection(location: 6, length: 0)
+        )
+
+        #expect(
+            result.text == """
+            Before
+
+            | Column 1 |
+            | --- |
+            |  |
+
+            After
+            """
+        )
+        #expect(result.selection == TextSelection(location: 31, length: 0))
+    }
+
+    @Test func tableDimensionsAreClampedToSupportedValues() {
+        let result = MarkdownInsertion.table(
+            columns: 0,
+            rows: 1,
+            in: "",
+            selection: TextSelection(location: 0, length: 0)
+        )
+
+        #expect(
+            result.text == """
+            | Column 1 |
+            | --- |
+            |  |
+            """
+        )
+    }
+
     @Test func commandsApplyTheChosenPrimitive() {
         let heading = MarkdownInsertion.apply(
             .heading(level: 2),

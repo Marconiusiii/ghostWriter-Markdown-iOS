@@ -16,12 +16,6 @@ import SwiftUI
 struct DocumentRow: View {
     let document: Document
     let isPinned: Bool
-    let onTogglePin: () -> Void
-    let onRender: () -> Void
-    let onShare: () -> Void
-    let onRename: () -> Void
-    let onDuplicate: () -> Void
-    let onDelete: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -45,45 +39,31 @@ struct DocumentRow: View {
             .font(.caption)
             .foregroundStyle(Color.ghostMuted)
             .labelStyle(.titleAndIcon)
+
+            if let status = document.availability.statusDescription {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(Color.ghostMuted)
+            }
         }
         .padding(.vertical, 4)
         // Collapse the row into one element with one coherent sentence.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("Opens in the editor")
-        // The complete set of row actions, declared once. The swipe actions on
-        // the list row are deliberately NOT duplicated here — SwiftUI already
-        // exposes those to VoiceOver, and declaring the same action in both
-        // places is what made every action appear twice.
-        .accessibilityAction(
-            named: "\(isPinned ? "Unpin" : "Pin") \(document.displayName)",
-            onTogglePin
-        )
-        .accessibilityAction(
-            named: "Render \(document.displayName)",
-            onRender
-        )
-        .accessibilityAction(
-            named: "Share \(document.displayName)",
-            onShare
-        )
-        .accessibilityAction(
-            named: "Rename \(document.displayName)",
-            onRename
-        )
-        .accessibilityAction(
-            named: "Duplicate \(document.displayName)",
-            onDuplicate
-        )
-        .accessibilityAction(
-            named: "Delete \(document.displayName)",
-            onDelete
-        )
+        .accessibilityHint(accessibilityHint)
     }
 
     private var accessibilityLabel: String {
         let pinDescription = isPinned ? "Pinned, " : ""
-        return "\(pinDescription)\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))"
+        let statusDescription = document.availability.statusDescription
+            .map { ", \($0)" } ?? ""
+        return "\(pinDescription)\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))\(statusDescription)"
+    }
+
+    private var accessibilityHint: String {
+        document.availability.isAvailable
+            ? "Opens in the editor"
+            : "Downloads this document and opens it when ready"
     }
 
     private var metadataLayout: AnyLayout {
@@ -112,6 +92,7 @@ struct DocumentActionsMenu: View {
     let onRender: () -> Void
     let onShare: () -> Void
     let onRename: () -> Void
+    let onMove: () -> Void
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
@@ -139,6 +120,11 @@ struct DocumentActionsMenu: View {
                 "Rename",
                 systemImage: "pencil",
                 action: onRename
+            )
+            actionButton(
+                "Move",
+                systemImage: "folder",
+                action: onMove
             )
             actionButton(
                 "Duplicate",

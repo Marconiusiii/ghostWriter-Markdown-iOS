@@ -13,6 +13,16 @@
 import SwiftUI
 import UIKit
 
+nonisolated enum EditorSaveFeedback {
+    static func explicitSaveMessage(
+        usesICloudStorage: Bool
+    ) -> String {
+        usesICloudStorage
+            ? "Saved. iCloud will upload changes in the background."
+            : "Saved."
+    }
+}
+
 struct EditorView: View {
     /// The file being edited. Nil until the first save creates it.
     @State private var fileURL: URL?
@@ -49,6 +59,7 @@ struct EditorView: View {
 
     private let draftName: String
     private let onDocumentURLChange: (URL) -> Void
+    private let onClose: (URL) -> Void
 
     private enum EditorFocus: Hashable {
         case render
@@ -66,7 +77,8 @@ struct EditorView: View {
     init(
         document: Document,
         initialText: String,
-        onDocumentURLChange: @escaping (URL) -> Void = { _ in }
+        onDocumentURLChange: @escaping (URL) -> Void = { _ in },
+        onClose: @escaping (URL) -> Void = { _ in }
     ) {
         _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
@@ -78,6 +90,7 @@ struct EditorView: View {
         _savedName = State(initialValue: document.displayName)
         self.draftName = document.displayName
         self.onDocumentURLChange = onDocumentURLChange
+        self.onClose = onClose
     }
 
     var body: some View {
@@ -112,6 +125,15 @@ struct EditorView: View {
         }
         .onChange(of: settings.statusBarEnabled) { _, isEnabled in
             statusIndex = isEnabled ? DocumentStatusIndex(text: text) : nil
+        }
+        .onChange(of: focusedElement) { _, element in
+            // VoiceOver activation does not pass through the touch gesture
+            // attached to the Menu. Put the keyboard away when VoiceOver
+            // reaches File Actions so it is already gone before the native
+            // menu opens.
+            if element == .fileActions {
+                dismissKeyboard()
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -328,6 +350,7 @@ struct EditorView: View {
             Label("Insert…", systemImage: "plus")
         }
         .buttonStyle(.bordered)
+        .accessibilityHint("Opens list of insertable Markdown elements")
         .accessibilityFocused($focusedElement, equals: .insert)
         .keyboardShortcut(
             shortcut("i", modifiers: [.command, .shift])
@@ -412,6 +435,13 @@ struct EditorView: View {
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
         .accessibilityFocused($focusedElement, equals: .fileActions)
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                // Preserve Menu's native activation while dismissing the
+                // editor keyboard for direct-touch users.
+                dismissKeyboard()
+            }
+        )
     }
 
     // MARK: - Editor
@@ -606,7 +636,13 @@ struct EditorView: View {
         case .saved:
             lastSavedText = text
             hasUnsavedChanges = false
-            if shouldAnnounce { announce("Saved.") }
+            if shouldAnnounce {
+                announce(
+                    EditorSaveFeedback.explicitSaveMessage(
+                        usesICloudStorage: store.usesICloudStorage
+                    )
+                )
+            }
         case .changedOnDisk(let externalText):
             showExternalConflict(.changed(externalText))
         case .missing:
@@ -651,29 +687,43 @@ struct EditorView: View {
 
     private func saveCurrentTextAsNewDocument(preferredName: String) {
         let previousURL = fileURL
-        guard let newURL = store.createDocument(
-            named: preferredName,
-            contents: text
-        ) else { return }
+        let contents = text
+        let replacesMissingDocument: Bool
+        if case .missing = externalConflict {
+            replacesMissingDocument = true
+        } else {
+            replacesMissingDocument = false
+        }
 
-        if let previousURL {
-            EditorPositionStore.shared.migratePosition(from: previousURL, to: newURL)
-            if case .missing = externalConflict {
-                libraryMetadata.migrateMetadata(
+        Task {
+            guard let newURL = await store.createDocument(
+                named: preferredName,
+                contents: contents,
+                in: previousURL.map(store.containingDirectory(for:))
+            ) else { return }
+
+            if let previousURL {
+                EditorPositionStore.shared.migratePosition(
                     from: previousURL,
                     to: newURL
                 )
-            } else {
-                libraryMetadata.recordOpened(newURL)
+                if replacesMissingDocument {
+                    libraryMetadata.migrateMetadata(
+                        from: previousURL,
+                        to: newURL
+                    )
+                } else {
+                    libraryMetadata.recordOpened(newURL)
+                }
             }
+            fileURL = newURL
+            onDocumentURLChange(newURL)
+            savedName = newURL.deletingPathExtension().lastPathComponent
+            lastSavedText = contents
+            hasUnsavedChanges = false
+            externalConflict = nil
+            announce("Saved as \(savedName ?? preferredName).")
         }
-        fileURL = newURL
-        onDocumentURLChange(newURL)
-        savedName = newURL.deletingPathExtension().lastPathComponent
-        lastSavedText = text
-        hasUnsavedChanges = false
-        externalConflict = nil
-        announce("Saved as \(savedName ?? preferredName).")
     }
 
     /// The custom Back button must not leave while an attempted guarded save
@@ -682,6 +732,9 @@ struct EditorView: View {
     private func closeEditor() {
         saveNow(announce: false)
         guard !hasUnsavedChanges else { return }
+        if let fileURL {
+            onClose(fileURL)
+        }
         dismiss()
     }
 
@@ -689,6 +742,9 @@ struct EditorView: View {
         saveTask?.cancel()
         hasUnsavedChanges = false
         externalConflict = nil
+        if let fileURL {
+            onClose(fileURL)
+        }
         dismiss()
     }
 
@@ -717,7 +773,11 @@ struct EditorView: View {
         guard !hasUnsavedChanges else { return }
         guard let url = fileURL,
               let document = Document(fileURL: url) else { return }
-        if store.duplicate(document) != nil { announce("Duplicated.") }
+        Task {
+            if await store.duplicate(document) != nil {
+                announce("Duplicated.")
+            }
+        }
     }
 
     private func announce(_ message: String) {

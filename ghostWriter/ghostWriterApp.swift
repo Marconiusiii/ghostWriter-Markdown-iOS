@@ -11,13 +11,26 @@ import SwiftUI
 struct ghostWriterApp: App {
     // The store and settings are created once and shared through the
     // environment, so every screen reads the same state.
-    @State private var store = DocumentStore()
+    @State private var storage: DocumentStorage
+    @State private var store: DocumentStore
     @State private var settings = AppSettings()
     @State private var libraryMetadata = DocumentLibraryMetadataStore()
+
+    init() {
+        let storage = DocumentStorage()
+        _storage = State(initialValue: storage)
+        _store = State(
+            initialValue: DocumentStore(
+                directory: storage.localDirectory,
+                storageAvailable: storage.selectedLocation == .onDevice
+            )
+        )
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(storage)
                 .environment(store)
                 .environment(settings)
                 .environment(libraryMetadata)

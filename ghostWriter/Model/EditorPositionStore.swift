@@ -14,6 +14,7 @@ final class EditorPositionStore {
 
     private let defaults: UserDefaults
     private let storageKey: String
+    private var libraryRoot: URL?
 
     init(
         defaults: UserDefaults = .standard,
@@ -23,8 +24,12 @@ final class EditorPositionStore {
         self.storageKey = storageKey
     }
 
+    func useLibraryRoot(_ root: URL?) {
+        libraryRoot = root?.standardizedFileURL
+    }
+
     func position(for url: URL) -> Int? {
-        positions[key(for: url)]
+        positions[key(for: url)] ?? positions[legacyKey(for: url)]
     }
 
     func save(position: Int, for url: URL) {
@@ -34,12 +39,29 @@ final class EditorPositionStore {
     }
 
     func migratePosition(from oldURL: URL, to newURL: URL) {
-        let oldKey = key(for: oldURL)
-        let newKey = key(for: newURL)
-        guard oldKey != newKey else { return }
+        migratePosition(
+            from: oldURL,
+            relativeTo: libraryRoot,
+            to: newURL,
+            relativeTo: libraryRoot
+        )
+    }
+
+    func migratePosition(
+        from oldURL: URL,
+        relativeTo oldRoot: URL?,
+        to newURL: URL,
+        relativeTo newRoot: URL?
+    ) {
+        let oldKey = key(for: oldURL, relativeTo: oldRoot)
+        let newKey = key(for: newURL, relativeTo: newRoot)
+        let oldLegacyKey = legacyKey(for: oldURL)
 
         var updated = positions
-        if let position = updated.removeValue(forKey: oldKey) {
+        let stablePosition = updated.removeValue(forKey: oldKey)
+        let legacyPosition = updated.removeValue(forKey: oldLegacyKey)
+        let position = stablePosition ?? legacyPosition
+        if let position {
             updated[newKey] = position
             defaults.set(updated, forKey: storageKey)
         }
@@ -47,7 +69,9 @@ final class EditorPositionStore {
 
     func removePosition(for url: URL) {
         var updated = positions
-        guard updated.removeValue(forKey: key(for: url)) != nil else { return }
+        let removedStable = updated.removeValue(forKey: key(for: url))
+        let removedLegacy = updated.removeValue(forKey: legacyKey(for: url))
+        guard removedStable != nil || removedLegacy != nil else { return }
         defaults.set(updated, forKey: storageKey)
     }
 
@@ -60,6 +84,15 @@ final class EditorPositionStore {
     }
 
     private func key(for url: URL) -> String {
+        key(for: url, relativeTo: libraryRoot)
+    }
+
+    private func key(for url: URL, relativeTo root: URL?) -> String {
+        root.map { DocumentStorageKey.key(for: url, relativeTo: $0) }
+            ?? DocumentStorageKey.key(for: url)
+    }
+
+    private func legacyKey(for url: URL) -> String {
         url.standardizedFileURL.path
     }
 }

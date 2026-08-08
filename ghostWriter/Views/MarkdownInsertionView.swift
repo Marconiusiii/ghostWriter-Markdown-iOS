@@ -64,16 +64,17 @@ struct MarkdownInsertionView: View {
                 } footer: {
                     Text(instructions)
                 }
+
+                Section {
+                    Button("Insert", action: insert)
+                        .disabled(!canInsert)
+                }
             }
             .navigationTitle(kind.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Insert", action: insert)
-                        .disabled(!canInsert)
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -82,9 +83,6 @@ struct MarkdownInsertionView: View {
                     }
                     .accessibilityLabel("Dismiss keyboard")
                 }
-            }
-            .onAppear {
-                focusedField = descriptiveText.isEmpty ? .descriptiveText : .address
             }
         }
     }

@@ -53,8 +53,9 @@ private struct HelpTopic: Identifiable {
             title: "Creating and Opening Documents",
             paragraphs: [
                 "New creates a named markdown file and opens it for editing.",
-                "Import copies one or more UTF-8 markdown or plain-text files from Files into ghostWriter. Name conflicts receive a safe numbered name.",
-                "Choose any document in the library to open it."
+                "New Folder creates a folder in your current location. Open a folder to see what is inside, and use Back to return to its parent folder.",
+                "Import copies one or more UTF-8 markdown or plain-text files from Files into your current folder. Name conflicts receive a safe numbered name.",
+                "Choose any document in the library to open it. Folders always appear before documents."
             ]
         ),
         HelpTopic(
@@ -104,10 +105,10 @@ private struct HelpTopic: Identifiable {
             title: "Searching, Sorting, and Document Actions",
             paragraphs: [
                 "The library Search field checks document names and contents. The result count updates beneath the field. Activate Clear Search to return to the full library.",
-                "Sort changes the field and direction used to arrange documents. Tap a document to open it, or use its Actions menu for rendering, sharing, renaming, duplicating, and deleting.",
-                "Swipe left on a document for Rename and Delete. Swipe right for Render and Share. Duplicate is available from the Actions menu.",
+                "Sort changes the field and direction used to arrange documents. Tap a document to open it, or use its Actions menu to pin, render, share, rename, move, duplicate, or delete it.",
                 "Pin keeps an important document at the beginning of the Library. Pinned documents remain first with every sort option. Last Opened sorts documents by the most recent time they were opened in the editor.",
-                "Delete moves a document to Deleted. Open Deleted from the Library to restore a document or delete it permanently.",
+                "A folder's Actions menu lets you rename, move, or delete that folder. Deleting a folder keeps everything inside it together.",
+                "Delete moves a document or folder to Deleted. Restoring returns it to its previous folder when that folder still exists, or to Documents when it does not.",
                 "Jump to Line in File Actions moves the cursor to the beginning of a numbered line. Line numbers begin at 1."
             ]
         ),
@@ -130,7 +131,8 @@ private struct HelpTopic: Identifiable {
                 "Image from Web inserts an externally hosted image. Provide the image address and alternative text, or leave the alternative text empty when the image is decorative. Image addresses must begin with http:// or https://.",
                 "Bold adds strong emphasis. Italic adds ordinary emphasis. Strikethrough marks text as removed or no longer applicable.",
                 "Inline Code marks a short piece of code or literal text within a paragraph. Code Block creates a separate preformatted block for multiple lines.",
-                "Bulleted List creates an unordered list. Numbered List creates an ordered sequence. Task List creates items with checked or unchecked states.",
+                "Bulleted List creates an unordered list. Numbered List creates an ordered sequence. Task List creates items that Render identifies as Completed or Not completed.",
+                "Table asks for the number of columns and rows. The first row names each column and counts toward the number of rows you choose. Markdown does not have a standard way to identify row headings, so give each row a clear first entry when it needs a label.",
                 "Block Quote identifies quoted material. Horizontal Rule adds a thematic break between sections.",
                 "Rendering a document that contains an external image may contact the server that hosts that image. ghostWriter does not control the availability or privacy practices of an outside server."
             ]

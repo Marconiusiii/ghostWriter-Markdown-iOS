@@ -12,6 +12,9 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
+    @Environment(DocumentStorage.self) private var storage
+    @Environment(DocumentStore.self) private var store
+    @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(AppSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
     @AccessibilityFocusState private var focusedElement: FocusTarget?
@@ -20,10 +23,14 @@ struct SettingsView: View {
     @State private var showingStatusBarSettings = false
     @State private var showingMailComposer = false
     @State private var showingMailUnavailable = false
+    @State private var requestedStorageLocation: DocumentStorageChoice?
     @State private var focusRequestGate = FocusRestorationRequestGate()
 
     private enum FocusTarget: Hashable {
         case indentation
+        case documentStorage
+        case appLaunch
+        case newDocumentCreation
         case theme
         case editorFont
         case customizeStatusBar
@@ -37,6 +44,66 @@ struct SettingsView: View {
 
         return NavigationStack {
             Form {
+                Section {
+                    Picker(
+                        "Document Storage",
+                        selection: documentStorageBinding
+                    ) {
+                        ForEach(DocumentStorageChoice.allCases) { location in
+                            Text(location.label).tag(location)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .documentStorage
+                    )
+                } header: {
+                    Text("Files")
+                } footer: {
+                    Text(storage.statusDescription)
+                }
+
+                Section {
+                    Picker(
+                        "When App Opens",
+                        selection: $settings.appLaunchBehavior
+                    ) {
+                        ForEach(AppLaunchBehavior.allCases) { behavior in
+                            Text(behavior.label).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .appLaunch
+                    )
+                } header: {
+                    Text("App Launch")
+                } footer: {
+                    Text("Start a New Document follows your New Documents setting. Open Last Document returns to the most recently opened file when it is still available.")
+                }
+
+                Section {
+                    Picker(
+                        "When Starting a New Document",
+                        selection: $settings.newDocumentCreationMode
+                    ) {
+                        ForEach(NewDocumentCreationMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .newDocumentCreation
+                    )
+                } header: {
+                    Text("New Documents")
+                } footer: {
+                    Text("Ask for a Title opens the naming screen. Use Today’s Date creates and opens the document immediately. You can rename it later from File Actions.")
+                }
+
                 Section("Editing") {
                     Picker("Indentation", selection: $settings.indentUnit) {
                         ForEach(IndentUnit.allCases) { unit in
@@ -153,6 +220,19 @@ struct SettingsView: View {
         }) {
             HelpView()
         }
+        .sheet(item: $requestedStorageLocation, onDismiss: {
+            restoreFocus(to: .documentStorage)
+        }) { destination in
+            ICloudMigrationView(
+                destination: destination,
+                onCompletion: {
+                    restoreFocus(to: .documentStorage)
+                }
+            )
+            .environment(storage)
+            .environment(store)
+            .environment(libraryMetadata)
+        }
         .sheet(isPresented: $showingWhyGhostWriter, onDismiss: {
             restoreFocus(to: .whyGhostWriter)
         }) {
@@ -188,6 +268,12 @@ struct SettingsView: View {
         .onChange(of: settings.indentUnit) { _, _ in
             restoreFocus(to: .indentation)
         }
+        .onChange(of: settings.appLaunchBehavior) { _, _ in
+            restoreFocus(to: .appLaunch)
+        }
+        .onChange(of: settings.newDocumentCreationMode) { _, _ in
+            restoreFocus(to: .newDocumentCreation)
+        }
         .onChange(of: settings.appearance) { _, _ in
             restoreFocus(to: .theme)
         }
@@ -200,6 +286,17 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+
+    private var documentStorageBinding: Binding<DocumentStorageChoice> {
+        Binding(
+            get: { storage.selectedLocation },
+            set: { location in
+                guard location != storage.selectedLocation else { return }
+                focusRequestGate.invalidate()
+                requestedStorageLocation = location
+            }
+        )
     }
 
     private var copyright: String {

@@ -11,6 +11,41 @@ import Testing
 
 struct AppSettingsTests {
 
+    @Test func launchAndNewDocumentDefaultsPreserveCurrentBehavior() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+
+        let settings = AppSettings(defaults: testDefaults.defaults)
+
+        #expect(settings.appLaunchBehavior == .showLibrary)
+        #expect(settings.newDocumentCreationMode == .askForTitle)
+    }
+
+    @Test func launchAndNewDocumentPreferencesPersist() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+
+        let settings = AppSettings(defaults: testDefaults.defaults)
+        settings.appLaunchBehavior = .openLastDocument
+        settings.newDocumentCreationMode = .useTodaysDate
+
+        let restored = AppSettings(defaults: testDefaults.defaults)
+        #expect(restored.appLaunchBehavior == .openLastDocument)
+        #expect(restored.newDocumentCreationMode == .useTodaysDate)
+    }
+
+    @Test func invalidLaunchPreferencesFallBackSafely() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        testDefaults.defaults.set("invalid", forKey: "appLaunchBehavior")
+        testDefaults.defaults.set("invalid", forKey: "newDocumentCreationMode")
+
+        let settings = AppSettings(defaults: testDefaults.defaults)
+
+        #expect(settings.appLaunchBehavior == .showLibrary)
+        #expect(settings.newDocumentCreationMode == .askForTitle)
+    }
+
     @Test func monospacedIsTheDefaultEditorFont() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }
