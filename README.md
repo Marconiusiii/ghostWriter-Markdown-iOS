@@ -91,8 +91,8 @@ JavaScript is not used in rendered documents.
 1. Clone the repository:
 
    ```sh
-   git clone https://github.com/Marconiusiii/ghostWriter.git
-   cd ghostWriter
+   git clone https://github.com/Marconiusiii/ghostWriter-Markdown-iOS.git
+   cd ghostWriter-Markdown-iOS
    ```
 
 2. Open `ghostWriter.xcodeproj` in Xcode.
@@ -137,7 +137,7 @@ Read the complete
 ## Contributing and feedback
 
 Bug reports, accessibility findings, and focused improvements are welcome
-through [GitHub Issues](https://github.com/Marconiusiii/ghostWriter/issues).
+through [GitHub Issues](https://github.com/Marconiusiii/ghostWriter-Markdown-iOS/issues).
 Please include the device, OS version, app version, assistive technology, and
 clear reproduction steps when reporting an accessibility problem.
 
@@ -151,9 +151,10 @@ that keeps a writer's place in long documents.
 
 ## Project links
 
+- [ghostWriter Markdown for iOS](https://marconius.com/ghostWriter/)
 - [ghostWriter on the web](https://marconius.com/fun/ghostWriter/)
 - [Privacy Policy](https://marconius.com/gwPrivacy/)
-- [GitHub repository](https://github.com/Marconiusiii/ghostWriter/)
+- [GitHub repository](https://github.com/Marconiusiii/ghostWriter-Markdown-iOS/)
 
 ## License
 
