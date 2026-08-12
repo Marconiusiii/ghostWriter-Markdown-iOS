@@ -8,6 +8,17 @@ import Testing
 @testable import ghostWriter
 
 struct ICloudDocumentMonitorTests {
+    @Test func stopImmediatelyDisablesMetadataPublication() {
+        let monitor = ICloudDocumentMonitor()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+
+        monitor.start(rootDirectory: root)
+        monitor.stop()
+
+        #expect(monitor.isRunning == false)
+    }
+
     @Test func snapshotIncludesLibraryAndRecentlyDeletedDocuments() {
         let root = URL(fileURLWithPath: "/iCloud/Documents", isDirectory: true)
         let records = [

@@ -82,6 +82,7 @@ struct LibraryView: View {
     @State private var welcomeDismissalAction: WelcomeDismissalAction?
     @State private var searchIndex = DocumentSearchIndex.empty
     @State private var searchAnnounceTask: Task<Void, Never>?
+    @State private var libraryActivityTask: Task<Void, Never>?
     @State private var pendingDocumentActions:
         [URL: PendingDocumentAction] = [:]
     @State private var downloadTasks:
@@ -137,25 +138,24 @@ struct LibraryView: View {
                         focusAfterEditor = .document(url)
                     },
                     onClose: { url in
-                        store.refresh()
-                        focusAfterEditor = nil
-                        restoreFocus(
-                            to: availableFocus(
-                                .document(documentURL(matching: url))
-                            )
+                        focusAfterEditor = .document(
+                            documentURL(matching: url)
                         )
                     }
                 )
             }
-            // Saving no longer republishes the store's list — that churn was
-            // what let the editor lose track of its file — so the library
-            // re-reads the folder when it comes back into view.
             .onChange(of: openedDocument) { _, value in
-                if value == nil {
-                    store.refresh()
-                    if let target = focusAfterEditor {
-                        restoreFocus(to: availableFocus(target))
-                        focusAfterEditor = nil
+                if value != nil {
+                    suspendLibraryActivityForEditing()
+                } else {
+                    libraryActivityTask = Task {
+                        await resumeLibraryActivityAfterEditing()
+                        guard !Task.isCancelled else { return }
+                        guard openedDocument == nil else { return }
+                        if let target = focusAfterEditor {
+                            restoreFocus(to: availableFocus(target))
+                            focusAfterEditor = nil
+                        }
                     }
                 }
             }
@@ -180,9 +180,14 @@ struct LibraryView: View {
             await configureSelectedStorage()
         }
         .onChange(of: iCloudMonitor.revision) { _, _ in
-            guard storage.selectedLocation == .iCloud else { return }
-            store.applyICloudSnapshot(iCloudMonitor.snapshots)
-            Task {
+            guard openedDocument == nil,
+                  storage.selectedLocation == .iCloud else { return }
+            libraryActivityTask?.cancel()
+            libraryActivityTask = Task {
+                await store.applyICloudSnapshotAsynchronously(
+                    iCloudMonitor.snapshots
+                )
+                guard !Task.isCancelled, openedDocument == nil else { return }
                 await prepareWelcomeDocumentIfNeeded()
                 performAppLaunchBehaviorIfReady()
             }
@@ -190,7 +195,8 @@ struct LibraryView: View {
         .onChange(of: store.documents) { _, _ in
             completePendingDocumentActions()
         }
-        .task(id: searchSources) {
+        .task(id: openedDocument == nil ? searchSources : []) {
+            guard openedDocument == nil else { return }
             let sources = searchSources
             let buildTask = Task.detached(priority: .utility) {
                 DocumentSearchIndex.build(from: sources)
@@ -200,15 +206,16 @@ struct LibraryView: View {
             } onCancel: {
                 buildTask.cancel()
             }
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, openedDocument == nil else { return }
             searchIndex = rebuilt
             if !trimmedSearch.isEmpty {
                 scheduleSearchAnnouncement()
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                Task {
+            if phase == .active, openedDocument == nil {
+                libraryActivityTask?.cancel()
+                libraryActivityTask = Task {
                     await configureSelectedStorage()
                 }
             }
@@ -839,7 +846,7 @@ struct LibraryView: View {
         focusAfterError = nil
         libraryMetadata.recordOpened(document.url)
         focusAfterEditor = .document(document.url)
-        openedDocument = DocumentSession(document: document, text: text)
+        beginEditing(DocumentSession(document: document, text: text))
     }
 
     private func render(_ document: Document) {
@@ -893,7 +900,7 @@ struct LibraryView: View {
             guard let document = Document(fileURL: url) else { return }
             libraryMetadata.recordOpened(url)
             focusAfterEditor = .document(url)
-            openedDocument = DocumentSession(document: document, text: "")
+            beginEditing(DocumentSession(document: document, text: ""))
         }
     }
 
@@ -1316,12 +1323,17 @@ struct LibraryView: View {
 
     private func configureSelectedStorage() async {
         iCloudMonitor.stop()
+        guard openedDocument == nil else { return }
         if configuredStorageLocation != storage.selectedLocation {
             currentFolderURL = nil
             configuredStorageLocation = storage.selectedLocation
         }
 
         let directory = await storage.prepareCurrentLocation()
+        guard openedDocument == nil else {
+            iCloudMonitor.stop()
+            return
+        }
         libraryMetadata.useLibraryRoot(directory)
         EditorPositionStore.shared.useLibraryRoot(directory)
         guard storage.selectedLocation == .iCloud else {
@@ -1329,7 +1341,7 @@ struct LibraryView: View {
             downloadTasks = [:]
             pendingDocumentActions = [:]
             store.clearICloudSnapshot()
-            store.useDirectory(
+            await store.useDirectoryAsynchronously(
                 directory,
                 usesICloudStorage: false
             )
@@ -1338,7 +1350,7 @@ struct LibraryView: View {
             return
         }
 
-        store.useDirectory(
+        await store.useDirectoryAsynchronously(
             directory,
             usesICloudStorage: true
         )
@@ -1348,6 +1360,28 @@ struct LibraryView: View {
             await prepareWelcomeDocumentIfNeeded()
         }
         performAppLaunchBehaviorIfReady()
+    }
+
+    /// The editor is a protected interaction mode. The library remains in the
+    /// navigation stack, but none of its metadata, refresh, search, or delayed
+    /// announcement work may compete with native text entry.
+    private func beginEditing(_ session: DocumentSession) {
+        suspendLibraryActivityForEditing()
+        openedDocument = session
+    }
+
+    private func suspendLibraryActivityForEditing() {
+        iCloudMonitor.stop()
+        libraryActivityTask?.cancel()
+        libraryActivityTask = nil
+        store.cancelPendingRefresh()
+        searchAnnounceTask?.cancel()
+        searchAnnounceTask = nil
+    }
+
+    private func resumeLibraryActivityAfterEditing() async {
+        guard openedDocument == nil else { return }
+        await configureSelectedStorage()
     }
 
     private func performAppLaunchBehaviorIfReady() {

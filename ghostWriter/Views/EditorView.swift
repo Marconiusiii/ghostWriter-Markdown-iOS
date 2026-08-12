@@ -56,8 +56,8 @@ struct EditorView: View {
     @State private var statusMessage = ""
     @State private var focusRequestGate = FocusRestorationRequestGate()
     @AccessibilityFocusState private var focusedElement: EditorFocus?
-    /// The name the file was last saved under, so autosave does not rename on
-    /// every keystroke as the first heading is typed.
+    /// The name the file was last saved under, so ordinary editing does not
+    /// rename the file as the first heading is typed.
     @State private var savedName: String?
 
     private let draftName: String
@@ -171,8 +171,6 @@ struct EditorView: View {
         .onDisappear {
             captureCurrentEditorState()
             statusTask?.cancel()
-            editorSession.cancelAutosave()
-            editorSession.documentBuffer.setAutosaveHandler(nil)
             persistEditingPosition()
             requestSave(announce: false)
             RenderSound.shared.stop()
@@ -695,12 +693,6 @@ struct EditorView: View {
             )
         }
 
-        let controller = saveController
-        editorSession.documentBuffer.setAutosaveHandler { [controller] snapshot in
-            Task { @MainActor in
-                controller.submitAutosave(snapshot)
-            }
-        }
     }
 
     private func persistEditingPosition() {
@@ -711,24 +703,23 @@ struct EditorView: View {
         )
     }
 
-    /// Explicit actions submit the already-captured document. Routine
-    /// autosaves bypass this view and flow straight from the background buffer
-    /// into the non-observable save controller.
+    /// Saves occur only at explicit action and app-lifecycle boundaries. The
+    /// snapshot comes from the serial background buffer so saving never needs
+    /// to copy the complete native text view on the main actor.
     private func requestSave(announce shouldAnnounce: Bool) {
-        let snapshot = EditorDocumentBufferSnapshot(
-            text: text,
-            revision: lastCapturedRevision
-        )
-        saveController.submit(
-            snapshot,
-            announce: shouldAnnounce
-        ) {
-            performPendingFileAction()
-            finishBackgroundSave()
+        Task {
+            let snapshot = await editorSession.documentBuffer.snapshot()
+            saveController.submit(
+                snapshot,
+                announce: shouldAnnounce
+            ) {
+                performPendingFileAction()
+                finishBackgroundSave()
 
-            if pendingExternalCheck {
-                pendingExternalCheck = false
-                Task { await checkForExternalChanges() }
+                if pendingExternalCheck {
+                    pendingExternalCheck = false
+                    Task { await checkForExternalChanges() }
+                }
             }
         }
     }
@@ -774,8 +765,8 @@ struct EditorView: View {
         }
     }
 
-    /// Checks as soon as the app returns from Files, rather than waiting for
-    /// the next keystroke and autosave attempt to reveal the conflict.
+    /// Checks as soon as the app returns from Files, rather than waiting for a
+    /// later explicit save to reveal the conflict.
     private func checkForExternalChanges() async {
         guard externalConflict == nil,
               !saveController.isSaving,
@@ -891,7 +882,6 @@ struct EditorView: View {
     }
 
     private func closeWithoutSaving() {
-        editorSession.cancelAutosave()
         saveController.cancelPending()
         pendingFileAction = nil
         externalConflict = nil

@@ -10,7 +10,7 @@ import Testing
 @MainActor
 struct EditorSaveControllerTests {
 
-    @Test func routineAutosaveDoesNotInvokeInterfaceCallbacks() async throws {
+    @Test func boundarySaveWithoutAnnouncementDoesNotInvokeInterfaceCallbacks() async throws {
         let url = URL(fileURLWithPath: "/tmp/note.md")
         let controller = EditorSaveController(initialText: "old", url: url)
         var explicitFeedback = 0
@@ -21,8 +21,9 @@ struct EditorSaveControllerTests {
         controller.onConflict = { _ in conflicts += 1 }
         controller.configure { _, _, _ in .saved }
 
-        controller.submitAutosave(
-            EditorDocumentBufferSnapshot(text: "new", revision: 1)
+        controller.submit(
+            EditorDocumentBufferSnapshot(text: "new", revision: 1),
+            announce: false
         )
         try await Task.sleep(for: .milliseconds(30))
 
@@ -44,8 +45,9 @@ struct EditorSaveControllerTests {
             return .saved
         }
 
-        controller.submitAutosave(
-            EditorDocumentBufferSnapshot(text: "one", revision: 1)
+        controller.submit(
+            EditorDocumentBufferSnapshot(text: "one", revision: 1),
+            announce: false
         )
         await firstSaveGate.waitUntilPaused()
         await withCheckedContinuation { continuation in
@@ -71,8 +73,9 @@ struct EditorSaveControllerTests {
         controller.onConflict = { conflict = $0 }
         controller.configure { _, _, _ in .changedOnDisk("external") }
 
-        controller.submitAutosave(
-            EditorDocumentBufferSnapshot(text: "mine", revision: 1)
+        controller.submit(
+            EditorDocumentBufferSnapshot(text: "mine", revision: 1),
+            announce: false
         )
         try await Task.sleep(for: .milliseconds(30))
 

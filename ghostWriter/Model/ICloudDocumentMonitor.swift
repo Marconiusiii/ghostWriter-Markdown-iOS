@@ -14,6 +14,7 @@ import Observation
 final class ICloudDocumentMonitor: NSObject {
     private(set) var snapshots: [ICloudDocumentSnapshot] = []
     private(set) var revision = 0
+    private(set) var isRunning = false
 
     @ObservationIgnored private let query = NSMetadataQuery()
     @ObservationIgnored private var rootDirectory: URL?
@@ -50,7 +51,7 @@ final class ICloudDocumentMonitor: NSObject {
             object: query
         )
         isObserving = true
-        _ = query.start()
+        isRunning = query.start()
     }
 
     func stop() {
@@ -73,13 +74,14 @@ final class ICloudDocumentMonitor: NSObject {
             isObserving = false
         }
         rootDirectory = nil
+        isRunning = false
     }
 
     @objc private func metadataChanged(_ notification: Notification) {
-        guard refreshTask == nil else { return }
+        guard isRunning, rootDirectory != nil, refreshTask == nil else { return }
         refreshTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(150))
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, self?.isRunning == true else { return }
             self?.refreshTask = nil
             self?.publishCurrentResults()
         }

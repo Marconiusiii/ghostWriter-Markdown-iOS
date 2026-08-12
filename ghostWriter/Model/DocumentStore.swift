@@ -30,6 +30,18 @@ struct DocumentImportResult: Equatable {
     let failedFileNames: [String]
 }
 
+/// Carries one completed filesystem scan back to the observable store. The
+/// contained models are immutable values; unchecked conformance is limited to
+/// this private transfer object because Document predates explicit Sendable
+/// conformance.
+private nonisolated struct DocumentLibraryScan: @unchecked Sendable {
+    let documents: [Document]?
+    let folders: [LibraryFolder]?
+    let recentlyDeletedDocuments: [Document]?
+    let recentlyDeletedFolders: [LibraryFolder]?
+    let errors: [String]
+}
+
 @Observable
 final class DocumentStore {
     private(set) var documents: [Document] = []
@@ -50,6 +62,7 @@ final class DocumentStore {
     private var activeDownloadURLs: Set<URL> = []
     private var confirmedAvailableVersions: [URL: Date] = [:]
     private var suppressedSnapshotURLs: Set<URL> = []
+    private var refreshGeneration = 0
 
     /// The user-visible folder. Created on first access; creation failures are
     /// exposed through `lastError` rather than silently changing storage paths.
@@ -120,7 +133,44 @@ final class DocumentStore {
         refresh()
     }
 
+    func useDirectoryAsynchronously(
+        _ directory: URL?,
+        usesICloudStorage: Bool = false
+    ) async {
+        self.usesICloudStorage = usesICloudStorage
+        guard let directory else {
+            refreshGeneration &+= 1
+            storageAvailable = false
+            documents = []
+            folders = []
+            recentlyDeletedDocuments = []
+            recentlyDeletedFolders = []
+            return
+        }
+
+        self.directory = directory
+        self.recentlyDeletedDirectory = directory
+            .appendingPathComponent("Recently Deleted", isDirectory: true)
+        storageAvailable = true
+        createDirectoryIfNeeded()
+        await refreshAsynchronously()
+    }
+
     func applyICloudSnapshot(_ snapshots: [ICloudDocumentSnapshot]) {
+        updateICloudSnapshot(snapshots)
+        refresh()
+    }
+
+    func applyICloudSnapshotAsynchronously(
+        _ snapshots: [ICloudDocumentSnapshot]
+    ) async {
+        updateICloudSnapshot(snapshots)
+        await refreshAsynchronously()
+    }
+
+    private func updateICloudSnapshot(
+        _ snapshots: [ICloudDocumentSnapshot]
+    ) {
         let incomingURLs = Set(
             snapshots.map { $0.url.standardizedFileURL }
         )
@@ -151,7 +201,6 @@ final class DocumentStore {
                 )
             }
         )
-        refresh()
     }
 
     func clearICloudSnapshot() {
@@ -178,6 +227,7 @@ final class DocumentStore {
     /// were backgrounded.
     func refresh() {
         guard storageAvailable else { return }
+        refreshGeneration &+= 1
         createDirectoryIfNeeded()
 
         do {
@@ -222,6 +272,258 @@ final class DocumentStore {
         } catch {
             lastError = "Could not refresh deleted folders. \(error.localizedDescription)"
         }
+    }
+
+    /// Performs coordinated directory enumeration away from the main actor,
+    /// then publishes at most one result for each observable collection.
+    func refreshAsynchronously() async {
+        guard storageAvailable else { return }
+        refreshGeneration &+= 1
+        let generation = refreshGeneration
+        let directory = directory
+        let recentlyDeletedDirectory = recentlyDeletedDirectory
+        let snapshots = Array(iCloudSnapshotsByURL.values)
+
+        let scanTask = Task.detached(priority: .utility) {
+            Self.scanLibrary(
+                directory: directory,
+                recentlyDeletedDirectory: recentlyDeletedDirectory,
+                snapshots: snapshots
+            )
+        }
+        let scan = await withTaskCancellationHandler {
+            await scanTask.value
+        } onCancel: {
+            scanTask.cancel()
+        }
+
+        guard !Task.isCancelled,
+              generation == refreshGeneration,
+              storageAvailable,
+              self.directory.standardizedFileURL
+                == directory.standardizedFileURL else { return }
+
+        if let refreshed = scan.documents, documents != refreshed {
+            documents = refreshed
+        }
+        if let refreshed = scan.folders, folders != refreshed {
+            folders = refreshed
+        }
+        if let refreshed = scan.recentlyDeletedDocuments,
+           recentlyDeletedDocuments != refreshed {
+            recentlyDeletedDocuments = refreshed
+        }
+        if let refreshed = scan.recentlyDeletedFolders,
+           recentlyDeletedFolders != refreshed {
+            recentlyDeletedFolders = refreshed
+        }
+        if let error = scan.errors.last {
+            lastError = error
+        }
+    }
+
+    func cancelPendingRefresh() {
+        refreshGeneration &+= 1
+    }
+
+    private nonisolated static func scanLibrary(
+        directory: URL,
+        recentlyDeletedDirectory: URL,
+        snapshots: [ICloudDocumentSnapshot]
+    ) -> DocumentLibraryScan {
+        let fileAccess = CoordinatedFileAccess()
+        var errors: [String] = []
+
+        guard !Task.isCancelled else {
+            return DocumentLibraryScan(
+                documents: nil,
+                folders: nil,
+                recentlyDeletedDocuments: nil,
+                recentlyDeletedFolders: nil,
+                errors: []
+            )
+        }
+
+        let documents: [Document]?
+        do {
+            documents = try scannedDocuments(
+                in: directory,
+                libraryRoot: directory,
+                recentlyDeletedDirectory: recentlyDeletedDirectory,
+                snapshots: snapshots,
+                fileAccess: fileAccess
+            )
+        } catch {
+            documents = nil
+            errors.append(
+                "Could not refresh the document library. \(error.localizedDescription)"
+            )
+        }
+
+        guard !Task.isCancelled else {
+            return DocumentLibraryScan(
+                documents: nil,
+                folders: nil,
+                recentlyDeletedDocuments: nil,
+                recentlyDeletedFolders: nil,
+                errors: []
+            )
+        }
+
+        let folders: [LibraryFolder]?
+        do {
+            folders = try scannedFolders(
+                directory: directory,
+                recentlyDeletedDirectory: recentlyDeletedDirectory,
+                snapshots: snapshots,
+                fileAccess: fileAccess
+            )
+        } catch {
+            folders = nil
+            errors.append(
+                "Could not refresh the folder library. \(error.localizedDescription)"
+            )
+        }
+
+        guard !Task.isCancelled else {
+            return DocumentLibraryScan(
+                documents: nil,
+                folders: nil,
+                recentlyDeletedDocuments: nil,
+                recentlyDeletedFolders: nil,
+                errors: []
+            )
+        }
+
+        let deletedDocuments: [Document]?
+        do {
+            deletedDocuments = try scannedDocuments(
+                in: recentlyDeletedDirectory,
+                libraryRoot: directory,
+                recentlyDeletedDirectory: recentlyDeletedDirectory,
+                snapshots: snapshots,
+                fileAccess: fileAccess
+            )
+        } catch {
+            deletedDocuments = nil
+            errors.append(
+                "Could not refresh Recently Deleted. \(error.localizedDescription)"
+            )
+        }
+
+        guard !Task.isCancelled else {
+            return DocumentLibraryScan(
+                documents: nil,
+                folders: nil,
+                recentlyDeletedDocuments: nil,
+                recentlyDeletedFolders: nil,
+                errors: []
+            )
+        }
+
+        let deletedFolders: [LibraryFolder]?
+        do {
+            let urls = try fileAccess.contentsOfDirectory(
+                at: recentlyDeletedDirectory,
+                includingPropertiesForKeys: [.isDirectoryKey]
+            )
+            deletedFolders = urls.compactMap(LibraryFolder.init(fileURL:))
+        } catch {
+            deletedFolders = nil
+            errors.append(
+                "Could not refresh deleted folders. \(error.localizedDescription)"
+            )
+        }
+
+        return DocumentLibraryScan(
+            documents: documents,
+            folders: folders,
+            recentlyDeletedDocuments: deletedDocuments,
+            recentlyDeletedFolders: deletedFolders,
+            errors: errors
+        )
+    }
+
+    private nonisolated static func scannedDocuments(
+        in scanDirectory: URL,
+        libraryRoot: URL,
+        recentlyDeletedDirectory: URL,
+        snapshots: [ICloudDocumentSnapshot],
+        fileAccess: CoordinatedFileAccess
+    ) throws -> [Document] {
+        let isLibraryRoot = scanDirectory.standardizedFileURL
+            == libraryRoot.standardizedFileURL
+        let isRecentlyDeleted = scanDirectory.standardizedFileURL
+            == recentlyDeletedDirectory.standardizedFileURL
+        let urls = isRecentlyDeleted
+            ? try fileAccess.contentsOfDirectory(
+                at: scanDirectory,
+                includingPropertiesForKeys: [.isRegularFileKey]
+            )
+            : try fileAccess.regularFilesRecursively(at: scanDirectory)
+        let localDocuments = urls.filter { url in
+            guard Document.isMarkdown(url) else { return false }
+            guard isLibraryRoot else { return true }
+            return !isDescendant(url, of: recentlyDeletedDirectory)
+        }.compactMap(Document.init(fileURL:))
+
+        var documentsByURL = Dictionary(
+            uniqueKeysWithValues: localDocuments.map {
+                ($0.url.standardizedFileURL, $0)
+            }
+        )
+        for snapshot in snapshots
+        where snapshot.isRecentlyDeleted == isRecentlyDeleted {
+            let url = snapshot.url.standardizedFileURL
+            if let local = documentsByURL[url] {
+                documentsByURL[url] = Document(
+                    url: url,
+                    created: local.created,
+                    modified: local.modified,
+                    byteCount: local.byteCount,
+                    availability: snapshot.availability
+                )
+            } else {
+                documentsByURL[url] = Document(
+                    url: url,
+                    created: snapshot.created,
+                    modified: snapshot.modified,
+                    byteCount: snapshot.byteCount,
+                    availability: snapshot.availability
+                )
+            }
+        }
+        return Array(documentsByURL.values)
+    }
+
+    private nonisolated static func scannedFolders(
+        directory: URL,
+        recentlyDeletedDirectory: URL,
+        snapshots: [ICloudDocumentSnapshot],
+        fileAccess: CoordinatedFileAccess
+    ) throws -> [LibraryFolder] {
+        var urls = try fileAccess.directoriesRecursively(at: directory)
+            .filter {
+                $0.standardizedFileURL
+                    != recentlyDeletedDirectory.standardizedFileURL
+                    && !isDescendant($0, of: recentlyDeletedDirectory)
+            }
+        for snapshot in snapshots where !snapshot.isRecentlyDeleted {
+            var parent = snapshot.url.deletingLastPathComponent()
+            while parent.standardizedFileURL != directory.standardizedFileURL,
+                  isDescendant(parent, of: directory) {
+                urls.append(parent)
+                parent.deleteLastPathComponent()
+            }
+        }
+        var foldersByURL: [URL: LibraryFolder] = [:]
+        for url in urls {
+            let standardizedURL = url.standardizedFileURL
+            foldersByURL[standardizedURL] =
+                LibraryFolder(fileURL: standardizedURL)
+                ?? LibraryFolder(url: standardizedURL)
+        }
+        return Array(foldersByURL.values)
     }
 
     private func documents(in directory: URL) throws -> [Document] {
@@ -1320,7 +1622,10 @@ final class DocumentStore {
                 && !Self.isDescendant(standardized, of: recentlyDeletedDirectory))
     }
 
-    private static func isDescendant(_ candidate: URL, of ancestor: URL) -> Bool {
+    private nonisolated static func isDescendant(
+        _ candidate: URL,
+        of ancestor: URL
+    ) -> Bool {
         let ancestorComponents = ancestor.standardizedFileURL.pathComponents
         let candidateComponents = candidate.standardizedFileURL.pathComponents
         return candidateComponents.count > ancestorComponents.count

@@ -3,8 +3,8 @@
 //  ghostWriter
 //
 //  Keeps UITextView authoritative while the writer is typing. Ordinary edits
-//  are mirrored as small UTF-16 operations to a background document buffer. A
-//  complete UIKit snapshot is created only when an explicit action requests it.
+//  perform no copying, dispatch, persistence, or observable work. A complete
+//  UIKit snapshot is created only when an explicit action requests it.
 //
 
 import Foundation
@@ -40,17 +40,13 @@ final class EditorTextSession {
         storedSelectedRange = textView.selectedRange
     }
 
-    /// Called before UIKit applies an accepted native edit. This performs no
-    /// complete document read and remains constant-time with document length.
-    func willApplyEdit(range: NSRange, replacementText: String) {
+    /// Called before UIKit applies an accepted native edit. A revision counter
+    /// is the only app-owned work on the ordinary typing path.
+    func willApplyEdit(
+        range _: NSRange,
+        replacementText _: String
+    ) {
         revision &+= 1
-        documentBuffer.enqueue(
-            EditorDocumentEdit(
-                range: range,
-                replacementText: replacementText,
-                revision: revision
-            )
-        )
     }
 
     func textDidChange(in textView: UITextView) {
@@ -71,8 +67,7 @@ final class EditorTextSession {
         storedSelectedRange = range
         documentBuffer.replace(
             text: text,
-            revision: revision,
-            schedulesAutosave: false
+            revision: revision
         )
         return EditorTextSnapshot(
             text: text,
@@ -93,17 +88,12 @@ final class EditorTextSession {
         textView?.scrollRangeToVisible(range)
         documentBuffer.replace(
             text: text,
-            revision: revision,
-            schedulesAutosave: true
+            revision: revision
         )
     }
 
     func updateNativeSelection(_ range: NSRange) {
         storedSelectedRange = range
-    }
-
-    func cancelAutosave() {
-        documentBuffer.cancelAutosave()
     }
 
     static func selection(for range: NSRange, in text: String) -> TextSelection {

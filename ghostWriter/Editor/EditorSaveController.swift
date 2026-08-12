@@ -2,9 +2,8 @@
 //  EditorSaveController.swift
 //  ghostWriter
 //
-//  Serializes editor save requests without publishing routine autosave state
-//  into SwiftUI. Only a conflict, failure, or explicit completion crosses back
-//  into the view.
+//  Serializes saves requested at explicit editor and app-lifecycle boundaries.
+//  Ordinary text entry never reaches this controller.
 //
 
 import Foundation
@@ -53,10 +52,6 @@ final class EditorSaveController {
     func configure(saveOperation: @escaping SaveOperation) {
         self.saveOperation = saveOperation
         drainIfNeeded()
-    }
-
-    func submitAutosave(_ snapshot: EditorDocumentBufferSnapshot) {
-        submit(snapshot, announce: false)
     }
 
     func submit(

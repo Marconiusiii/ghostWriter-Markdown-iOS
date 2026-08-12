@@ -14,6 +14,27 @@ import Testing
 @MainActor
 struct DocumentStoreTests {
 
+    @Test func asynchronousRefreshPublishesACompleteFilesystemSnapshot() async throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        let nested = store.directory
+            .appendingPathComponent("Projects", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: nested,
+            withIntermediateDirectories: true
+        )
+        try "background scan".write(
+            to: nested.appendingPathComponent("Draft.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        await store.refreshAsynchronously()
+
+        #expect(store.documents.map(\.displayName) == ["Draft"])
+        #expect(store.folders.map(\.displayName) == ["Projects"])
+    }
+
     @Test func nestedFoldersContainOnlyTheirDirectItems() async throws {
         let store = makeStore()
         defer { cleanUp(store) }

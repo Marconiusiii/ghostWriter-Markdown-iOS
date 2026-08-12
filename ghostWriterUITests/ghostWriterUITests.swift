@@ -12,6 +12,42 @@ import XCTest
 final class ghostWriterUITests: XCTestCase {
 
     @MainActor
+    func testSustainedTypingIsSavedWhenEditorCloses() throws {
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-documentStorageLocation", "onDevice",
+            "-appLaunchBehavior", "showLibrary",
+            "-newDocumentCreationMode", "askForTitle",
+            "-welcomeExperienceCompleted", "YES",
+            "-welcomeDocumentInstalled", "YES"
+        ]
+        app.launch()
+
+        app.buttons["New document"].tap()
+        let name = "Typing Boundary \(UUID().uuidString)"
+        let nameField = app.textFields["Document name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 10))
+        nameField.tap()
+        nameField.typeText(name)
+        app.buttons["Create"].tap()
+
+        let editor = app.textViews["Markdown Editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        let contents = String(repeating: "braille typing remains responsive ", count: 10)
+        editor.tap()
+        editor.typeText(contents)
+        app.buttons["Back"].tap()
+
+        let document = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", name)
+        ).firstMatch
+        XCTAssertTrue(document.waitForExistence(timeout: 10))
+        document.tap()
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        XCTAssertEqual(editor.value as? String, contents)
+    }
+
+    @MainActor
     func testAppLaunches() throws {
         let app = XCUIApplication()
         app.launchArguments += [

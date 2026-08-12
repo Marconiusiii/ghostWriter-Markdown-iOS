@@ -10,21 +10,30 @@ import UIKit
 @MainActor
 struct EditorTextSessionTests {
 
-    @Test func nativeChangesEnqueueDeltasWithoutPublishingSnapshots() async {
+    @Test func sustainedNativeTypingDoesNotTouchTheBackgroundBuffer() async {
         let buffer = EditorDocumentBuffer(initialText: "")
         let session = EditorTextSession(initialText: "", documentBuffer: buffer)
+        let textView = UITextView()
+        session.attach(textView)
 
-        for pass in 0..<1_000 {
+        for location in 0..<1_000 {
             session.willApplyEdit(
-                range: NSRange(location: pass, length: 0),
+                range: NSRange(location: location, length: 0),
                 replacementText: "a"
             )
+            textView.insertText("a")
+            session.textDidChange(in: textView)
         }
 
-        let snapshot = await buffer.snapshot()
+        let typingSnapshot = await buffer.snapshot()
         #expect(session.revision == 1_000)
-        #expect(snapshot.text == String(repeating: "a", count: 1_000))
-        #expect(snapshot.revision == 1_000)
+        #expect(typingSnapshot.text.isEmpty)
+        #expect(typingSnapshot.revision == 0)
+
+        _ = session.snapshot()
+        let boundarySnapshot = await buffer.snapshot()
+        #expect(boundarySnapshot.text == String(repeating: "a", count: 1_000))
+        #expect(boundarySnapshot.revision == 1_000)
     }
 
     @Test func selectionChangesNeverChangeTheDocumentBuffer() async {
@@ -46,22 +55,23 @@ struct EditorTextSessionTests {
         #expect(snapshot.text == "A fairly long document")
     }
 
-    @Test func acceptedReplacementRangesBuildTheLatestTextOffMain() async {
+    @Test func explicitSnapshotSynchronizesTheLatestNativeText() async {
         let buffer = EditorDocumentBuffer(initialText: "Initial")
         let session = EditorTextSession(initialText: "Initial", documentBuffer: buffer)
+        let textView = UITextView()
+        session.attach(textView)
 
         session.willApplyEdit(
             range: NSRange(location: 0, length: 7),
-            replacementText: "First"
-        )
-        session.willApplyEdit(
-            range: NSRange(location: 0, length: 5),
             replacementText: "Second"
         )
+        textView.text = "Second"
+        session.textDidChange(in: textView)
+        _ = session.snapshot()
 
         let snapshot = await buffer.snapshot()
         #expect(snapshot.text == "Second")
-        #expect(snapshot.revision == 2)
+        #expect(snapshot.revision == 1)
     }
 
     @Test func explicitSnapshotConvertsUnicodeSelectionOnlyOnRequest() {
@@ -76,18 +86,25 @@ struct EditorTextSessionTests {
         #expect(snapshot.selection == TextSelection(location: 2, length: 0))
     }
 
-    @Test func markedTextStyleReplacementsAreMirroredAsOrdinaryDeltas() async {
+    @Test func markedTextStyleReplacementsSynchronizeAtBoundary() async {
         let buffer = EditorDocumentBuffer(initialText: "")
         let session = EditorTextSession(initialText: "", documentBuffer: buffer)
 
+        let textView = UITextView()
+        session.attach(textView)
         session.willApplyEdit(
             range: NSRange(location: 0, length: 0),
             replacementText: "typ"
         )
+        textView.text = "typ"
+        session.textDidChange(in: textView)
         session.willApplyEdit(
             range: NSRange(location: 0, length: 3),
             replacementText: "typing"
         )
+        textView.text = "typing"
+        session.textDidChange(in: textView)
+        _ = session.snapshot()
 
         let snapshot = await buffer.snapshot()
         #expect(snapshot.text == "typing")
