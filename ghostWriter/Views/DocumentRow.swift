@@ -13,19 +13,133 @@
 
 import SwiftUI
 
-struct DocumentRow: View {
+struct LibraryDocumentPresentation: Identifiable, Equatable {
     let document: Document
     let isPinned: Bool
+    let modifiedDescription: String
+    let createdDescription: String
+    let accessibilityLabel: String
+    let accessibilityHint: String
+
+    var id: URL { document.url }
+
+    init(document: Document, isPinned: Bool) {
+        self.document = document
+        self.isPinned = isPinned
+        self.modifiedDescription = DateFormatting.short(document.modified)
+        self.createdDescription = DateFormatting.short(document.created)
+
+        let pinDescription = isPinned ? "Pinned, " : ""
+        let statusDescription = document.availability.statusDescription
+            .map { ", \($0)" } ?? ""
+        self.accessibilityLabel = "\(pinDescription)\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))\(statusDescription)"
+        self.accessibilityHint = document.availability.isAvailable
+            ? "Opens in the editor"
+            : "Downloads this document and opens it when ready"
+    }
+}
+
+struct LibraryFolderPresentation: Identifiable, Equatable {
+    let folder: LibraryFolder
+    let itemCount: Int
+
+    var id: URL { folder.url }
+}
+
+struct LibraryPresentationSnapshot: Equatable {
+    static let empty = LibraryPresentationSnapshot(
+        documents: [],
+        folders: [],
+        currentItemCount: 0
+    )
+
+    let documents: [LibraryDocumentPresentation]
+    let folders: [LibraryFolderPresentation]
+    let currentItemCount: Int
+
+    static func build(
+        documents: [Document],
+        folders: [LibraryFolder],
+        currentDirectory: URL,
+        query: String,
+        searchIndex: DocumentSearchIndex,
+        sort: DocumentSort,
+        metadata: DocumentLibraryMetadataStore
+    ) -> LibraryPresentationSnapshot {
+        let standardizedDirectory = currentDirectory.standardizedFileURL
+        let currentDocuments = documents.filter {
+            $0.url.deletingLastPathComponent().standardizedFileURL
+                == standardizedDirectory
+        }
+        let currentFolders = folders.filter {
+            $0.url.deletingLastPathComponent().standardizedFileURL
+                == standardizedDirectory
+        }
+
+        let filteredDocuments: [Document]
+        if query.isEmpty {
+            filteredDocuments = currentDocuments
+        } else {
+            filteredDocuments = currentDocuments.filter { document in
+                searchIndex.matches(
+                    documentURL: document.url,
+                    displayName: document.displayName,
+                    query: query
+                )
+            }
+        }
+
+        let documentRows = sort.sorted(
+            filteredDocuments,
+            metadata: metadata
+        ).map { document in
+            LibraryDocumentPresentation(
+                document: document,
+                isPinned: metadata.isPinned(document.url)
+            )
+        }
+
+        let visibleFolders = currentFolders.filter {
+            query.isEmpty
+                || $0.displayName.localizedCaseInsensitiveContains(query)
+        }.sorted {
+            $0.displayName.localizedStandardCompare($1.displayName)
+                == .orderedAscending
+        }
+        let documentCounts = Dictionary(grouping: documents) {
+            $0.url.deletingLastPathComponent().standardizedFileURL
+        }.mapValues(\.count)
+        let folderCounts = Dictionary(grouping: folders) {
+            $0.url.deletingLastPathComponent().standardizedFileURL
+        }.mapValues(\.count)
+        let folderRows = visibleFolders.map { folder in
+            LibraryFolderPresentation(
+                folder: folder,
+                itemCount: documentCounts[folder.url.standardizedFileURL, default: 0]
+                    + folderCounts[folder.url.standardizedFileURL, default: 0]
+            )
+        }
+
+        return LibraryPresentationSnapshot(
+            documents: documentRows,
+            folders: folderRows,
+            currentItemCount: currentDocuments.count + currentFolders.count
+        )
+    }
+}
+
+struct DocumentRow: View {
+    let presentation: LibraryDocumentPresentation
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             titleLayout {
-                Text(document.displayName)
+                Text(presentation.document.displayName)
                     .font(.headline)
                     .foregroundStyle(Color.ghostText)
 
-                if isPinned {
+                if presentation.isPinned {
                     Label("Pinned", systemImage: "pin.fill")
                         .font(.caption)
                         .foregroundStyle(Color.ghostAccent)
@@ -33,14 +147,14 @@ struct DocumentRow: View {
             }
 
             metadataLayout {
-                Label(DateFormatting.short(document.modified), systemImage: "pencil")
-                Label(DateFormatting.short(document.created), systemImage: "calendar")
+                Label(presentation.modifiedDescription, systemImage: "pencil")
+                Label(presentation.createdDescription, systemImage: "calendar")
             }
             .font(.caption)
             .foregroundStyle(Color.ghostMuted)
             .labelStyle(.titleAndIcon)
 
-            if let status = document.availability.statusDescription {
+            if let status = presentation.document.availability.statusDescription {
                 Text(status)
                     .font(.caption)
                     .foregroundStyle(Color.ghostMuted)
@@ -49,21 +163,8 @@ struct DocumentRow: View {
         .padding(.vertical, 4)
         // Collapse the row into one element with one coherent sentence.
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(accessibilityHint)
-    }
-
-    private var accessibilityLabel: String {
-        let pinDescription = isPinned ? "Pinned, " : ""
-        let statusDescription = document.availability.statusDescription
-            .map { ", \($0)" } ?? ""
-        return "\(pinDescription)\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))\(statusDescription)"
-    }
-
-    private var accessibilityHint: String {
-        document.availability.isAvailable
-            ? "Opens in the editor"
-            : "Downloads this document and opens it when ready"
+        .accessibilityLabel(presentation.accessibilityLabel)
+        .accessibilityHint(presentation.accessibilityHint)
     }
 
     private var metadataLayout: AnyLayout {

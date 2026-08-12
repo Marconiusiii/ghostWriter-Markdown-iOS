@@ -42,10 +42,20 @@ private nonisolated struct DocumentLibraryScan: @unchecked Sendable {
     let errors: [String]
 }
 
+private nonisolated enum DocumentTextReadOutcome: Sendable {
+    case success(String)
+    case failure(String)
+}
+
 @Observable
 final class DocumentStore {
-    private(set) var documents: [Document] = []
-    private(set) var folders: [LibraryFolder] = []
+    private(set) var libraryPresentationRevision = 0
+    private(set) var documents: [Document] = [] {
+        didSet { libraryPresentationRevision &+= 1 }
+    }
+    private(set) var folders: [LibraryFolder] = [] {
+        didSet { libraryPresentationRevision &+= 1 }
+    }
     private(set) var recentlyDeletedDocuments: [Document] = []
     private(set) var recentlyDeletedFolders: [LibraryFolder] = []
     private(set) var storageAvailable: Bool
@@ -694,6 +704,46 @@ final class DocumentStore {
                 lastError = "Could not open \(document.displayName). The original file was not changed. \(error.localizedDescription)"
             }
             throw error
+        }
+    }
+
+    /// Coordinates and decodes a document away from the main actor so opening
+    /// a file cannot stall VoiceOver or the rest of the Library interface.
+    func textAsynchronously(
+        for document: Document,
+        reportFailure: Bool = true
+    ) async throws -> String {
+        guard document.availability.isAvailable else {
+            if reportFailure {
+                lastError =
+                    "\(document.displayName) is not yet available on this device."
+            }
+            throw CocoaError(.fileReadNoSuchFile)
+        }
+
+        let url = document.url
+        let outcome = await Task.detached(priority: .userInitiated) {
+            do {
+                return DocumentTextReadOutcome.success(
+                    try CoordinatedFileAccess().string(at: url)
+                )
+            } catch {
+                return DocumentTextReadOutcome.failure(
+                    error.localizedDescription
+                )
+            }
+        }.value
+
+        try Task.checkCancellation()
+        switch outcome {
+        case .success(let text):
+            confirmAvailable(at: url, modified: document.modified)
+            return text
+        case .failure(let message):
+            if reportFailure {
+                lastError = "Could not open \(document.displayName). The original file was not changed. \(message)"
+            }
+            throw CocoaError(.fileReadUnknown)
         }
     }
 

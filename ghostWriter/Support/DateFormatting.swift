@@ -11,19 +11,21 @@
 import Foundation
 
 enum DateFormatting {
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        formatter.dateTimeStyle = .named
+        return formatter
+    }()
 
     /// Compact display form, relative for recent dates ("Yesterday") and
     /// numeric for older ones.
     static func short(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        formatter.dateTimeStyle = .named
-
         // Within the last week a relative description is more useful than a
         // date; beyond that an absolute date is clearer.
         if let days = Calendar.current.dateComponents([.day], from: date, to: .now).day,
            days < 7, days >= 0 {
-            return formatter.localizedString(for: date, relativeTo: .now)
+            return relativeFormatter.localizedString(for: date, relativeTo: .now)
         }
 
         return date.formatted(date: .abbreviated, time: .omitted)

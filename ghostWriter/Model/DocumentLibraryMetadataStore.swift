@@ -11,16 +11,19 @@ import Observation
 
 @Observable
 final class DocumentLibraryMetadataStore {
+    private(set) var libraryPresentationRevision = 0
     private(set) var libraryRoot: URL?
     private(set) var pinnedKeys: Set<String> {
         didSet {
             defaults.set(Array(pinnedKeys).sorted(), forKey: pinnedStorageKey)
+            libraryPresentationRevision &+= 1
         }
     }
 
     private(set) var lastOpenedTimestamps: [String: TimeInterval] {
         didSet {
             defaults.set(lastOpenedTimestamps, forKey: lastOpenedStorageKey)
+            libraryPresentationRevision &+= 1
         }
     }
 
@@ -49,7 +52,10 @@ final class DocumentLibraryMetadataStore {
     }
 
     func useLibraryRoot(_ root: URL?) {
-        libraryRoot = root?.standardizedFileURL
+        let standardizedRoot = root?.standardizedFileURL
+        guard libraryRoot != standardizedRoot else { return }
+        libraryRoot = standardizedRoot
+        libraryPresentationRevision &+= 1
     }
 
     func isPinned(_ url: URL) -> Bool {

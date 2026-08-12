@@ -81,8 +81,12 @@ struct LibraryView: View {
     @State private var isPreparingWelcomeDocument = false
     @State private var welcomeDismissalAction: WelcomeDismissalAction?
     @State private var searchIndex = DocumentSearchIndex.empty
+    @State private var searchIndexRevision = 0
+    @State private var libraryPresentation = LibraryPresentationSnapshot.empty
     @State private var searchAnnounceTask: Task<Void, Never>?
     @State private var libraryActivityTask: Task<Void, Never>?
+    @State private var documentOpenTask: Task<Void, Never>?
+    @State private var openingDocumentURL: URL?
     @State private var pendingDocumentActions:
         [URL: PendingDocumentAction] = [:]
     @State private var downloadTasks:
@@ -115,6 +119,16 @@ struct LibraryView: View {
     private enum WelcomeDismissalAction {
         case explore(URL)
         case library
+    }
+
+    private struct LibraryPresentationIdentity: Equatable {
+        let storeRevision: Int
+        let metadataRevision: Int
+        let searchIndexRevision: Int
+        let directory: URL
+        let query: String
+        let sort: DocumentSort
+        let calendarDay: Date
     }
 
     var body: some View {
@@ -179,6 +193,10 @@ struct LibraryView: View {
         .task(id: storage.selectedLocation) {
             await configureSelectedStorage()
         }
+        .task(id: libraryPresentationIdentity) {
+            guard openedDocument == nil else { return }
+            rebuildLibraryPresentation()
+        }
         .onChange(of: iCloudMonitor.revision) { _, _ in
             guard openedDocument == nil,
                   storage.selectedLocation == .iCloud else { return }
@@ -208,6 +226,7 @@ struct LibraryView: View {
             }
             guard !Task.isCancelled, openedDocument == nil else { return }
             searchIndex = rebuilt
+            searchIndexRevision &+= 1
             if !trimmedSearch.isEmpty {
                 scheduleSearchAnnouncement()
             }
@@ -585,9 +604,10 @@ struct LibraryView: View {
     private var list: some View {
         if !store.storageAvailable {
             unavailableLibrary
-        } else if currentDocuments.isEmpty && currentFolders.isEmpty {
+        } else if libraryPresentation.currentItemCount == 0 {
             emptyLibrary
-        } else if visibleDocuments.isEmpty && visibleFolders.isEmpty {
+        } else if libraryPresentation.documents.isEmpty
+                    && libraryPresentation.folders.isEmpty {
             noSearchResults
         } else {
             documentList
@@ -599,12 +619,16 @@ struct LibraryView: View {
         // No section header here: the count heading above this list is the
         // heading for it, and repeating it would be a second announcement of
         // the same thing.
-        ForEach(visibleFolders) { folder in
+        ForEach(libraryPresentation.folders) { presentation in
+            let folder = presentation.folder
             documentActionLayout {
                 Button {
                     open(folder)
                 } label: {
-                    FolderRow(folder: folder, itemCount: store.itemCount(in: folder))
+                    FolderRow(
+                        folder: folder,
+                        itemCount: presentation.itemCount
+                    )
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
@@ -633,15 +657,13 @@ struct LibraryView: View {
             .listRowBackground(Color.clear)
         }
 
-        ForEach(visibleDocuments) { document in
+        ForEach(libraryPresentation.documents) { presentation in
+            let document = presentation.document
             documentActionLayout {
                 Button {
                     open(document)
                 } label: {
-                    DocumentRow(
-                        document: document,
-                        isPinned: libraryMetadata.isPinned(document.url)
-                    )
+                    DocumentRow(presentation: presentation)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
@@ -650,7 +672,7 @@ struct LibraryView: View {
                     equals: .document(document.url)
                 )
                 .accessibilityAction(
-                    named: "\(libraryMetadata.isPinned(document.url) ? "Unpin" : "Pin") \(document.displayName)"
+                    named: "\(presentation.isPinned ? "Unpin" : "Pin") \(document.displayName)"
                 ) {
                     togglePin(document)
                 }
@@ -694,7 +716,7 @@ struct LibraryView: View {
 
                 DocumentActionsMenu(
                     document: document,
-                    isPinned: libraryMetadata.isPinned(document.url),
+                    isPinned: presentation.isPinned,
                     onTogglePin: { togglePin(document) },
                     onRender: { render(document) },
                     onShare: { share(document) },
@@ -769,45 +791,40 @@ struct LibraryView: View {
         }
     }
 
-    private var visibleDocuments: [Document] {
-        let query = trimmedSearch
-        let filtered: [Document]
-
-        if query.isEmpty {
-            filtered = currentDocuments
-        } else {
-            filtered = currentDocuments.filter { document in
-                searchIndex.matches(
-                    documentURL: document.url,
-                    displayName: document.displayName,
-                    query: query
-                )
-            }
-        }
-
-        return settings.sort.sorted(filtered, metadata: libraryMetadata)
-    }
-
     private var currentDirectory: URL {
         currentFolderURL ?? store.directory
     }
 
-    private var currentDocuments: [Document] {
-        store.documents(directlyIn: currentDirectory)
+    private var libraryPresentationIdentity: LibraryPresentationIdentity {
+        LibraryPresentationIdentity(
+            storeRevision: store.libraryPresentationRevision,
+            metadataRevision: libraryMetadata.libraryPresentationRevision,
+            searchIndexRevision: searchIndexRevision,
+            directory: currentDirectory,
+            query: trimmedSearch,
+            sort: settings.sort,
+            calendarDay: Calendar.current.startOfDay(for: .now)
+        )
     }
 
-    private var currentFolders: [LibraryFolder] {
-        store.folders(directlyIn: currentDirectory)
+    private var visibleDocuments: [Document] {
+        libraryPresentation.documents.map(\.document)
     }
 
     private var visibleFolders: [LibraryFolder] {
-        currentFolders.filter {
-            trimmedSearch.isEmpty
-                || $0.displayName.localizedCaseInsensitiveContains(trimmedSearch)
-        }.sorted {
-            $0.displayName.localizedStandardCompare($1.displayName)
-                == .orderedAscending
-        }
+        libraryPresentation.folders.map(\.folder)
+    }
+
+    private func rebuildLibraryPresentation() {
+        libraryPresentation = LibraryPresentationSnapshot.build(
+            documents: store.documents,
+            folders: store.folders,
+            currentDirectory: currentDirectory,
+            query: trimmedSearch,
+            searchIndex: searchIndex,
+            sort: settings.sort,
+            metadata: libraryMetadata
+        )
     }
 
     private var currentFolderHeading: String {
@@ -840,13 +857,30 @@ struct LibraryView: View {
     }
 
     private func openAvailable(_ document: Document) {
+        let url = document.url.standardizedFileURL
+        guard openingDocumentURL != url else { return }
+        documentOpenTask?.cancel()
         focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
-        guard let text = try? store.text(for: document) else { return }
-        focusAfterError = nil
-        libraryMetadata.recordOpened(document.url)
-        focusAfterEditor = .document(document.url)
-        beginEditing(DocumentSession(document: document, text: text))
+        openingDocumentURL = url
+        documentOpenTask = Task {
+            guard let text = try? await store.textAsynchronously(
+                for: document
+            ), !Task.isCancelled,
+              openingDocumentURL == url else {
+                if openingDocumentURL == url {
+                    openingDocumentURL = nil
+                    documentOpenTask = nil
+                }
+                return
+            }
+            openingDocumentURL = nil
+            documentOpenTask = nil
+            focusAfterError = nil
+            libraryMetadata.recordOpened(document.url)
+            focusAfterEditor = .document(document.url)
+            beginEditing(DocumentSession(document: document, text: text))
+        }
     }
 
     private func render(_ document: Document) {
@@ -1382,6 +1416,7 @@ struct LibraryView: View {
     private func resumeLibraryActivityAfterEditing() async {
         guard openedDocument == nil else { return }
         await configureSelectedStorage()
+        rebuildLibraryPresentation()
     }
 
     private func performAppLaunchBehaviorIfReady() {

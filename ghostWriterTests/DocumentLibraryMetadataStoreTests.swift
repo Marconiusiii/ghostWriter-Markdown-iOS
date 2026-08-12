@@ -10,6 +10,56 @@ import Testing
 @MainActor
 struct DocumentLibraryMetadataStoreTests {
 
+    @Test func libraryPresentationCachesSortedRowsAndFolderCounts() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let metadata = makeStore(testDefaults.defaults)
+        let root = URL(fileURLWithPath: "/library", isDirectory: true)
+        metadata.useLibraryRoot(root)
+        let pinned = Document(
+            url: root.appendingPathComponent("Pinned.md"),
+            created: Date(timeIntervalSince1970: 100),
+            modified: Date(timeIntervalSince1970: 100),
+            byteCount: 10
+        )
+        let recent = Document(
+            url: root.appendingPathComponent("Recent.md"),
+            created: Date(timeIntervalSince1970: 200),
+            modified: Date(timeIntervalSince1970: 200),
+            byteCount: 20
+        )
+        let folder = LibraryFolder(
+            url: root.appendingPathComponent("Projects", isDirectory: true)
+        )
+        let nested = Document(
+            url: folder.url.appendingPathComponent("Nested.md"),
+            created: Date(timeIntervalSince1970: 300),
+            modified: Date(timeIntervalSince1970: 300),
+            byteCount: 30
+        )
+        metadata.togglePin(for: pinned.url)
+
+        let snapshot = LibraryPresentationSnapshot.build(
+            documents: [recent, nested, pinned],
+            folders: [folder],
+            currentDirectory: root,
+            query: "",
+            searchIndex: .empty,
+            sort: DocumentSort(
+                field: .modified,
+                direction: .descending
+            ),
+            metadata: metadata
+        )
+
+        #expect(snapshot.documents.map(\.document) == [pinned, recent])
+        #expect(snapshot.documents.first?.isPinned == true)
+        #expect(snapshot.documents.first?.accessibilityLabel.contains("Pinned.md") == false)
+        #expect(snapshot.documents.first?.accessibilityLabel.contains("Pinned") == true)
+        #expect(snapshot.folders.first?.itemCount == 1)
+        #expect(snapshot.currentItemCount == 3)
+    }
+
     @Test func pinStatePersists() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }

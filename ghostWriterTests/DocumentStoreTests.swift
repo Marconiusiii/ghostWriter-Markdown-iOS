@@ -14,6 +14,40 @@ import Testing
 @MainActor
 struct DocumentStoreTests {
 
+    @Test func asynchronousDocumentReadReturnsCompleteContents() async throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        let contents = String(
+            repeating: "Library opening stays responsive. ",
+            count: 200
+        )
+        let url = try #require(
+            store.createDocument(named: "Responsive", contents: contents)
+        )
+        let document = try #require(Document(fileURL: url))
+
+        let loaded = try await store.textAsynchronously(for: document)
+
+        #expect(loaded == contents)
+    }
+
+    @Test func asynchronousDocumentReadPreservesFailureReporting() async throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        let missingURL = store.directory.appendingPathComponent("Missing.md")
+        let document = Document(
+            url: missingURL,
+            created: .now,
+            modified: .now,
+            byteCount: 0
+        )
+
+        await #expect(throws: (any Error).self) {
+            _ = try await store.textAsynchronously(for: document)
+        }
+        #expect(store.lastError?.contains("Could not open Missing") == true)
+    }
+
     @Test func asynchronousRefreshPublishesACompleteFilesystemSnapshot() async throws {
         let store = makeStore()
         defer { cleanUp(store) }
