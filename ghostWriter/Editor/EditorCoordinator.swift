@@ -22,6 +22,7 @@ import UIKit
 final class EditorCoordinator: NSObject, UITextViewDelegate {
     var parent: MarkdownTextView
     weak var textView: UITextView?
+    private var isApplyingSmartListEdit = false
 
     init(_ parent: MarkdownTextView) {
         self.parent = parent
@@ -54,13 +55,28 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         shouldChangeTextIn range: NSRange,
         replacementText: String
     ) -> Bool {
-        // Multi-stage input — braille screen input composing a word, dictation,
-        // or an input method editor — must be left completely alone. Touching
-        // the text mid-composition is what breaks these input modes.
-        if textView.markedTextRange != nil { return true }
+        if isApplyingSmartListEdit { return true }
 
-        guard parent.smartListsEnabled else { return true }
-        guard replacementText == "\n", range.length == 0 else { return true }
+        // Record only the small edit UIKit is about to accept. Marked text is
+        // deliberately treated like every other native edit: the text view
+        // remains untouched while its accepted deltas are mirrored off-main.
+        if textView.markedTextRange != nil {
+            parent.session.willApplyEdit(
+                range: range,
+                replacementText: replacementText
+            )
+            return true
+        }
+
+        guard parent.smartListsEnabled,
+              replacementText == "\n",
+              range.length == 0 else {
+            parent.session.willApplyEdit(
+                range: range,
+                replacementText: replacementText
+            )
+            return true
+        }
 
         let text = textView.text ?? ""
         let nsText = text as NSString
@@ -71,7 +87,13 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         var line = nsText.substring(with: lineRange)
         if line.hasSuffix("\n") { line.removeLast() }
 
-        guard let marker = ListMarker(line: line) else { return true }
+        guard let marker = ListMarker(line: line) else {
+            parent.session.willApplyEdit(
+                range: range,
+                replacementText: replacementText
+            )
+            return true
+        }
 
         if marker.content.trimmingCharacters(in: .whitespaces).isEmpty {
             // Empty item: clear the marker so the list ends. Replace just this
@@ -79,14 +101,21 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
             let lineLength = line.utf16.count
             let replaceRange = NSRange(location: lineRange.location, length: lineLength)
             if let textRange = textRange(in: textView, from: replaceRange) {
+                parent.session.willApplyEdit(range: replaceRange, replacementText: "")
+                isApplyingSmartListEdit = true
                 textView.replace(textRange, withText: "")
+                isApplyingSmartListEdit = false
             }
             announce("List ended")
         } else {
             // Continue the list by inserting only the newline and next marker
             // at the caret. `insertText` goes through the normal input path, so
             // undo, autocorrect state, and assistive input all behave.
-            textView.insertText("\n" + marker.nextItemPrefix)
+            let insertion = "\n" + marker.nextItemPrefix
+            parent.session.willApplyEdit(range: range, replacementText: insertion)
+            isApplyingSmartListEdit = true
+            textView.insertText(insertion)
+            isApplyingSmartListEdit = false
             announce(continuationAnnouncement(for: marker))
         }
 

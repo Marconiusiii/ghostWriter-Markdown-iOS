@@ -10,61 +10,58 @@ import UIKit
 @MainActor
 struct EditorTextSessionTests {
 
-    @Test func nativeChangesDoNotPublishCompleteSnapshotsImmediately() {
-        let session = EditorTextSession(initialText: "Initial")
-        let textView = UITextView()
-        session.attach(textView)
-        var publishedSnapshots = 0
-        session.onIdleSnapshot = { _ in publishedSnapshots += 1 }
+    @Test func nativeChangesEnqueueDeltasWithoutPublishingSnapshots() async {
+        let buffer = EditorDocumentBuffer(initialText: "")
+        let session = EditorTextSession(initialText: "", documentBuffer: buffer)
 
-        for pass in 1...1_000 {
-            textView.selectedRange = NSRange(
-                location: min(pass, textView.text.utf16.count),
-                length: 0
+        for pass in 0..<1_000 {
+            session.willApplyEdit(
+                range: NSRange(location: pass, length: 0),
+                replacementText: "a"
             )
-            session.textDidChange(in: textView)
         }
 
+        let snapshot = await buffer.snapshot()
         #expect(session.revision == 1_000)
-        #expect(publishedSnapshots == 0)
+        #expect(snapshot.text == String(repeating: "a", count: 1_000))
+        #expect(snapshot.revision == 1_000)
     }
 
-    @Test func selectionChangesNeverRequestDocumentSnapshots() {
-        let session = EditorTextSession(initialText: "A fairly long document")
+    @Test func selectionChangesNeverChangeTheDocumentBuffer() async {
+        let buffer = EditorDocumentBuffer(initialText: "A fairly long document")
+        let session = EditorTextSession(
+            initialText: "A fairly long document",
+            documentBuffer: buffer
+        )
         let textView = UITextView()
         session.attach(textView)
-        var publishedSnapshots = 0
-        session.onIdleSnapshot = { _ in publishedSnapshots += 1 }
 
         for location in 0...textView.text.utf16.count {
             textView.selectedRange = NSRange(location: location, length: 0)
             session.selectionDidChange(in: textView)
         }
 
+        let snapshot = await buffer.snapshot()
         #expect(session.revision == 0)
-        #expect(publishedSnapshots == 0)
+        #expect(snapshot.text == "A fairly long document")
     }
 
-    @Test func idleBoundaryPublishesLatestTextOnce() async throws {
-        let session = EditorTextSession(
-            initialText: "Initial",
-            idleDelay: 0.02
+    @Test func acceptedReplacementRangesBuildTheLatestTextOffMain() async {
+        let buffer = EditorDocumentBuffer(initialText: "Initial")
+        let session = EditorTextSession(initialText: "Initial", documentBuffer: buffer)
+
+        session.willApplyEdit(
+            range: NSRange(location: 0, length: 7),
+            replacementText: "First"
         )
-        let textView = UITextView()
-        session.attach(textView)
-        var snapshots: [EditorTextSnapshot] = []
-        session.onIdleSnapshot = { snapshots.append($0) }
+        session.willApplyEdit(
+            range: NSRange(location: 0, length: 5),
+            replacementText: "Second"
+        )
 
-        textView.text = "First"
-        session.textDidChange(in: textView)
-        textView.text = "Second"
-        session.textDidChange(in: textView)
-
-        try await Task.sleep(for: .milliseconds(80))
-
-        #expect(snapshots.count == 1)
-        #expect(snapshots.first?.text == "Second")
-        #expect(snapshots.first?.revision == 2)
+        let snapshot = await buffer.snapshot()
+        #expect(snapshot.text == "Second")
+        #expect(snapshot.revision == 2)
     }
 
     @Test func explicitSnapshotConvertsUnicodeSelectionOnlyOnRequest() {
@@ -79,32 +76,27 @@ struct EditorTextSessionTests {
         #expect(snapshot.selection == TextSelection(location: 2, length: 0))
     }
 
-    @Test func markedTextDefersIdlePublicationUntilCompositionEnds() async throws {
-        let session = EditorTextSession(
-            initialText: "",
-            idleDelay: 0.02
+    @Test func markedTextStyleReplacementsAreMirroredAsOrdinaryDeltas() async {
+        let buffer = EditorDocumentBuffer(initialText: "")
+        let session = EditorTextSession(initialText: "", documentBuffer: buffer)
+
+        session.willApplyEdit(
+            range: NSRange(location: 0, length: 0),
+            replacementText: "typ"
         )
-        let textView = UITextView()
-        session.attach(textView)
-        var snapshots: [EditorTextSnapshot] = []
-        session.onIdleSnapshot = { snapshots.append($0) }
+        session.willApplyEdit(
+            range: NSRange(location: 0, length: 3),
+            replacementText: "typing"
+        )
 
-        textView.setMarkedText("typing", selectedRange: NSRange(location: 6, length: 0))
-        #expect(textView.markedTextRange != nil)
-        session.textDidChange(in: textView)
-
-        try await Task.sleep(for: .milliseconds(70))
-        #expect(snapshots.isEmpty)
-
-        textView.unmarkText()
-        try await Task.sleep(for: .milliseconds(70))
-
-        #expect(snapshots.count == 1)
-        #expect(snapshots.first?.text == "typing")
+        let snapshot = await buffer.snapshot()
+        #expect(snapshot.text == "typing")
+        #expect(snapshot.revision == 2)
     }
 
-    @Test func deliberateReplacementUpdatesNativeAndSnapshotState() {
-        let session = EditorTextSession(initialText: "Old")
+    @Test func deliberateReplacementUpdatesNativeAndBufferedState() async {
+        let buffer = EditorDocumentBuffer(initialText: "Old")
+        let session = EditorTextSession(initialText: "Old", documentBuffer: buffer)
         let textView = UITextView()
         session.attach(textView)
 
@@ -112,12 +104,14 @@ struct EditorTextSessionTests {
             "A👻B",
             selection: TextSelection(location: 2, length: 0)
         )
-        let snapshot = session.snapshot()
+        let nativeSnapshot = session.snapshot()
+        let bufferedSnapshot = await buffer.snapshot()
 
         #expect(textView.text == "A👻B")
         #expect(textView.selectedRange == NSRange(location: 3, length: 0))
-        #expect(snapshot.text == "A👻B")
-        #expect(snapshot.selection == TextSelection(location: 2, length: 0))
-        #expect(snapshot.revision == 1)
+        #expect(nativeSnapshot.text == "A👻B")
+        #expect(nativeSnapshot.selection == TextSelection(location: 2, length: 0))
+        #expect(bufferedSnapshot.text == "A👻B")
+        #expect(bufferedSnapshot.revision == 1)
     }
 }

@@ -29,6 +29,7 @@ struct EditorView: View {
     @State private var text: String
     @State private var selection = TextSelection(location: 0, length: 0)
     @State private var editorSession: EditorTextSession
+    @State private var saveController: EditorSaveController
     @State private var statusIndex: DocumentStatusIndex?
     @State private var pendingCursorOffset: Int?
     @State private var pendingFindRequest: UUID?
@@ -46,15 +47,8 @@ struct EditorView: View {
     @State private var jumpLineText = ""
     @State private var jumpLineError: LineNavigationError?
 
-    @State private var saveTask: Task<Void, Never>?
     @State private var statusTask: Task<Void, Never>?
-    @State private var hasUnsavedChanges = false
-    @State private var lastSavedText: String
     @State private var lastCapturedRevision = 0
-    @State private var lastSavedRevision = 0
-    @State private var saveRequested = false
-    @State private var saveInProgress = false
-    @State private var saveAnnouncementRequested = false
     @State private var pendingFileAction: PendingFileAction?
     @State private var backgroundSaveIdentifier: UIBackgroundTaskIdentifier = .invalid
     @State private var pendingExternalCheck = false
@@ -96,16 +90,25 @@ struct EditorView: View {
         onDocumentURLChange: @escaping (URL) -> Void = { _ in },
         onClose: @escaping (URL) -> Void = { _ in }
     ) {
+        let documentBuffer = EditorDocumentBuffer(initialText: initialText)
         _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
         _editorSession = State(
-            initialValue: EditorTextSession(initialText: initialText)
+            initialValue: EditorTextSession(
+                initialText: initialText,
+                documentBuffer: documentBuffer
+            )
+        )
+        _saveController = State(
+            initialValue: EditorSaveController(
+                initialText: initialText,
+                url: document.url
+            )
         )
         _statusIndex = State(initialValue: nil)
         _pendingCursorOffset = State(
             initialValue: EditorPositionStore.shared.position(for: document.url)
         )
-        _lastSavedText = State(initialValue: initialText)
         _savedName = State(initialValue: document.displayName)
         self.draftName = document.displayName
         self.onDocumentURLChange = onDocumentURLChange
@@ -123,7 +126,7 @@ struct EditorView: View {
         .background(Color.editorBackground)
         .navigationBarHidden(true)
         .onAppear {
-            editorSession.onIdleSnapshot = receiveIdleSnapshot
+            configureEditorPipelines()
             scheduleStatusUpdate(immediately: true)
             // Warm the audio session now, so the cost of activating it is not
             // paid at the moment Render is tapped — that was the burst of
@@ -151,7 +154,10 @@ struct EditorView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                if saveInProgress || hasUnsavedChanges {
+                if saveController.isSaving
+                    || saveController.hasUnsavedChanges(
+                        comparedTo: editorSession.revision
+                    ) {
                     pendingExternalCheck = true
                 } else {
                     Task { await checkForExternalChanges() }
@@ -164,10 +170,9 @@ struct EditorView: View {
         }
         .onDisappear {
             captureCurrentEditorState()
-            saveTask?.cancel()
             statusTask?.cancel()
-            editorSession.cancelIdleSnapshot()
-            editorSession.onIdleSnapshot = nil
+            editorSession.cancelAutosave()
+            editorSession.documentBuffer.setAutosaveHandler(nil)
             persistEditingPosition()
             requestSave(announce: false)
             RenderSound.shared.stop()
@@ -477,7 +482,6 @@ struct EditorView: View {
             smartListsEnabled: settings.smartListsEnabled,
             editorFontDesign: settings.editorFontDesign,
             keyboardShortcutsEnabled: settings.keyboardShortcutsEnabled,
-            onIdleSnapshot: receiveIdleSnapshot,
             pendingCursorOffset: $pendingCursorOffset,
             pendingFindRequest: $pendingFindRequest,
             onIndent: { applyIndent(outdent: false) },
@@ -569,13 +573,6 @@ struct EditorView: View {
         action()
     }
 
-    private func receiveIdleSnapshot(_ snapshot: EditorTextSnapshot) {
-        acceptSnapshot(snapshot)
-        if hasUnsavedChanges {
-            requestSave(announce: false)
-        }
-    }
-
     @discardableResult
     private func captureCurrentEditorState() -> EditorTextSnapshot {
         let snapshot = editorSession.snapshot()
@@ -589,14 +586,12 @@ struct EditorView: View {
 
         text = snapshot.text
         lastCapturedRevision = snapshot.revision
-        hasUnsavedChanges = snapshot.revision != lastSavedRevision
         scheduleStatusUpdate()
     }
 
     private func applyEditorReplacement(_ result: MarkdownInsertionResult) {
         editorSession.replaceText(result.text, selection: result.selection)
         acceptSnapshot(editorSession.snapshot())
-        scheduleAutosave()
     }
 
     private func prepareFileActions() {
@@ -670,6 +665,44 @@ struct EditorView: View {
 
     // MARK: - Saving
 
+    private func configureEditorPipelines() {
+        saveController.currentURL = fileURL
+        saveController.configure { text, url, expectedContents in
+            await store.saveAsynchronously(
+                text: text,
+                to: url,
+                ifUnchangedFrom: expectedContents
+            )
+        }
+        saveController.onConflict = { conflict in
+            switch conflict {
+            case .changed(let externalText):
+                showExternalConflict(.changed(externalText))
+            case .missing:
+                showExternalConflict(.missing)
+            }
+        }
+        saveController.onFailure = { explicitSave in
+            pendingFileAction = nil
+            finishBackgroundSave()
+            if explicitSave { announce("Could not save.") }
+        }
+        saveController.onExplicitSave = {
+            announce(
+                EditorSaveFeedback.explicitSaveMessage(
+                    usesICloudStorage: store.usesICloudStorage
+                )
+            )
+        }
+
+        let controller = saveController
+        editorSession.documentBuffer.setAutosaveHandler { [controller] snapshot in
+            Task { @MainActor in
+                controller.submitAutosave(snapshot)
+            }
+        }
+    }
+
     private func persistEditingPosition() {
         guard let url = fileURL else { return }
         EditorPositionStore.shared.save(
@@ -678,90 +711,26 @@ struct EditorView: View {
         )
     }
 
-    private func scheduleAutosave() {
-        saveTask?.cancel()
-        saveTask = Task {
-            try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled else { return }
-            requestSave(announce: false)
-        }
-    }
-
-    /// Coalesces requests while allowing only one guarded transaction at a
-    /// time. The transaction itself runs on the store's dedicated save actor,
-    /// leaving the main actor available for every text-input event.
+    /// Explicit actions submit the already-captured document. Routine
+    /// autosaves bypass this view and flow straight from the background buffer
+    /// into the non-observable save controller.
     private func requestSave(announce shouldAnnounce: Bool) {
-        saveTask?.cancel()
-        saveRequested = true
-        saveAnnouncementRequested = saveAnnouncementRequested || shouldAnnounce
-        guard !saveInProgress else { return }
+        let snapshot = EditorDocumentBufferSnapshot(
+            text: text,
+            revision: lastCapturedRevision
+        )
+        saveController.submit(
+            snapshot,
+            announce: shouldAnnounce
+        ) {
+            performPendingFileAction()
+            finishBackgroundSave()
 
-        saveInProgress = true
-        Task { await drainSaveRequests() }
-    }
-
-    private func drainSaveRequests() async {
-        while saveRequested {
-            saveRequested = false
-            guard hasUnsavedChanges || saveAnnouncementRequested else { continue }
-            guard let url = fileURL else { break }
-
-            let snapshot = text
-            let expectedContents = lastSavedText
-            let revision = lastCapturedRevision
-
-            switch await store.saveAsynchronously(
-                text: snapshot,
-                to: url,
-                ifUnchangedFrom: expectedContents
-            ) {
-            case .saved:
-                lastSavedText = snapshot
-                lastSavedRevision = revision
-                if revision == editorSession.revision {
-                    hasUnsavedChanges = false
-                } else {
-                    hasUnsavedChanges = true
-                }
-            case .changedOnDisk(let externalText):
-                cancelPendingSaveState()
-                showExternalConflict(.changed(externalText))
-            case .missing:
-                cancelPendingSaveState()
-                showExternalConflict(.missing)
-            case .failed:
-                let shouldAnnounceFailure = saveAnnouncementRequested
-                cancelPendingSaveState()
-                if shouldAnnounceFailure { announce("Could not save.") }
+            if pendingExternalCheck {
+                pendingExternalCheck = false
+                Task { await checkForExternalChanges() }
             }
         }
-
-        saveInProgress = false
-
-        if saveAnnouncementRequested, !hasUnsavedChanges {
-            saveAnnouncementRequested = false
-            announce(
-                EditorSaveFeedback.explicitSaveMessage(
-                    usesICloudStorage: store.usesICloudStorage
-                )
-            )
-        }
-
-        if !hasUnsavedChanges {
-            performPendingFileAction()
-        }
-        finishBackgroundSave()
-
-        if pendingExternalCheck {
-            pendingExternalCheck = false
-            await checkForExternalChanges()
-        }
-    }
-
-    private func cancelPendingSaveState() {
-        saveRequested = false
-        saveAnnouncementRequested = false
-        pendingFileAction = nil
     }
 
     /// Scene transitions may suspend the app shortly after the callback
@@ -809,14 +778,15 @@ struct EditorView: View {
     /// the next keystroke and autosave attempt to reveal the conflict.
     private func checkForExternalChanges() async {
         guard externalConflict == nil,
-              !saveInProgress,
-              !hasUnsavedChanges,
-              editorSession.revision == lastSavedRevision,
+              !saveController.isSaving,
+              !saveController.hasUnsavedChanges(
+                comparedTo: editorSession.revision
+              ),
               let url = fileURL else { return }
 
         switch await store.diskStateAsynchronously(
             for: url,
-            expectedContents: lastSavedText
+            expectedContents: saveController.lastSavedText
         ) {
         case .unchanged:
             break
@@ -830,8 +800,9 @@ struct EditorView: View {
     }
 
     private func showExternalConflict(_ conflict: ExternalConflict) {
-        saveTask?.cancel()
+        saveController.cancelPending()
         pendingFileAction = nil
+        finishBackgroundSave()
         dismissKeyboard()
         externalConflict = conflict
     }
@@ -841,9 +812,10 @@ struct EditorView: View {
         let currentSelection = editorSession.snapshot().selection
         editorSession.replaceText(externalText, selection: currentSelection)
         acceptSnapshot(editorSession.snapshot())
-        lastSavedText = externalText
-        lastSavedRevision = lastCapturedRevision
-        hasUnsavedChanges = false
+        saveController.resetSaved(
+            text: externalText,
+            revision: lastCapturedRevision
+        )
         externalConflict = nil
         scheduleStatusUpdate(immediately: true)
         announce("Reloaded the version from Files.")
@@ -882,11 +854,13 @@ struct EditorView: View {
                 }
             }
             fileURL = newURL
+            saveController.currentURL = newURL
             onDocumentURLChange(newURL)
             savedName = newURL.deletingPathExtension().lastPathComponent
-            lastSavedText = contents
-            lastSavedRevision = lastCapturedRevision
-            hasUnsavedChanges = false
+            saveController.resetSaved(
+                text: contents,
+                revision: lastCapturedRevision
+            )
             externalConflict = nil
             announce("Saved as \(savedName ?? preferredName).")
         }
@@ -899,7 +873,10 @@ struct EditorView: View {
         dismissKeyboard()
         captureCurrentEditorState()
         pendingFileAction = .close
-        guard hasUnsavedChanges || saveInProgress else {
+        guard saveController.isSaving
+                || saveController.hasUnsavedChanges(
+                    comparedTo: editorSession.revision
+                ) else {
             performPendingFileAction()
             return
         }
@@ -914,10 +891,9 @@ struct EditorView: View {
     }
 
     private func closeWithoutSaving() {
-        saveTask?.cancel()
-        editorSession.cancelIdleSnapshot()
+        editorSession.cancelAutosave()
+        saveController.cancelPending()
         pendingFileAction = nil
-        hasUnsavedChanges = false
         externalConflict = nil
         if let fileURL {
             onClose(fileURL)
@@ -931,7 +907,10 @@ struct EditorView: View {
 
         captureCurrentEditorState()
         pendingFileAction = .rename(trimmed)
-        guard hasUnsavedChanges || saveInProgress else {
+        guard saveController.isSaving
+                || saveController.hasUnsavedChanges(
+                    comparedTo: editorSession.revision
+                ) else {
             performPendingFileAction()
             return
         }
@@ -945,6 +924,7 @@ struct EditorView: View {
             EditorPositionStore.shared.migratePosition(from: url, to: renamed)
             libraryMetadata.migrateMetadata(from: url, to: renamed)
             fileURL = renamed
+            saveController.currentURL = renamed
             onDocumentURLChange(renamed)
             savedName = renamed.deletingPathExtension().lastPathComponent
             announce("Renamed to \(savedName ?? trimmed).")
@@ -956,7 +936,10 @@ struct EditorView: View {
     private func duplicate() {
         captureCurrentEditorState()
         pendingFileAction = .duplicate
-        guard hasUnsavedChanges || saveInProgress else {
+        guard saveController.isSaving
+                || saveController.hasUnsavedChanges(
+                    comparedTo: editorSession.revision
+                ) else {
             performPendingFileAction()
             return
         }

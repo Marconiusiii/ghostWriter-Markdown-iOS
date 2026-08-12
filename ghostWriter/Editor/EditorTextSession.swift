@@ -2,10 +2,9 @@
 //  EditorTextSession.swift
 //  ghostWriter
 //
-//  Keeps UITextView authoritative while the writer is typing. Ordinary text
-//  and selection delegate callbacks update only inexpensive native state; a
-//  complete Swift String snapshot is created after an idle boundary or when an
-//  explicit editor action requests one.
+//  Keeps UITextView authoritative while the writer is typing. Ordinary edits
+//  are mirrored as small UTF-16 operations to a background document buffer. A
+//  complete UIKit snapshot is created only when an explicit action requests it.
 //
 
 import Foundation
@@ -22,22 +21,17 @@ final class EditorTextSession {
     private weak var textView: UITextView?
     private var storedText: String
     private var storedSelectedRange = NSRange(location: 0, length: 0)
-    private var idleTimer: Timer?
-    private let idleDelay: TimeInterval
+    let documentBuffer: EditorDocumentBuffer
 
     private(set) var revision = 0
-    var onIdleSnapshot: ((EditorTextSnapshot) -> Void)?
 
     init(
         initialText: String,
-        idleDelay: TimeInterval = 1
+        documentBuffer: EditorDocumentBuffer? = nil
     ) {
         self.storedText = initialText
-        self.idleDelay = idleDelay
-    }
-
-    deinit {
-        idleTimer?.invalidate()
+        self.documentBuffer = documentBuffer
+            ?? EditorDocumentBuffer(initialText: initialText)
     }
 
     func attach(_ textView: UITextView) {
@@ -46,12 +40,21 @@ final class EditorTextSession {
         storedSelectedRange = textView.selectedRange
     }
 
-    /// Called by UITextViewDelegate for an ordinary native edit. This must stay
-    /// constant-time with respect to document length.
-    func textDidChange(in textView: UITextView) {
+    /// Called before UIKit applies an accepted native edit. This performs no
+    /// complete document read and remains constant-time with document length.
+    func willApplyEdit(range: NSRange, replacementText: String) {
         revision &+= 1
+        documentBuffer.enqueue(
+            EditorDocumentEdit(
+                range: range,
+                replacementText: replacementText,
+                revision: revision
+            )
+        )
+    }
+
+    func textDidChange(in textView: UITextView) {
         storedSelectedRange = textView.selectedRange
-        scheduleIdleSnapshot()
     }
 
     /// Selection changes can be frequent during Braille composition. Store the
@@ -60,12 +63,17 @@ final class EditorTextSession {
         storedSelectedRange = textView.selectedRange
     }
 
-    /// Used only at an idle or explicit action boundary.
+    /// Used only at an explicit action boundary.
     func snapshot() -> EditorTextSnapshot {
         let text = textView?.text ?? storedText
         let range = textView?.selectedRange ?? storedSelectedRange
         storedText = text
         storedSelectedRange = range
+        documentBuffer.replace(
+            text: text,
+            revision: revision,
+            schedulesAutosave: false
+        )
         return EditorTextSnapshot(
             text: text,
             selection: Self.selection(for: range, in: text),
@@ -76,7 +84,6 @@ final class EditorTextSession {
     /// Applies a deliberate transformation such as Indent, Insert, or conflict
     /// reload. This is never used to mirror ordinary typing back into UIKit.
     func replaceText(_ text: String, selection: TextSelection) {
-        idleTimer?.invalidate()
         storedText = text
         revision &+= 1
         let range = Self.utf16Range(for: selection, in: text)
@@ -84,35 +91,19 @@ final class EditorTextSession {
         textView?.text = text
         textView?.selectedRange = range
         textView?.scrollRangeToVisible(range)
+        documentBuffer.replace(
+            text: text,
+            revision: revision,
+            schedulesAutosave: true
+        )
     }
 
     func updateNativeSelection(_ range: NSRange) {
         storedSelectedRange = range
     }
 
-    func cancelIdleSnapshot() {
-        idleTimer?.invalidate()
-    }
-
-    private func scheduleIdleSnapshot() {
-        idleTimer?.invalidate()
-        idleTimer = Timer.scheduledTimer(
-            withTimeInterval: idleDelay,
-            repeats: false
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                // Never inspect or publish a document while a multi-stage
-                // input method still owns marked text. Try again after it
-                // settles.
-                if self.textView?.markedTextRange != nil {
-                    self.scheduleIdleSnapshot()
-                    return
-                }
-
-                self.onIdleSnapshot?(self.snapshot())
-            }
-        }
+    func cancelAutosave() {
+        documentBuffer.cancelAutosave()
     }
 
     static func selection(for range: NSRange, in text: String) -> TextSelection {

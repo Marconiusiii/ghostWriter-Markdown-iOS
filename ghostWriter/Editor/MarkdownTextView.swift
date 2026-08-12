@@ -21,8 +21,6 @@ struct MarkdownTextView: UIViewRepresentable {
     var smartListsEnabled: Bool
     var editorFontDesign: EditorFontDesign
     var keyboardShortcutsEnabled: Bool
-    var onIdleSnapshot: (EditorTextSnapshot) -> Void
-
     /// Set by the parent to move the cursor, for example from the outline.
     /// Cleared once applied.
     @Binding var pendingCursorOffset: Int?
@@ -78,7 +76,6 @@ struct MarkdownTextView: UIViewRepresentable {
         // feedback remain the text view's own.
         textView.accessibilityLabel = "Markdown Editor"
 
-        session.onIdleSnapshot = onIdleSnapshot
         session.attach(textView)
         textView.inputAccessoryView = makeAccessoryToolbar(coordinator: context.coordinator)
         context.coordinator.textView = textView
@@ -129,8 +126,6 @@ struct MarkdownTextView: UIViewRepresentable {
 
     func updateUIView(_ textView: MarkdownEditorTextView, context: Context) {
         context.coordinator.parent = self
-        session.onIdleSnapshot = onIdleSnapshot
-
         if textView.appKeyboardShortcutsEnabled != keyboardShortcutsEnabled {
             textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
         }
@@ -186,13 +181,7 @@ struct MarkdownTextView: UIViewRepresentable {
                 UIAccessibility.post(notification: .screenChanged, argument: textView)
             }
 
-            DispatchQueue.main.async {
-                // Assigning selectedRange programmatically does not reliably
-                // invoke UITextViewDelegate. Publish one deliberate snapshot
-                // for the Status Bar and action state after the jump.
-                self.onIdleSnapshot(self.session.snapshot())
-                self.pendingCursorOffset = nil
-            }
+            DispatchQueue.main.async { self.pendingCursorOffset = nil }
         }
     }
 
