@@ -11,7 +11,7 @@ import Foundation
 
 /// A selection expressed as a character range, mirroring what the text view
 /// reports but without depending on UIKit.
-struct TextSelection: Equatable {
+nonisolated struct TextSelection: Equatable, Sendable {
     var location: Int
     var length: Int
 

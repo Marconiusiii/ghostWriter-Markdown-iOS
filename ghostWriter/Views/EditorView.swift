@@ -28,6 +28,7 @@ struct EditorView: View {
     @State private var fileURL: URL?
     @State private var text: String
     @State private var selection = TextSelection(location: 0, length: 0)
+    @State private var editorSession: EditorTextSession
     @State private var statusIndex: DocumentStatusIndex?
     @State private var pendingCursorOffset: Int?
     @State private var pendingFindRequest: UUID?
@@ -49,8 +50,8 @@ struct EditorView: View {
     @State private var statusTask: Task<Void, Never>?
     @State private var hasUnsavedChanges = false
     @State private var lastSavedText: String
-    @State private var suppressNextTextChange = false
-    @State private var textRevision = 0
+    @State private var lastCapturedRevision = 0
+    @State private var lastSavedRevision = 0
     @State private var saveRequested = false
     @State private var saveInProgress = false
     @State private var saveAnnouncementRequested = false
@@ -73,6 +74,7 @@ struct EditorView: View {
         case render
         case insert
         case fileActions
+        case status
     }
 
     private enum PendingFileAction {
@@ -96,6 +98,9 @@ struct EditorView: View {
     ) {
         _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
+        _editorSession = State(
+            initialValue: EditorTextSession(initialText: initialText)
+        )
         _statusIndex = State(initialValue: nil)
         _pendingCursorOffset = State(
             initialValue: EditorPositionStore.shared.position(for: document.url)
@@ -117,18 +122,8 @@ struct EditorView: View {
         }
         .background(Color.editorBackground)
         .navigationBarHidden(true)
-        .onChange(of: text) { _, _ in
-            if suppressNextTextChange {
-                suppressNextTextChange = false
-                scheduleStatusUpdate()
-                return
-            }
-            textRevision += 1
-            scheduleStatusUpdate()
-            hasUnsavedChanges = true
-            scheduleAutosave()
-        }
         .onAppear {
+            editorSession.onIdleSnapshot = receiveIdleSnapshot
             scheduleStatusUpdate(immediately: true)
             // Warm the audio session now, so the cost of activating it is not
             // paid at the moment Render is tapped — that was the burst of
@@ -149,7 +144,9 @@ struct EditorView: View {
             // reaches File Actions so it is already gone before the native
             // menu opens.
             if element == .fileActions {
-                dismissKeyboard()
+                prepareFileActions()
+            } else if element == .status {
+                captureCurrentEditorState()
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -160,13 +157,17 @@ struct EditorView: View {
                     Task { await checkForExternalChanges() }
                 }
             } else {
+                captureCurrentEditorState()
                 persistEditingPosition()
                 requestBackgroundSave()
             }
         }
         .onDisappear {
+            captureCurrentEditorState()
             saveTask?.cancel()
             statusTask?.cancel()
+            editorSession.cancelIdleSnapshot()
+            editorSession.onIdleSnapshot = nil
             persistEditingPosition()
             requestSave(announce: false)
             RenderSound.shared.stop()
@@ -354,6 +355,7 @@ struct EditorView: View {
 
     private var outlineButton: some View {
         Button {
+            captureCurrentEditorState()
             present { showingOutline = true }
         } label: {
             Label("Outline", systemImage: "list.bullet.indent")
@@ -415,6 +417,7 @@ struct EditorView: View {
             Divider()
 
             Button {
+                captureCurrentEditorState()
                 requestSave(announce: true)
             } label: {
                 Label("Save Now", systemImage: "arrow.down.doc")
@@ -461,7 +464,7 @@ struct EditorView: View {
             TapGesture().onEnded {
                 // Preserve Menu's native activation while dismissing the
                 // editor keyboard for direct-touch users.
-                dismissKeyboard()
+                prepareFileActions()
             }
         )
     }
@@ -470,11 +473,11 @@ struct EditorView: View {
 
     private var editor: some View {
         MarkdownTextView(
-            text: $text,
-            selection: $selection,
+            session: editorSession,
             smartListsEnabled: settings.smartListsEnabled,
             editorFontDesign: settings.editorFontDesign,
             keyboardShortcutsEnabled: settings.keyboardShortcutsEnabled,
+            onIdleSnapshot: receiveIdleSnapshot,
             pendingCursorOffset: $pendingCursorOffset,
             pendingFindRequest: $pendingFindRequest,
             onIndent: { applyIndent(outdent: false) },
@@ -495,6 +498,7 @@ struct EditorView: View {
             .padding(.vertical, 10)
             .background(Color.panelBackground)
             .accessibilityIdentifier("editor-status-bar")
+            .accessibilityFocused($focusedElement, equals: .status)
     }
 
     private var statusBarText: String {
@@ -565,25 +569,65 @@ struct EditorView: View {
         action()
     }
 
+    private func receiveIdleSnapshot(_ snapshot: EditorTextSnapshot) {
+        acceptSnapshot(snapshot)
+        if hasUnsavedChanges {
+            requestSave(announce: false)
+        }
+    }
+
+    @discardableResult
+    private func captureCurrentEditorState() -> EditorTextSnapshot {
+        let snapshot = editorSession.snapshot()
+        acceptSnapshot(snapshot)
+        return snapshot
+    }
+
+    private func acceptSnapshot(_ snapshot: EditorTextSnapshot) {
+        selection = snapshot.selection
+        guard snapshot.revision != lastCapturedRevision else { return }
+
+        text = snapshot.text
+        lastCapturedRevision = snapshot.revision
+        hasUnsavedChanges = snapshot.revision != lastSavedRevision
+        scheduleStatusUpdate()
+    }
+
+    private func applyEditorReplacement(_ result: MarkdownInsertionResult) {
+        editorSession.replaceText(result.text, selection: result.selection)
+        acceptSnapshot(editorSession.snapshot())
+        scheduleAutosave()
+    }
+
+    private func prepareFileActions() {
+        dismissKeyboard()
+        captureCurrentEditorState()
+    }
+
     private func render() {
         focusRequestGate.invalidate()
         dismissKeyboard()
+        captureCurrentEditorState()
         if settings.renderSoundEnabled { RenderSound.shared.play() }
         requestSave(announce: false)
         showingRendered = true
     }
 
     private func applyIndent(outdent: Bool) {
+        captureCurrentEditorState()
         let result = outdent
             ? Indentation.outdent(text: text, selection: selection, unit: settings.indentUnit)
             : Indentation.indent(text: text, selection: selection, unit: settings.indentUnit)
 
-        text = result.text
+        applyEditorReplacement(
+            MarkdownInsertionResult(text: result.text, selection: result.selection)
+        )
         pendingCursorOffset = result.selection.location
         UIAccessibility.post(notification: .announcement, argument: result.announcement)
     }
 
     private func beginInsertion() {
+        captureCurrentEditorState()
         insertionSelection = selection
         insertionInitialText = MarkdownInsertion.selectedText(
             in: text,
@@ -606,12 +650,12 @@ struct EditorView: View {
     private func applyInsertion(_ result: MarkdownInsertionResult) {
         focusRequestGate.invalidate()
         dismissKeyboard()
-        text = result.text
-        selection = result.selection
+        applyEditorReplacement(result)
         pendingCursorOffset = result.selection.location
     }
 
     private func jumpToLine() {
+        captureCurrentEditorState()
         switch LineNavigation.destination(for: jumpLineText, in: text) {
         case .success(let offset):
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -664,7 +708,7 @@ struct EditorView: View {
 
             let snapshot = text
             let expectedContents = lastSavedText
-            let revision = textRevision
+            let revision = lastCapturedRevision
 
             switch await store.saveAsynchronously(
                 text: snapshot,
@@ -673,11 +717,11 @@ struct EditorView: View {
             ) {
             case .saved:
                 lastSavedText = snapshot
-                if revision == textRevision {
+                lastSavedRevision = revision
+                if revision == editorSession.revision {
                     hasUnsavedChanges = false
                 } else {
                     hasUnsavedChanges = true
-                    saveRequested = true
                 }
             case .changedOnDisk(let externalText):
                 cancelPendingSaveState()
@@ -744,7 +788,7 @@ struct EditorView: View {
         guard settings.statusBarEnabled else { return }
         statusTask?.cancel()
         let snapshot = text
-        let revision = textRevision
+        let revision = lastCapturedRevision
 
         statusTask = Task {
             if !immediately {
@@ -756,7 +800,7 @@ struct EditorView: View {
                 DocumentStatusIndex(text: snapshot)
             }.value
 
-            guard !Task.isCancelled, revision == textRevision else { return }
+            guard !Task.isCancelled, revision == lastCapturedRevision else { return }
             statusIndex = index
         }
     }
@@ -767,6 +811,7 @@ struct EditorView: View {
         guard externalConflict == nil,
               !saveInProgress,
               !hasUnsavedChanges,
+              editorSession.revision == lastSavedRevision,
               let url = fileURL else { return }
 
         switch await store.diskStateAsynchronously(
@@ -793,15 +838,19 @@ struct EditorView: View {
 
     private func reloadExternalVersion(_ externalText: String) {
         dismissKeyboard()
-        suppressNextTextChange = true
-        text = externalText
+        let currentSelection = editorSession.snapshot().selection
+        editorSession.replaceText(externalText, selection: currentSelection)
+        acceptSnapshot(editorSession.snapshot())
         lastSavedText = externalText
+        lastSavedRevision = lastCapturedRevision
         hasUnsavedChanges = false
         externalConflict = nil
+        scheduleStatusUpdate(immediately: true)
         announce("Reloaded the version from Files.")
     }
 
     private func saveCurrentTextAsNewDocument(preferredName: String) {
+        captureCurrentEditorState()
         let previousURL = fileURL
         let contents = text
         let replacesMissingDocument: Bool
@@ -836,6 +885,7 @@ struct EditorView: View {
             onDocumentURLChange(newURL)
             savedName = newURL.deletingPathExtension().lastPathComponent
             lastSavedText = contents
+            lastSavedRevision = lastCapturedRevision
             hasUnsavedChanges = false
             externalConflict = nil
             announce("Saved as \(savedName ?? preferredName).")
@@ -846,6 +896,8 @@ struct EditorView: View {
     /// still has local work outstanding. That would make Cancel on a conflict
     /// alert meaningless and discard the in-memory version when the view closes.
     private func closeEditor() {
+        dismissKeyboard()
+        captureCurrentEditorState()
         pendingFileAction = .close
         guard hasUnsavedChanges || saveInProgress else {
             performPendingFileAction()
@@ -863,6 +915,7 @@ struct EditorView: View {
 
     private func closeWithoutSaving() {
         saveTask?.cancel()
+        editorSession.cancelIdleSnapshot()
         pendingFileAction = nil
         hasUnsavedChanges = false
         externalConflict = nil
@@ -876,6 +929,7 @@ struct EditorView: View {
         let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        captureCurrentEditorState()
         pendingFileAction = .rename(trimmed)
         guard hasUnsavedChanges || saveInProgress else {
             performPendingFileAction()
@@ -900,6 +954,7 @@ struct EditorView: View {
     }
 
     private func duplicate() {
+        captureCurrentEditorState()
         pendingFileAction = .duplicate
         guard hasUnsavedChanges || saveInProgress else {
             performPendingFileAction()

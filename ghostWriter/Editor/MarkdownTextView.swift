@@ -16,12 +16,12 @@ import SwiftUI
 import UIKit
 
 struct MarkdownTextView: UIViewRepresentable {
-    @Binding var text: String
-    @Binding var selection: TextSelection
+    let session: EditorTextSession
 
     var smartListsEnabled: Bool
     var editorFontDesign: EditorFontDesign
     var keyboardShortcutsEnabled: Bool
+    var onIdleSnapshot: (EditorTextSnapshot) -> Void
 
     /// Set by the parent to move the cursor, for example from the outline.
     /// Cleared once applied.
@@ -78,7 +78,8 @@ struct MarkdownTextView: UIViewRepresentable {
         // feedback remain the text view's own.
         textView.accessibilityLabel = "Markdown Editor"
 
-        textView.text = text
+        session.onIdleSnapshot = onIdleSnapshot
+        session.attach(textView)
         textView.inputAccessoryView = makeAccessoryToolbar(coordinator: context.coordinator)
         context.coordinator.textView = textView
 
@@ -128,6 +129,7 @@ struct MarkdownTextView: UIViewRepresentable {
 
     func updateUIView(_ textView: MarkdownEditorTextView, context: Context) {
         context.coordinator.parent = self
+        session.onIdleSnapshot = onIdleSnapshot
 
         if textView.appKeyboardShortcutsEnabled != keyboardShortcutsEnabled {
             textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
@@ -139,14 +141,6 @@ struct MarkdownTextView: UIViewRepresentable {
         )
         if textView.font?.fontName != desiredFont.fontName {
             textView.font = desiredFont
-        }
-
-        // Never write to the text view while it is being typed into. Assigning
-        // `.text` resets composition state, which is precisely what breaks
-        // braille screen input and dictation mid-word. External updates are
-        // only applied when the view does not have focus.
-        if textView.text != text, !textView.isFirstResponder {
-            textView.text = text
         }
 
         if let request = pendingFindRequest {
@@ -182,6 +176,7 @@ struct MarkdownTextView: UIViewRepresentable {
 
             textView.selectedRange = target
             textView.scrollRangeToVisible(target)
+            session.updateNativeSelection(target)
 
             // Then hand VoiceOver focus to the editor explicitly. The sheet
             // dismissal moves focus on its own, so this has to happen after
@@ -193,10 +188,9 @@ struct MarkdownTextView: UIViewRepresentable {
 
             DispatchQueue.main.async {
                 // Assigning selectedRange programmatically does not reliably
-                // invoke UITextViewDelegate. Mirror the same Character offset
-                // into SwiftUI so the Status Bar updates with the jump instead
-                // of waiting for the next manual cursor movement.
-                self.selection = synchronizedSelection
+                // invoke UITextViewDelegate. Publish one deliberate snapshot
+                // for the Status Bar and action state after the jump.
+                self.onIdleSnapshot(self.session.snapshot())
                 self.pendingCursorOffset = nil
             }
         }
@@ -217,10 +211,7 @@ struct MarkdownTextView: UIViewRepresentable {
 
     /// Converts a Character offset to the UTF-16 offset UIKit expects.
     static func utf16Offset(for characterOffset: Int, in text: String) -> Int {
-        guard characterOffset > 0 else { return 0 }
-        guard characterOffset < text.count else { return text.utf16.count }
-        let index = text.index(text.startIndex, offsetBy: characterOffset)
-        return text.utf16.distance(from: text.utf16.startIndex, to: index)
+        EditorTextSession.utf16Offset(for: characterOffset, in: text)
     }
 
     /// Uses the system's already-scaled preferred body descriptor and changes

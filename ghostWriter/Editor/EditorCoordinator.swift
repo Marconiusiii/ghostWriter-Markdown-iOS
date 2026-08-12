@@ -22,9 +22,6 @@ import UIKit
 final class EditorCoordinator: NSObject, UITextViewDelegate {
     var parent: MarkdownTextView
     weak var textView: UITextView?
-    private var editGeneration = 0
-    private var lastSyncedEditGeneration = -1
-    private var lastSyncedRange: NSRange?
 
     init(_ parent: MarkdownTextView) {
         self.parent = parent
@@ -93,7 +90,6 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
             announce(continuationAnnouncement(for: marker))
         }
 
-        parent.text = textView.text ?? ""
         return false
     }
 
@@ -131,48 +127,10 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     }
 
     func textViewDidChange(_ textView: UITextView) {
-        editGeneration += 1
-        parent.text = textView.text ?? ""
-        syncSelection(textView)
+        parent.session.textDidChange(in: textView)
     }
 
     func textViewDidChangeSelection(_ textView: UITextView) {
-        syncSelection(textView)
-    }
-
-    /// Mirrors the selection out to SwiftUI so the indent controls know what to
-    /// operate on. Nothing is spoken and nothing is written back.
-    private func syncSelection(_ textView: UITextView) {
-        let text = textView.text ?? ""
-        let range = textView.selectedRange
-        guard editGeneration != lastSyncedEditGeneration
-                || range != lastSyncedRange else { return }
-
-        let location = characterOffset(for: range.location, in: text)
-        let end = characterOffset(for: range.location + range.length, in: text)
-        parent.selection = TextSelection(location: location, length: max(0, end - location))
-        lastSyncedEditGeneration = editGeneration
-        lastSyncedRange = range
-    }
-
-    // MARK: - Offset conversion
-
-    /// UIKit reports offsets in UTF-16 code units; our editing helpers work in
-    /// Characters. These differ as soon as a document contains an emoji or a
-    /// combining accent, so the crossing is done explicitly.
-    private func characterOffset(for utf16Offset: Int, in text: String) -> Int {
-        guard utf16Offset > 0 else { return 0 }
-        let utf16 = text.utf16
-        guard utf16Offset < utf16.count else { return text.count }
-
-        guard let index = utf16.index(
-            utf16.startIndex,
-            offsetBy: utf16Offset,
-            limitedBy: utf16.endIndex
-        ), let stringIndex = String.Index(index, within: text) else {
-            return text.count
-        }
-
-        return text.distance(from: text.startIndex, to: stringIndex)
+        parent.session.selectionDidChange(in: textView)
     }
 }
