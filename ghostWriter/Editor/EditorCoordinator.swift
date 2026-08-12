@@ -23,6 +23,7 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     var parent: MarkdownTextView
     weak var textView: UITextView?
     private var isApplyingSmartListEdit = false
+    private var pendingMarkedListReturn: DeferredListReturnPlan?
 
     init(_ parent: MarkdownTextView) {
         self.parent = parent
@@ -57,9 +58,30 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     ) -> Bool {
         if isApplyingSmartListEdit { return true }
 
-        // Record only the small edit UIKit is about to accept. Marked text is
-        // deliberately treated like every other native edit: the text view
-        // remains untouched while its accepted deltas are mirrored off-main.
+        // A prior marked-text plan must never leak into a later edit if UIKit
+        // did not deliver the expected change callback.
+        pendingMarkedListReturn = nil
+
+        if textView.markedTextRange != nil,
+           parent.smartListsEnabled,
+           range.length == 0,
+           let plan = ListContinuation.deferredReturnPlan(
+            in: textView.text ?? "",
+            utf16Cursor: range.location,
+            replacementText: replacementText
+           ) {
+            // Let Braille Screen Input commit its marked text and Return using
+            // UIKit's native path. The minimal list edit follows in
+            // textViewDidChange, after composition has completed.
+            pendingMarkedListReturn = plan
+            parent.session.willApplyEdit(
+                range: range,
+                replacementText: replacementText
+            )
+            return true
+        }
+
+        // Marked text other than a list Return remains completely native.
         if textView.markedTextRange != nil {
             parent.session.willApplyEdit(
                 range: range,
@@ -69,7 +91,7 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         }
 
         guard parent.smartListsEnabled,
-              replacementText == "\n",
+              ListContinuation.isReturn(replacementText),
               range.length == 0 else {
             parent.session.willApplyEdit(
                 range: range,
@@ -85,7 +107,7 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         // what UIKit hands us.
         let lineRange = nsText.lineRange(for: NSRange(location: range.location, length: 0))
         var line = nsText.substring(with: lineRange)
-        if line.hasSuffix("\n") { line.removeLast() }
+        while line.last == "\n" || line.last == "\r" { line.removeLast() }
 
         guard let marker = ListMarker(line: line) else {
             parent.session.willApplyEdit(
@@ -156,10 +178,37 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     }
 
     func textViewDidChange(_ textView: UITextView) {
+        applyPendingMarkedListReturn(in: textView)
         parent.session.textDidChange(in: textView)
     }
 
     func textViewDidChangeSelection(_ textView: UITextView) {
         parent.session.selectionDidChange(in: textView)
+    }
+
+    private func applyPendingMarkedListReturn(in textView: UITextView) {
+        guard let plan = pendingMarkedListReturn else { return }
+        pendingMarkedListReturn = nil
+        guard let edit = ListContinuation.editAfterNativeReturn(
+            plan,
+            in: textView.text ?? "",
+            selectedRange: textView.selectedRange
+        ), let textRange = textRange(
+            in: textView,
+            from: edit.range
+        ) else { return }
+
+        isApplyingSmartListEdit = true
+        textView.replace(textRange, withText: edit.replacementText)
+        textView.selectedRange = edit.selectedRange
+        isApplyingSmartListEdit = false
+        parent.session.updateNativeSelection(edit.selectedRange)
+
+        switch plan.action {
+        case .continueList:
+            announce(continuationAnnouncement(for: plan.marker))
+        case .endList:
+            announce("List ended")
+        }
     }
 }

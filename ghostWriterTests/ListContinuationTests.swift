@@ -6,6 +6,7 @@
 //  constantly while typing, so they are worth pinning down precisely.
 //
 
+import Foundation
 import Testing
 @testable import ghostWriter
 
@@ -87,6 +88,109 @@ struct ListMarkerTests {
 
 struct ListContinuationTests {
 
+    @Test func markedTextReturnContinuesAfterNativeLineBreak() throws {
+        let original = "* First"
+        let plan = try #require(
+            ListContinuation.deferredReturnPlan(
+                in: original,
+                utf16Cursor: original.utf16.count,
+                replacementText: "\n"
+            )
+        )
+        let nativeText = original + "\n"
+        let edit = try #require(
+            ListContinuation.editAfterNativeReturn(
+                plan,
+                in: nativeText,
+                selectedRange: NSRange(
+                    location: nativeText.utf16.count,
+                    length: 0
+                )
+            )
+        )
+
+        #expect(applying(edit, to: nativeText) == "* First\n* ")
+    }
+
+    @Test func secondMarkedTextReturnEndsTheEmptyList() throws {
+        let original = "* First\n* "
+        let plan = try #require(
+            ListContinuation.deferredReturnPlan(
+                in: original,
+                utf16Cursor: original.utf16.count,
+                replacementText: "\n"
+            )
+        )
+        let nativeText = original + "\n"
+        let edit = try #require(
+            ListContinuation.editAfterNativeReturn(
+                plan,
+                in: nativeText,
+                selectedRange: NSRange(
+                    location: nativeText.utf16.count,
+                    length: 0
+                )
+            )
+        )
+
+        #expect(applying(edit, to: nativeText) == "* First\n")
+        #expect(edit.selectedRange == NSRange(location: 8, length: 0))
+    }
+
+    @Test func deferredReturnSupportsOrderedNestedAndTaskLists() throws {
+        let cases = [
+            ("2. Item", "2. Item\n3. "),
+            ("  * Nested", "  * Nested\n  * "),
+            ("- [x] Done", "- [x] Done\n- [ ] ")
+        ]
+
+        for (original, expected) in cases {
+            let plan = try #require(
+                ListContinuation.deferredReturnPlan(
+                    in: original,
+                    utf16Cursor: original.utf16.count,
+                    replacementText: "\r"
+                )
+            )
+            // UITextView normalizes the Return representation to a line feed
+            // in its stored text even when the input callback reports CR.
+            let nativeText = original + "\n"
+            let edit = try #require(
+                ListContinuation.editAfterNativeReturn(
+                    plan,
+                    in: nativeText,
+                    selectedRange: NSRange(
+                        location: nativeText.utf16.count,
+                        length: 0
+                    )
+                )
+            )
+            #expect(applying(edit, to: nativeText) == expected)
+        }
+    }
+
+    @Test func deferredPlanCannotModifyAnUnexpectedNativeResult() throws {
+        let original = "* First\n* "
+        let plan = try #require(
+            ListContinuation.deferredReturnPlan(
+                in: original,
+                utf16Cursor: original.utf16.count,
+                replacementText: "\n"
+            )
+        )
+
+        #expect(
+            ListContinuation.editAfterNativeReturn(
+                plan,
+                in: original + "x",
+                selectedRange: NSRange(
+                    location: original.utf16.count + 1,
+                    length: 0
+                )
+            ) == nil
+        )
+    }
+
     @Test func continuesUnorderedList() {
         let text = "- First"
         let result = ListContinuation.handleReturn(in: text, cursor: text.count)
@@ -144,6 +248,18 @@ struct ListContinuationTests {
 
     @Test func handlesCursorAtStartOfText() {
         #expect(ListContinuation.handleReturn(in: "", cursor: 0) == nil)
+    }
+
+    private func applying(
+        _ edit: DeferredListReturnEdit,
+        to text: String
+    ) -> String {
+        let updated = NSMutableString(string: text)
+        updated.replaceCharacters(
+            in: edit.range,
+            with: edit.replacementText
+        )
+        return updated as String
     }
 }
 

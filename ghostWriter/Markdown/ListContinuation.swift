@@ -122,7 +122,115 @@ struct EditResult: Equatable {
     let cursor: Int
 }
 
+/// A list action captured before a marked-text Return is accepted by UIKit.
+/// Braille Screen Input must be allowed to finish its native composition first;
+/// the corresponding minimal edit is derived from this plan afterward.
+nonisolated struct DeferredListReturnPlan: Equatable, Sendable {
+    nonisolated enum Action: Equatable, Sendable {
+        case continueList(prefix: String)
+        case endList(markerRange: NSRange, markerText: String)
+    }
+
+    let action: Action
+    let marker: ListMarker
+}
+
+nonisolated struct DeferredListReturnEdit: Equatable, Sendable {
+    let range: NSRange
+    let replacementText: String
+    let selectedRange: NSRange
+}
+
 enum ListContinuation {
+    static func isReturn(_ replacementText: String) -> Bool {
+        replacementText == "\n"
+            || replacementText == "\r"
+            || replacementText == "\r\n"
+    }
+
+    /// Captures the list operation before UIKit accepts a Return that is also
+    /// committing marked text. The plan contains no whole-document replacement;
+    /// it is resolved into one minimal edit after the native change completes.
+    static func deferredReturnPlan(
+        in text: String,
+        utf16Cursor: Int,
+        replacementText: String
+    ) -> DeferredListReturnPlan? {
+        guard isReturn(replacementText) else { return nil }
+        let nsText = text as NSString
+        let safeCursor = min(max(0, utf16Cursor), nsText.length)
+        let lineRange = nsText.lineRange(
+            for: NSRange(location: safeCursor, length: 0)
+        )
+        var line = nsText.substring(with: lineRange)
+        while line.last == "\n" || line.last == "\r" {
+            line.removeLast()
+        }
+        guard let marker = ListMarker(line: line) else { return nil }
+
+        let action: DeferredListReturnPlan.Action
+        if marker.content.trimmingCharacters(in: .whitespaces).isEmpty {
+            action = .endList(
+                markerRange: NSRange(
+                    location: lineRange.location,
+                    length: line.utf16.count
+                ),
+                markerText: line
+            )
+        } else {
+            action = .continueList(prefix: marker.nextItemPrefix)
+        }
+        return DeferredListReturnPlan(action: action, marker: marker)
+    }
+
+    /// Resolves a marked-text plan after UIKit has inserted the native line
+    /// break. Validation prevents a delayed plan from modifying unrelated text
+    /// if the native result is not the change that was expected.
+    static func editAfterNativeReturn(
+        _ plan: DeferredListReturnPlan,
+        in text: String,
+        selectedRange: NSRange
+    ) -> DeferredListReturnEdit? {
+        guard selectedRange.length == 0 else { return nil }
+        let nsText = text as NSString
+
+        switch plan.action {
+        case .continueList(let prefix):
+            guard lineBreakLength(
+                before: selectedRange.location,
+                in: nsText
+            ) != nil else { return nil }
+            return DeferredListReturnEdit(
+                range: selectedRange,
+                replacementText: prefix,
+                selectedRange: NSRange(
+                    location: selectedRange.location + prefix.utf16.count,
+                    length: 0
+                )
+            )
+
+        case .endList(let markerRange, let markerText):
+            guard markerRange.location <= nsText.length,
+                  markerRange.length <= nsText.length - markerRange.location,
+                  nsText.substring(with: markerRange) == markerText,
+                  let breakLength = lineBreakLength(
+                    at: markerRange.location + markerRange.length,
+                    in: nsText
+                  ) else { return nil }
+            return DeferredListReturnEdit(
+                range: NSRange(
+                    location: markerRange.location,
+                    length: markerRange.length + breakLength
+                ),
+                replacementText: "",
+                selectedRange: NSRange(
+                    location: markerRange.location,
+                    length: 0
+                )
+            )
+        }
+    }
+
     /// Handles Return at `cursor`. Returns nil when the line is not a list item,
     /// in which case the caller should let the text view insert a plain newline.
     ///
@@ -213,5 +321,37 @@ enum ListContinuation {
             index += 1
         }
         return index
+    }
+
+    private static func lineBreakLength(
+        before location: Int,
+        in text: NSString
+    ) -> Int? {
+        guard location > 0 else { return nil }
+        if location >= 2,
+           text.substring(with: NSRange(location: location - 2, length: 2))
+            == "\r\n" {
+            return 2
+        }
+        let character = text.substring(
+            with: NSRange(location: location - 1, length: 1)
+        )
+        return character == "\n" || character == "\r" ? 1 : nil
+    }
+
+    private static func lineBreakLength(
+        at location: Int,
+        in text: NSString
+    ) -> Int? {
+        guard location < text.length else { return nil }
+        if location + 1 < text.length,
+           text.substring(with: NSRange(location: location, length: 2))
+            == "\r\n" {
+            return 2
+        }
+        let character = text.substring(
+            with: NSRange(location: location, length: 1)
+        )
+        return character == "\n" || character == "\r" ? 1 : nil
     }
 }

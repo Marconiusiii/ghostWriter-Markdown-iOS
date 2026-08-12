@@ -12,6 +12,33 @@ import XCTest
 final class ghostWriterUITests: XCTestCase {
 
     @MainActor
+    func testSecondReturnExitsAutomaticList() throws {
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-documentStorageLocation", "onDevice",
+            "-appLaunchBehavior", "showLibrary",
+            "-newDocumentCreationMode", "askForTitle",
+            "-welcomeExperienceCompleted", "YES",
+            "-welcomeDocumentInstalled", "YES"
+        ]
+        app.launch()
+
+        app.buttons["New document"].tap()
+        let nameField = app.textFields["Document name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 10))
+        nameField.tap()
+        nameField.typeText("List Return \(UUID().uuidString)")
+        app.buttons["Create"].tap()
+
+        let editor = app.textViews["Markdown Editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        editor.typeText("* First\n\nParagraph")
+
+        XCTAssertEqual(editor.value as? String, "* First\nParagraph")
+    }
+
+    @MainActor
     func testSustainedTypingIsSavedWhenEditorCloses() throws {
         let app = XCUIApplication()
         app.launchArguments += [
