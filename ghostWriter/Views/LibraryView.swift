@@ -162,14 +162,17 @@ struct LibraryView: View {
                 if value != nil {
                     suspendLibraryActivityForEditing()
                 } else {
+                    // The cached Library snapshot still contains the document
+                    // row. Restore VoiceOver immediately instead of making it
+                    // wait for a complete filesystem and iCloud refresh.
+                    if let target = focusAfterEditor {
+                        restoreFocus(to: availableFocus(target))
+                        focusAfterEditor = nil
+                    }
                     libraryActivityTask = Task {
                         await resumeLibraryActivityAfterEditing()
                         guard !Task.isCancelled else { return }
                         guard openedDocument == nil else { return }
-                        if let target = focusAfterEditor {
-                            restoreFocus(to: availableFocus(target))
-                            focusAfterEditor = nil
-                        }
                     }
                 }
             }

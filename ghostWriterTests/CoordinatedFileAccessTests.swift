@@ -8,6 +8,47 @@ import Testing
 @testable import ghostWriter
 
 struct CoordinatedFileAccessTests {
+    @Test func guardedWriteChecksAndSavesInOneTransaction() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterGuardedWrite-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        defer { try? FileManager.default.removeItem(at: root) }
+        let access = CoordinatedFileAccess()
+        let document = root.appendingPathComponent("Document.md")
+        try access.createDirectory(at: root)
+        try access.write("Original", to: document)
+
+        #expect(
+            access.guardedWrite(
+                "Saved",
+                to: document,
+                ifUnchangedFrom: "Original"
+            ) == .saved
+        )
+        #expect(try access.string(at: document) == "Saved")
+
+        #expect(
+            access.guardedWrite(
+                "Overwrite",
+                to: document,
+                ifUnchangedFrom: "Original"
+            ) == .changedOnDisk("Saved")
+        )
+        #expect(try access.string(at: document) == "Saved")
+
+        try access.removeItem(at: document)
+        #expect(
+            access.guardedWrite(
+                "Recreated",
+                to: document,
+                ifUnchangedFrom: "Saved"
+            ) == .missing
+        )
+        #expect(!access.itemExists(at: document))
+    }
+
     @Test func verifiesReadableContentsAwayFromTheCaller() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(

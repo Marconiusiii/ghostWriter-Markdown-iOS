@@ -163,15 +163,15 @@ struct EditorView: View {
                     Task { await checkForExternalChanges() }
                 }
             } else {
-                captureCurrentEditorState()
-                persistEditingPosition()
+                let snapshot = captureCurrentEditorState()
+                persistEditingPosition(snapshot)
                 requestBackgroundSave()
             }
         }
         .onDisappear {
-            captureCurrentEditorState()
+            let snapshot = captureCurrentEditorState()
             statusTask?.cancel()
-            persistEditingPosition()
+            persistEditingPosition(snapshot)
             requestSave(announce: false)
             RenderSound.shared.stop()
         }
@@ -572,9 +572,20 @@ struct EditorView: View {
     }
 
     @discardableResult
-    private func captureCurrentEditorState() -> EditorTextSnapshot {
+    private func captureCurrentEditorState(
+        publishingChanges: Bool = true
+    ) -> EditorTextSnapshot {
         let snapshot = editorSession.snapshot()
-        acceptSnapshot(snapshot)
+        if publishingChanges {
+            acceptSnapshot(snapshot)
+        } else {
+            // Closing needs the native text in the save buffer, but publishing
+            // that complete document into SwiftUI and rebuilding status output
+            // immediately before dismissal only delays the Back action.
+            selection = snapshot.selection
+            lastCapturedRevision = snapshot.revision
+            statusTask?.cancel()
+        }
         return snapshot
     }
 
@@ -695,10 +706,17 @@ struct EditorView: View {
 
     }
 
-    private func persistEditingPosition() {
+    private func persistEditingPosition(
+        _ snapshot: EditorTextSnapshot? = nil
+    ) {
         guard let url = fileURL else { return }
+        let savedSelection = snapshot?.selection ?? selection
+        let documentLength = snapshot?.text.count ?? text.count
         EditorPositionStore.shared.save(
-            position: min(max(0, selection.location), text.count),
+            position: min(
+                max(0, savedSelection.location),
+                documentLength
+            ),
             for: url
         )
     }
@@ -862,7 +880,7 @@ struct EditorView: View {
     /// alert meaningless and discard the in-memory version when the view closes.
     private func closeEditor() {
         dismissKeyboard()
-        captureCurrentEditorState()
+        captureCurrentEditorState(publishingChanges: false)
         pendingFileAction = .close
         guard saveController.isSaving
                 || saveController.hasUnsavedChanges(

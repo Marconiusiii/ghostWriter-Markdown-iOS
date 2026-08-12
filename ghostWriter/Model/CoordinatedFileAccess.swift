@@ -9,7 +9,7 @@
 
 import Foundation
 
-nonisolated enum CoordinatedGuardedSaveOutcome: Sendable {
+nonisolated enum CoordinatedGuardedSaveOutcome: Equatable, Sendable {
     case saved
     case changedOnDisk(String)
     case missing
@@ -43,21 +43,11 @@ actor CoordinatedDocumentSaveQueue {
         to url: URL,
         ifUnchangedFrom expectedContents: String
     ) -> CoordinatedGuardedSaveOutcome {
-        switch diskState(at: url, expectedContents: expectedContents) {
-        case .saved:
-            do {
-                try fileAccess.write(text, to: url)
-                return .saved
-            } catch {
-                return .failed(error.localizedDescription)
-            }
-        case .changedOnDisk(let externalContents):
-            return .changedOnDisk(externalContents)
-        case .missing:
-            return .missing
-        case .failed(let message):
-            return .failed(message)
-        }
+        fileAccess.guardedWrite(
+            text,
+            to: url,
+            ifUnchangedFrom: expectedContents
+        )
     }
 }
 
@@ -171,6 +161,41 @@ nonisolated final class CoordinatedFileAccess {
     func write(_ data: Data, to url: URL) throws {
         try write(at: url, options: .forReplacing) { coordinatedURL in
             try data.write(to: coordinatedURL, options: .atomic)
+        }
+    }
+
+    /// Checks the expected version and replaces it inside one coordination
+    /// block. Keeping those operations together both closes the race between a
+    /// separate read and write and avoids multiple iCloud coordination waits.
+    func guardedWrite(
+        _ text: String,
+        to url: URL,
+        ifUnchangedFrom expectedContents: String
+    ) -> CoordinatedGuardedSaveOutcome {
+        do {
+            return try write(at: url, options: .forReplacing) {
+                coordinatedURL in
+                guard FileManager.default.fileExists(
+                    atPath: coordinatedURL.path
+                ) else { return .missing }
+
+                let currentContents = try String(
+                    contentsOf: coordinatedURL,
+                    encoding: .utf8
+                )
+                guard currentContents == expectedContents else {
+                    return .changedOnDisk(currentContents)
+                }
+
+                try text.write(
+                    to: coordinatedURL,
+                    atomically: true,
+                    encoding: .utf8
+                )
+                return .saved
+            }
+        } catch {
+            return .failed(error.localizedDescription)
         }
     }
 

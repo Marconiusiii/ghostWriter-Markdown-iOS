@@ -10,6 +10,32 @@ import Testing
 @MainActor
 struct EditorSaveControllerTests {
 
+    @Test func closeSettlementStillWaitsForTheGuardedSave() async throws {
+        let url = URL(fileURLWithPath: "/tmp/note.md")
+        let controller = EditorSaveController(initialText: "old", url: url)
+        let saveGate = FirstSaveGate()
+        var didSettle = false
+        controller.configure { _, _, _ in
+            await saveGate.pause()
+            return .saved
+        }
+
+        controller.submit(
+            EditorDocumentBufferSnapshot(text: "new", revision: 1),
+            announce: false
+        ) {
+            didSettle = true
+        }
+        await saveGate.waitUntilPaused()
+        #expect(!didSettle)
+
+        await saveGate.resume()
+        try await Task.sleep(for: .milliseconds(30))
+
+        #expect(didSettle)
+        #expect(controller.lastSavedRevision == 1)
+    }
+
     @Test func boundarySaveWithoutAnnouncementDoesNotInvokeInterfaceCallbacks() async throws {
         let url = URL(fileURLWithPath: "/tmp/note.md")
         let controller = EditorSaveController(initialText: "old", url: url)
