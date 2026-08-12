@@ -46,9 +46,17 @@ struct EditorView: View {
     @State private var jumpLineError: LineNavigationError?
 
     @State private var saveTask: Task<Void, Never>?
+    @State private var statusTask: Task<Void, Never>?
     @State private var hasUnsavedChanges = false
     @State private var lastSavedText: String
     @State private var suppressNextTextChange = false
+    @State private var textRevision = 0
+    @State private var saveRequested = false
+    @State private var saveInProgress = false
+    @State private var saveAnnouncementRequested = false
+    @State private var pendingFileAction: PendingFileAction?
+    @State private var backgroundSaveIdentifier: UIBackgroundTaskIdentifier = .invalid
+    @State private var pendingExternalCheck = false
     @State private var externalConflict: ExternalConflict?
     @State private var statusMessage = ""
     @State private var focusRequestGate = FocusRestorationRequestGate()
@@ -65,6 +73,12 @@ struct EditorView: View {
         case render
         case insert
         case fileActions
+    }
+
+    private enum PendingFileAction {
+        case close
+        case rename(String)
+        case duplicate
     }
 
     @Environment(DocumentStore.self) private var store
@@ -97,34 +111,37 @@ struct EditorView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             editor
-            if settings.statusBarEnabled {
+            if settings.statusBarEnabled, statusIndex != nil {
                 statusBar
             }
         }
         .background(Color.editorBackground)
         .navigationBarHidden(true)
         .onChange(of: text) { _, _ in
-            if settings.statusBarEnabled {
-                statusIndex = DocumentStatusIndex(text: text)
-            }
             if suppressNextTextChange {
                 suppressNextTextChange = false
+                scheduleStatusUpdate()
                 return
             }
+            textRevision += 1
+            scheduleStatusUpdate()
             hasUnsavedChanges = true
             scheduleAutosave()
         }
         .onAppear {
-            if settings.statusBarEnabled {
-                statusIndex = DocumentStatusIndex(text: text)
-            }
+            scheduleStatusUpdate(immediately: true)
             // Warm the audio session now, so the cost of activating it is not
             // paid at the moment Render is tapped — that was the burst of
             // static at the start of the tone.
             if settings.renderSoundEnabled { RenderSound.shared.prepare() }
         }
         .onChange(of: settings.statusBarEnabled) { _, isEnabled in
-            statusIndex = isEnabled ? DocumentStatusIndex(text: text) : nil
+            if isEnabled {
+                scheduleStatusUpdate(immediately: true)
+            } else {
+                statusTask?.cancel()
+                statusIndex = nil
+            }
         }
         .onChange(of: focusedElement) { _, element in
             // VoiceOver activation does not pass through the touch gesture
@@ -137,16 +154,21 @@ struct EditorView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                checkForExternalChanges()
+                if saveInProgress || hasUnsavedChanges {
+                    pendingExternalCheck = true
+                } else {
+                    Task { await checkForExternalChanges() }
+                }
             } else {
                 persistEditingPosition()
-                saveNow(announce: false)
+                requestBackgroundSave()
             }
         }
         .onDisappear {
             saveTask?.cancel()
+            statusTask?.cancel()
             persistEditingPosition()
-            saveNow(announce: false)
+            requestSave(announce: false)
             RenderSound.shared.stop()
         }
         .fullScreenCover(isPresented: $showingRendered, onDismiss: {
@@ -393,7 +415,7 @@ struct EditorView: View {
             Divider()
 
             Button {
-                saveNow(announce: true)
+                requestSave(announce: true)
             } label: {
                 Label("Save Now", systemImage: "arrow.down.doc")
             }
@@ -476,8 +498,8 @@ struct EditorView: View {
     }
 
     private var statusBarText: String {
-        (statusIndex ?? DocumentStatusIndex(text: text))
-            .status(selection: selection)
+        guard let statusIndex else { return "" }
+        return statusIndex.status(selection: selection)
             .description(options: statusBarOptions)
     }
 
@@ -547,7 +569,7 @@ struct EditorView: View {
         focusRequestGate.invalidate()
         dismissKeyboard()
         if settings.renderSoundEnabled { RenderSound.shared.play() }
-        saveNow(announce: false)
+        requestSave(announce: false)
         showingRendered = true
     }
 
@@ -617,47 +639,140 @@ struct EditorView: View {
         saveTask = Task {
             try? await Task.sleep(for: .seconds(1))
             guard !Task.isCancelled else { return }
-            saveNow(announce: false)
+            requestSave(announce: false)
         }
     }
 
-    /// Writes the document. The file always exists by the time the editor is on
-    /// screen — it is created with the name the user gave — so this only ever
-    /// overwrites in place. It never creates and never renames.
-    private func saveNow(announce shouldAnnounce: Bool) {
-        guard hasUnsavedChanges || shouldAnnounce else { return }
-        guard let url = fileURL else { return }
+    /// Coalesces requests while allowing only one guarded transaction at a
+    /// time. The transaction itself runs on the store's dedicated save actor,
+    /// leaving the main actor available for every text-input event.
+    private func requestSave(announce shouldAnnounce: Bool) {
+        saveTask?.cancel()
+        saveRequested = true
+        saveAnnouncementRequested = saveAnnouncementRequested || shouldAnnounce
+        guard !saveInProgress else { return }
 
-        switch store.save(
-            text: text,
-            to: url,
-            ifUnchangedFrom: lastSavedText
-        ) {
-        case .saved:
-            lastSavedText = text
-            hasUnsavedChanges = false
-            if shouldAnnounce {
-                announce(
-                    EditorSaveFeedback.explicitSaveMessage(
-                        usesICloudStorage: store.usesICloudStorage
-                    )
-                )
+        saveInProgress = true
+        Task { await drainSaveRequests() }
+    }
+
+    private func drainSaveRequests() async {
+        while saveRequested {
+            saveRequested = false
+            guard hasUnsavedChanges || saveAnnouncementRequested else { continue }
+            guard let url = fileURL else { break }
+
+            let snapshot = text
+            let expectedContents = lastSavedText
+            let revision = textRevision
+
+            switch await store.saveAsynchronously(
+                text: snapshot,
+                to: url,
+                ifUnchangedFrom: expectedContents
+            ) {
+            case .saved:
+                lastSavedText = snapshot
+                if revision == textRevision {
+                    hasUnsavedChanges = false
+                } else {
+                    hasUnsavedChanges = true
+                    saveRequested = true
+                }
+            case .changedOnDisk(let externalText):
+                cancelPendingSaveState()
+                showExternalConflict(.changed(externalText))
+            case .missing:
+                cancelPendingSaveState()
+                showExternalConflict(.missing)
+            case .failed:
+                let shouldAnnounceFailure = saveAnnouncementRequested
+                cancelPendingSaveState()
+                if shouldAnnounceFailure { announce("Could not save.") }
             }
-        case .changedOnDisk(let externalText):
-            showExternalConflict(.changed(externalText))
-        case .missing:
-            showExternalConflict(.missing)
-        case .failed:
-            if shouldAnnounce { announce("Could not save.") }
+        }
+
+        saveInProgress = false
+
+        if saveAnnouncementRequested, !hasUnsavedChanges {
+            saveAnnouncementRequested = false
+            announce(
+                EditorSaveFeedback.explicitSaveMessage(
+                    usesICloudStorage: store.usesICloudStorage
+                )
+            )
+        }
+
+        if !hasUnsavedChanges {
+            performPendingFileAction()
+        }
+        finishBackgroundSave()
+
+        if pendingExternalCheck {
+            pendingExternalCheck = false
+            await checkForExternalChanges()
+        }
+    }
+
+    private func cancelPendingSaveState() {
+        saveRequested = false
+        saveAnnouncementRequested = false
+        pendingFileAction = nil
+    }
+
+    /// Scene transitions may suspend the app shortly after the callback
+    /// returns. Keep a finite background task alive until the off-main save
+    /// transaction completes so responsiveness does not trade away durability.
+    private func requestBackgroundSave() {
+        if backgroundSaveIdentifier == .invalid {
+            backgroundSaveIdentifier = UIApplication.shared.beginBackgroundTask(
+                withName: "Save open document"
+            ) {
+                Task { @MainActor in finishBackgroundSave() }
+            }
+        }
+        requestSave(announce: false)
+    }
+
+    private func finishBackgroundSave() {
+        guard backgroundSaveIdentifier != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundSaveIdentifier)
+        backgroundSaveIdentifier = .invalid
+    }
+
+    private func scheduleStatusUpdate(immediately: Bool = false) {
+        guard settings.statusBarEnabled else { return }
+        statusTask?.cancel()
+        let snapshot = text
+        let revision = textRevision
+
+        statusTask = Task {
+            if !immediately {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            guard !Task.isCancelled else { return }
+
+            let index = await Task.detached(priority: .utility) {
+                DocumentStatusIndex(text: snapshot)
+            }.value
+
+            guard !Task.isCancelled, revision == textRevision else { return }
+            statusIndex = index
         }
     }
 
     /// Checks as soon as the app returns from Files, rather than waiting for
     /// the next keystroke and autosave attempt to reveal the conflict.
-    private func checkForExternalChanges() {
-        guard externalConflict == nil, let url = fileURL else { return }
+    private func checkForExternalChanges() async {
+        guard externalConflict == nil,
+              !saveInProgress,
+              !hasUnsavedChanges,
+              let url = fileURL else { return }
 
-        switch store.diskState(for: url, expectedContents: lastSavedText) {
+        switch await store.diskStateAsynchronously(
+            for: url,
+            expectedContents: lastSavedText
+        ) {
         case .unchanged:
             break
         case .changed(let externalText):
@@ -671,6 +786,7 @@ struct EditorView: View {
 
     private func showExternalConflict(_ conflict: ExternalConflict) {
         saveTask?.cancel()
+        pendingFileAction = nil
         dismissKeyboard()
         externalConflict = conflict
     }
@@ -730,8 +846,15 @@ struct EditorView: View {
     /// still has local work outstanding. That would make Cancel on a conflict
     /// alert meaningless and discard the in-memory version when the view closes.
     private func closeEditor() {
-        saveNow(announce: false)
-        guard !hasUnsavedChanges else { return }
+        pendingFileAction = .close
+        guard hasUnsavedChanges || saveInProgress else {
+            performPendingFileAction()
+            return
+        }
+        requestSave(announce: false)
+    }
+
+    private func finishClosingEditor() {
         if let fileURL {
             onClose(fileURL)
         }
@@ -740,6 +863,7 @@ struct EditorView: View {
 
     private func closeWithoutSaving() {
         saveTask?.cancel()
+        pendingFileAction = nil
         hasUnsavedChanges = false
         externalConflict = nil
         if let fileURL {
@@ -752,8 +876,15 @@ struct EditorView: View {
         let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        saveNow(announce: false)
-        guard !hasUnsavedChanges else { return }
+        pendingFileAction = .rename(trimmed)
+        guard hasUnsavedChanges || saveInProgress else {
+            performPendingFileAction()
+            return
+        }
+        requestSave(announce: false)
+    }
+
+    private func finishRename(_ trimmed: String) {
         guard let url = fileURL else { return }
 
         if let renamed = store.rename(at: url, to: trimmed) {
@@ -769,14 +900,35 @@ struct EditorView: View {
     }
 
     private func duplicate() {
-        saveNow(announce: false)
-        guard !hasUnsavedChanges else { return }
+        pendingFileAction = .duplicate
+        guard hasUnsavedChanges || saveInProgress else {
+            performPendingFileAction()
+            return
+        }
+        requestSave(announce: false)
+    }
+
+    private func finishDuplicate() {
         guard let url = fileURL,
               let document = Document(fileURL: url) else { return }
         Task {
             if await store.duplicate(document) != nil {
                 announce("Duplicated.")
             }
+        }
+    }
+
+    private func performPendingFileAction() {
+        guard let action = pendingFileAction else { return }
+        pendingFileAction = nil
+
+        switch action {
+        case .close:
+            finishClosingEditor()
+        case .rename(let name):
+            finishRename(name)
+        case .duplicate:
+            finishDuplicate()
         }
     }
 

@@ -10,7 +10,7 @@
 
 import Foundation
 
-enum LineKind: Equatable {
+nonisolated enum LineKind: Equatable, Sendable {
     case blank
     case heading(level: Int)
     case unorderedItem(depth: Int)
@@ -24,7 +24,7 @@ enum LineKind: Equatable {
     case paragraph
 }
 
-struct LineStructure {
+nonisolated struct LineStructure: Sendable {
     let kind: LineKind
     /// Indentation measured in columns, with tabs counted as two, matching the
     /// web app's `countIndent`.
@@ -61,7 +61,7 @@ struct LineStructure {
     }
 }
 
-enum LineAnalyzer {
+nonisolated enum LineAnalyzer {
     /// Counts leading whitespace in columns. A tab counts as two columns, which
     /// keeps tab-indented and space-indented documents comparable.
     static func indentColumns(of line: String) -> Int {

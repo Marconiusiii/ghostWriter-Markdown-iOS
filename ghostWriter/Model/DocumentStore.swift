@@ -11,14 +11,14 @@
 import Foundation
 import Observation
 
-enum DocumentDiskState: Equatable {
+nonisolated enum DocumentDiskState: Equatable, Sendable {
     case unchanged
     case changed(String)
     case missing
     case unreadable
 }
 
-enum GuardedSaveResult: Equatable {
+nonisolated enum GuardedSaveResult: Equatable, Sendable {
     case saved
     case changedOnDisk(String)
     case missing
@@ -43,6 +43,7 @@ final class DocumentStore {
     var lastError: String?
 
     private let fileAccess: CoordinatedFileAccess
+    private let saveQueue = CoordinatedDocumentSaveQueue()
     private let downloadUbiquitousItem: (URL) async throws -> Void
     private let placeUbiquitousItem: (Data, URL) async throws -> Void
     private var iCloudSnapshotsByURL: [URL: ICloudDocumentSnapshot] = [:]
@@ -453,6 +454,28 @@ final class DocumentStore {
         }
     }
 
+    func diskStateAsynchronously(
+        for url: URL,
+        expectedContents: String
+    ) async -> DocumentDiskState {
+        guard storageAvailable else { return .unreadable }
+
+        switch await saveQueue.diskState(
+            at: url,
+            expectedContents: expectedContents
+        ) {
+        case .saved:
+            return .unchanged
+        case .changedOnDisk(let externalContents):
+            return .changed(externalContents)
+        case .missing:
+            return .missing
+        case .failed(let message):
+            lastError = "Could not check \(url.deletingPathExtension().lastPathComponent) for changes. \(message)"
+            return .unreadable
+        }
+    }
+
     /// Saves only if the file still contains the version the editor expects.
     /// This prevents autosave from silently overwriting changes made in Files
     /// or recreating a document that was deliberately deleted elsewhere.
@@ -469,6 +492,36 @@ final class DocumentStore {
         case .missing:
             return .missing
         case .unreadable:
+            return .failed
+        }
+    }
+
+    /// Performs the complete guarded-save transaction on a dedicated actor.
+    /// NSFileCoordinator is synchronous and can wait for iCloud, so calling the
+    /// synchronous save path from the editor would block all text input.
+    func saveAsynchronously(
+        text: String,
+        to url: URL,
+        ifUnchangedFrom expectedContents: String
+    ) async -> GuardedSaveResult {
+        guard storageAvailable else {
+            lastError = "Could not save because the selected document storage is unavailable."
+            return .failed
+        }
+
+        switch await saveQueue.save(
+            text: text,
+            to: url,
+            ifUnchangedFrom: expectedContents
+        ) {
+        case .saved:
+            return .saved
+        case .changedOnDisk(let externalContents):
+            return .changedOnDisk(externalContents)
+        case .missing:
+            return .missing
+        case .failed(let message):
+            lastError = "Could not save. \(message)"
             return .failed
         }
     }

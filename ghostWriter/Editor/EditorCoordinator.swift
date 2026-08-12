@@ -22,6 +22,9 @@ import UIKit
 final class EditorCoordinator: NSObject, UITextViewDelegate {
     var parent: MarkdownTextView
     weak var textView: UITextView?
+    private var editGeneration = 0
+    private var lastSyncedEditGeneration = -1
+    private var lastSyncedRange: NSRange?
 
     init(_ parent: MarkdownTextView) {
         self.parent = parent
@@ -128,6 +131,7 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     }
 
     func textViewDidChange(_ textView: UITextView) {
+        editGeneration += 1
         parent.text = textView.text ?? ""
         syncSelection(textView)
     }
@@ -141,9 +145,14 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     private func syncSelection(_ textView: UITextView) {
         let text = textView.text ?? ""
         let range = textView.selectedRange
+        guard editGeneration != lastSyncedEditGeneration
+                || range != lastSyncedRange else { return }
+
         let location = characterOffset(for: range.location, in: text)
         let end = characterOffset(for: range.location + range.length, in: text)
         parent.selection = TextSelection(location: location, length: max(0, end - location))
+        lastSyncedEditGeneration = editGeneration
+        lastSyncedRange = range
     }
 
     // MARK: - Offset conversion

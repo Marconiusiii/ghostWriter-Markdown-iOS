@@ -9,7 +9,7 @@
 
 import Foundation
 
-struct DocumentStatusOptions: Equatable {
+nonisolated struct DocumentStatusOptions: Equatable, Sendable {
     var lineAndColumn = true
     var lineCount = true
     var wordCount = true
@@ -22,7 +22,7 @@ struct DocumentStatusOptions: Equatable {
 /// Document-wide information that changes only when the text changes. Keeping
 /// line boundaries and counts here means moving through a long document does
 /// not repeatedly rescan every character just to update the current position.
-struct DocumentStatusIndex {
+nonisolated struct DocumentStatusIndex: Sendable {
     let sourceText: String
     private let lineStartOffsets: [Int]
     private let headingLevels: [Int?]
@@ -119,7 +119,7 @@ struct DocumentStatusIndex {
     }
 }
 
-struct DocumentStatus: Equatable {
+nonisolated struct DocumentStatus: Equatable, Sendable {
     let currentLine: Int
     let currentColumn: Int
     let lineCount: Int

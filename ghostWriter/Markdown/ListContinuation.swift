@@ -13,8 +13,8 @@
 import Foundation
 
 /// The bullet or number that begins a list line.
-struct ListMarker: Equatable {
-    enum Style: Equatable {
+nonisolated struct ListMarker: Equatable, Sendable {
+    nonisolated enum Style: Equatable, Sendable {
         case unordered(Character)
         case ordered(Int)
     }

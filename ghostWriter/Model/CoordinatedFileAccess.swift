@@ -9,6 +9,58 @@
 
 import Foundation
 
+nonisolated enum CoordinatedGuardedSaveOutcome: Sendable {
+    case saved
+    case changedOnDisk(String)
+    case missing
+    case failed(String)
+}
+
+/// Serializes guarded document saves away from the main actor. File
+/// coordination may wait for iCloud or another file presenter, so none of this
+/// work can share the executor that handles UIKit text input.
+actor CoordinatedDocumentSaveQueue {
+    private let fileAccess = CoordinatedFileAccess()
+
+    func diskState(
+        at url: URL,
+        expectedContents: String
+    ) -> CoordinatedGuardedSaveOutcome {
+        guard fileAccess.itemExists(at: url) else { return .missing }
+
+        do {
+            let currentContents = try fileAccess.string(at: url)
+            return currentContents == expectedContents
+                ? .saved
+                : .changedOnDisk(currentContents)
+        } catch {
+            return .failed(error.localizedDescription)
+        }
+    }
+
+    func save(
+        text: String,
+        to url: URL,
+        ifUnchangedFrom expectedContents: String
+    ) -> CoordinatedGuardedSaveOutcome {
+        switch diskState(at: url, expectedContents: expectedContents) {
+        case .saved:
+            do {
+                try fileAccess.write(text, to: url)
+                return .saved
+            } catch {
+                return .failed(error.localizedDescription)
+            }
+        case .changedOnDisk(let externalContents):
+            return .changedOnDisk(externalContents)
+        case .missing:
+            return .missing
+        case .failed(let message):
+            return .failed(message)
+        }
+    }
+}
+
 nonisolated final class CoordinatedFileAccess {
     static func placeUbiquitousItem(
         data: Data,

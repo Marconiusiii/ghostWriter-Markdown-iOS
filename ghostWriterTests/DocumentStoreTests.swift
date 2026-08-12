@@ -129,6 +129,63 @@ struct DocumentStoreTests {
         #expect(try String(contentsOf: url, encoding: .utf8) == "second")
     }
 
+    @Test func asynchronousGuardedSaveWritesWhenTheFileIsUnchanged() async throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = await store.createDocument(named: "Note", contents: "first") else {
+            Issue.record("Could not create the document")
+            return
+        }
+
+        let result = await store.saveAsynchronously(
+            text: "second",
+            to: url,
+            ifUnchangedFrom: "first"
+        )
+
+        #expect(result == .saved)
+        #expect(try String(contentsOf: url, encoding: .utf8) == "second")
+    }
+
+    @Test func asynchronousGuardedSavePreservesAnExternalChange() async throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = await store.createDocument(named: "Note", contents: "original") else {
+            Issue.record("Could not create the document")
+            return
+        }
+        try "changed in Files".write(to: url, atomically: true, encoding: .utf8)
+
+        let result = await store.saveAsynchronously(
+            text: "changed in ghostWriter",
+            to: url,
+            ifUnchangedFrom: "original"
+        )
+
+        #expect(result == .changedOnDisk("changed in Files"))
+        #expect(try String(contentsOf: url, encoding: .utf8) == "changed in Files")
+    }
+
+    @Test func asynchronousDiskStateReportsDeletion() async throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        guard let url = await store.createDocument(named: "Note", contents: "original") else {
+            Issue.record("Could not create the document")
+            return
+        }
+        try FileManager.default.removeItem(at: url)
+
+        let state = await store.diskStateAsynchronously(
+            for: url,
+            expectedContents: "original"
+        )
+
+        #expect(state == .missing)
+    }
+
     @Test func guardedSaveDoesNotOverwriteAnExternalChange() throws {
         let store = makeStore()
         defer { cleanUp(store) }
