@@ -12,6 +12,71 @@ import XCTest
 final class ghostWriterUITests: XCTestCase {
 
     @MainActor
+    func testPrimaryControlsRenderInLightAndDarkAppearances() throws {
+        for appearance in ["light", "dark"] {
+            let app = XCUIApplication()
+            app.launchArguments += [
+                "-documentStorageLocation", "onDevice",
+                "-appLaunchBehavior", "showLibrary",
+                "-newDocumentCreationMode", "askForTitle",
+                "-welcomeExperienceCompleted", "YES",
+                "-welcomeDocumentInstalled", "YES",
+                "-appearance", appearance
+            ]
+            app.launch()
+
+            let newDocument = app.buttons["New document"]
+            XCTAssertTrue(newDocument.waitForExistence(timeout: 10))
+            attachScreenshot(
+                app,
+                name: "Library primary controls, \(appearance) appearance"
+            )
+
+            app.buttons["Settings"].tap()
+            let automaticLists = app.switches["Automatic Lists"]
+            XCTAssertTrue(automaticLists.waitForExistence(timeout: 10))
+            attachScreenshot(
+                app,
+                name: "Settings filled controls, \(appearance) appearance"
+            )
+
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testPrimaryControlsFollowSystemAppearance() throws {
+        let expectedAppearance = ProcessInfo.processInfo.environment[
+            "GHOSTWRITER_SYSTEM_APPEARANCE"
+        ] ?? "current system"
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-documentStorageLocation", "onDevice",
+            "-appLaunchBehavior", "showLibrary",
+            "-newDocumentCreationMode", "askForTitle",
+            "-welcomeExperienceCompleted", "YES",
+            "-welcomeDocumentInstalled", "YES",
+            "-appearance", "system"
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.buttons["New document"].waitForExistence(timeout: 10))
+        attachScreenshot(
+            app,
+            name: "Library controls, following \(expectedAppearance)"
+        )
+
+        app.buttons["Settings"].tap()
+        XCTAssertTrue(
+            app.switches["Automatic Lists"].waitForExistence(timeout: 10)
+        )
+        attachScreenshot(
+            app,
+            name: "Settings controls, following \(expectedAppearance)"
+        )
+    }
+
+    @MainActor
     func testSecondReturnExitsAutomaticList() throws {
         let app = XCUIApplication()
         app.launchArguments += [
@@ -226,6 +291,13 @@ final class ghostWriterUITests: XCTestCase {
                 .waitForExistence(timeout: 5)
         )
         XCTAssertFalse(app.textFields["Document name"].exists)
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     @MainActor

@@ -40,7 +40,7 @@ struct WelcomeView: View {
                     Text("Explore Welcome Document")
                         .frame(maxWidth: .infinity)
                 }
-                    .buttonStyle(.borderedProminent)
+                    .ghostProminentButtonStyle()
                     .controlSize(.large)
                     .disabled(!documentReady)
 

@@ -114,12 +114,14 @@ struct SettingsView: View {
                     .accessibilityFocused($focusedElement, equals: .indentation)
 
                     Toggle("Automatic Lists", isOn: $settings.smartListsEnabled)
+                        .ghostFilledControlTint()
                         .accessibilityHint("Continues bullets and numbering when you press return")
 
                     Toggle(
                         "Keyboard Shortcuts",
                         isOn: $settings.keyboardShortcutsEnabled
                     )
+                    .ghostFilledControlTint()
                     .accessibilityHint(
                         "Enables ghostWriter commands for a hardware keyboard"
                     )
@@ -145,6 +147,7 @@ struct SettingsView: View {
 
                 Section {
                     Toggle("Status Bar", isOn: $settings.statusBarEnabled)
+                        .ghostFilledControlTint()
                         .accessibilityHint("Shows selected document information after the editor")
 
                     if settings.statusBarEnabled {
@@ -162,6 +165,7 @@ struct SettingsView: View {
 
                 Section {
                     Toggle("Render Sound", isOn: $settings.renderSoundEnabled)
+                        .ghostFilledControlTint()
                         .accessibilityHint("Plays a tone when a document is rendered")
                 } header: {
                     Text("Sound")
@@ -347,15 +351,22 @@ private struct StatusBarSettingsView: View {
             Form {
                 Section("Status Information") {
                     Toggle("Current Line and Column", isOn: $settings.statusShowsLineAndColumn)
+                        .ghostFilledControlTint()
                     Toggle("Line Count", isOn: $settings.statusShowsLineCount)
+                        .ghostFilledControlTint()
                     Toggle("Word Count", isOn: $settings.statusShowsWordCount)
+                        .ghostFilledControlTint()
                     Toggle("Character Count", isOn: $settings.statusShowsCharacterCount)
+                        .ghostFilledControlTint()
                     Toggle("Heading Level", isOn: $settings.statusShowsHeadingLevel)
+                        .ghostFilledControlTint()
                     Toggle("Selected Word Count", isOn: $settings.statusShowsSelectedWordCount)
+                        .ghostFilledControlTint()
                     Toggle(
                         "Selected Character Count",
                         isOn: $settings.statusShowsSelectedCharacterCount
                     )
+                    .ghostFilledControlTint()
                 }
 
                 Section("Sample Status") {

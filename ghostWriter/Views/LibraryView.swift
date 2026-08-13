@@ -389,7 +389,7 @@ struct LibraryView: View {
                 Label("New", systemImage: "square.and.pencil")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .ghostProminentButtonStyle()
             .controlSize(.large)
             .disabled(!store.storageAvailable)
             .accessibilityLabel("New document")

@@ -350,7 +350,7 @@ struct EditorView: View {
         } label: {
             Label("Render", systemImage: "doc.richtext")
         }
-        .buttonStyle(.borderedProminent)
+        .ghostProminentButtonStyle()
         .accessibilityHint("Shows this document as formatted HTML")
         .accessibilityFocused($focusedElement, equals: .render)
         .keyboardShortcut(shortcut("r", modifiers: .command))

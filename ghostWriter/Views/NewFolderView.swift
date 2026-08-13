@@ -25,7 +25,7 @@ struct NewFolderView: View {
                     onCreate(name)
                     dismiss()
                 }
-                .buttonStyle(.borderedProminent)
+                .ghostProminentButtonStyle()
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
