@@ -80,6 +80,11 @@ struct MarkdownTextView: UIViewRepresentable {
         session.attach(textView)
         textView.inputAccessoryView = makeAccessoryToolbar(coordinator: context.coordinator)
         context.coordinator.textView = textView
+        textView.onCommittedTextInput = {
+            [weak textView, weak coordinator = context.coordinator] in
+            guard let textView else { return }
+            coordinator?.nativeTextDidCommit(in: textView)
+        }
 
         return textView
     }
@@ -235,6 +240,7 @@ struct MarkdownTextView: UIViewRepresentable {
 
 final class MarkdownEditorTextView: UITextView {
     var appKeyboardShortcutsEnabled = true
+    var onCommittedTextInput: (() -> Void)?
     private(set) var isPerformingPaste = false
 
     override var keyCommands: [UIKeyCommand]? {
@@ -260,5 +266,18 @@ final class MarkdownEditorTextView: UITextView {
         isPerformingPaste = true
         super.paste(sender)
         isPerformingPaste = false
+    }
+
+    override func insertText(_ text: String) {
+        super.insertText(text)
+        guard !isPerformingPaste else { return }
+        onCommittedTextInput?()
+    }
+
+    override func unmarkText() {
+        let hadMarkedText = markedTextRange != nil
+        super.unmarkText()
+        guard hadMarkedText, !isPerformingPaste else { return }
+        onCommittedTextInput?()
     }
 }

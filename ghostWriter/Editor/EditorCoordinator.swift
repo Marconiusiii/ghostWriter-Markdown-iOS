@@ -18,25 +18,20 @@
 import SwiftUI
 import UIKit
 
-nonisolated enum MarkdownTypingEditEligibility {
-    static func shouldTrack(
-        isVoiceOverRunning: Bool,
-        includesTypedStructureFeedback: Bool,
-        rangeLength: Int,
-        replacementText: String,
-        belongsToMarkedTextComposition: Bool,
-        isPerformingPaste: Bool
-    ) -> Bool {
-        let isInsertion = rangeLength == 0 || belongsToMarkedTextComposition
-        let isDirectTyping = replacementText.count == 1
-            || belongsToMarkedTextComposition
+nonisolated struct MarkdownTypingCommitGate {
+    private(set) var generation = 0
 
-        return isVoiceOverRunning
-            && includesTypedStructureFeedback
-            && isInsertion
-            && !replacementText.isEmpty
-            && isDirectTyping
-            && !isPerformingPaste
+    mutating func issue() -> Int {
+        generation += 1
+        return generation
+    }
+
+    mutating func invalidate() {
+        generation += 1
+    }
+
+    func accepts(_ token: Int) -> Bool {
+        token == generation
     }
 }
 
@@ -46,8 +41,7 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     weak var textView: UITextView?
     private var isApplyingSmartListEdit = false
     private var pendingMarkedListReturn: DeferredListReturnPlan?
-    private var pendingTypingReplacement: String?
-    private var isTrackingMarkedTyping = false
+    private var typingCommitGate = MarkdownTypingCommitGate()
 
     init(_ parent: MarkdownTextView) {
         self.parent = parent
@@ -81,28 +75,6 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         replacementText: String
     ) -> Bool {
         if isApplyingSmartListEdit { return true }
-
-        let isPerformingPaste = (textView as? MarkdownEditorTextView)?
-            .isPerformingPaste == true
-        let hasMarkedText = textView.markedTextRange != nil
-        if hasMarkedText {
-            isTrackingMarkedTyping = true
-        }
-        let belongsToMarkedTextComposition = hasMarkedText
-            || isTrackingMarkedTyping
-        if MarkdownTypingEditEligibility.shouldTrack(
-            isVoiceOverRunning: UIAccessibility.isVoiceOverRunning,
-            includesTypedStructureFeedback:
-                parent.voiceOverVerbosity.includesTypedStructureFeedback,
-            rangeLength: range.length,
-            replacementText: replacementText,
-            belongsToMarkedTextComposition: belongsToMarkedTextComposition,
-            isPerformingPaste: isPerformingPaste
-        ) {
-            pendingTypingReplacement = replacementText
-        } else {
-            pendingTypingReplacement = nil
-        }
 
         // A prior marked-text plan must never leak into a later edit if UIKit
         // did not deliver the expected change callback.
@@ -227,24 +199,35 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     func textViewDidChange(_ textView: UITextView) {
         applyPendingMarkedListReturn(in: textView)
         parent.session.textDidChange(in: textView)
+    }
 
-        guard textView.markedTextRange == nil else { return }
-        let replacement = pendingTypingReplacement
-        pendingTypingReplacement = nil
-        isTrackingMarkedTyping = false
-        guard let replacement else { return }
-        announceCompletedStructure(in: textView, insertedText: replacement)
+    func nativeTextDidCommit(in textView: MarkdownEditorTextView) {
+        guard parent.voiceOverVerbosity.includesTypedStructureFeedback,
+              !isApplyingSmartListEdit,
+              !textView.isPerformingPaste else {
+            typingCommitGate.invalidate()
+            return
+        }
+
+        let token = typingCommitGate.issue()
+        DispatchQueue.main.async { [weak self, weak textView] in
+            guard let self, let textView,
+                  self.typingCommitGate.accepts(token),
+                  self.parent.voiceOverVerbosity
+                    .includesTypedStructureFeedback else { return }
+            self.announceCompletedStructure(in: textView)
+        }
     }
 
     private func announceCompletedStructure(
-        in textView: UITextView,
-        insertedText: String
+        in textView: UITextView
     ) {
         guard parent.voiceOverVerbosity.includesTypedStructureFeedback,
               let linePrefix = currentLinePrefix(in: textView),
+              let trigger = linePrefix.last,
               let message = MarkdownTypingAnnouncement.message(
                 linePrefix: linePrefix,
-                insertedText: insertedText
+                insertedText: String(trigger)
               ), fencedCodeState(in: textView) == false else { return }
         announce(message)
     }

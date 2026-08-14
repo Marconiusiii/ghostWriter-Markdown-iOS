@@ -5,44 +5,51 @@
 
 import Foundation
 import Testing
+import UIKit
 @testable import ghostWriter
 
 struct MarkdownTextViewTests {
 
-    @Test func markedTextReplacementIsEligibleForFullAnnouncements() {
-        #expect(
-            MarkdownTypingEditEligibility.shouldTrack(
-                isVoiceOverRunning: true,
-                includesTypedStructureFeedback: true,
-                rangeLength: 2,
-                replacementText: "## ",
-                belongsToMarkedTextComposition: true,
-                isPerformingPaste: false
-            )
-        )
+    @MainActor
+    @Test func committedInsertionCallsTheNativeInputHook() {
+        let textView = MarkdownEditorTextView()
+        var commits = 0
+        textView.onCommittedTextInput = { commits += 1 }
+
+        textView.insertText("## ")
+
+        #expect(commits == 1)
+        #expect(textView.text == "## ")
     }
 
-    @Test func ordinaryReplacementsAndPasteRemainIneligible() {
-        #expect(
-            !MarkdownTypingEditEligibility.shouldTrack(
-                isVoiceOverRunning: true,
-                includesTypedStructureFeedback: true,
-                rangeLength: 2,
-                replacementText: "replacement",
-                belongsToMarkedTextComposition: false,
-                isPerformingPaste: false
-            )
+    @MainActor
+    @Test func unmarkingCompositionCallsTheNativeInputHook() {
+        let textView = MarkdownEditorTextView()
+        var commits = 0
+        textView.onCommittedTextInput = { commits += 1 }
+        textView.setMarkedText(
+            "**bold**",
+            selectedRange: NSRange(location: 8, length: 0)
         )
-        #expect(
-            !MarkdownTypingEditEligibility.shouldTrack(
-                isVoiceOverRunning: true,
-                includesTypedStructureFeedback: true,
-                rangeLength: 0,
-                replacementText: "**bold**",
-                belongsToMarkedTextComposition: false,
-                isPerformingPaste: true
-            )
-        )
+
+        #expect(textView.markedTextRange != nil)
+        textView.unmarkText()
+
+        #expect(commits == 1)
+        #expect(textView.markedTextRange == nil)
+        #expect(textView.text == "**bold**")
+    }
+
+    @Test func onlyTheLatestCommittedInputEvaluationIsAccepted() {
+        var gate = MarkdownTypingCommitGate()
+
+        let first = gate.issue()
+        let second = gate.issue()
+
+        #expect(!gate.accepts(first))
+        #expect(gate.accepts(second))
+        gate.invalidate()
+        #expect(!gate.accepts(second))
     }
 
     @Test func programmaticCursorRequestProducesStatusSelection() {
