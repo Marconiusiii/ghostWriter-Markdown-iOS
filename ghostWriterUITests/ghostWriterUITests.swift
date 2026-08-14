@@ -12,6 +12,94 @@ import XCTest
 final class ghostWriterUITests: XCTestCase {
 
     @MainActor
+    func testDocumentRowProvidesActionsWithoutASeparateMenuStop() throws {
+        let app = launchLibraryApp()
+        let name = "Row Actions \(UUID().uuidString)"
+
+        app.buttons["New document"].tap()
+        let nameField = app.textFields["Document name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 10))
+        nameField.tap()
+        nameField.typeText(name)
+        app.buttons["Create"].tap()
+
+        let editor = app.textViews["Markdown Editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        app.buttons["Back"].tap()
+
+        let row = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", name)
+        ).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Actions for \(name)"].exists)
+
+        row.press(forDuration: 1)
+        for action in [
+            "Pin", "Render", "Share", "Rename", "Move", "Duplicate", "Delete"
+        ] {
+            XCTAssertTrue(
+                app.buttons[action].waitForExistence(timeout: 5),
+                "The document context menu should contain \(action)."
+            )
+        }
+        app.buttons["Rename"].tap()
+        XCTAssertTrue(app.alerts["Rename Document"].waitForExistence(timeout: 5))
+        app.alerts["Rename Document"].buttons["Cancel"].tap()
+
+        row.swipeLeft()
+        XCTAssertTrue(app.buttons["Share"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Delete"].exists)
+        row.swipeRight()
+        row.swipeRight()
+        XCTAssertTrue(app.buttons["Pin"].waitForExistence(timeout: 5))
+        row.swipeLeft()
+
+        row.tap()
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testFolderRowProvidesActionsWithoutASeparateMenuStop() throws {
+        let app = launchLibraryApp()
+        let name = "Folder Actions \(UUID().uuidString)"
+
+        app.buttons["New Folder"].tap()
+        let nameField = app.textFields["Folder Name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 10))
+        nameField.tap()
+        nameField.typeText(name)
+        app.buttons["Create"].tap()
+
+        let row = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", name)
+        ).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Actions for \(name)"].exists)
+
+        row.press(forDuration: 1)
+        for action in ["Rename", "Move", "Delete"] {
+            XCTAssertTrue(
+                app.buttons[action].waitForExistence(timeout: 5),
+                "The folder context menu should contain \(action)."
+            )
+        }
+        app.buttons["Rename"].tap()
+        XCTAssertTrue(app.alerts["Rename Folder"].waitForExistence(timeout: 5))
+        app.alerts["Rename Folder"].buttons["Cancel"].tap()
+
+        row.swipeLeft()
+        XCTAssertTrue(app.buttons["Move"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Delete"].exists)
+        row.swipeRight()
+        row.swipeRight()
+        XCTAssertTrue(app.buttons["Rename"].waitForExistence(timeout: 5))
+        row.swipeLeft()
+
+        row.tap()
+        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
     func testPrimaryControlsRenderInLightAndDarkAppearances() throws {
         for appearance in ["light", "dark"] {
             let app = XCUIApplication()
@@ -298,6 +386,21 @@ final class ghostWriterUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    @MainActor
+    private func launchLibraryApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-documentStorageLocation", "onDevice",
+            "-appLaunchBehavior", "showLibrary",
+            "-newDocumentCreationMode", "askForTitle",
+            "-welcomeExperienceCompleted", "YES",
+            "-welcomeDocumentInstalled", "YES"
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["New document"].waitForExistence(timeout: 10))
+        return app
     }
 
     @MainActor

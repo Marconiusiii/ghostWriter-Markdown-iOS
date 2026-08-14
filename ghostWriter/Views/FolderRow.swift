@@ -19,32 +19,3 @@ struct FolderRow: View {
         )
     }
 }
-
-struct FolderActionsMenu: View {
-    let folder: LibraryFolder
-    let onRename: () -> Void
-    let onMove: () -> Void
-    let onDelete: () -> Void
-
-    var body: some View {
-        Menu {
-            Button(action: onRename) {
-                Label("Rename", systemImage: "pencil")
-            }
-            .accessibilityLabel("Rename \(folder.displayName)")
-
-            Button(action: onMove) {
-                Label("Move", systemImage: "folder")
-            }
-            .accessibilityLabel("Move \(folder.displayName)")
-
-            Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
-            }
-            .accessibilityLabel("Delete \(folder.displayName)")
-        } label: {
-            Label("Actions", systemImage: "ellipsis.circle")
-        }
-        .accessibilityLabel("Actions for \(folder.displayName)")
-    }
-}

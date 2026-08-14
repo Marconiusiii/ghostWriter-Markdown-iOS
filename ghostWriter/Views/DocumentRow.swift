@@ -2,8 +2,8 @@
 //  DocumentRow.swift
 //  ghostWriter
 //
-//  One file in the library. The row is a navigation link that opens the editor,
-//  and carries custom accessibility actions for rendering and sharing.
+//  One file in the library. LibraryView places this content inside one button
+//  that opens the editor and carries the document's accessibility actions.
 //
 //  The accessibility label is written as a single sentence rather than letting
 //  three separate Text views be read as disconnected fragments. Hearing
@@ -179,77 +179,5 @@ struct DocumentRow: View {
             return AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
         }
         return AnyLayout(HStackLayout(spacing: 8))
-    }
-}
-
-/// A visible, discoverable counterpart to swipe and custom accessibility
-/// actions. It remains in the accessibility hierarchy for Switch Control,
-/// Voice Control, keyboard navigation, and VoiceOver. Every accessible name
-/// starts with its visible label and ends with the document name.
-struct DocumentActionsMenu: View {
-    let document: Document
-    let isPinned: Bool
-    let onTogglePin: () -> Void
-    let onRender: () -> Void
-    let onShare: () -> Void
-    let onRename: () -> Void
-    let onMove: () -> Void
-    let onDuplicate: () -> Void
-    let onDelete: () -> Void
-
-    var body: some View {
-        Menu {
-            actionButton(
-                isPinned ? "Unpin" : "Pin",
-                systemImage: isPinned ? "pin.slash" : "pin",
-                action: onTogglePin
-            )
-
-            Divider()
-
-            actionButton(
-                "Render",
-                systemImage: "doc.richtext",
-                action: onRender
-            )
-            actionButton(
-                "Share",
-                systemImage: "square.and.arrow.up",
-                action: onShare
-            )
-            actionButton(
-                "Rename",
-                systemImage: "pencil",
-                action: onRename
-            )
-            actionButton(
-                "Move",
-                systemImage: "folder",
-                action: onMove
-            )
-            actionButton(
-                "Duplicate",
-                systemImage: "doc.on.doc",
-                action: onDuplicate
-            )
-            Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
-            }
-            .accessibilityLabel("Delete \(document.displayName)")
-        } label: {
-            Label("Actions", systemImage: "ellipsis.circle")
-        }
-        .accessibilityLabel("Actions for \(document.displayName)")
-    }
-
-    private func actionButton(
-        _ title: String,
-        systemImage: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage)
-        }
-        .accessibilityLabel("\(title) \(document.displayName)")
     }
 }

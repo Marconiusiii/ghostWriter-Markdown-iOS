@@ -623,37 +623,7 @@ struct LibraryView: View {
         // heading for it, and repeating it would be a second announcement of
         // the same thing.
         ForEach(libraryPresentation.folders) { presentation in
-            let folder = presentation.folder
-            documentActionLayout {
-                Button {
-                    open(folder)
-                } label: {
-                    FolderRow(
-                        folder: folder,
-                        itemCount: presentation.itemCount
-                    )
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .accessibilityFocused($focusedElement, equals: .folder(folder.url))
-                .accessibilityAction(named: "Rename \(folder.displayName)") {
-                    beginRename(folder)
-                }
-                .accessibilityAction(named: "Move \(folder.displayName)") {
-                    beginMove(.folder(folder))
-                }
-                .accessibilityAction(named: "Delete \(folder.displayName)") {
-                    beginDelete(folder)
-                }
-
-                FolderActionsMenu(
-                    folder: folder,
-                    onRename: { beginRename(folder) },
-                    onMove: { beginMove(.folder(folder)) },
-                    onDelete: { beginDelete(folder) }
-                )
-                .buttonStyle(.bordered)
-            }
+            libraryFolderRow(presentation)
             .listRowInsets(
                 EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
             )
@@ -661,77 +631,7 @@ struct LibraryView: View {
         }
 
         ForEach(libraryPresentation.documents) { presentation in
-            let document = presentation.document
-            documentActionLayout {
-                Button {
-                    open(document)
-                } label: {
-                    DocumentRow(presentation: presentation)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .accessibilityFocused(
-                    $focusedElement,
-                    equals: .document(document.url)
-                )
-                .accessibilityAction(
-                    named: "\(presentation.isPinned ? "Unpin" : "Pin") \(document.displayName)"
-                ) {
-                    togglePin(document)
-                }
-                .accessibilityAction(
-                    named: "Render \(document.displayName)"
-                ) {
-                    render(document)
-                }
-                .accessibilityAction(
-                    named: "Share \(document.displayName)"
-                ) {
-                    share(document)
-                }
-                .accessibilityAction(
-                    named: "Rename \(document.displayName)"
-                ) {
-                    beginRename(document)
-                }
-                .accessibilityAction(named: "Move \(document.displayName)") {
-                    beginMove(.document(document))
-                }
-                .accessibilityAction(
-                    named: "Duplicate \(document.displayName)"
-                ) {
-                    duplicate(document)
-                }
-                .accessibilityAction(
-                    named: "Delete \(document.displayName)"
-                ) {
-                    beginDelete(document)
-                }
-
-                if case .failed = document.availability {
-                    Button("Retry Download") {
-                        retryDownload(document)
-                    }
-                    .accessibilityLabel(
-                        "Retry Download \(document.displayName)"
-                    )
-                }
-
-                DocumentActionsMenu(
-                    document: document,
-                    isPinned: presentation.isPinned,
-                    onTogglePin: { togglePin(document) },
-                    onRender: { render(document) },
-                    onShare: { share(document) },
-                    onRename: { beginRename(document) },
-                    onMove: { beginMove(.document(document)) },
-                    onDuplicate: { duplicate(document) },
-                    onDelete: { beginDelete(document) }
-                )
-                .buttonStyle(.bordered)
-            }
-            // The surrounding stack supplies the horizontal padding, so
-            // the list rows do not add their own on top of it.
+            libraryDocumentRow(presentation)
             .listRowInsets(
                 EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
             )
@@ -739,11 +639,219 @@ struct LibraryView: View {
         }
     }
 
-    private var documentActionLayout: AnyLayout {
-        if dynamicTypeSize.isAccessibilitySize {
-            return AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+    private func libraryFolderRow(
+        _ presentation: LibraryFolderPresentation
+    ) -> some View {
+        let folder = presentation.folder
+        let primaryRow = Button {
+            open(folder)
+        } label: {
+            FolderRow(
+                folder: folder,
+                itemCount: presentation.itemCount
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        return AnyLayout(HStackLayout(spacing: 8))
+        .buttonStyle(.plain)
+        .accessibilityFocused($focusedElement, equals: .folder(folder.url))
+
+        let accessibleRow = primaryRow
+            .accessibilityAction(named: "Rename") {
+                beginRename(folder)
+            }
+            .accessibilityAction(named: "Move") {
+                beginMove(.folder(folder))
+            }
+            .accessibilityAction(named: "Delete") {
+                beginDelete(folder)
+            }
+
+        let leadingSwipeRow = accessibleRow
+            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                Button {
+                    beginRename(folder)
+                } label: {
+                    Label("Rename", systemImage: "pencil")
+                }
+                .tint(Color.controlFill)
+            }
+
+        let swipeRow = leadingSwipeRow
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button(role: .destructive) {
+                    beginDelete(folder)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+
+                Button {
+                    beginMove(.folder(folder))
+                } label: {
+                    Label("Move", systemImage: "folder")
+                }
+                .tint(Color.controlFill)
+            }
+
+        return swipeRow.contextMenu {
+            Button {
+                beginRename(folder)
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+
+            Button {
+                beginMove(.folder(folder))
+            } label: {
+                Label("Move", systemImage: "folder")
+            }
+
+            Button(role: .destructive) {
+                beginDelete(folder)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private func libraryDocumentRow(
+        _ presentation: LibraryDocumentPresentation
+    ) -> some View {
+        let document = presentation.document
+        let primaryRow = Button {
+            open(document)
+        } label: {
+            DocumentRow(presentation: presentation)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .accessibilityFocused(
+            $focusedElement,
+            equals: .document(document.url)
+        )
+
+        let commonActions = primaryRow
+            .accessibilityAction(
+                named: presentation.isPinned ? "Unpin" : "Pin"
+            ) {
+                togglePin(document)
+            }
+            .accessibilityAction(named: "Render") {
+                render(document)
+            }
+            .accessibilityAction(named: "Share") {
+                share(document)
+            }
+            .accessibilityAction(named: "Rename") {
+                beginRename(document)
+            }
+
+        let accessibleRow = commonActions
+            .accessibilityAction(named: "Move") {
+                beginMove(.document(document))
+            }
+            .accessibilityAction(named: "Duplicate") {
+                duplicate(document)
+            }
+            .accessibilityAction(named: "Delete") {
+                beginDelete(document)
+            }
+
+        let leadingSwipeRow = accessibleRow
+            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                Button {
+                    togglePin(document)
+                } label: {
+                    Label(
+                        presentation.isPinned ? "Unpin" : "Pin",
+                        systemImage: presentation.isPinned ? "pin.slash" : "pin"
+                    )
+                }
+                .tint(Color.controlFill)
+
+                if case .failed = document.availability {
+                    Button {
+                        retryDownload(document)
+                    } label: {
+                        Label("Retry Download", systemImage: "arrow.clockwise")
+                    }
+                    .tint(Color.controlFill)
+                }
+            }
+
+        let swipeRow = leadingSwipeRow
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button(role: .destructive) {
+                    beginDelete(document)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+
+                Button {
+                    share(document)
+                } label: {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+                .tint(Color.controlFill)
+            }
+
+        return swipeRow.contextMenu {
+            if case .failed = document.availability {
+                Button {
+                    retryDownload(document)
+                } label: {
+                    Label("Retry Download", systemImage: "arrow.clockwise")
+                }
+
+                Divider()
+            }
+
+            Button {
+                togglePin(document)
+            } label: {
+                Label(
+                    presentation.isPinned ? "Unpin" : "Pin",
+                    systemImage: presentation.isPinned ? "pin.slash" : "pin"
+                )
+            }
+
+            Divider()
+
+            Button {
+                render(document)
+            } label: {
+                Label("Render", systemImage: "doc.richtext")
+            }
+
+            Button {
+                share(document)
+            } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+
+            Button {
+                beginRename(document)
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+
+            Button {
+                beginMove(.document(document))
+            } label: {
+                Label("Move", systemImage: "folder")
+            }
+
+            Button {
+                duplicate(document)
+            } label: {
+                Label("Duplicate", systemImage: "doc.on.doc")
+            }
+
+            Button(role: .destructive) {
+                beginDelete(document)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 
     // Neither empty state carries a heading. The Documents heading and the
