@@ -9,6 +9,42 @@ import Testing
 
 struct MarkdownTextViewTests {
 
+    @Test func markedTextReplacementIsEligibleForFullAnnouncements() {
+        #expect(
+            MarkdownTypingEditEligibility.shouldTrack(
+                isVoiceOverRunning: true,
+                includesTypedStructureFeedback: true,
+                rangeLength: 2,
+                replacementText: "## ",
+                belongsToMarkedTextComposition: true,
+                isPerformingPaste: false
+            )
+        )
+    }
+
+    @Test func ordinaryReplacementsAndPasteRemainIneligible() {
+        #expect(
+            !MarkdownTypingEditEligibility.shouldTrack(
+                isVoiceOverRunning: true,
+                includesTypedStructureFeedback: true,
+                rangeLength: 2,
+                replacementText: "replacement",
+                belongsToMarkedTextComposition: false,
+                isPerformingPaste: false
+            )
+        )
+        #expect(
+            !MarkdownTypingEditEligibility.shouldTrack(
+                isVoiceOverRunning: true,
+                includesTypedStructureFeedback: true,
+                rangeLength: 0,
+                replacementText: "**bold**",
+                belongsToMarkedTextComposition: false,
+                isPerformingPaste: true
+            )
+        )
+    }
+
     @Test func programmaticCursorRequestProducesStatusSelection() {
         let text = "First\n## Destination"
 

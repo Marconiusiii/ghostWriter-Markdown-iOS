@@ -17,6 +17,7 @@ struct MarkdownTypingAnnouncementTests {
                 ) == "Heading level \(level)."
             )
         }
+        #expect(message("## ", inserted: "## ") == "Heading level 2.")
     }
 
     @Test func rejectsIncompleteOrInvalidHeadings() {
@@ -33,6 +34,7 @@ struct MarkdownTypingAnnouncementTests {
         #expect(message("_italic_", inserted: "_") == "Italics applied.")
         #expect(message("~~removed~~", inserted: "~") == "Strikethrough applied.")
         #expect(message("`value`", inserted: "`") == "Inline code applied.")
+        #expect(message("**bold**", inserted: "**bold**") == "Bold applied.")
     }
 
     @Test func recognizesCompletedLinksAndImages() {

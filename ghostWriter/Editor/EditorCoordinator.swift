@@ -18,6 +18,28 @@
 import SwiftUI
 import UIKit
 
+nonisolated enum MarkdownTypingEditEligibility {
+    static func shouldTrack(
+        isVoiceOverRunning: Bool,
+        includesTypedStructureFeedback: Bool,
+        rangeLength: Int,
+        replacementText: String,
+        belongsToMarkedTextComposition: Bool,
+        isPerformingPaste: Bool
+    ) -> Bool {
+        let isInsertion = rangeLength == 0 || belongsToMarkedTextComposition
+        let isDirectTyping = replacementText.count == 1
+            || belongsToMarkedTextComposition
+
+        return isVoiceOverRunning
+            && includesTypedStructureFeedback
+            && isInsertion
+            && !replacementText.isEmpty
+            && isDirectTyping
+            && !isPerformingPaste
+    }
+}
+
 @MainActor
 final class EditorCoordinator: NSObject, UITextViewDelegate {
     var parent: MarkdownTextView
@@ -25,6 +47,7 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     private var isApplyingSmartListEdit = false
     private var pendingMarkedListReturn: DeferredListReturnPlan?
     private var pendingTypingReplacement: String?
+    private var isTrackingMarkedTyping = false
 
     init(_ parent: MarkdownTextView) {
         self.parent = parent
@@ -62,13 +85,20 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         let isPerformingPaste = (textView as? MarkdownEditorTextView)?
             .isPerformingPaste == true
         let hasMarkedText = textView.markedTextRange != nil
-        let isDirectTyping = replacementText.count == 1 || hasMarkedText
-        if UIAccessibility.isVoiceOverRunning,
-           parent.voiceOverVerbosity.includesTypedStructureFeedback,
-           range.length == 0,
-           !replacementText.isEmpty,
-           isDirectTyping,
-           !isPerformingPaste {
+        if hasMarkedText {
+            isTrackingMarkedTyping = true
+        }
+        let belongsToMarkedTextComposition = hasMarkedText
+            || isTrackingMarkedTyping
+        if MarkdownTypingEditEligibility.shouldTrack(
+            isVoiceOverRunning: UIAccessibility.isVoiceOverRunning,
+            includesTypedStructureFeedback:
+                parent.voiceOverVerbosity.includesTypedStructureFeedback,
+            rangeLength: range.length,
+            replacementText: replacementText,
+            belongsToMarkedTextComposition: belongsToMarkedTextComposition,
+            isPerformingPaste: isPerformingPaste
+        ) {
             pendingTypingReplacement = replacementText
         } else {
             pendingTypingReplacement = nil
@@ -198,9 +228,11 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         applyPendingMarkedListReturn(in: textView)
         parent.session.textDidChange(in: textView)
 
-        guard textView.markedTextRange == nil,
-              let replacement = pendingTypingReplacement else { return }
+        guard textView.markedTextRange == nil else { return }
+        let replacement = pendingTypingReplacement
         pendingTypingReplacement = nil
+        isTrackingMarkedTyping = false
+        guard let replacement else { return }
         announceCompletedStructure(in: textView, insertedText: replacement)
     }
 
