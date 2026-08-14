@@ -105,11 +105,20 @@ private struct HelpTopic: Identifiable {
             title: "Searching, Sorting, and Document Actions",
             paragraphs: [
                 "The library Search field checks document names and contents. The result count updates beneath the field. Activate Clear Search to return to the full library.",
-                "Sort changes the field and direction used to arrange documents. Tap a document to open it, or use its Actions menu to pin, render, share, rename, move, duplicate, or delete it.",
+                "Sort changes the field and direction used to arrange documents. Tap a document to open it.",
                 "Pin keeps an important document at the beginning of the Library. Pinned documents remain first with every sort option. Last Opened sorts documents by the most recent time they were opened in the editor.",
-                "A folder's Actions menu lets you rename, move, or delete that folder. Deleting a folder keeps everything inside it together.",
+                "Deleting a folder keeps everything inside it together.",
                 "Delete moves a document or folder to Deleted. Restoring returns it to its previous folder when that folder still exists, or to Documents when it does not.",
                 "Jump to Line in File Actions moves the cursor to the beginning of a numbered line. Line numbers begin at 1."
+            ]
+        ),
+        HelpTopic(
+            title: "Library Gestures",
+            paragraphs: [
+                "For non-VoiceOver users, swipe left or right on a document or folder to reveal common actions. Touch and hold a document or folder to open its complete actions menu.",
+                "On a document, swipe left for Share and Delete. Swipe right for Pin or Unpin. If a download failed, swiping right also provides Retry Download.",
+                "On a folder, swipe left for Move and Delete. Swipe right for Rename.",
+                "Touch and hold a document for Pin or Unpin, Render, Share, Rename, Move, Duplicate, and Delete. Touch and hold a folder for Rename, Move, and Delete."
             ]
         ),
         HelpTopic(
