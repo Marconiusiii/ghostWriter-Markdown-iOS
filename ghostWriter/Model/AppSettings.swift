@@ -85,6 +85,36 @@ enum EditorFontDesign: String, CaseIterable, Identifiable {
     }
 }
 
+enum VoiceOverVerbosity: String, CaseIterable, Identifiable {
+    case off
+    case light
+    case full
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .off: return "Off"
+        case .light: return "Light"
+        case .full: return "Full"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .off:
+            return "No Markdown editing announcements."
+        case .light:
+            return "Announces list changes, indentation levels, and Insert actions."
+        case .full:
+            return "Announces Light feedback and completed Markdown structures as you type."
+        }
+    }
+
+    var includesLightFeedback: Bool { self != .off }
+    var includesTypedStructureFeedback: Bool { self == .full }
+}
+
 @Observable
 final class AppSettings {
     var appLaunchBehavior: AppLaunchBehavior {
@@ -172,10 +202,13 @@ final class AppSettings {
         }
     }
 
-    /// Announces the structure of the current line (heading level, list depth)
-    /// as the editor's accessibility value.
-    var announceLineStructure: Bool {
-        didSet { defaults.set(announceLineStructure, forKey: Keys.announceStructure) }
+    var voiceOverVerbosity: VoiceOverVerbosity {
+        didSet {
+            defaults.set(
+                voiceOverVerbosity.rawValue,
+                forKey: Keys.voiceOverVerbosity
+            )
+        }
     }
 
     var sort: DocumentSort {
@@ -218,7 +251,9 @@ final class AppSettings {
         self.smartListsEnabled = defaults.object(forKey: Keys.smartLists) as? Bool ?? true
         self.keyboardShortcutsEnabled =
             defaults.object(forKey: Keys.keyboardShortcuts) as? Bool ?? true
-        self.announceLineStructure = defaults.object(forKey: Keys.announceStructure) as? Bool ?? true
+        self.voiceOverVerbosity = defaults.string(
+            forKey: Keys.voiceOverVerbosity
+        ).flatMap(VoiceOverVerbosity.init(rawValue:)) ?? .light
 
         let field = (defaults.string(forKey: Keys.sortField)
             .flatMap(DocumentSortField.init(rawValue:))) ?? .modified
@@ -244,7 +279,7 @@ final class AppSettings {
         static let renderSound = "renderSoundEnabled"
         static let smartLists = "smartListsEnabled"
         static let keyboardShortcuts = "keyboardShortcutsEnabled"
-        static let announceStructure = "announceLineStructure"
+        static let voiceOverVerbosity = "voiceOverVerbosity"
         static let sortField = "sortField"
         static let sortDirection = "sortDirection"
     }

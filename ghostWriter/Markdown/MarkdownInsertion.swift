@@ -29,6 +29,41 @@ enum MarkdownInsertionCommand: Equatable {
     case table(columns: Int, rows: Int)
     case blockQuote
     case horizontalRule
+
+    var confirmation: String {
+        switch self {
+        case .heading(let level):
+            return "Heading level \(min(max(1, level), 6)) applied."
+        case .link:
+            return "Link created."
+        case .image:
+            return "Image created."
+        case .bold:
+            return "Bold applied."
+        case .italic:
+            return "Italics applied."
+        case .strikethrough:
+            return "Strikethrough applied."
+        case .inlineCode:
+            return "Inline code applied."
+        case .codeBlock:
+            return "Code block created."
+        case .bulletedList:
+            return "Bulleted list created."
+        case .numberedList:
+            return "Numbered list created."
+        case .taskList:
+            return "Task list created."
+        case .table(let columns, let rows):
+            let safeColumns = min(max(1, columns), 12)
+            let safeRows = min(max(2, rows), 20)
+            return "Table created, \(safeColumns) columns and \(safeRows) rows."
+        case .blockQuote:
+            return "Block quote applied."
+        case .horizontalRule:
+            return "Horizontal rule inserted."
+        }
+    }
 }
 
 enum MarkdownInsertion {

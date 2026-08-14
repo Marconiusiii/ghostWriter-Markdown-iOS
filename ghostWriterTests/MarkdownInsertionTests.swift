@@ -219,4 +219,13 @@ struct MarkdownInsertionTests {
         #expect(strike.text == "Remove ~~this~~")
         #expect(link.text == "[Home](https://example.com)")
     }
+
+    @Test func commandsProvideConciseConfirmations() {
+        #expect(MarkdownInsertionCommand.heading(level: 2).confirmation == "Heading level 2 applied.")
+        #expect(MarkdownInsertionCommand.bold.confirmation == "Bold applied.")
+        #expect(MarkdownInsertionCommand.italic.confirmation == "Italics applied.")
+        #expect(MarkdownInsertionCommand.link(label: "Home", address: "/").confirmation == "Link created.")
+        #expect(MarkdownInsertionCommand.image(alternativeText: "", address: "/image").confirmation == "Image created.")
+        #expect(MarkdownInsertionCommand.table(columns: 3, rows: 4).confirmation == "Table created, 3 columns and 4 rows.")
+    }
 }

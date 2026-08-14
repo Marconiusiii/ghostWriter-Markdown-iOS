@@ -19,6 +19,7 @@ struct MarkdownTextView: UIViewRepresentable {
     let session: EditorTextSession
 
     var smartListsEnabled: Bool
+    var voiceOverVerbosity: VoiceOverVerbosity
     var editorFontDesign: EditorFontDesign
     var keyboardShortcutsEnabled: Bool
     /// Set by the parent to move the cursor, for example from the outline.
@@ -234,6 +235,7 @@ struct MarkdownTextView: UIViewRepresentable {
 
 final class MarkdownEditorTextView: UITextView {
     var appKeyboardShortcutsEnabled = true
+    private(set) var isPerformingPaste = false
 
     override var keyCommands: [UIKeyCommand]? {
         var commands = super.keyCommands ?? []
@@ -252,5 +254,11 @@ final class MarkdownEditorTextView: UITextView {
 
     @objc private func dismissKeyboardCommand() {
         resignFirstResponder()
+    }
+
+    override func paste(_ sender: Any?) {
+        isPerformingPaste = true
+        super.paste(sender)
+        isPerformingPaste = false
     }
 }

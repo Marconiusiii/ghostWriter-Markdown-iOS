@@ -127,6 +127,20 @@ struct SettingsView: View {
                     )
                 }
 
+                Section("VoiceOver Verbosity") {
+                    Picker(
+                        "VoiceOver verbosity",
+                        selection: $settings.voiceOverVerbosity
+                    ) {
+                        ForEach(VoiceOverVerbosity.allCases) { verbosity in
+                            Text(verbosity.label).tag(verbosity)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text(settings.voiceOverVerbosity.description)
+                }
+
                 Section("Appearance") {
                     Picker("Theme", selection: $settings.appearance) {
                         ForEach(AppearanceMode.allCases) { mode in

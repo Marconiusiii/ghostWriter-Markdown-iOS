@@ -24,6 +24,7 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     weak var textView: UITextView?
     private var isApplyingSmartListEdit = false
     private var pendingMarkedListReturn: DeferredListReturnPlan?
+    private var pendingTypingReplacement: String?
 
     init(_ parent: MarkdownTextView) {
         self.parent = parent
@@ -57,6 +58,21 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         replacementText: String
     ) -> Bool {
         if isApplyingSmartListEdit { return true }
+
+        let isPerformingPaste = (textView as? MarkdownEditorTextView)?
+            .isPerformingPaste == true
+        let hasMarkedText = textView.markedTextRange != nil
+        let isDirectTyping = replacementText.count == 1 || hasMarkedText
+        if UIAccessibility.isVoiceOverRunning,
+           parent.voiceOverVerbosity.includesTypedStructureFeedback,
+           range.length == 0,
+           !replacementText.isEmpty,
+           isDirectTyping,
+           !isPerformingPaste {
+            pendingTypingReplacement = replacementText
+        } else {
+            pendingTypingReplacement = nil
+        }
 
         // A prior marked-text plan must never leak into a later edit if UIKit
         // did not deliver the expected change callback.
@@ -164,6 +180,7 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     /// transition — creating or ending a list item — never while typing
     /// ordinary text, so it does not talk over the user's own input echo.
     private func announce(_ message: String) {
+        guard parent.voiceOverVerbosity.includesLightFeedback else { return }
         // A brief delay lets the text view finish its own edit announcement
         // first, so the two do not collide and cut each other off.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -180,6 +197,68 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     func textViewDidChange(_ textView: UITextView) {
         applyPendingMarkedListReturn(in: textView)
         parent.session.textDidChange(in: textView)
+
+        guard textView.markedTextRange == nil,
+              let replacement = pendingTypingReplacement else { return }
+        pendingTypingReplacement = nil
+        announceCompletedStructure(in: textView, insertedText: replacement)
+    }
+
+    private func announceCompletedStructure(
+        in textView: UITextView,
+        insertedText: String
+    ) {
+        guard parent.voiceOverVerbosity.includesTypedStructureFeedback,
+              let linePrefix = currentLinePrefix(in: textView),
+              let message = MarkdownTypingAnnouncement.message(
+                linePrefix: linePrefix,
+                insertedText: insertedText
+              ), fencedCodeState(in: textView) == false else { return }
+        announce(message)
+    }
+
+    /// Copies only the portion of the current line before the caret. Extremely
+    /// long lines are ignored so a structural announcement can never turn into
+    /// an unbounded typing-path operation.
+    private func currentLinePrefix(in textView: UITextView) -> String? {
+        let text = textView.textStorage.string as NSString
+        let caret = min(max(0, textView.selectedRange.location), text.length)
+        let probe = caret > 0 ? caret - 1 : 0
+        let lineRange = text.lineRange(
+            for: NSRange(location: probe, length: 0)
+        )
+        let length = caret - lineRange.location
+        guard length >= 0, length <= 8_192 else { return nil }
+        return text.substring(
+            with: NSRange(location: lineRange.location, length: length)
+        )
+    }
+
+    /// A full fence scan happens only after a local candidate has already been
+    /// recognized. The cap keeps that rare validation bounded in very large
+    /// documents; beyond it, silence is safer than delayed or incorrect speech.
+    private func fencedCodeState(in textView: UITextView) -> Bool? {
+        let text = textView.textStorage.string as NSString
+        let caret = min(max(0, textView.selectedRange.location), text.length)
+        guard caret <= 131_072 else { return nil }
+
+        var insideFence = false
+        var location = 0
+        while location < caret {
+            let lineRange = text.lineRange(
+                for: NSRange(location: location, length: 0)
+            )
+            guard lineRange.location < caret else { break }
+            let line = text.substring(with: lineRange)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.hasPrefix("```") || line.hasPrefix("~~~") {
+                insideFence.toggle()
+            }
+            let next = NSMaxRange(lineRange)
+            guard next > location else { break }
+            location = next
+        }
+        return insideFence
     }
 
     func textViewDidChangeSelection(_ textView: UITextView) {

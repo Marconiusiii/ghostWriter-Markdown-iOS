@@ -12,6 +12,64 @@ import XCTest
 final class ghostWriterUITests: XCTestCase {
 
     @MainActor
+    func testVoiceOverVerbosityUsesConciseScalableOptions() throws {
+        let app = launchLibraryApp(
+            additionalArguments: [
+                "-voiceOverVerbosity",
+                "light"
+            ]
+        )
+        app.buttons["Settings"].tap()
+
+        let lightDescription = app.staticTexts[
+            "Announces list changes, indentation levels, and Insert actions."
+        ]
+        for _ in 0..<5 where !lightDescription.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(lightDescription.waitForExistence(timeout: 5))
+
+        let picker = app.segmentedControls.firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        XCTAssertTrue(picker.buttons["Off"].exists)
+        XCTAssertTrue(picker.buttons["Light"].exists)
+        XCTAssertTrue(picker.buttons["Full"].exists)
+        XCTAssertTrue(lightDescription.exists)
+
+        picker.buttons["Off"].tap()
+        XCTAssertTrue(
+            app.staticTexts["No Markdown editing announcements."]
+                .waitForExistence(timeout: 5)
+        )
+
+        picker.buttons["Full"].tap()
+        XCTAssertTrue(
+            app.staticTexts[
+                "Announces Light feedback and completed Markdown structures as you type."
+            ].waitForExistence(timeout: 5)
+        )
+
+        app.terminate()
+
+        let largeTextApp = launchLibraryApp(
+            additionalArguments: [
+                "-UIPreferredContentSizeCategoryName",
+                "UICTContentSizeCategoryAccessibilityXXXL",
+                "-voiceOverVerbosity",
+                "light"
+            ]
+        )
+        largeTextApp.buttons["Settings"].tap()
+        let largeTextDescription = largeTextApp.staticTexts[
+            "Announces list changes, indentation levels, and Insert actions."
+        ]
+        for _ in 0..<5 where !largeTextDescription.exists {
+            largeTextApp.swipeUp()
+        }
+        XCTAssertTrue(largeTextDescription.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testDocumentRowProvidesActionsWithoutASeparateMenuStop() throws {
         let app = launchLibraryApp()
         let name = "Row Actions \(UUID().uuidString)"
@@ -389,7 +447,9 @@ final class ghostWriterUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchLibraryApp() -> XCUIApplication {
+    private func launchLibraryApp(
+        additionalArguments: [String] = []
+    ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += [
             "-documentStorageLocation", "onDevice",
@@ -398,6 +458,7 @@ final class ghostWriterUITests: XCTestCase {
             "-welcomeExperienceCompleted", "YES",
             "-welcomeDocumentInstalled", "YES"
         ]
+        app.launchArguments += additionalArguments
         app.launch()
         XCTAssertTrue(app.buttons["New document"].waitForExistence(timeout: 10))
         return app

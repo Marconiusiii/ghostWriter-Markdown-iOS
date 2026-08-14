@@ -121,6 +121,43 @@ struct AppSettingsTests {
         #expect(!restored.keyboardShortcutsEnabled)
     }
 
+    @Test func voiceOverVerbosityDefaultsToLightAndPersists() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+
+        let settings = AppSettings(defaults: testDefaults.defaults)
+        #expect(settings.voiceOverVerbosity == .light)
+
+        settings.voiceOverVerbosity = .full
+        let restored = AppSettings(defaults: testDefaults.defaults)
+        #expect(restored.voiceOverVerbosity == .full)
+    }
+
+    @Test func invalidVoiceOverVerbosityFallsBackToLight() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        testDefaults.defaults.set("verbose", forKey: "voiceOverVerbosity")
+
+        let settings = AppSettings(defaults: testDefaults.defaults)
+
+        #expect(settings.voiceOverVerbosity == .light)
+    }
+
+    @Test func voiceOverVerbosityDescriptionsStayConcise() {
+        #expect(
+            VoiceOverVerbosity.off.description
+                == "No Markdown editing announcements."
+        )
+        #expect(
+            VoiceOverVerbosity.light.description
+                == "Announces list changes, indentation levels, and Insert actions."
+        )
+        #expect(
+            VoiceOverVerbosity.full.description
+                == "Announces Light feedback and completed Markdown structures as you type."
+        )
+    }
+
     private func makeDefaults() -> (defaults: UserDefaults, suiteName: String) {
         let suiteName = "ghostWriterTests-\(UUID().uuidString)"
         return (UserDefaults(suiteName: suiteName)!, suiteName)

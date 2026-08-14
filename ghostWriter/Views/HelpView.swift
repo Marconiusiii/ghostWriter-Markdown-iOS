@@ -77,7 +77,8 @@ private struct HelpTopic: Identifiable {
             title: "Automatic Lists and Indentation",
             paragraphs: [
                 "When Automatic Lists is enabled, pressing Return after a bullet, numbered item, or task continues that list. Press Return on an empty list item to end the list.",
-                "Use Indent and Outdent above the on-screen keyboard to change the nesting level of the current line or selected lines. Choose tabs, two spaces, or four spaces in Settings."
+                "Use Indent and Outdent above the on-screen keyboard to change the nesting level of the current line or selected lines. Choose tabs, two spaces, or four spaces in Settings.",
+                "VoiceOver Verbosity in Settings controls Markdown editing announcements. Light includes list, indentation, and Insert feedback. Full also announces completed Markdown structures as you type. Off disables Markdown editing announcements."
             ]
         ),
         HelpTopic(

@@ -42,7 +42,7 @@ struct EditorView: View {
     @State private var showingInsertActions = false
     @State private var insertionSelection = TextSelection(location: 0, length: 0)
     @State private var insertionInitialText = ""
-    @State private var pendingInsertionResult: MarkdownInsertionResult?
+    @State private var pendingInsertion: PendingInsertion?
     @State private var renameText = ""
     @State private var jumpLineText = ""
     @State private var jumpLineError: LineNavigationError?
@@ -75,6 +75,11 @@ struct EditorView: View {
         case close
         case rename(String)
         case duplicate
+    }
+
+    private struct PendingInsertion {
+        let result: MarkdownInsertionResult
+        let confirmation: String
     }
 
     @Environment(DocumentStore.self) private var store
@@ -192,10 +197,13 @@ struct EditorView: View {
         }
         .sheet(isPresented: $showingInsertActions, onDismiss: finishInsertionPresentation) {
             InsertActionsView(initialLinkText: insertionInitialText) { command in
-                pendingInsertionResult = MarkdownInsertion.apply(
-                    command,
-                    in: text,
-                    selection: insertionSelection
+                pendingInsertion = PendingInsertion(
+                    result: MarkdownInsertion.apply(
+                        command,
+                        in: text,
+                        selection: insertionSelection
+                    ),
+                    confirmation: command.confirmation
                 )
             }
             .presentationDragIndicator(.hidden)
@@ -478,6 +486,7 @@ struct EditorView: View {
         MarkdownTextView(
             session: editorSession,
             smartListsEnabled: settings.smartListsEnabled,
+            voiceOverVerbosity: settings.voiceOverVerbosity,
             editorFontDesign: settings.editorFontDesign,
             keyboardShortcutsEnabled: settings.keyboardShortcutsEnabled,
             pendingCursorOffset: $pendingCursorOffset,
@@ -627,7 +636,12 @@ struct EditorView: View {
             MarkdownInsertionResult(text: result.text, selection: result.selection)
         )
         pendingCursorOffset = result.selection.location
-        UIAccessibility.post(notification: .announcement, argument: result.announcement)
+        if settings.voiceOverVerbosity.includesLightFeedback {
+            UIAccessibility.post(
+                notification: .announcement,
+                argument: result.announcement
+            )
+        }
     }
 
     private func beginInsertion() {
@@ -637,25 +651,31 @@ struct EditorView: View {
             in: text,
             selection: selection
         )
-        pendingInsertionResult = nil
+        pendingInsertion = nil
         present { showingInsertActions = true }
     }
 
     private func finishInsertionPresentation() {
-        guard let result = pendingInsertionResult else {
+        guard let insertion = pendingInsertion else {
             restoreFocus(to: .insert)
             return
         }
 
-        pendingInsertionResult = nil
-        applyInsertion(result)
+        pendingInsertion = nil
+        applyInsertion(insertion)
     }
 
-    private func applyInsertion(_ result: MarkdownInsertionResult) {
+    private func applyInsertion(_ insertion: PendingInsertion) {
         focusRequestGate.invalidate()
         dismissKeyboard()
-        applyEditorReplacement(result)
-        pendingCursorOffset = result.selection.location
+        applyEditorReplacement(insertion.result)
+        pendingCursorOffset = insertion.result.selection.location
+
+        guard settings.voiceOverVerbosity.includesLightFeedback else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(700))
+            announce(insertion.confirmation)
+        }
     }
 
     private func jumpToLine() {
