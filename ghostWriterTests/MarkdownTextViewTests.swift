@@ -10,6 +10,18 @@ import UIKit
 
 struct MarkdownTextViewTests {
 
+    @Test func editorAnnouncementsWaitForExistingVoiceOverSpeech() {
+        let announcement = MarkdownEditorAnnouncement.queued("Bold applied.")
+        let priority = announcement.attribute(
+            .accessibilitySpeechAnnouncementPriority,
+            at: 0,
+            effectiveRange: nil
+        ) as? UIAccessibilityPriority
+
+        #expect(announcement.string == "Bold applied.")
+        #expect(priority == .low)
+    }
+
     @MainActor
     @Test func committedInsertionCallsTheNativeInputHook() {
         let textView = MarkdownEditorTextView()

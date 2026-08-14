@@ -40,6 +40,18 @@ nonisolated struct MarkdownTypingAnnouncementFingerprint: Equatable {
     let structureEndUTF16Offset: Int
 }
 
+nonisolated enum MarkdownEditorAnnouncement {
+    static func queued(_ message: String) -> NSAttributedString {
+        NSAttributedString(
+            string: message,
+            attributes: [
+                .accessibilitySpeechAnnouncementPriority:
+                    UIAccessibilityPriority.low
+            ]
+        )
+    }
+}
+
 @MainActor
 final class EditorCoordinator: NSObject, UITextViewDelegate {
     var parent: MarkdownTextView
@@ -190,10 +202,14 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     /// ordinary text, so it does not talk over the user's own input echo.
     private func announce(_ message: String) {
         guard parent.voiceOverVerbosity.includesLightFeedback else { return }
-        // A brief delay lets the text view finish its own edit announcement
-        // first, so the two do not collide and cut each other off.
+        // A brief delay lets UIKit register its native typing feedback. Low
+        // priority then queues this confirmation until that speech finishes
+        // instead of interrupting translated text, Space, or Return feedback.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            UIAccessibility.post(notification: .announcement, argument: message)
+            UIAccessibility.post(
+                notification: .announcement,
+                argument: MarkdownEditorAnnouncement.queued(message)
+            )
         }
     }
 
