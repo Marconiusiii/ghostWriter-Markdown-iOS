@@ -48,6 +48,31 @@ struct MarkdownTypingAnnouncementTests {
         )
     }
 
+    @Test func recognizesBSIFormattingBeforeSpaceOrReturn() {
+        #expect(candidate("**bold** ", committed: "**bold** ")?.message == "Bold applied.")
+        #expect(candidate("**bold**\n", committed: "**bold**\n")?.message == "Bold applied.")
+        #expect(candidate("_italics_ ", committed: "_italics_ ")?.message == "Italics applied.")
+        #expect(candidate("~~removed~~\n", committed: "\n")?.message == "Strikethrough applied.")
+        #expect(candidate("`code`\r\n", committed: "\r\n")?.message == "Inline code applied.")
+        #expect(candidate("[Home](https://example.com)\n", committed: "\n")?.message == "Link created.")
+        #expect(candidate("![Logo](image.png) ", committed: " ")?.message == "Image created.")
+        #expect(candidate("**bold**\t", committed: "\t")?.message == "Bold applied.")
+    }
+
+    @Test func consumesOnlyTheCurrentCommitBoundary() {
+        #expect(candidate("**bold**  ", committed: " ") == nil)
+        #expect(candidate("**bold**\n\n", committed: "\n") == nil)
+        #expect(candidate("## ", committed: "## ")?.message == "Heading level 2.")
+        #expect(
+            candidate("**bold** ", committed: " ")?
+                .trailingBoundaryUTF16Length == 1
+        )
+        #expect(
+            candidate("**bold**\r\n", committed: "\r\n")?
+                .trailingBoundaryUTF16Length == 2
+        )
+    }
+
     @Test func rejectsMalformedLinksAndImages() {
         #expect(message("[](https://example.com)", inserted: ")") == nil)
         #expect(message("[Home]()", inserted: ")") == nil)
@@ -67,6 +92,16 @@ struct MarkdownTypingAnnouncementTests {
         MarkdownTypingAnnouncement.message(
             linePrefix: linePrefix,
             insertedText: inserted
+        )
+    }
+
+    private func candidate(
+        _ linePrefix: String,
+        committed: String
+    ) -> MarkdownTypingAnnouncementCandidate? {
+        MarkdownTypingAnnouncement.candidate(
+            linePrefix: linePrefix,
+            committedText: committed
         )
     }
 }

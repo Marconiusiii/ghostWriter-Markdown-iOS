@@ -35,6 +35,11 @@ nonisolated struct MarkdownTypingCommitGate {
     }
 }
 
+nonisolated struct MarkdownTypingAnnouncementFingerprint: Equatable {
+    let message: String
+    let structureEndUTF16Offset: Int
+}
+
 @MainActor
 final class EditorCoordinator: NSObject, UITextViewDelegate {
     var parent: MarkdownTextView
@@ -42,6 +47,8 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     private var isApplyingSmartListEdit = false
     private var pendingMarkedListReturn: DeferredListReturnPlan?
     private var typingCommitGate = MarkdownTypingCommitGate()
+    private var lastTypingAnnouncement:
+        MarkdownTypingAnnouncementFingerprint?
 
     init(_ parent: MarkdownTextView) {
         self.parent = parent
@@ -199,9 +206,13 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
     func textViewDidChange(_ textView: UITextView) {
         applyPendingMarkedListReturn(in: textView)
         parent.session.textDidChange(in: textView)
+        retainOnlyCurrentTypingAnnouncement(in: textView)
     }
 
-    func nativeTextDidCommit(in textView: MarkdownEditorTextView) {
+    func nativeTextDidCommit(
+        _ committedText: String,
+        in textView: MarkdownEditorTextView
+    ) {
         guard parent.voiceOverVerbosity.includesTypedStructureFeedback,
               !isApplyingSmartListEdit,
               !textView.isPerformingPaste else {
@@ -215,21 +226,63 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
                   self.typingCommitGate.accepts(token),
                   self.parent.voiceOverVerbosity
                     .includesTypedStructureFeedback else { return }
-            self.announceCompletedStructure(in: textView)
+            self.announceCompletedStructure(
+                in: textView,
+                committedText: committedText
+            )
         }
     }
 
     private func announceCompletedStructure(
-        in textView: UITextView
+        in textView: UITextView,
+        committedText: String
     ) {
         guard parent.voiceOverVerbosity.includesTypedStructureFeedback,
-              let linePrefix = currentLinePrefix(in: textView),
-              let trigger = linePrefix.last,
-              let message = MarkdownTypingAnnouncement.message(
+              let fingerprint = typingAnnouncementFingerprint(
+                in: textView,
+                committedText: committedText
+              ), fingerprint != lastTypingAnnouncement,
+              fencedCodeState(in: textView) == false else { return }
+        lastTypingAnnouncement = fingerprint
+        announce(fingerprint.message)
+    }
+
+    private func retainOnlyCurrentTypingAnnouncement(
+        in textView: UITextView
+    ) {
+        guard let lastTypingAnnouncement else { return }
+        let text = textView.textStorage.string as NSString
+        let caret = min(max(0, textView.selectedRange.location), text.length)
+        let lastCharacter = caret > 0
+            ? text.substring(with: NSRange(location: caret - 1, length: 1))
+            : ""
+        guard let current = typingAnnouncementFingerprint(
+            in: textView,
+            committedText: lastCharacter
+        ), current == lastTypingAnnouncement else {
+            self.lastTypingAnnouncement = nil
+            return
+        }
+    }
+
+    private func typingAnnouncementFingerprint(
+        in textView: UITextView,
+        committedText: String
+    ) -> MarkdownTypingAnnouncementFingerprint? {
+        guard let linePrefix = currentLinePrefix(in: textView),
+              let candidate = MarkdownTypingAnnouncement.candidate(
                 linePrefix: linePrefix,
-                insertedText: String(trigger)
-              ), fencedCodeState(in: textView) == false else { return }
-        announce(message)
+                committedText: committedText
+              ) else { return nil }
+        let structureEnd = max(
+            0,
+            textView.selectedRange.location
+                - candidate.trailingBoundaryUTF16Length
+        )
+        return MarkdownTypingAnnouncementFingerprint(
+            message: candidate.message,
+            structureEndUTF16Offset: structureEnd
+        )
     }
 
     /// Copies only the portion of the current line before the caret. Extremely

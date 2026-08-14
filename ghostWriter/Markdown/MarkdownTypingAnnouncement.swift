@@ -9,7 +9,43 @@
 
 import Foundation
 
+nonisolated struct MarkdownTypingAnnouncementCandidate: Equatable {
+    let message: String
+    let trailingBoundaryUTF16Length: Int
+}
+
 nonisolated enum MarkdownTypingAnnouncement {
+    static func candidate(
+        linePrefix: String,
+        committedText: String
+    ) -> MarkdownTypingAnnouncementCandidate? {
+        if let message = message(
+            linePrefix: linePrefix,
+            insertedText: committedText
+        ) {
+            return MarkdownTypingAnnouncementCandidate(
+                message: message,
+                trailingBoundaryUTF16Length: 0
+            )
+        }
+
+        guard let boundary = committedBoundary(in: committedText),
+              let contentPrefix = removing(
+                boundary,
+                from: linePrefix
+              ), let trigger = contentPrefix.last,
+              let message = message(
+                linePrefix: contentPrefix,
+                insertedText: String(trigger)
+              ) else { return nil }
+
+        return MarkdownTypingAnnouncementCandidate(
+            message: message,
+            trailingBoundaryUTF16Length:
+                linePrefix.utf16.count - contentPrefix.utf16.count
+        )
+    }
+
     static func message(
         linePrefix: String,
         insertedText: String
@@ -72,6 +108,48 @@ nonisolated enum MarkdownTypingAnnouncement {
         guard (1...6).contains(marker.count),
               marker.allSatisfy({ $0 == "#" }) else { return nil }
         return "Heading level \(marker.count)."
+    }
+
+    private enum CommittedBoundary {
+        case space
+        case tab
+        case newLine
+    }
+
+    private static func committedBoundary(
+        in committedText: String
+    ) -> CommittedBoundary? {
+        if committedText.hasSuffix("\r\n")
+            || committedText.hasSuffix("\n")
+            || committedText.hasSuffix("\r") {
+            return .newLine
+        }
+        if committedText.hasSuffix(" ") { return .space }
+        if committedText.hasSuffix("\t") { return .tab }
+        return nil
+    }
+
+    private static func removing(
+        _ boundary: CommittedBoundary,
+        from linePrefix: String
+    ) -> String? {
+        switch boundary {
+        case .space:
+            guard linePrefix.hasSuffix(" ") else { return nil }
+            return String(linePrefix.dropLast())
+        case .tab:
+            guard linePrefix.hasSuffix("\t") else { return nil }
+            return String(linePrefix.dropLast())
+        case .newLine:
+            if linePrefix.hasSuffix("\r\n") {
+                // Swift treats CRLF as one Character even though UIKit counts
+                // it as two UTF-16 code units.
+                return String(linePrefix.dropLast())
+            }
+            guard linePrefix.hasSuffix("\n")
+                    || linePrefix.hasSuffix("\r") else { return nil }
+            return String(linePrefix.dropLast())
+        }
     }
 
     /// Mirrors MarkdownRenderer's word-boundary rule for underscore italics.

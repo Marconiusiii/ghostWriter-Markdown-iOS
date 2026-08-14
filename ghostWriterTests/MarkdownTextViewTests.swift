@@ -13,20 +13,20 @@ struct MarkdownTextViewTests {
     @MainActor
     @Test func committedInsertionCallsTheNativeInputHook() {
         let textView = MarkdownEditorTextView()
-        var commits = 0
-        textView.onCommittedTextInput = { commits += 1 }
+        var commits: [String] = []
+        textView.onCommittedTextInput = { commits.append($0) }
 
         textView.insertText("## ")
 
-        #expect(commits == 1)
+        #expect(commits == ["## "])
         #expect(textView.text == "## ")
     }
 
     @MainActor
     @Test func unmarkingCompositionCallsTheNativeInputHook() {
         let textView = MarkdownEditorTextView()
-        var commits = 0
-        textView.onCommittedTextInput = { commits += 1 }
+        var commits: [String] = []
+        textView.onCommittedTextInput = { commits.append($0) }
         textView.setMarkedText(
             "**bold**",
             selectedRange: NSRange(location: 8, length: 0)
@@ -35,7 +35,7 @@ struct MarkdownTextViewTests {
         #expect(textView.markedTextRange != nil)
         textView.unmarkText()
 
-        #expect(commits == 1)
+        #expect(commits == ["**bold**"])
         #expect(textView.markedTextRange == nil)
         #expect(textView.text == "**bold**")
     }
