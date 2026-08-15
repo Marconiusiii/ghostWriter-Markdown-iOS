@@ -31,6 +31,7 @@ final class ghostWriterUITests: XCTestCase {
 
         let picker = app.segmentedControls.firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        XCTAssertEqual(picker.label, "VoiceOver Verbosity")
         XCTAssertTrue(picker.buttons["Off"].exists)
         XCTAssertTrue(picker.buttons["Light"].exists)
         XCTAssertTrue(picker.buttons["Full"].exists)
@@ -67,6 +68,9 @@ final class ghostWriterUITests: XCTestCase {
             largeTextApp.swipeUp()
         }
         XCTAssertTrue(largeTextDescription.waitForExistence(timeout: 5))
+        let largeTextPicker = largeTextApp.segmentedControls.firstMatch
+        XCTAssertTrue(largeTextPicker.waitForExistence(timeout: 5))
+        XCTAssertEqual(largeTextPicker.label, "VoiceOver Verbosity")
     }
 
     @MainActor

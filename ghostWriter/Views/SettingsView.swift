@@ -128,27 +128,38 @@ struct SettingsView: View {
                 }
 
                 Section("VoiceOver Settings") {
-                    Picker(
-                        "VoiceOver verbosity",
-                        selection: $settings.voiceOverVerbosity
-                    ) {
-                        ForEach(VoiceOverVerbosity.allCases) { verbosity in
-                            Text(verbosity.label).tag(verbosity)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("VoiceOver Verbosity")
+                            .font(.headline)
+                            // The Picker below exposes this same label. Keep the
+                            // visible copy from becoming a duplicate stop.
+                            .accessibilityHidden(true)
+
+                        Picker(
+                            "VoiceOver Verbosity",
+                            selection: $settings.voiceOverVerbosity
+                        ) {
+                            ForEach(VoiceOverVerbosity.allCases) { verbosity in
+                                Text(verbosity.label).tag(verbosity)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        .accessibilityLabel("VoiceOver Verbosity")
+
+                        Text(settings.voiceOverVerbosity.description)
                     }
-                    .pickerStyle(.segmented)
 
-                    Text(settings.voiceOverVerbosity.description)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle(
+                            "Heading Swipe Navigation",
+                            isOn: $settings.headingSwipeNavigationEnabled
+                        )
+                        .ghostFilledControlTint()
 
-                    Toggle(
-                        "Heading Swipe Navigation",
-                        isOn: $settings.headingSwipeNavigationEnabled
-                    )
-                    .ghostFilledControlTint()
-
-                    Text(
-                        "Moves between headings with three-finger horizontal swipes in the editor."
-                    )
+                        Text(
+                            "Moves between headings with three-finger horizontal swipes in the editor."
+                        )
+                    }
                 }
 
                 Section("Appearance") {

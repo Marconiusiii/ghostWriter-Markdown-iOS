@@ -123,7 +123,7 @@ struct MarkdownTextViewTests {
             synchronizedSelection = $0
         }
 
-        let handled = textView.accessibilityScroll(.left)
+        let handled = textView.accessibilityScroll(.right)
         let expected = "# First\nBody\n".utf16.count
 
         #expect(handled)
@@ -140,7 +140,7 @@ struct MarkdownTextViewTests {
             length: 0
         )
 
-        let handled = textView.accessibilityScroll(.right)
+        let handled = textView.accessibilityScroll(.left)
         let expected = "# First\nBody\n".utf16.count
 
         #expect(handled)

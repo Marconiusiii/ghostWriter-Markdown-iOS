@@ -285,13 +285,9 @@ final class MarkdownEditorTextView: UITextView {
 
         let headingDirection: HeadingNavigationDirection
         switch direction {
-        // A physical three-finger swipe right requests a scroll to the left.
-        // That physical gesture moves forward through headings.
-        case .left:
-            headingDirection = .next
-        // A physical three-finger swipe left requests a scroll to the right.
-        // That physical gesture moves backward through headings.
         case .right:
+            headingDirection = .next
+        case .left:
             headingDirection = .previous
         default:
             return super.accessibilityScroll(direction)
@@ -347,7 +343,7 @@ final class MarkdownEditorTextView: UITextView {
     }
 
     private func postHeadingPosition(_ description: String) {
-        UIAccessibility.post(notification: .pageScrolled, argument: description)
+        UIAccessibility.post(notification: .announcement, argument: description)
     }
 
     override var keyCommands: [UIKeyCommand]? {
