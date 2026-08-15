@@ -5,11 +5,20 @@ nonisolated enum WordprocessingMLReader {
         var name: String
         var basedOn: String?
         var outlineLevel: Int?
+        var numberingID: String?
+        var numberingLevel: Int?
     }
 
     private struct NumberLevel {
         var format: String
         var start: Int
+        var paragraphStyleID: String?
+    }
+
+    private struct AbstractNumbering {
+        var levels: [Int: NumberLevel]
+        var numberingStyleLink: String?
+        var styleLink: String?
     }
 
     static func read(data: Data) throws -> WordDocumentModel {
@@ -27,7 +36,10 @@ nonisolated enum WordprocessingMLReader {
         }
 
         let styles = try parseStyles(entries["word/styles.xml"])
-        let numbering = try parseNumbering(entries["word/numbering.xml"])
+        let numbering = try parseNumbering(
+            entries["word/numbering.xml"],
+            styles: styles
+        )
         let relationships = try parseRelationships(
             entries["word/_rels/document.xml.rels"]
         )
@@ -119,9 +131,21 @@ nonisolated enum WordprocessingMLReader {
         paragraph.isCodeBlock = normalizedStyle.contains("code")
             || normalizedStyle.contains("preformatted")
 
-        if let numProperties = properties?.child("numPr"),
-           let numID = numProperties.child("numId")?.attribute("val") {
-            let level = Int(numProperties.child("ilvl")?.attribute("val") ?? "0") ?? 0
+        let directNumbering = properties?.child("numPr")
+        let directNumberingID = directNumbering?.child("numId")?.attribute("val")
+        let numID = directNumberingID ?? resolvedStyle.numberingID
+        if let numID, numID != "0" {
+            let level: Int
+            if directNumberingID != nil {
+                level = Int(directNumbering?.child("ilvl")?.attribute("val") ?? "0") ?? 0
+            } else {
+                level = styleNumberingLevel(
+                    styleID: styleID,
+                    fallback: resolvedStyle.numberingLevel,
+                    levels: numbering[numID] ?? [:],
+                    styles: styles
+                )
+            }
             let definition = numbering[numID]?[level]
             if definition?.format == "bullet" {
                 paragraph.list = WordListReference(identifier: numID, level: level, kind: .bullet)
@@ -244,7 +268,9 @@ nonisolated enum WordprocessingMLReader {
             styles[id] = Style(
                 name: node.child("name")?.attribute("val") ?? id,
                 basedOn: node.child("basedOn")?.attribute("val"),
-                outlineLevel: node.child("pPr")?.child("outlineLvl")?.attribute("val").flatMap(Int.init)
+                outlineLevel: node.child("pPr")?.child("outlineLvl")?.attribute("val").flatMap(Int.init),
+                numberingID: node.child("pPr")?.child("numPr")?.child("numId")?.attribute("val"),
+                numberingLevel: node.child("pPr")?.child("numPr")?.child("ilvl")?.attribute("val").flatMap(Int.init)
             )
         }
         return styles
@@ -252,16 +278,42 @@ nonisolated enum WordprocessingMLReader {
 
     private static func resolveStyle(_ id: String?, styles: [String: Style]) -> Style {
         guard let id, var resolved = styles[id] else {
-            return Style(name: id ?? "", basedOn: nil, outlineLevel: nil)
+            return Style(
+                name: id ?? "",
+                basedOn: nil,
+                outlineLevel: nil,
+                numberingID: nil,
+                numberingLevel: nil
+            )
         }
         var visited: Set<String> = [id]
         var parent = resolved.basedOn
         while let parentID = parent, !visited.contains(parentID), let base = styles[parentID] {
             visited.insert(parentID)
             if resolved.outlineLevel == nil { resolved.outlineLevel = base.outlineLevel }
+            if resolved.numberingID == nil { resolved.numberingID = base.numberingID }
+            if resolved.numberingLevel == nil { resolved.numberingLevel = base.numberingLevel }
             parent = base.basedOn
         }
         return resolved
+    }
+
+    private static func styleNumberingLevel(
+        styleID: String?,
+        fallback: Int?,
+        levels: [Int: NumberLevel],
+        styles: [String: Style]
+    ) -> Int {
+        var currentID = styleID
+        var visited: Set<String> = []
+        while let candidate = currentID, !visited.contains(candidate) {
+            visited.insert(candidate)
+            if let match = levels.first(where: { $0.value.paragraphStyleID == candidate }) {
+                return match.key
+            }
+            currentID = styles[candidate]?.basedOn
+        }
+        return fallback ?? 0
     }
 
     private static func headingLevel(for style: Style) -> Int? {
@@ -275,10 +327,13 @@ nonisolated enum WordprocessingMLReader {
         return level
     }
 
-    private static func parseNumbering(_ data: Data?) throws -> [String: [Int: NumberLevel]] {
+    private static func parseNumbering(
+        _ data: Data?,
+        styles: [String: Style]
+    ) throws -> [String: [Int: NumberLevel]] {
         guard let data else { return [:] }
         let root = try WordXMLTreeParser.parse(data, partName: "numbering")
-        var abstracts: [String: [Int: NumberLevel]] = [:]
+        var abstracts: [String: AbstractNumbering] = [:]
         for abstract in root.descendants(named: "abstractNum") {
             guard let id = abstract.attribute("abstractNumId") else { continue }
             var levels: [Int: NumberLevel] = [:]
@@ -286,20 +341,59 @@ nonisolated enum WordprocessingMLReader {
                 let index = Int(level.attribute("ilvl") ?? "0") ?? 0
                 levels[index] = NumberLevel(
                     format: level.child("numFmt")?.attribute("val") ?? "decimal",
-                    start: Int(level.child("start")?.attribute("val") ?? "1") ?? 1
+                    start: Int(level.child("start")?.attribute("val") ?? "1") ?? 1,
+                    paragraphStyleID: level.child("pStyle")?.attribute("val")
                 )
             }
-            abstracts[id] = levels
+            abstracts[id] = AbstractNumbering(
+                levels: levels,
+                numberingStyleLink: abstract.child("numStyleLink")?.attribute("val"),
+                styleLink: abstract.child("styleLink")?.attribute("val")
+            )
         }
+
+        var concreteAbstractIDs: [String: String] = [:]
+        for node in root.children(named: "num") {
+            guard let id = node.attribute("numId"),
+                  let abstractID = node.child("abstractNumId")?.attribute("val"),
+                  concreteAbstractIDs[id] == nil else { continue }
+            concreteAbstractIDs[id] = abstractID
+        }
+        var styleLinkedAbstractIDs: [String: String] = [:]
+        for (id, definition) in abstracts {
+            guard let styleID = definition.styleLink,
+                  styleLinkedAbstractIDs[styleID] == nil else { continue }
+            styleLinkedAbstractIDs[styleID] = id
+        }
+
+        func resolvedLevels(for abstractID: String, visited: Set<String> = []) -> [Int: NumberLevel] {
+            guard !visited.contains(abstractID), let abstract = abstracts[abstractID] else { return [:] }
+            guard let styleID = abstract.numberingStyleLink else { return abstract.levels }
+            var nextVisited = visited
+            nextVisited.insert(abstractID)
+            if let linkedAbstractID = styleLinkedAbstractIDs[styleID] {
+                return resolvedLevels(for: linkedAbstractID, visited: nextVisited)
+            }
+            if let linkedNumberingID = styles[styleID]?.numberingID,
+               let linkedAbstractID = concreteAbstractIDs[linkedNumberingID] {
+                return resolvedLevels(for: linkedAbstractID, visited: nextVisited)
+            }
+            return abstract.levels
+        }
+
         var result: [String: [Int: NumberLevel]] = [:]
         for number in root.children(named: "num") {
             guard let id = number.attribute("numId"),
                   let abstractID = number.child("abstractNumId")?.attribute("val") else { continue }
-            var levels = abstracts[abstractID] ?? [:]
+            var levels = resolvedLevels(for: abstractID)
             for override in number.children(named: "lvlOverride") {
                 let index = Int(override.attribute("ilvl") ?? "0") ?? 0
                 if let start = override.child("startOverride")?.attribute("val").flatMap(Int.init) {
-                    var level = levels[index] ?? NumberLevel(format: "decimal", start: 1)
+                    var level = levels[index] ?? NumberLevel(
+                        format: "decimal",
+                        start: 1,
+                        paragraphStyleID: nil
+                    )
                     level.start = start
                     levels[index] = level
                 }
@@ -310,7 +404,9 @@ nonisolated enum WordprocessingMLReader {
                             ?? "decimal",
                         start: Int(replacement.child("start")?.attribute("val") ?? "")
                             ?? levels[index]?.start
-                            ?? 1
+                            ?? 1,
+                        paragraphStyleID: replacement.child("pStyle")?.attribute("val")
+                            ?? levels[index]?.paragraphStyleID
                     )
                 }
             }

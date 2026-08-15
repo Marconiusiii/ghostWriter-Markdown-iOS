@@ -140,6 +140,20 @@ struct WordConversionTests {
         #expect(markdown.contains("[^1]: Footnote text"))
     }
 
+    @Test func importsListsFromParagraphStylesAndNumberingStyles() throws {
+        let data = try styleBasedListFixture()
+        let markdown = try WordToMarkdownConverter.convert(data: data)
+
+        #expect(markdown.contains("- First bullet\n    - Nested bullet"))
+        #expect(markdown.contains("3. Third\n4. Fourth\n    1. Nested number"))
+        #expect(markdown.contains("5. Direct numbering override"))
+        #expect(markdown.contains("7. Restarted numbering"))
+        #expect(markdown.contains("Plain paragraph"))
+        #expect(!markdown.contains("- Plain paragraph"))
+        #expect(!markdown.contains("1. Plain paragraph"))
+        #expect(markdown.contains("- Numbering style link"))
+    }
+
     @Test func rejectsEncryptedPackage() throws {
         let data = try WordPackage.create(entries: [
             "EncryptionInfo": Data("encrypted".utf8),
@@ -180,6 +194,51 @@ struct WordConversionTests {
             "word/numbering.xml": Data(numbering.utf8),
             "word/_rels/document.xml.rels": Data(relationships.utf8),
             "word/footnotes.xml": Data(footnotes.utf8)
+        ])
+    }
+
+    private func styleBasedListFixture() throws -> Data {
+        let document = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+        <w:p><w:pPr><w:pStyle w:val="BulletBase"/></w:pPr><w:r><w:t>First bullet</w:t></w:r></w:p>
+        <w:p><w:pPr><w:pStyle w:val="BulletNested"/></w:pPr><w:r><w:t>Nested bullet</w:t></w:r></w:p>
+        <w:p><w:pPr><w:pStyle w:val="NumberBase"/></w:pPr><w:r><w:t>Third</w:t></w:r></w:p>
+        <w:p><w:pPr><w:pStyle w:val="NumberBase"/></w:pPr><w:r><w:t>Fourth</w:t></w:r></w:p>
+        <w:p><w:pPr><w:pStyle w:val="NumberNested"/></w:pPr><w:r><w:t>Nested number</w:t></w:r></w:p>
+        <w:p><w:pPr><w:pStyle w:val="BulletBase"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="20"/></w:numPr></w:pPr><w:r><w:t>Direct numbering override</w:t></w:r></w:p>
+        <w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="21"/></w:numPr></w:pPr><w:r><w:t>Restarted numbering</w:t></w:r></w:p>
+        <w:p><w:pPr><w:pStyle w:val="NoList"/></w:pPr><w:r><w:t>Plain paragraph</w:t></w:r></w:p>
+        <w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="32"/></w:numPr></w:pPr><w:r><w:t>Numbering style link</w:t></w:r></w:p>
+        </w:body></w:document>
+        """
+        let styles = """
+        <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <w:style w:type="paragraph" w:styleId="BulletBase"><w:name w:val="Bullet base"/><w:pPr><w:numPr><w:numId w:val="10"/></w:numPr></w:pPr></w:style>
+        <w:style w:type="paragraph" w:styleId="BulletNested"><w:name w:val="Nested bullet"/><w:basedOn w:val="BulletBase"/></w:style>
+        <w:style w:type="paragraph" w:styleId="NumberBase"><w:name w:val="Number base"/><w:pPr><w:numPr><w:numId w:val="20"/></w:numPr></w:pPr></w:style>
+        <w:style w:type="paragraph" w:styleId="NumberNested"><w:name w:val="Nested number"/><w:basedOn w:val="NumberBase"/></w:style>
+        <w:style w:type="paragraph" w:styleId="NoList"><w:name w:val="No list"/><w:basedOn w:val="NumberBase"/><w:pPr><w:numPr><w:numId w:val="0"/></w:numPr></w:pPr></w:style>
+        <w:style w:type="numbering" w:styleId="LinkedNumberingStyle"><w:name w:val="Linked numbering"/><w:pPr><w:numPr><w:numId w:val="30"/></w:numPr></w:pPr></w:style>
+        </w:styles>
+        """
+        let numbering = """
+        <w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <w:abstractNum w:abstractNumId="10"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:pStyle w:val="BulletBase"/></w:lvl><w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:pStyle w:val="BulletNested"/></w:lvl></w:abstractNum>
+        <w:abstractNum w:abstractNumId="20"><w:lvl w:ilvl="0"><w:start w:val="3"/><w:numFmt w:val="decimal"/><w:pStyle w:val="NumberBase"/></w:lvl><w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:pStyle w:val="NumberNested"/></w:lvl></w:abstractNum>
+        <w:abstractNum w:abstractNumId="31"><w:styleLink w:val="LinkedNumberingStyle"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/></w:lvl></w:abstractNum>
+        <w:abstractNum w:abstractNumId="32"><w:numStyleLink w:val="LinkedNumberingStyle"/></w:abstractNum>
+        <w:num w:numId="10"><w:abstractNumId w:val="10"/></w:num>
+        <w:num w:numId="20"><w:abstractNumId w:val="20"/></w:num>
+        <w:num w:numId="21"><w:abstractNumId w:val="20"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="7"/></w:lvlOverride></w:num>
+        <w:num w:numId="30"><w:abstractNumId w:val="31"/></w:num>
+        <w:num w:numId="32"><w:abstractNumId w:val="32"/></w:num>
+        </w:numbering>
+        """
+        return try WordPackage.create(entries: [
+            "word/document.xml": Data(document.utf8),
+            "word/styles.xml": Data(styles.utf8),
+            "word/numbering.xml": Data(numbering.utf8)
         ])
     }
 }
