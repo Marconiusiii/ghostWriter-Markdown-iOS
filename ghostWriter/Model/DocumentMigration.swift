@@ -70,10 +70,12 @@ nonisolated final class DocumentMigration {
 
         try fileAccess.createDirectory(at: destinationDirectory)
         let sourceDirectories = try fileAccess.directoriesRecursively(
-            at: sourceDirectory
+            at: sourceDirectory,
+            includingHiddenFiles: true
         ).sorted { $0.pathComponents.count < $1.pathComponents.count }
         let sourceFiles = try fileAccess.regularFilesRecursively(
-            at: sourceDirectory
+            at: sourceDirectory,
+            includingHiddenFiles: true
         ).sorted {
             $0.standardizedFileURL.path
                 .localizedStandardCompare($1.standardizedFileURL.path)
@@ -81,12 +83,32 @@ nonisolated final class DocumentMigration {
         }
         var operations: [MigrationOperation] = []
         var createdDestinationDirectories: [URL] = []
+        var assetDirectoryRenames: [String: String] = [:]
+
+        for sourceFolder in sourceDirectories
+        where sourceFolder.lastPathComponent.hasPrefix(".ghostwriter-assets-") {
+            let relativeFolderPath = relativePath(
+                of: sourceFolder,
+                beneath: sourceDirectory
+            )
+            let proposedDestination = destinationDirectory.appendingPathComponent(
+                relativeFolderPath,
+                isDirectory: true
+            )
+            if fileManager.fileExists(atPath: proposedDestination.path) {
+                let parent = (relativeFolderPath as NSString).deletingLastPathComponent
+                let replacement = DocumentAssets.newDirectoryName()
+                assetDirectoryRenames[relativeFolderPath] = parent.isEmpty
+                    ? replacement
+                    : (parent as NSString).appendingPathComponent(replacement)
+            }
+        }
 
         do {
             for sourceFolder in sourceDirectories {
-                let relativeFolderPath = relativePath(
-                    of: sourceFolder,
-                    beneath: sourceDirectory
+                let relativeFolderPath = mappedRelativePath(
+                    relativePath(of: sourceFolder, beneath: sourceDirectory),
+                    assetDirectoryRenames: assetDirectoryRenames
                 )
                 let destinationFolder = destinationDirectory
                     .appendingPathComponent(
@@ -99,20 +121,29 @@ nonisolated final class DocumentMigration {
                 }
             }
             for sourceURL in sourceFiles {
-                let relativePath = relativePath(
+                let originalRelativePath = relativePath(
                     of: sourceURL,
                     beneath: sourceDirectory
+                )
+                let relativePath = mappedRelativePath(
+                    originalRelativePath,
+                    assetDirectoryRenames: assetDirectoryRenames
                 )
                 let proposedDestination = destinationDirectory
                     .appendingPathComponent(relativePath)
                 let sourceData = try fileAccess.data(at: sourceURL)
+                let destinationData = rewrittenDocumentData(
+                    sourceData,
+                    sourceURL: sourceURL,
+                    assetDirectoryRenames: assetDirectoryRenames
+                )
 
                 // A bundled starter document is replaceable only while its
                 // source bytes are still pristine. Reusing an existing
                 // destination prevents reinstall migrations from creating a
                 // numbered Welcome duplicate while preserving any edits that
                 // already exist in iCloud.
-                if reusableSourceTemplates[relativePath] == sourceData,
+                if reusableSourceTemplates[originalRelativePath] == sourceData,
                    isRegularFile(at: proposedDestination) {
                     operations.append(
                         MigrationOperation(
@@ -133,17 +164,21 @@ nonisolated final class DocumentMigration {
                 )
                 if destinationUsesICloud {
                     try placeUbiquitousItem(
-                        sourceData,
+                        destinationData,
                         destinationURL
                     )
                 } else {
-                    try fileAccess.copyItem(
-                        at: sourceURL,
-                        to: destinationURL
-                    )
+                    if destinationData == sourceData {
+                        try fileAccess.copyItem(
+                            at: sourceURL,
+                            to: destinationURL
+                        )
+                    } else {
+                        try fileAccess.write(destinationData, to: destinationURL)
+                    }
                 }
 
-                guard sourceData
+                guard destinationData
                     == (try fileAccess.data(at: destinationURL)) else {
                     throw DocumentMigrationError.couldNotVerify(
                         sourceURL.lastPathComponent
@@ -204,6 +239,38 @@ nonisolated final class DocumentMigration {
             return fileURL.lastPathComponent
         }
         return String(filePath.dropFirst(prefix.count))
+    }
+
+    private func mappedRelativePath(
+        _ relativePath: String,
+        assetDirectoryRenames: [String: String]
+    ) -> String {
+        for oldPath in assetDirectoryRenames.keys.sorted(by: { $0.count > $1.count }) {
+            guard let newPath = assetDirectoryRenames[oldPath] else { continue }
+            if relativePath == oldPath { return newPath }
+            if relativePath.hasPrefix(oldPath + "/") {
+                return newPath + relativePath.dropFirst(oldPath.count)
+            }
+        }
+        return relativePath
+    }
+
+    private func rewrittenDocumentData(
+        _ data: Data,
+        sourceURL: URL,
+        assetDirectoryRenames: [String: String]
+    ) -> Data {
+        guard Document.isMarkdown(sourceURL),
+              var markdown = String(data: data, encoding: .utf8) else { return data }
+        for (oldPath, newPath) in assetDirectoryRenames {
+            let oldName = (oldPath as NSString).lastPathComponent
+            let newName = (newPath as NSString).lastPathComponent
+            markdown = markdown.replacingOccurrences(
+                of: oldName + "/",
+                with: newName + "/"
+            )
+        }
+        return Data(markdown.utf8)
     }
 
     private func availableURL(for proposedURL: URL) -> URL {

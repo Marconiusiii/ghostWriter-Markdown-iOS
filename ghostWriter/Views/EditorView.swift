@@ -183,7 +183,11 @@ struct EditorView: View {
         .fullScreenCover(isPresented: $showingRendered, onDismiss: {
             restoreFocus(to: .render)
         }) {
-            RenderedHTMLView(title: displayTitle, markdown: text)
+            RenderedHTMLView(
+                title: displayTitle,
+                markdown: text,
+                documentURL: fileURL
+            )
         }
         .sheet(isPresented: $showingOutline) {
             OutlineView(entries: OutlineBuilder.build(from: text)) { offset in
@@ -573,7 +577,8 @@ struct EditorView: View {
         WordShareFile(
             fileName: shareFileName,
             title: displayTitle,
-            markdown: text
+            markdown: text,
+            sourceDirectory: fileURL?.deletingLastPathComponent()
         )
     }
 

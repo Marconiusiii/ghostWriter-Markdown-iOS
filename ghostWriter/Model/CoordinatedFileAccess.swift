@@ -219,7 +219,10 @@ nonisolated final class CoordinatedFileAccess {
         }) ?? false
     }
 
-    func regularFilesRecursively(at url: URL) throws -> [URL] {
+    func regularFilesRecursively(
+        at url: URL,
+        includingHiddenFiles: Bool = false
+    ) throws -> [URL] {
         try read(at: url) { coordinatedURL in
             guard FileManager.default.fileExists(atPath: coordinatedURL.path) else {
                 return []
@@ -229,7 +232,7 @@ nonisolated final class CoordinatedFileAccess {
             guard let enumerator = FileManager.default.enumerator(
                 at: coordinatedURL,
                 includingPropertiesForKeys: keys,
-                options: [.skipsHiddenFiles]
+                options: includingHiddenFiles ? [] : [.skipsHiddenFiles]
             ) else {
                 return []
             }
@@ -247,7 +250,10 @@ nonisolated final class CoordinatedFileAccess {
         }
     }
 
-    func directoriesRecursively(at url: URL) throws -> [URL] {
+    func directoriesRecursively(
+        at url: URL,
+        includingHiddenFiles: Bool = false
+    ) throws -> [URL] {
         try read(at: url) { coordinatedURL in
             guard FileManager.default.fileExists(atPath: coordinatedURL.path) else {
                 return []
@@ -256,7 +262,7 @@ nonisolated final class CoordinatedFileAccess {
             guard let enumerator = FileManager.default.enumerator(
                 at: coordinatedURL,
                 includingPropertiesForKeys: keys,
-                options: [.skipsHiddenFiles]
+                options: includingHiddenFiles ? [] : [.skipsHiddenFiles]
             ) else { return [] }
             return enumerator.compactMap { item in
                 guard let itemURL = item as? URL,

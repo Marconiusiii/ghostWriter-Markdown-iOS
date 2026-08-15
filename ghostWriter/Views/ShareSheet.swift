@@ -140,12 +140,14 @@ nonisolated struct WordShareFile: Transferable {
     let fileName: String
     let title: String
     let markdown: String
+    var sourceDirectory: URL? = nil
 
     static var transferRepresentation: some TransferRepresentation {
         FileRepresentation(exportedContentType: wordType) { item in
             let data = try MarkdownToWordConverter.convert(
                 title: item.title,
-                markdown: item.markdown
+                markdown: item.markdown,
+                sourceDirectory: item.sourceDirectory
             )
             let directory = FileManager.default.temporaryDirectory
                 .appendingPathComponent(

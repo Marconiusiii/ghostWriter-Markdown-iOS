@@ -1,6 +1,16 @@
 import Foundation
 
 nonisolated enum WordprocessingMLReader {
+    private struct Relationship {
+        var target: String
+        var type: String
+        var isExternal: Bool
+        var data: Data?
+
+        var isImage: Bool { type.hasSuffix("/image") }
+        var isHyperlink: Bool { type.hasSuffix("/hyperlink") }
+    }
+
     private struct Style {
         var name: String
         var basedOn: String?
@@ -44,8 +54,10 @@ nonisolated enum WordprocessingMLReader {
             entries["word/numbering.xml"],
             styles: styles
         )
+        let mediaEntries = try WordPackage.entries(from: data, withPrefix: "word/media/")
         let relationships = try parseRelationships(
-            entries["word/_rels/document.xml.rels"]
+            entries["word/_rels/document.xml.rels"],
+            packageEntries: mediaEntries
         )
         let root = try WordXMLTreeParser.parse(documentData, partName: "document content")
         guard let body = root.descendants(named: "body").first else {
@@ -82,7 +94,7 @@ nonisolated enum WordprocessingMLReader {
         _ nodes: [WordXMLNode],
         styles: [String: Style],
         numbering: [String: [Int: NumberLevel]],
-        relationships: [String: String]
+        relationships: [String: Relationship]
     ) -> [WordBlock] {
         var blocks: [WordBlock] = []
         for node in nodes {
@@ -123,7 +135,7 @@ nonisolated enum WordprocessingMLReader {
         _ node: WordXMLNode,
         styles: [String: Style],
         numbering: [String: [Int: NumberLevel]],
-        relationships: [String: String]
+        relationships: [String: Relationship]
     ) -> WordParagraph {
         let properties = node.child("pPr")
         let styleID = properties?.child("pStyle")?.attribute("val")
@@ -176,7 +188,7 @@ nonisolated enum WordprocessingMLReader {
         _ nodes: [WordXMLNode],
         hyperlink: String?,
         styles: [String: Style],
-        relationships: [String: String],
+        relationships: [String: Relationship],
         inheritedCode: Bool
     ) -> [WordRun] {
         var result: [WordRun] = []
@@ -188,66 +200,75 @@ nonisolated enum WordprocessingMLReader {
                 let runStyle = runStyleID?.lowercased() ?? ""
                 let resolvedRunStyle = resolveStyle(runStyleID, styles: styles)
                 var text = ""
-                var textSegments: [String] = []
+                let template = WordRun(
+                    bold: runProperty(
+                        properties?.child("b"),
+                        alternate: properties?.child("bCs"),
+                        inherited: resolvedRunStyle.bold
+                    ),
+                    italic: runProperty(
+                        properties?.child("i"),
+                        alternate: properties?.child("iCs"),
+                        inherited: resolvedRunStyle.italic
+                    ),
+                    underline: runProperty(
+                        properties?.child("u"),
+                        inherited: resolvedRunStyle.underline,
+                        disabledValue: "none"
+                    ),
+                    strikethrough: runProperty(
+                        properties?.child("strike"),
+                        alternate: properties?.child("dstrike"),
+                        inherited: resolvedRunStyle.strikethrough
+                    ),
+                    inlineCode: inheritedCode || runStyle.contains("code"),
+                    hyperlink: hyperlink
+                )
+                func appendText(_ value: String) {
+                    guard !value.isEmpty else { return }
+                    var run = template
+                    run.text = value
+                    result.append(run)
+                }
+                func flushText() {
+                    appendText(text)
+                    text = ""
+                }
                 for child in node.children where child.name != "rPr" {
                     switch child.name {
                     case "t", "instrText": text += child.text
                     case "tab": text += "\t"
                     case "br", "cr": text += "\n"
                     case "footnoteReference":
-                        if !text.isEmpty {
-                            textSegments.append(text)
-                            text = ""
-                        }
-                        if let id = child.attribute("id") { textSegments.append("[^\(id)]") }
+                        flushText()
+                        if let id = child.attribute("id") { appendText("[^\(id)]") }
                     case "endnoteReference":
-                        if !text.isEmpty {
-                            textSegments.append(text)
-                            text = ""
-                        }
+                        flushText()
                         if let id = child.attribute("id") {
-                            textSegments.append("[^endnote-\(id)]")
+                            appendText("[^endnote-\(id)]")
                         }
                     case "drawing", "pict", "object":
-                        let description = child.descendants(named: "docPr").first?.attribute("descr")
-                            ?? child.descendants(named: "docPr").first?.attribute("title")
-                            ?? "Image"
-                        text += description == "Image" ? "[Image]" : "[Image: \(description)]"
+                        flushText()
+                        if let image = image(from: child, relationships: relationships) {
+                            var run = template
+                            run.image = image
+                            result.append(run)
+                        } else {
+                            appendText(imagePlaceholder(from: child))
+                        }
                     default: break
                     }
                 }
-                if !text.isEmpty { textSegments.append(text) }
-                for textSegment in textSegments where !textSegment.isEmpty {
-                    result.append(WordRun(
-                        text: textSegment,
-                        bold: runProperty(
-                            properties?.child("b"),
-                            alternate: properties?.child("bCs"),
-                            inherited: resolvedRunStyle.bold
-                        ),
-                        italic: runProperty(
-                            properties?.child("i"),
-                            alternate: properties?.child("iCs"),
-                            inherited: resolvedRunStyle.italic
-                        ),
-                        underline: runProperty(
-                            properties?.child("u"),
-                            inherited: resolvedRunStyle.underline,
-                            disabledValue: "none"
-                        ),
-                        strikethrough: runProperty(
-                            properties?.child("strike"),
-                            alternate: properties?.child("dstrike"),
-                            inherited: resolvedRunStyle.strikethrough
-                        ),
-                        inlineCode: inheritedCode || runStyle.contains("code"),
-                        hyperlink: hyperlink
-                    ))
-                }
+                flushText()
             case "hyperlink":
                 let relationshipID = node.attribute("id")
                 let anchor = node.attribute("anchor")
-                let destination = relationshipID.flatMap { relationships[$0] }
+                let destination = relationshipID.flatMap { id in
+                    guard let relationship = relationships[id], relationship.isHyperlink else {
+                        return nil
+                    }
+                    return relationship.target
+                }
                     ?? anchor.map { "#\($0)" }
                 result += parseInlineNodes(
                     node.children,
@@ -259,10 +280,11 @@ nonisolated enum WordprocessingMLReader {
             case "del":
                 continue
             case "drawing", "pict", "object":
-                let description = node.descendants(named: "docPr").first?.attribute("descr")
-                    ?? node.descendants(named: "docPr").first?.attribute("title")
-                    ?? "Image"
-                result.append(WordRun(text: description == "Image" ? "[Image]" : "[Image: \(description)]"))
+                if let image = image(from: node, relationships: relationships) {
+                    result.append(WordRun(image: image))
+                } else {
+                    result.append(WordRun(text: imagePlaceholder(from: node)))
+                }
             default:
                 result += parseInlineNodes(
                     node.children,
@@ -276,11 +298,57 @@ nonisolated enum WordprocessingMLReader {
         return mergeAdjacentRuns(result)
     }
 
+    private static func image(
+        from node: WordXMLNode,
+        relationships: [String: Relationship]
+    ) -> WordImage? {
+        let relationshipID = node.descendants(named: "blip").first?.attribute("embed")
+            ?? node.descendants(named: "blip").first?.attribute("link")
+            ?? node.descendants(named: "imagedata").first?.attribute("id")
+        guard let relationshipID,
+              let relationship = relationships[relationshipID],
+              relationship.isImage else { return nil }
+
+        let properties = node.descendants(named: "docPr").first
+            ?? node.descendants(named: "cNvPr").first
+        let description = properties?.attribute("descr")?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        let title = properties?.attribute("title")?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        let alternativeText = [description, title]
+            .compactMap { $0 }
+            .first { !$0.isEmpty }
+        let isDecorative = node.descendants(named: "decorative").contains {
+            let value = $0.attribute("val")?.lowercased()
+            return value == nil || value == "1" || value == "true" || value == "on"
+        }
+        let decodedName = relationship.target.removingPercentEncoding
+            ?? relationship.target
+        return WordImage(
+            fileName: URL(fileURLWithPath: decodedName).lastPathComponent,
+            data: relationship.data,
+            alternativeText: alternativeText,
+            isDecorative: isDecorative,
+            externalTarget: relationship.isExternal ? relationship.target : nil
+        )
+    }
+
+    private static func imagePlaceholder(from node: WordXMLNode) -> String {
+        let properties = node.descendants(named: "docPr").first
+            ?? node.descendants(named: "cNvPr").first
+        let description = properties?.attribute("descr")
+            ?? properties?.attribute("title")
+        guard let description, !description.isEmpty else { return "[Image]" }
+        return "[Image: \(description)]"
+    }
+
     private static func parseTable(
         _ node: WordXMLNode,
         styles: [String: Style],
         numbering: [String: [Int: NumberLevel]],
-        relationships: [String: String]
+        relationships: [String: Relationship]
     ) -> WordTable {
         let rows = node.children(named: "tr").map { rowNode in
             let isHeader = rowNode.child("trPr")?.child("tblHeader") != nil
@@ -477,20 +545,47 @@ nonisolated enum WordprocessingMLReader {
         return result
     }
 
-    private static func parseRelationships(_ data: Data?) throws -> [String: String] {
+    private static func parseRelationships(
+        _ data: Data?,
+        packageEntries: [String: Data]
+    ) throws -> [String: Relationship] {
         guard let data else { return [:] }
         let root = try WordXMLTreeParser.parse(data, partName: "relationships")
         return Dictionary(uniqueKeysWithValues: root.descendants(named: "Relationship").compactMap {
-            guard let id = $0.attribute("Id"), let target = $0.attribute("Target") else { return nil }
-            return (id, target)
+            guard let id = $0.attribute("Id"),
+                  let target = $0.attribute("Target"),
+                  let type = $0.attribute("Type") else { return nil }
+            let isExternal = $0.attribute("TargetMode")?.lowercased() == "external"
+            let packagePath = packagePath(forDocumentTarget: target)
+            return (id, Relationship(
+                target: target,
+                type: type,
+                isExternal: isExternal,
+                data: isExternal ? nil : packageEntries[packagePath]
+            ))
         })
+    }
+
+    private static func packagePath(forDocumentTarget target: String) -> String {
+        if target.hasPrefix("/") { return String(target.dropFirst()) }
+        let components = ArraySlice(("word/" + target).split(separator: "/"))
+        var resolved: [Substring] = []
+        for component in components {
+            if component == "." { continue }
+            if component == ".." {
+                _ = resolved.popLast()
+            } else {
+                resolved.append(component)
+            }
+        }
+        return resolved.joined(separator: "/")
     }
 
     private static func parseNotes(
         _ data: Data?,
         styles: [String: Style],
         numbering: [String: [Int: NumberLevel]],
-        relationships: [String: String]
+        relationships: [String: Relationship]
     ) throws -> [String: [WordBlock]] {
         guard let data else { return [:] }
         let root = try WordXMLTreeParser.parse(data, partName: "notes")
@@ -542,7 +637,9 @@ nonisolated enum WordprocessingMLReader {
                last.underline == run.underline,
                last.strikethrough == run.strikethrough,
                last.inlineCode == run.inlineCode,
-               last.hyperlink == run.hyperlink {
+               last.hyperlink == run.hyperlink,
+               last.image == nil,
+               run.image == nil {
                 last.text += run.text
                 result[result.count - 1] = last
             } else {

@@ -62,6 +62,8 @@ struct LibraryView: View {
     @State private var showingNewFolder = false
     @State private var focusAfterNewFolder: LibraryFocus?
     @State private var showingImporter = false
+    @State private var importNotice: String?
+    @State private var importNoticeFocus: LibraryFocus?
     @State private var currentFolderURL: URL?
     @State private var configuredStorageLocation: DocumentStorageChoice?
     @State private var renamingFolder: LibraryFolder?
@@ -297,7 +299,8 @@ struct LibraryView: View {
         }) { session in
             RenderedHTMLView(
                 title: session.title,
-                markdown: session.markdown
+                markdown: session.markdown,
+                documentURL: session.documentURL
             )
         }
         .sheet(isPresented: $showingShare, onDismiss: {
@@ -354,6 +357,11 @@ struct LibraryView: View {
             Button("OK") { dismissError() }
         } message: {
             Text(store.lastError ?? "An unknown error occurred.")
+        }
+        .alert("Word Import", isPresented: importNoticeBinding) {
+            Button("OK") { dismissImportNotice() }
+        } message: {
+            Text(importNotice ?? "The Word document was imported.")
         }
     }
 
@@ -1001,16 +1009,21 @@ struct LibraryView: View {
     private func renderAvailable(_ document: Document) {
         focusRequestGate.invalidate()
         focusAfterError = .document(document.url)
-        guard let text = try? store.text(for: document) else { return }
-        focusAfterError = nil
-        focusAfterPresentation = .document(document.url)
-        if settings.renderSoundEnabled {
-            RenderSound.shared.play()
+        Task {
+            guard let text = try? await store.textAsynchronously(for: document) else {
+                return
+            }
+            focusAfterError = nil
+            focusAfterPresentation = .document(document.url)
+            if settings.renderSoundEnabled {
+                RenderSound.shared.play()
+            }
+            renderingSession = RenderedDocumentSession(
+                title: document.displayName,
+                markdown: text,
+                documentURL: document.url
+            )
         }
-        renderingSession = RenderedDocumentSession(
-            title: document.displayName,
-            markdown: text
-        )
     }
 
     /// Uses the writer's selected New Document flow. Asking for a title remains
@@ -1391,6 +1404,13 @@ struct LibraryView: View {
         )
     }
 
+    private var importNoticeBinding: Binding<Bool> {
+        Binding(
+            get: { importNotice != nil },
+            set: { if !$0 { dismissImportNotice() } }
+        )
+    }
+
     private var sortFieldBinding: Binding<DocumentSortField> {
         Binding(
             get: { settings.sort.field },
@@ -1444,7 +1464,12 @@ struct LibraryView: View {
 
                 if importResult.failedFileNames.isEmpty {
                     focusAfterError = nil
-                    restoreFocus(to: target)
+                    if importResult.notices.isEmpty {
+                        restoreFocus(to: target)
+                    } else {
+                        importNoticeFocus = target
+                        importNotice = importResult.notices.joined(separator: " ")
+                    }
                 } else {
                     focusAfterError = target
                 }
@@ -1464,6 +1489,13 @@ struct LibraryView: View {
         store.lastError = nil
         restoreFocus(to: availableFocus(focusAfterError ?? .documentsHeading))
         focusAfterError = nil
+    }
+
+    private func dismissImportNotice() {
+        let target = importNoticeFocus ?? .documentsHeading
+        importNotice = nil
+        importNoticeFocus = nil
+        restoreFocus(to: availableFocus(target))
     }
 
     private func configureSelectedStorage() async {
@@ -1744,4 +1776,5 @@ struct RenderedDocumentSession: Identifiable {
     let id = UUID()
     let title: String
     let markdown: String
+    let documentURL: URL
 }

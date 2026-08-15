@@ -27,6 +27,27 @@ nonisolated struct WordRun: Equatable, Sendable {
     var strikethrough = false
     var inlineCode = false
     var hyperlink: String?
+    var image: WordImage?
+}
+
+nonisolated struct WordImage: Equatable, Sendable {
+    var fileName: String
+    var data: Data? = nil
+    var alternativeText: String? = nil
+    var isDecorative = false
+    var externalTarget: String? = nil
+}
+
+nonisolated struct WordMarkdownImport: Equatable, Sendable {
+    var markdown: String
+    var assets: [WordImportedAsset]
+    var imagesNeedingAlternativeText: Int
+    var assetDirectoryName: String?
+}
+
+nonisolated struct WordImportedAsset: Equatable, Sendable {
+    var fileName: String
+    var data: Data
 }
 
 nonisolated struct WordListReference: Equatable, Sendable {

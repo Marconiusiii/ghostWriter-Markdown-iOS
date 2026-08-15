@@ -230,6 +230,83 @@ struct WordConversionTests {
         #expect(try WordToMarkdownConverter.convert(data: data) == markdown)
     }
 
+    @Test func importsEmbeddedInformativeAndDecorativeImages() throws {
+        let data = try imageFixture(includeMissingAlternativeText: false)
+        let imported = try WordToMarkdownConverter.importDocument(
+            data: data,
+            sourceDirectory: nil,
+            assetDirectoryName: ".ghostwriter-assets-test"
+        )
+
+        #expect(imported.assets.count == 2)
+        #expect(imported.assets.allSatisfy { $0.data == tinyPNG })
+        #expect(imported.markdown.contains(
+            "![A blue square](.ghostwriter-assets-test/image1.png)"
+        ))
+        #expect(imported.markdown.contains(
+            "![](.ghostwriter-assets-test/image2.png)"
+        ))
+        #expect(imported.imagesNeedingAlternativeText == 0)
+    }
+
+    @Test func reportsWordImageWithNoAccessibilityDesignation() throws {
+        let imported = try WordToMarkdownConverter.importDocument(
+            data: try imageFixture(includeMissingAlternativeText: true),
+            sourceDirectory: nil,
+            assetDirectoryName: ".ghostwriter-assets-test"
+        )
+
+        #expect(imported.imagesNeedingAlternativeText == 1)
+        #expect(imported.markdown.contains(
+            "![](.ghostwriter-assets-test/image3.png)"
+        ))
+    }
+
+    @Test func exportsLocalImagesWithAlternativeAndDecorativeMetadata() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "ghostWriterImageExport-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try tinyPNG.write(to: directory.appendingPathComponent("informative.png"))
+        try tinyPNG.write(to: directory.appendingPathComponent("decorative.png"))
+
+        let data = try MarkdownToWordConverter.convert(
+            title: "Images",
+            markdown: "![A blue square](informative.png)\n\n![](decorative.png)",
+            sourceDirectory: directory
+        )
+        let entries = try WordPackage.entries(from: data, paths: [
+            "word/document.xml",
+            "word/_rels/document.xml.rels",
+            "word/media/image1.png",
+            "word/media/image2.png"
+        ])
+        #expect(entries["word/media/image1.png"] == tinyPNG)
+        #expect(entries["word/media/image2.png"] == tinyPNG)
+        let documentXML = try #require(
+            entries["word/document.xml"].flatMap { String(data: $0, encoding: .utf8) }
+        )
+        #expect(documentXML.contains("descr=\"A blue square\""))
+        #expect(documentXML.contains("<adec:decorative val=\"1\"/>"))
+        let relationships = try #require(
+            entries["word/_rels/document.xml.rels"].flatMap {
+                String(data: $0, encoding: .utf8)
+            }
+        )
+        #expect(relationships.components(separatedBy: "/relationships/image").count == 3)
+
+        let roundTrip = try WordToMarkdownConverter.importDocument(
+            data: data,
+            sourceDirectory: nil,
+            assetDirectoryName: ".ghostwriter-assets-roundtrip"
+        )
+        #expect(roundTrip.markdown.contains("![A blue square]("))
+        #expect(roundTrip.markdown.contains("![]("))
+        #expect(roundTrip.imagesNeedingAlternativeText == 0)
+    }
+
     @Test func rejectsEncryptedPackage() throws {
         let data = try WordPackage.create(entries: [
             "EncryptionInfo": Data("encrypted".utf8),
@@ -270,6 +347,35 @@ struct WordConversionTests {
             "word/numbering.xml": Data(numbering.utf8),
             "word/_rels/document.xml.rels": Data(relationships.utf8),
             "word/footnotes.xml": Data(footnotes.utf8)
+        ])
+    }
+
+    private var tinyPNG: Data {
+        Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        ) ?? Data()
+    }
+
+    private func imageFixture(includeMissingAlternativeText: Bool) throws -> Data {
+        let missing = includeMissingAlternativeText
+            ? "<w:p><w:r><w:drawing><wp:inline><wp:docPr id=\"3\" name=\"Picture 3\"/><a:graphic><a:graphicData><pic:pic><pic:blipFill><a:blip r:embed=\"rIdImage3\"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>"
+            : ""
+        let document = """
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:adec="http://schemas.microsoft.com/office/drawing/2017/decorative"><w:body>
+        <w:p><w:r><w:drawing><wp:inline><wp:docPr id="1" name="Picture 1" descr="A blue square"/><a:graphic><a:graphicData><pic:pic><pic:blipFill><a:blip r:embed="rIdImage1"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>
+        <w:p><w:r><w:drawing><wp:inline><wp:docPr id="2" name="Picture 2"><a:extLst><a:ext><adec:decorative val="1"/></a:ext></a:extLst></wp:docPr><a:graphic><a:graphicData><pic:pic><pic:blipFill><a:blip r:embed="rIdImage2"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>
+        \(missing)
+        </w:body></w:document>
+        """
+        let relationships = """
+        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdImage1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/><Relationship Id="rIdImage2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image2.png"/><Relationship Id="rIdImage3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image3.png"/></Relationships>
+        """
+        return try WordPackage.create(entries: [
+            "word/document.xml": Data(document.utf8),
+            "word/_rels/document.xml.rels": Data(relationships.utf8),
+            "word/media/image1.png": tinyPNG,
+            "word/media/image2.png": tinyPNG,
+            "word/media/image3.png": tinyPNG
         ])
     }
 

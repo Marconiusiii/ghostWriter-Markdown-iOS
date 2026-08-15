@@ -73,6 +73,76 @@ struct DocumentMigrationTests {
         #expect(!FileManager.default.fileExists(atPath: deleted.path))
     }
 
+    @Test func migrationPreservesHiddenDocumentImageAssets() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+        let assetName = ".ghostwriter-assets-33333333-3333-3333-3333-333333333333"
+        let document = directories.source.appendingPathComponent("Images.md")
+        let assetDirectory = directories.source.appendingPathComponent(
+            assetName,
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: assetDirectory,
+            withIntermediateDirectories: true
+        )
+        try "![Description](\(assetName)/image.png)".write(
+            to: document,
+            atomically: true,
+            encoding: .utf8
+        )
+        try Data([1, 2, 3]).write(
+            to: assetDirectory.appendingPathComponent("image.png")
+        )
+
+        let result = try DocumentMigration().migrate(
+            from: directories.source,
+            to: directories.destination
+        )
+
+        #expect(result.cleanupFailures.isEmpty)
+        #expect(FileManager.default.fileExists(
+            atPath: directories.destination
+                .appendingPathComponent(assetName)
+                .appendingPathComponent("image.png").path
+        ))
+        #expect(!FileManager.default.fileExists(atPath: assetDirectory.path))
+    }
+
+    @Test func assetDirectoryCollisionKeepsBothDocumentsImagesConnected() throws {
+        let directories = try makeDirectories()
+        defer { cleanUp(directories.root) }
+        let assetName = ".ghostwriter-assets-44444444-4444-4444-4444-444444444444"
+        let sourceAssets = directories.source.appendingPathComponent(assetName)
+        let destinationAssets = directories.destination.appendingPathComponent(assetName)
+        try FileManager.default.createDirectory(at: sourceAssets, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationAssets, withIntermediateDirectories: true)
+        try "![Incoming](\(assetName)/image.png)".write(
+            to: directories.source.appendingPathComponent("Images.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try Data([1]).write(to: sourceAssets.appendingPathComponent("image.png"))
+        try Data([2]).write(to: destinationAssets.appendingPathComponent("image.png"))
+
+        _ = try DocumentMigration().migrate(
+            from: directories.source,
+            to: directories.destination
+        )
+
+        let markdown = try String(
+            contentsOf: directories.destination.appendingPathComponent("Images.md"),
+            encoding: .utf8
+        )
+        let migratedName = try #require(DocumentAssets.directoryNames(in: markdown).first)
+        #expect(migratedName != assetName)
+        #expect(try Data(contentsOf: directories.destination
+            .appendingPathComponent(migratedName)
+            .appendingPathComponent("image.png")) == Data([1]))
+        #expect(try Data(contentsOf: destinationAssets
+            .appendingPathComponent("image.png")) == Data([2]))
+    }
+
     @Test func destinationCollisionPreservesBothDocuments() throws {
         let directories = try makeDirectories()
         defer { cleanUp(directories.root) }

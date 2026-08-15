@@ -39,6 +39,36 @@ nonisolated enum WordPackage {
         return result
     }
 
+    static func entries(from data: Data, withPrefix prefix: String) throws -> [String: Data] {
+        let archive: Archive
+        do {
+            archive = try Archive(data: data, accessMode: .read)
+        } catch {
+            throw WordConversionError.invalidPackage
+        }
+
+        if archive["EncryptedPackage"] != nil || archive["EncryptionInfo"] != nil {
+            throw WordConversionError.unsupportedEncryptedDocument
+        }
+
+        var total: UInt64 = 0
+        var result: [String: Data] = [:]
+        for entry in archive where entry.type == .file && entry.path.hasPrefix(prefix) {
+            guard entry.uncompressedSize <= maximumEntrySize else {
+                throw WordConversionError.oversizedDocument
+            }
+            total += UInt64(entry.uncompressedSize)
+            guard total <= maximumTotalSize else {
+                throw WordConversionError.oversizedDocument
+            }
+            var contents = Data()
+            contents.reserveCapacity(Int(entry.uncompressedSize))
+            _ = try archive.extract(entry) { contents.append($0) }
+            result[entry.path] = contents
+        }
+        return result
+    }
+
     static func create(entries: [String: Data]) throws -> Data {
         let archive = try Archive(accessMode: .create)
         for path in entries.keys.sorted() {

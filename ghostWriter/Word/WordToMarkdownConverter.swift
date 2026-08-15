@@ -49,6 +49,76 @@ nonisolated enum WordToMarkdownConverter {
         markdown(from: try WordprocessingMLReader.read(data: data))
     }
 
+    static func importDocument(
+        data: Data,
+        sourceDirectory: URL?,
+        assetDirectoryName: String
+    ) throws -> WordMarkdownImport {
+        var document = try WordprocessingMLReader.read(data: data)
+        var assets: [WordImportedAsset] = []
+        var usedNames: Set<String> = []
+        var missingAlternativeText = 0
+
+        func prepare(_ runs: inout [WordRun]) {
+            for index in runs.indices {
+                guard var image = runs[index].image else { continue }
+                let data = image.data ?? externalImageData(
+                    target: image.externalTarget,
+                    sourceDirectory: sourceDirectory
+                )
+                guard let data else {
+                    runs[index].image = nil
+                    runs[index].text = image.alternativeText.map { "[Image: \($0)]" }
+                        ?? "[Image]"
+                    continue
+                }
+                let fileName = uniqueFileName(
+                    preferred: image.fileName,
+                    usedNames: &usedNames
+                )
+                image.fileName = assetDirectoryName + "/" + fileName
+                image.data = nil
+                image.externalTarget = nil
+                if !image.isDecorative,
+                   image.alternativeText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                    missingAlternativeText += 1
+                }
+                assets.append(WordImportedAsset(fileName: fileName, data: data))
+                runs[index].image = image
+            }
+        }
+
+        func prepare(_ blocks: inout [WordBlock]) {
+            for index in blocks.indices {
+                switch blocks[index] {
+                case .paragraph(var paragraph):
+                    prepare(&paragraph.runs)
+                    blocks[index] = .paragraph(paragraph)
+                case .table(var table):
+                    for rowIndex in table.rows.indices {
+                        for cellIndex in table.rows[rowIndex].cells.indices {
+                            prepare(&table.rows[rowIndex].cells[cellIndex])
+                        }
+                    }
+                    blocks[index] = .table(table)
+                }
+            }
+        }
+
+        prepare(&document.blocks)
+        for key in document.footnotes.keys {
+            guard var blocks = document.footnotes[key] else { continue }
+            prepare(&blocks)
+            document.footnotes[key] = blocks
+        }
+        return WordMarkdownImport(
+            markdown: markdown(from: document),
+            assets: assets,
+            imagesNeedingAlternativeText: missingAlternativeText,
+            assetDirectoryName: assets.isEmpty ? nil : assetDirectoryName
+        )
+    }
+
     static func markdown(from document: WordDocumentModel) -> String {
         var sections = render(blocks: document.blocks)
         if !document.footnotes.isEmpty {
@@ -162,6 +232,14 @@ nonisolated enum WordToMarkdownConverter {
         var result = ""
         var index = 0
         while index < runs.count {
+            if let image = runs[index].image {
+                let alternativeText = image.isDecorative
+                    ? ""
+                    : image.alternativeText ?? ""
+                result += "![\(escapeImageText(alternativeText))](\(escapeDestination(image.fileName)))"
+                index += 1
+                continue
+            }
             if runs[index].hyperlink == nil, isFootnoteReference(runs[index].text) {
                 result += runs[index].text
                 index += 1
@@ -359,6 +437,52 @@ nonisolated enum WordToMarkdownConverter {
         destination
             .replacingOccurrences(of: " ", with: "%20")
             .replacingOccurrences(of: ")", with: "%29")
+    }
+
+    private static func escapeImageText(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "]", with: "\\]")
+    }
+
+    private static func uniqueFileName(
+        preferred: String,
+        usedNames: inout Set<String>
+    ) -> String {
+        let sanitized = preferred
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: "\\", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+        let baseURL = URL(fileURLWithPath: sanitized.isEmpty ? "image.png" : sanitized)
+        let ext = baseURL.pathExtension
+        let stem = baseURL.deletingPathExtension().lastPathComponent
+        var candidate = sanitized.isEmpty ? "image.png" : sanitized
+        var suffix = 2
+        while usedNames.contains(candidate.lowercased()) {
+            candidate = ext.isEmpty ? "\(stem)-\(suffix)" : "\(stem)-\(suffix).\(ext)"
+            suffix += 1
+        }
+        usedNames.insert(candidate.lowercased())
+        return candidate
+    }
+
+    private static func externalImageData(
+        target: String?,
+        sourceDirectory: URL?
+    ) -> Data? {
+        guard let target, let sourceDirectory else { return nil }
+        let decoded = target.removingPercentEncoding ?? target
+        let url: URL
+        if let absolute = URL(string: decoded), absolute.isFileURL {
+            url = absolute
+        } else {
+            url = sourceDirectory.appendingPathComponent(decoded).standardizedFileURL
+        }
+        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+              (values.fileSize ?? 0) <= Int(WordPackage.maximumEntrySize) else {
+            return nil
+        }
+        return try? Data(contentsOf: url)
     }
 
     private static func escapeParagraphStart(_ text: String) -> String {

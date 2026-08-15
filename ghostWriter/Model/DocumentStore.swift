@@ -28,6 +28,7 @@ nonisolated enum GuardedSaveResult: Equatable, Sendable {
 struct DocumentImportResult: Equatable {
     let imported: [Document]
     let failedFileNames: [String]
+    var notices: [String] = []
 }
 
 /// Carries one completed filesystem scan back to the observable store. The
@@ -737,6 +738,17 @@ final class DocumentStore {
         try Task.checkCancellation()
         switch outcome {
         case .success(let text):
+            do {
+                try await prepareAssociatedAssets(
+                    referencedBy: text,
+                    beside: url
+                )
+            } catch {
+                if reportFailure {
+                    lastError = "Could not download the images for \(document.displayName). \(error.localizedDescription)"
+                }
+                throw error
+            }
             confirmAvailable(at: url, modified: document.modified)
             return text
         case .failure(let message):
@@ -744,6 +756,31 @@ final class DocumentStore {
                 lastError = "Could not open \(document.displayName). The original file was not changed. \(message)"
             }
             throw CocoaError(.fileReadUnknown)
+        }
+    }
+
+    private func prepareAssociatedAssets(
+        referencedBy markdown: String,
+        beside documentURL: URL
+    ) async throws {
+        guard usesICloudStorage else { return }
+        let assetURLs = try await Task.detached(priority: .userInitiated) {
+            try DocumentAssets.files(
+                referencedBy: markdown,
+                beside: documentURL,
+                fileAccess: CoordinatedFileAccess()
+            )
+        }.value
+        for assetURL in assetURLs {
+            let values = try assetURL.resourceValues(forKeys: [
+                .isUbiquitousItemKey,
+                .ubiquitousItemDownloadingStatusKey
+            ])
+            guard values.isUbiquitousItem == true,
+                  values.ubiquitousItemDownloadingStatus != .current else {
+                continue
+            }
+            try await downloadUbiquitousItem(assetURL)
         }
     }
 
@@ -998,7 +1035,7 @@ final class DocumentStore {
         )
 
         do {
-            try fileAccess.moveItem(at: document.url, to: destination)
+            try moveDocumentAndAssets(from: document.url, to: destination)
             try writeDeletionRecord(
                 originalURL: document.url,
                 deletedURL: destination
@@ -1023,7 +1060,7 @@ final class DocumentStore {
         )
 
         do {
-            try fileAccess.moveItem(at: document.url, to: destination)
+            try moveDocumentAndAssets(from: document.url, to: destination)
             removeDeletionRecord(for: document.url)
             reconcileMove(
                 from: document.url,
@@ -1040,10 +1077,25 @@ final class DocumentStore {
     @discardableResult
     func deletePermanently(_ document: Document) -> Bool {
         do {
+            let assetDirectories = try DocumentAssets.directories(
+                for: document.url,
+                fileAccess: fileAccess
+            )
             try fileAccess.removeItem(at: document.url)
+            var assetCleanupFailed = false
+            for directory in assetDirectories {
+                do {
+                    try fileAccess.removeItem(at: directory)
+                } catch {
+                    assetCleanupFailed = true
+                }
+            }
             removeDeletionRecord(for: document.url)
             suppressSnapshot(at: document.url)
             refresh()
+            if assetCleanupFailed {
+                lastError = "The document was deleted, but an associated image folder could not be removed."
+            }
             return true
         } catch {
             lastError = "Could not permanently delete \(document.displayName). \(error.localizedDescription)"
@@ -1094,7 +1146,7 @@ final class DocumentStore {
                 in: destinationDirectory
             )
             do {
-                try fileAccess.moveItem(at: document.url, to: destination)
+                try moveDocumentAndAssets(from: document.url, to: destination)
                 reconcileMove(from: document.url, to: destination)
                 refresh()
                 return destination
@@ -1182,7 +1234,7 @@ final class DocumentStore {
         )
 
         do {
-            try fileAccess.moveItem(at: url, to: destination)
+            try moveDocumentAndAssets(from: url, to: destination)
             reconcileMove(from: url, to: destination)
             refresh()
             return destination
@@ -1208,6 +1260,16 @@ final class DocumentStore {
         )
         do {
             try fileAccess.copyItem(at: document.url, to: destination)
+            do {
+                try DocumentAssets.copyAfterDocumentCopy(
+                    from: document.url,
+                    to: destination,
+                    fileAccess: fileAccess
+                )
+            } catch {
+                try? fileAccess.removeItem(at: destination)
+                throw error
+            }
             refresh()
             return documents.first { $0.url == destination }
         } catch {
@@ -1226,8 +1288,12 @@ final class DocumentStore {
             in: document.url.deletingLastPathComponent()
         )
         do {
-            let data = try fileAccess.data(at: document.url)
-            try await placeUbiquitousItem(data, destination)
+            try await DocumentAssets.duplicateIntoICloud(
+                from: document.url,
+                to: destination,
+                fileAccess: fileAccess,
+                placeItem: placeUbiquitousItem
+            )
             refresh()
             return documents.first { $0.url == destination }
         } catch {
@@ -1276,6 +1342,7 @@ final class DocumentStore {
         var importedURLs: [URL] = []
         var failedNames: [String] = []
         var failureDetails: [String] = []
+        var imagesNeedingAlternativeText = 0
 
         for sourceURL in sourceURLs {
             let fileName = sourceURL.lastPathComponent
@@ -1293,11 +1360,6 @@ final class DocumentStore {
 
             do {
                 let data = try fileAccess.data(at: sourceURL)
-                let contents = try Self.importedMarkdown(
-                    from: data,
-                    sourceURL: sourceURL
-                )
-
                 let preferredName = sourceURL
                     .deletingPathExtension()
                     .lastPathComponent
@@ -1305,7 +1367,17 @@ final class DocumentStore {
                     for: preferredName,
                     in: targetDirectory
                 )
-                try fileAccess.write(contents, to: destination)
+                let imported = try Self.importedDocument(
+                    from: data,
+                    sourceURL: sourceURL,
+                    destinationURL: destination
+                )
+                try DocumentAssets.write(
+                    imported,
+                    to: destination,
+                    fileAccess: fileAccess
+                )
+                imagesNeedingAlternativeText += imported.imagesNeedingAlternativeText
                 importedURLs.append(destination)
             } catch {
                 failedNames.append(fileName)
@@ -1332,7 +1404,8 @@ final class DocumentStore {
 
         return DocumentImportResult(
             imported: imported,
-            failedFileNames: failedNames
+            failedFileNames: failedNames,
+            notices: Self.imageImportNotices(count: imagesNeedingAlternativeText)
         )
     }
 
@@ -1361,6 +1434,7 @@ final class DocumentStore {
         var importedURLs: [URL] = []
         var failedNames: [String] = []
         var failureDetails: [String] = []
+        var imagesNeedingAlternativeText = 0
 
         for sourceURL in sourceURLs {
             let fileName = sourceURL.lastPathComponent
@@ -1379,11 +1453,6 @@ final class DocumentStore {
 
             do {
                 let data = try fileAccess.data(at: sourceURL)
-                let contents = try await Self.importedMarkdownAwayFromTyping(
-                    from: data,
-                    sourceURL: sourceURL
-                )
-
                 let preferredName = sourceURL
                     .deletingPathExtension()
                     .lastPathComponent
@@ -1391,7 +1460,32 @@ final class DocumentStore {
                     for: preferredName,
                     in: targetDirectory
                 )
-                try await placeUbiquitousItem(Data(contents.utf8), destination)
+                let imported = try await Self.importedDocumentAwayFromTyping(
+                    from: data,
+                    sourceURL: sourceURL,
+                    destinationURL: destination
+                )
+                let assetDirectory = imported.assetDirectoryName.map {
+                    DocumentAssets.directory(named: $0, beside: destination)
+                }
+                do {
+                    if let assetDirectory, !imported.assets.isEmpty {
+                        try fileAccess.createDirectory(at: assetDirectory)
+                        for asset in imported.assets {
+                            try await placeUbiquitousItem(
+                                asset.data,
+                                assetDirectory.appendingPathComponent(asset.fileName)
+                            )
+                        }
+                    }
+                    try await placeUbiquitousItem(Data(imported.markdown.utf8), destination)
+                } catch {
+                    if let assetDirectory, fileAccess.itemExists(at: assetDirectory) {
+                        try? fileAccess.removeItem(at: assetDirectory)
+                    }
+                    throw error
+                }
+                imagesNeedingAlternativeText += imported.imagesNeedingAlternativeText
                 importedURLs.append(destination)
             } catch {
                 failedNames.append(fileName)
@@ -1418,7 +1512,8 @@ final class DocumentStore {
 
         return DocumentImportResult(
             imported: imported,
-            failedFileNames: failedNames
+            failedFileNames: failedNames,
+            notices: Self.imageImportNotices(count: imagesNeedingAlternativeText)
         )
     }
 
@@ -1445,6 +1540,7 @@ final class DocumentStore {
         var importedURLs: [URL] = []
         var failedNames: [String] = []
         var failureDetails: [String] = []
+        var imagesNeedingAlternativeText = 0
         for sourceURL in sourceURLs {
             let fileName = sourceURL.lastPathComponent
             guard Self.isImportableDocument(sourceURL) else {
@@ -1457,13 +1553,19 @@ final class DocumentStore {
             }
             do {
                 let data = try fileAccess.data(at: sourceURL)
-                let contents = try await Self.importedMarkdownAwayFromTyping(
-                    from: data,
-                    sourceURL: sourceURL
-                )
                 let preferredName = sourceURL.deletingPathExtension().lastPathComponent
                 let destination = availableURL(for: preferredName, in: targetDirectory)
-                try fileAccess.write(contents, to: destination)
+                let imported = try await Self.importedDocumentAwayFromTyping(
+                    from: data,
+                    sourceURL: sourceURL,
+                    destinationURL: destination
+                )
+                try DocumentAssets.write(
+                    imported,
+                    to: destination,
+                    fileAccess: fileAccess
+                )
+                imagesNeedingAlternativeText += imported.imagesNeedingAlternativeText
                 importedURLs.append(destination)
             } catch {
                 failedNames.append(fileName)
@@ -1486,18 +1588,40 @@ final class DocumentStore {
                 : failureDetails.joined(separator: " ")
             lastError = "Could not import \(names). \(detail)"
         }
-        return DocumentImportResult(imported: imported, failedFileNames: failedNames)
+        return DocumentImportResult(
+            imported: imported,
+            failedFileNames: failedNames,
+            notices: Self.imageImportNotices(count: imagesNeedingAlternativeText)
+        )
     }
 
-    private nonisolated static func importedMarkdownAwayFromTyping(
+    private nonisolated static func imageImportNotices(count: Int) -> [String] {
+        guard count > 0 else { return [] }
+        let noun = count == 1 ? "image is" : "images are"
+        let verb = count == 1 ? "has" : "have"
+        return [
+            "\(count) imported \(noun) not marked decorative and \(verb) no alternative text. Add a description in the empty square brackets, or leave them empty if the image is decorative."
+        ]
+    }
+
+    private nonisolated static func importedDocumentAwayFromTyping(
         from data: Data,
-        sourceURL: URL
-    ) async throws -> String {
+        sourceURL: URL,
+        destinationURL: URL
+    ) async throws -> WordMarkdownImport {
         if sourceURL.pathExtension.lowercased() != "docx" {
-            return try importedMarkdown(from: data, sourceURL: sourceURL)
+            return try importedDocument(
+                from: data,
+                sourceURL: sourceURL,
+                destinationURL: destinationURL
+            )
         }
         return try await Task.detached(priority: .userInitiated) {
-            try WordToMarkdownConverter.convert(data: data)
+            try WordToMarkdownConverter.importDocument(
+                data: data,
+                sourceDirectory: sourceURL.deletingLastPathComponent(),
+                assetDirectoryName: DocumentAssets.newDirectoryName()
+            )
         }.value
     }
 
@@ -1512,17 +1636,44 @@ final class DocumentStore {
         return "\(fileName): The text file must use UTF-8 encoding."
     }
 
-    private nonisolated static func importedMarkdown(
+    private nonisolated static func importedDocument(
         from data: Data,
-        sourceURL: URL
-    ) throws -> String {
+        sourceURL: URL,
+        destinationURL: URL
+    ) throws -> WordMarkdownImport {
         if sourceURL.pathExtension.lowercased() == "docx" {
-            return try WordToMarkdownConverter.convert(data: data)
+            return try WordToMarkdownConverter.importDocument(
+                data: data,
+                sourceDirectory: sourceURL.deletingLastPathComponent(),
+                assetDirectoryName: DocumentAssets.newDirectoryName()
+            )
         }
         guard let contents = String(data: data, encoding: .utf8) else {
             throw CocoaError(.fileReadInapplicableStringEncoding)
         }
-        return contents
+        return WordMarkdownImport(
+            markdown: contents,
+            assets: [],
+            imagesNeedingAlternativeText: 0,
+            assetDirectoryName: nil
+        )
+    }
+
+    private func moveDocumentAndAssets(
+        from sourceURL: URL,
+        to destinationURL: URL
+    ) throws {
+        try fileAccess.moveItem(at: sourceURL, to: destinationURL)
+        do {
+            try DocumentAssets.moveAfterDocumentMove(
+                from: sourceURL,
+                to: destinationURL,
+                fileAccess: fileAccess
+            )
+        } catch {
+            try? fileAccess.moveItem(at: destinationURL, to: sourceURL)
+            throw error
+        }
     }
 
     // MARK: - Naming

@@ -18,13 +18,17 @@ import WebKit
 struct RenderedHTMLView: View {
     let title: String
     let markdown: String
+    var documentURL: URL?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
-            HTMLWebView(html: html)
+            HTMLWebView(
+                html: html,
+                baseURL: documentURL?.deletingLastPathComponent()
+            )
                 .ignoresSafeArea(edges: .bottom)
                 .navigationTitle("Rendered")
                 .navigationBarTitleDisplayMode(.inline)
@@ -55,6 +59,7 @@ struct RenderedHTMLView: View {
 
 struct HTMLWebView: UIViewRepresentable {
     let html: String
+    let baseURL: URL?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -79,13 +84,16 @@ struct HTMLWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        guard context.coordinator.loadedHTML != html else { return }
+        guard context.coordinator.loadedHTML != html
+                || context.coordinator.loadedBaseURL != baseURL else { return }
         context.coordinator.loadedHTML = html
-        webView.loadHTMLString(html, baseURL: nil)
+        context.coordinator.loadedBaseURL = baseURL
+        webView.loadHTMLString(html, baseURL: baseURL)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         var loadedHTML: String?
+        var loadedBaseURL: URL?
 
         /// Links inside a rendered document open in Safari rather than
         /// navigating away inside the sheet, which would strand the user in a

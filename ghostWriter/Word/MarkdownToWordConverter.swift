@@ -1,10 +1,15 @@
 import Foundation
 
 nonisolated enum MarkdownToWordConverter {
-    static func convert(title: String, markdown: String) throws -> Data {
+    static func convert(
+        title: String,
+        markdown: String,
+        sourceDirectory: URL? = nil
+    ) throws -> Data {
         try WordprocessingMLWriter.write(
             title: title,
-            document: document(from: markdown)
+            document: document(from: markdown),
+            sourceDirectory: sourceDirectory
         )
     }
 
@@ -163,8 +168,13 @@ nonisolated enum MarkdownToWordConverter {
                 let destinationStart = remainder.index(closeLabel, offsetBy: 2)
                 let destination = String(remainder[destinationStart..<closeDestination])
                 var imageRun = inherited
-                imageRun.text = alt.isEmpty ? "Image" : "Image: \(alt)"
-                imageRun.hyperlink = destination
+                imageRun.text = ""
+                imageRun.image = WordImage(
+                    fileName: destination.removingPercentEncoding ?? destination,
+                    alternativeText: alt.isEmpty ? nil : unescape(alt),
+                    isDecorative: alt.isEmpty,
+                    externalTarget: destination
+                )
                 runs.append(imageRun)
                 remainder = remainder[remainder.index(after: closeDestination)...]
                 continue
@@ -263,7 +273,9 @@ nonisolated enum MarkdownToWordConverter {
                previous.underline == run.underline,
                previous.strikethrough == run.strikethrough,
                previous.inlineCode == run.inlineCode,
-               previous.hyperlink == run.hyperlink {
+               previous.hyperlink == run.hyperlink,
+               previous.image == nil,
+               run.image == nil {
                 previous.text += run.text
                 result[result.count - 1] = previous
             } else {
