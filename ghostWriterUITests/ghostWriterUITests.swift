@@ -29,7 +29,7 @@ final class ghostWriterUITests: XCTestCase {
         }
         XCTAssertTrue(lightDescription.waitForExistence(timeout: 5))
 
-        let verbosityGroup = app.otherElements["VoiceOver Verbosity"]
+        let verbosityGroup = app.otherElements["Verbosity"]
         XCTAssertTrue(verbosityGroup.waitForExistence(timeout: 10))
         let picker = verbosityGroup.segmentedControls.firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 10))
@@ -69,7 +69,7 @@ final class ghostWriterUITests: XCTestCase {
             largeTextApp.swipeUp()
         }
         XCTAssertTrue(largeTextDescription.waitForExistence(timeout: 5))
-        let largeTextGroup = largeTextApp.otherElements["VoiceOver Verbosity"]
+        let largeTextGroup = largeTextApp.otherElements["Verbosity"]
         XCTAssertTrue(largeTextGroup.waitForExistence(timeout: 5))
         let largeTextPicker = largeTextGroup.segmentedControls.firstMatch
         XCTAssertTrue(largeTextPicker.waitForExistence(timeout: 5))

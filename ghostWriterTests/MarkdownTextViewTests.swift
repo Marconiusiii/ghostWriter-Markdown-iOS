@@ -162,6 +162,40 @@ struct MarkdownTextViewTests {
         #expect(description == "Heading 2 of 2, Second, heading level 2.")
     }
 
+    @Test func headingSwipeFeedbackInterruptsAndRemainsInterruptible() {
+        let announcement = MarkdownEditorTextView.headingPositionAnnouncement(
+            "Heading 2 of 2, Second, heading level 2."
+        )
+        let priority = announcement.attribute(
+            .accessibilitySpeechAnnouncementPriority,
+            at: 0,
+            effectiveRange: nil
+        ) as? UIAccessibilityPriority
+
+        #expect(priority == .default)
+    }
+
+    @MainActor
+    @Test func rapidHeadingSwipesTraverseEveryHeadingInBothDirections() {
+        let textView = MarkdownEditorTextView()
+        textView.text = "# One\nBody\n## Two\nBody\n### Three"
+        textView.selectedRange = NSRange(location: 0, length: 0)
+
+        let second = "# One\nBody\n".utf16.count
+        let third = "# One\nBody\n## Two\nBody\n".utf16.count
+
+        #expect(textView.accessibilityScroll(.right))
+        #expect(textView.selectedRange.location == second)
+        #expect(textView.accessibilityScroll(.right))
+        #expect(textView.selectedRange.location == third)
+        #expect(textView.accessibilityScroll(.left))
+        #expect(textView.selectedRange.location == second)
+        #expect(textView.accessibilityScroll(.left))
+        #expect(textView.selectedRange.location == 0)
+        #expect(textView.accessibilityScroll(.right))
+        #expect(textView.selectedRange.location == second)
+    }
+
     @MainActor
     @Test func disabledHeadingSwipesDoNotMoveTheInsertionPoint() {
         let textView = MarkdownEditorTextView()

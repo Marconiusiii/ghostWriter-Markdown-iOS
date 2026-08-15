@@ -129,12 +129,12 @@ struct SettingsView: View {
 
                 Section("VoiceOver Settings") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("VoiceOver Verbosity")
+                        Text("Verbosity")
                             .font(.headline)
                             .accessibilityHidden(true)
 
                         Picker(
-                            "VoiceOver Verbosity",
+                            "Verbosity",
                             selection: $settings.voiceOverVerbosity
                         ) {
                             ForEach(VoiceOverVerbosity.allCases) { verbosity in
@@ -144,7 +144,7 @@ struct SettingsView: View {
                         .pickerStyle(.segmented)
                     }
                     .accessibilityElement(children: .contain)
-                    .accessibilityLabel("VoiceOver Verbosity")
+                    .accessibilityLabel("Verbosity")
 
                     Text(settings.voiceOverVerbosity.description)
 

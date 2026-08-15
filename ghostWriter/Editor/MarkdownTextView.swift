@@ -275,6 +275,7 @@ final class MarkdownEditorTextView: UITextView {
     var onCommittedTextInput: ((String) -> Void)?
     var onHeadingSwipeSelectionChanged: ((NSRange) -> Void)?
     private(set) var isPerformingPaste = false
+    private var headingFeedbackGeneration = 0
 
     override func accessibilityScroll(
         _ direction: UIAccessibilityScrollDirection
@@ -293,16 +294,26 @@ final class MarkdownEditorTextView: UITextView {
             return super.accessibilityScroll(direction)
         }
 
-        moveToHeading(headingDirection)
+        headingFeedbackGeneration &+= 1
+        moveToHeading(
+            headingDirection,
+            feedbackGeneration: headingFeedbackGeneration
+        )
         return true
     }
 
-    private func moveToHeading(_ direction: HeadingNavigationDirection) {
+    private func moveToHeading(
+        _ direction: HeadingNavigationDirection,
+        feedbackGeneration: Int
+    ) {
         let currentText = text ?? ""
         let entries = OutlineBuilder.build(from: currentText)
 
         guard !entries.isEmpty else {
-            postHeadingPosition("No headings.")
+            postHeadingPosition(
+                "No headings.",
+                generation: feedbackGeneration
+            )
             return
         }
 
@@ -317,9 +328,15 @@ final class MarkdownEditorTextView: UITextView {
         ) else {
             switch direction {
             case .next:
-                postHeadingPosition("No next heading.")
+                postHeadingPosition(
+                    "No next heading.",
+                    generation: feedbackGeneration
+                )
             case .previous:
-                postHeadingPosition("No previous heading.")
+                postHeadingPosition(
+                    "No previous heading.",
+                    generation: feedbackGeneration
+                )
             }
             return
         }
@@ -331,8 +348,9 @@ final class MarkdownEditorTextView: UITextView {
             ),
             length: 0
         )
+
+        scrollCursorDestinationIntoView(target)
         selectedRange = target
-        scrollRangeToVisible(target)
         onHeadingSwipeSelectionChanged?(target)
 
         guard let position = entries.firstIndex(of: destination) else { return }
@@ -341,8 +359,25 @@ final class MarkdownEditorTextView: UITextView {
                 destination: destination,
                 position: position,
                 count: entries.count
-            )
+            ),
+            generation: feedbackGeneration
         )
+    }
+
+    private func scrollCursorDestinationIntoView(_ target: NSRange) {
+        guard let textPosition = position(
+            from: beginningOfDocument,
+            offset: target.location
+        ) else {
+            return
+        }
+
+        let verticalMargin = max(font?.lineHeight ?? 0, 8)
+        let destinationRect = caretRect(for: textPosition).insetBy(
+            dx: 0,
+            dy: -verticalMargin
+        )
+        scrollRectToVisible(destinationRect, animated: false)
     }
 
     static func headingPositionDescription(
@@ -354,16 +389,37 @@ final class MarkdownEditorTextView: UITextView {
         return "Heading \(position + 1) of \(count), \(title), heading level \(destination.level)."
     }
 
-    private func postHeadingPosition(_ description: String) {
+    private func postHeadingPosition(
+        _ description: String,
+        generation: Int
+    ) {
+        let announcement = Self.headingPositionAnnouncement(description)
+
         // VoiceOver completes accessibilityScroll after this method returns.
-        // Post on the next run-loop turn so UIKit's cursor-change speech cannot
-        // replace the scroll-position description with the editor's contents.
-        DispatchQueue.main.async {
+        // Only the newest rapid gesture may publish feedback; default priority
+        // lets that heading interrupt prior speech and be interrupted in turn.
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  self.headingFeedbackGeneration == generation else {
+                return
+            }
             UIAccessibility.post(
                 notification: .pageScrolled,
-                argument: description
+                argument: announcement
             )
         }
+    }
+
+    static func headingPositionAnnouncement(
+        _ description: String
+    ) -> NSAttributedString {
+        NSAttributedString(
+            string: description,
+            attributes: [
+                .accessibilitySpeechAnnouncementPriority:
+                    UIAccessibilityPriority.default
+            ]
+        )
     }
 
     override var keyCommands: [UIKeyCommand]? {
