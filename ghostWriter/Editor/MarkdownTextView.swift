@@ -22,6 +22,7 @@ struct MarkdownTextView: UIViewRepresentable {
     var voiceOverVerbosity: VoiceOverVerbosity
     var editorFontDesign: EditorFontDesign
     var keyboardShortcutsEnabled: Bool
+    var headingSwipeNavigationEnabled: Bool
     /// Set by the parent to move the cursor, for example from the outline.
     /// Cleared once applied.
     @Binding var pendingCursorOffset: Int?
@@ -45,6 +46,7 @@ struct MarkdownTextView: UIViewRepresentable {
         let textView = MarkdownEditorTextView()
         textView.delegate = context.coordinator
         textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
+        textView.headingSwipeNavigationEnabled = headingSwipeNavigationEnabled
 
         // Monospaced for alignment, but scaled by Dynamic Type so it grows with
         // the reader's setting.
@@ -87,6 +89,9 @@ struct MarkdownTextView: UIViewRepresentable {
                 committedText,
                 in: textView
             )
+        }
+        textView.onHeadingSwipeSelectionChanged = { selection in
+            session.updateNativeSelection(selection)
         }
 
         return textView
@@ -137,6 +142,9 @@ struct MarkdownTextView: UIViewRepresentable {
         context.coordinator.parent = self
         if textView.appKeyboardShortcutsEnabled != keyboardShortcutsEnabled {
             textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
+        }
+        if textView.headingSwipeNavigationEnabled != headingSwipeNavigationEnabled {
+            textView.headingSwipeNavigationEnabled = headingSwipeNavigationEnabled
         }
 
         let desiredFont = Self.editorFont(
@@ -212,6 +220,26 @@ struct MarkdownTextView: UIViewRepresentable {
         EditorTextSession.utf16Offset(for: characterOffset, in: text)
     }
 
+    /// Converts UIKit's UTF-16 insertion point to the Character offsets used
+    /// by the outline, without splitting composed characters.
+    static func characterOffset(forUTF16Offset utf16Offset: Int, in text: String) -> Int {
+        let utf16 = text.utf16
+        var utf16Index = utf16.index(
+            utf16.startIndex,
+            offsetBy: min(max(0, utf16Offset), utf16.count)
+        )
+
+        while String.Index(utf16Index, within: text) == nil,
+              utf16Index > utf16.startIndex {
+            utf16.formIndex(before: &utf16Index)
+        }
+
+        guard let stringIndex = String.Index(utf16Index, within: text) else {
+            return 0
+        }
+        return text[..<stringIndex].count
+    }
+
     /// Uses the system's already-scaled preferred body descriptor and changes
     /// only its design. Applying UIFontMetrics to preferredFont's point size
     /// would scale the same Dynamic Type preference twice at accessibility sizes.
@@ -243,8 +271,84 @@ struct MarkdownTextView: UIViewRepresentable {
 
 final class MarkdownEditorTextView: UITextView {
     var appKeyboardShortcutsEnabled = true
+    var headingSwipeNavigationEnabled = true
     var onCommittedTextInput: ((String) -> Void)?
+    var onHeadingSwipeSelectionChanged: ((NSRange) -> Void)?
     private(set) var isPerformingPaste = false
+
+    override func accessibilityScroll(
+        _ direction: UIAccessibilityScrollDirection
+    ) -> Bool {
+        guard headingSwipeNavigationEnabled else {
+            return super.accessibilityScroll(direction)
+        }
+
+        let headingDirection: HeadingNavigationDirection
+        switch direction {
+        // A physical three-finger swipe right requests a scroll to the left.
+        // That physical gesture moves forward through headings.
+        case .left:
+            headingDirection = .next
+        // A physical three-finger swipe left requests a scroll to the right.
+        // That physical gesture moves backward through headings.
+        case .right:
+            headingDirection = .previous
+        default:
+            return super.accessibilityScroll(direction)
+        }
+
+        moveToHeading(headingDirection)
+        return true
+    }
+
+    private func moveToHeading(_ direction: HeadingNavigationDirection) {
+        let currentText = text ?? ""
+        let entries = OutlineBuilder.build(from: currentText)
+
+        guard !entries.isEmpty else {
+            postHeadingPosition("No headings.")
+            return
+        }
+
+        let characterOffset = MarkdownTextView.characterOffset(
+            forUTF16Offset: selectedRange.location,
+            in: currentText
+        )
+        guard let destination = OutlineBuilder.destination(
+            in: entries,
+            from: characterOffset,
+            moving: direction
+        ) else {
+            switch direction {
+            case .next:
+                postHeadingPosition("No next heading.")
+            case .previous:
+                postHeadingPosition("No previous heading.")
+            }
+            return
+        }
+
+        let target = NSRange(
+            location: MarkdownTextView.utf16Offset(
+                for: destination.characterOffset,
+                in: currentText
+            ),
+            length: 0
+        )
+        selectedRange = target
+        scrollRangeToVisible(target)
+        onHeadingSwipeSelectionChanged?(target)
+
+        guard let position = entries.firstIndex(of: destination) else { return }
+        let title = destination.title.isEmpty ? "Empty heading" : destination.title
+        postHeadingPosition(
+            "Heading \(position + 1) of \(entries.count), \(title), heading level \(destination.level)."
+        )
+    }
+
+    private func postHeadingPosition(_ description: String) {
+        UIAccessibility.post(notification: .pageScrolled, argument: description)
+    }
 
     override var keyCommands: [UIKeyCommand]? {
         var commands = super.keyCommands ?? []

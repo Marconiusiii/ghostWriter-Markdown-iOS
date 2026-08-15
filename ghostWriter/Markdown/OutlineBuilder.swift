@@ -26,6 +26,11 @@ struct OutlineEntry: Identifiable, Hashable {
     }
 }
 
+enum HeadingNavigationDirection {
+    case next
+    case previous
+}
+
 enum OutlineBuilder {
     /// Walks the text line by line, collecting headings. Lines inside fenced
     /// code blocks are skipped, since a "#" there is literal text rather than a
@@ -67,5 +72,21 @@ enum OutlineBuilder {
         }
 
         return entries
+    }
+
+    /// Finds the heading reached by moving from the insertion point. A heading
+    /// beginning exactly at the insertion point is the current destination, so
+    /// navigation advances past it in either direction.
+    static func destination(
+        in entries: [OutlineEntry],
+        from characterOffset: Int,
+        moving direction: HeadingNavigationDirection
+    ) -> OutlineEntry? {
+        switch direction {
+        case .next:
+            return entries.first { $0.characterOffset > characterOffset }
+        case .previous:
+            return entries.last { $0.characterOffset < characterOffset }
+        }
     }
 }

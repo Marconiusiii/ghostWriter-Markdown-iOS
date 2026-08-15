@@ -41,4 +41,63 @@ struct OutlineBuilderTests {
         #expect(destination?.title == "Destination")
         #expect(destination?.characterOffset == "👻 Introduction\n\n".count)
     }
+
+    @Test func findsNextHeadingStrictlyAfterTheInsertionPoint() {
+        let entries = OutlineBuilder.build(
+            from: "# First\nBody\n## Second\nMore\n### Third"
+        )
+
+        let fromFirst = OutlineBuilder.destination(
+            in: entries,
+            from: entries[0].characterOffset,
+            moving: .next
+        )
+        let fromBody = OutlineBuilder.destination(
+            in: entries,
+            from: "# First\nBody".count,
+            moving: .next
+        )
+
+        #expect(fromFirst?.title == "Second")
+        #expect(fromBody?.title == "Second")
+    }
+
+    @Test func findsNearestHeadingBeforeTheInsertionPoint() {
+        let entries = OutlineBuilder.build(
+            from: "# First\nBody\n## Second\nMore\n### Third"
+        )
+
+        let fromSecond = OutlineBuilder.destination(
+            in: entries,
+            from: entries[1].characterOffset,
+            moving: .previous
+        )
+        let fromSecondTitle = OutlineBuilder.destination(
+            in: entries,
+            from: entries[1].characterOffset + 4,
+            moving: .previous
+        )
+
+        #expect(fromSecond?.title == "First")
+        #expect(fromSecondTitle?.title == "Second")
+    }
+
+    @Test func reportsHeadingNavigationBoundaries() {
+        let entries = OutlineBuilder.build(from: "# Only heading")
+
+        #expect(
+            OutlineBuilder.destination(
+                in: entries,
+                from: entries[0].characterOffset,
+                moving: .next
+            ) == nil
+        )
+        #expect(
+            OutlineBuilder.destination(
+                in: entries,
+                from: entries[0].characterOffset,
+                moving: .previous
+            ) == nil
+        )
+    }
 }

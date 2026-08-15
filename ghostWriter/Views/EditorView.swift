@@ -489,6 +489,7 @@ struct EditorView: View {
             voiceOverVerbosity: settings.voiceOverVerbosity,
             editorFontDesign: settings.editorFontDesign,
             keyboardShortcutsEnabled: settings.keyboardShortcutsEnabled,
+            headingSwipeNavigationEnabled: settings.headingSwipeNavigationEnabled,
             pendingCursorOffset: $pendingCursorOffset,
             pendingFindRequest: $pendingFindRequest,
             onIndent: { applyIndent(outdent: false) },

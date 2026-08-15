@@ -211,6 +211,15 @@ final class AppSettings {
         }
     }
 
+    var headingSwipeNavigationEnabled: Bool {
+        didSet {
+            defaults.set(
+                headingSwipeNavigationEnabled,
+                forKey: Keys.headingSwipeNavigation
+            )
+        }
+    }
+
     var sort: DocumentSort {
         didSet {
             defaults.set(sort.field.rawValue, forKey: Keys.sortField)
@@ -254,6 +263,8 @@ final class AppSettings {
         self.voiceOverVerbosity = defaults.string(
             forKey: Keys.voiceOverVerbosity
         ).flatMap(VoiceOverVerbosity.init(rawValue:)) ?? .light
+        self.headingSwipeNavigationEnabled =
+            defaults.object(forKey: Keys.headingSwipeNavigation) as? Bool ?? true
 
         let field = (defaults.string(forKey: Keys.sortField)
             .flatMap(DocumentSortField.init(rawValue:))) ?? .modified
@@ -280,6 +291,7 @@ final class AppSettings {
         static let smartLists = "smartListsEnabled"
         static let keyboardShortcuts = "keyboardShortcutsEnabled"
         static let voiceOverVerbosity = "voiceOverVerbosity"
+        static let headingSwipeNavigation = "headingSwipeNavigationEnabled"
         static let sortField = "sortField"
         static let sortDirection = "sortDirection"
     }

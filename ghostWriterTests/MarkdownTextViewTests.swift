@@ -96,6 +96,80 @@ struct MarkdownTextViewTests {
         #expect(beyondEnd.location == 3)
     }
 
+    @Test func nativeCursorOffsetConvertsBackToCharacterOffset() {
+        let text = "A👻B"
+
+        #expect(
+            MarkdownTextView.characterOffset(
+                forUTF16Offset: 3,
+                in: text
+            ) == 2
+        )
+        #expect(
+            MarkdownTextView.characterOffset(
+                forUTF16Offset: 50,
+                in: text
+            ) == 3
+        )
+    }
+
+    @MainActor
+    @Test func physicalRightSwipeMovesToTheNextHeading() {
+        let textView = MarkdownEditorTextView()
+        textView.text = "# First\nBody\n## Second"
+        textView.selectedRange = NSRange(location: 0, length: 0)
+        var synchronizedSelection: NSRange?
+        textView.onHeadingSwipeSelectionChanged = {
+            synchronizedSelection = $0
+        }
+
+        let handled = textView.accessibilityScroll(.left)
+        let expected = "# First\nBody\n".utf16.count
+
+        #expect(handled)
+        #expect(textView.selectedRange == NSRange(location: expected, length: 0))
+        #expect(synchronizedSelection == textView.selectedRange)
+    }
+
+    @MainActor
+    @Test func physicalLeftSwipeMovesToThePreviousHeading() {
+        let textView = MarkdownEditorTextView()
+        textView.text = "# First\nBody\n## Second"
+        textView.selectedRange = NSRange(
+            location: textView.text.utf16.count,
+            length: 0
+        )
+
+        let handled = textView.accessibilityScroll(.right)
+        let expected = "# First\nBody\n".utf16.count
+
+        #expect(handled)
+        #expect(textView.selectedRange == NSRange(location: expected, length: 0))
+    }
+
+    @MainActor
+    @Test func disabledHeadingSwipesDoNotMoveTheInsertionPoint() {
+        let textView = MarkdownEditorTextView()
+        textView.text = "# First\n## Second"
+        textView.selectedRange = NSRange(location: 0, length: 0)
+        textView.headingSwipeNavigationEnabled = false
+
+        _ = textView.accessibilityScroll(.left)
+
+        #expect(textView.selectedRange == NSRange(location: 0, length: 0))
+    }
+
+    @MainActor
+    @Test func verticalVoiceOverScrollingDoesNotMoveBetweenHeadings() {
+        let textView = MarkdownEditorTextView()
+        textView.text = "# First\n## Second"
+        textView.selectedRange = NSRange(location: 0, length: 0)
+
+        _ = textView.accessibilityScroll(.down)
+
+        #expect(textView.selectedRange == NSRange(location: 0, length: 0))
+    }
+
     @Test func deferredListExitUsesUIKitUTF16RangesAfterUnicode() throws {
         let original = "👻\n* "
         let plan = try #require(

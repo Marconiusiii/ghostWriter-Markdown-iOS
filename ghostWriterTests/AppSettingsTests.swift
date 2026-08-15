@@ -133,6 +133,18 @@ struct AppSettingsTests {
         #expect(restored.voiceOverVerbosity == .full)
     }
 
+    @Test func headingSwipeNavigationDefaultsToEnabledAndPersists() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+
+        let settings = AppSettings(defaults: testDefaults.defaults)
+        #expect(settings.headingSwipeNavigationEnabled)
+
+        settings.headingSwipeNavigationEnabled = false
+        let restored = AppSettings(defaults: testDefaults.defaults)
+        #expect(!restored.headingSwipeNavigationEnabled)
+    }
+
     @Test func invalidVoiceOverVerbosityFallsBackToLight() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }

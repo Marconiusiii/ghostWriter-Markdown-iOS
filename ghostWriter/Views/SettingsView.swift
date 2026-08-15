@@ -127,7 +127,7 @@ struct SettingsView: View {
                     )
                 }
 
-                Section("VoiceOver Verbosity") {
+                Section("VoiceOver Settings") {
                     Picker(
                         "VoiceOver verbosity",
                         selection: $settings.voiceOverVerbosity
@@ -139,6 +139,16 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
 
                     Text(settings.voiceOverVerbosity.description)
+
+                    Toggle(
+                        "Heading Swipe Navigation",
+                        isOn: $settings.headingSwipeNavigationEnabled
+                    )
+                    .ghostFilledControlTint()
+
+                    Text(
+                        "Moves between headings with three-finger horizontal swipes in the editor."
+                    )
                 }
 
                 Section("Appearance") {
