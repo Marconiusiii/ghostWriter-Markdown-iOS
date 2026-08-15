@@ -1237,9 +1237,9 @@ final class DocumentStore {
         }
     }
 
-    /// Copies selected UTF-8 markdown or text files into the app's own folder.
-    /// Reading and rewriting the text keeps imported files independent of their
-    /// source and prevents an unreadable file from becoming an empty document.
+    /// Copies selected Markdown, text, or Word documents into the app's folder.
+    /// Word content is converted before placement, and every imported file is
+    /// validated before a destination document is created.
     func importDocuments(
         from sourceURLs: [URL],
         into destinationDirectory: URL? = nil
@@ -1275,10 +1275,11 @@ final class DocumentStore {
         }
         var importedURLs: [URL] = []
         var failedNames: [String] = []
+        var failureDetails: [String] = []
 
         for sourceURL in sourceURLs {
             let fileName = sourceURL.lastPathComponent
-            guard Document.isMarkdown(sourceURL) else {
+            guard Self.isImportableDocument(sourceURL) else {
                 failedNames.append(fileName)
                 continue
             }
@@ -1292,10 +1293,10 @@ final class DocumentStore {
 
             do {
                 let data = try fileAccess.data(at: sourceURL)
-                guard let contents = String(data: data, encoding: .utf8) else {
-                    failedNames.append(fileName)
-                    continue
-                }
+                let contents = try Self.importedMarkdown(
+                    from: data,
+                    sourceURL: sourceURL
+                )
 
                 let preferredName = sourceURL
                     .deletingPathExtension()
@@ -1308,6 +1309,11 @@ final class DocumentStore {
                 importedURLs.append(destination)
             } catch {
                 failedNames.append(fileName)
+                failureDetails.append(Self.importFailureDescription(
+                    fileName: fileName,
+                    sourceURL: sourceURL,
+                    error: error
+                ))
             }
         }
 
@@ -1318,7 +1324,10 @@ final class DocumentStore {
 
         if !failedNames.isEmpty {
             let names = failedNames.joined(separator: ", ")
-            lastError = "Could not import \(names). Import markdown or plain-text files saved as UTF-8."
+            let detail = failureDetails.isEmpty
+                ? "Import Markdown or plain-text files saved as UTF-8, or Word documents saved as .docx."
+                : failureDetails.joined(separator: " ")
+            lastError = "Could not import \(names). \(detail)"
         }
 
         return DocumentImportResult(
@@ -1332,7 +1341,7 @@ final class DocumentStore {
         into destinationDirectory: URL? = nil
     ) async -> DocumentImportResult {
         guard usesICloudStorage else {
-            return importDocumentsLocally(
+            return await importDocumentsLocallyAwayFromTyping(
                 from: sourceURLs,
                 into: destinationDirectory
             )
@@ -1351,10 +1360,11 @@ final class DocumentStore {
         }
         var importedURLs: [URL] = []
         var failedNames: [String] = []
+        var failureDetails: [String] = []
 
         for sourceURL in sourceURLs {
             let fileName = sourceURL.lastPathComponent
-            guard Document.isMarkdown(sourceURL) else {
+            guard Self.isImportableDocument(sourceURL) else {
                 failedNames.append(fileName)
                 continue
             }
@@ -1369,10 +1379,10 @@ final class DocumentStore {
 
             do {
                 let data = try fileAccess.data(at: sourceURL)
-                guard String(data: data, encoding: .utf8) != nil else {
-                    failedNames.append(fileName)
-                    continue
-                }
+                let contents = try await Self.importedMarkdownAwayFromTyping(
+                    from: data,
+                    sourceURL: sourceURL
+                )
 
                 let preferredName = sourceURL
                     .deletingPathExtension()
@@ -1381,10 +1391,15 @@ final class DocumentStore {
                     for: preferredName,
                     in: targetDirectory
                 )
-                try await placeUbiquitousItem(data, destination)
+                try await placeUbiquitousItem(Data(contents.utf8), destination)
                 importedURLs.append(destination)
             } catch {
                 failedNames.append(fileName)
+                failureDetails.append(Self.importFailureDescription(
+                    fileName: fileName,
+                    sourceURL: sourceURL,
+                    error: error
+                ))
             }
         }
 
@@ -1395,14 +1410,119 @@ final class DocumentStore {
 
         if !failedNames.isEmpty {
             let names = failedNames.joined(separator: ", ")
-            lastError =
-                "Could not import \(names). Import markdown or plain-text files saved as UTF-8."
+            let detail = failureDetails.isEmpty
+                ? "Import Markdown or plain-text files saved as UTF-8, or Word documents saved as .docx."
+                : failureDetails.joined(separator: " ")
+            lastError = "Could not import \(names). \(detail)"
         }
 
         return DocumentImportResult(
             imported: imported,
             failedFileNames: failedNames
         )
+    }
+
+    private nonisolated static func isImportableDocument(_ url: URL) -> Bool {
+        Document.isMarkdown(url) || url.pathExtension.lowercased() == "docx"
+    }
+
+    private func importDocumentsLocallyAwayFromTyping(
+        from sourceURLs: [URL],
+        into destinationDirectory: URL?
+    ) async -> DocumentImportResult {
+        createDirectoryIfNeeded()
+        let targetDirectory = destinationDirectory ?? directory
+        do {
+            try fileAccess.createDirectory(at: targetDirectory)
+        } catch {
+            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            return DocumentImportResult(
+                imported: [],
+                failedFileNames: sourceURLs.map(\.lastPathComponent)
+            )
+        }
+
+        var importedURLs: [URL] = []
+        var failedNames: [String] = []
+        var failureDetails: [String] = []
+        for sourceURL in sourceURLs {
+            let fileName = sourceURL.lastPathComponent
+            guard Self.isImportableDocument(sourceURL) else {
+                failedNames.append(fileName)
+                continue
+            }
+            let hasScopedAccess = sourceURL.startAccessingSecurityScopedResource()
+            defer {
+                if hasScopedAccess { sourceURL.stopAccessingSecurityScopedResource() }
+            }
+            do {
+                let data = try fileAccess.data(at: sourceURL)
+                let contents = try await Self.importedMarkdownAwayFromTyping(
+                    from: data,
+                    sourceURL: sourceURL
+                )
+                let preferredName = sourceURL.deletingPathExtension().lastPathComponent
+                let destination = availableURL(for: preferredName, in: targetDirectory)
+                try fileAccess.write(contents, to: destination)
+                importedURLs.append(destination)
+            } catch {
+                failedNames.append(fileName)
+                failureDetails.append(Self.importFailureDescription(
+                    fileName: fileName,
+                    sourceURL: sourceURL,
+                    error: error
+                ))
+            }
+        }
+
+        refresh()
+        let imported = importedURLs.compactMap { importedURL in
+            documents.first { $0.url == importedURL }
+        }
+        if !failedNames.isEmpty {
+            let names = failedNames.joined(separator: ", ")
+            let detail = failureDetails.isEmpty
+                ? "Import Markdown or plain-text files saved as UTF-8, or Word documents saved as .docx."
+                : failureDetails.joined(separator: " ")
+            lastError = "Could not import \(names). \(detail)"
+        }
+        return DocumentImportResult(imported: imported, failedFileNames: failedNames)
+    }
+
+    private nonisolated static func importedMarkdownAwayFromTyping(
+        from data: Data,
+        sourceURL: URL
+    ) async throws -> String {
+        if sourceURL.pathExtension.lowercased() != "docx" {
+            return try importedMarkdown(from: data, sourceURL: sourceURL)
+        }
+        return try await Task.detached(priority: .userInitiated) {
+            try WordToMarkdownConverter.convert(data: data)
+        }.value
+    }
+
+    private nonisolated static func importFailureDescription(
+        fileName: String,
+        sourceURL: URL,
+        error: Error
+    ) -> String {
+        if sourceURL.pathExtension.lowercased() == "docx" {
+            return "\(fileName): \(error.localizedDescription)"
+        }
+        return "\(fileName): The text file must use UTF-8 encoding."
+    }
+
+    private nonisolated static func importedMarkdown(
+        from data: Data,
+        sourceURL: URL
+    ) throws -> String {
+        if sourceURL.pathExtension.lowercased() == "docx" {
+            return try WordToMarkdownConverter.convert(data: data)
+        }
+        guard let contents = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileReadInapplicableStringEncoding)
+        }
+        return contents
     }
 
     // MARK: - Naming

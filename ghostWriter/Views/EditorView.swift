@@ -456,6 +456,13 @@ struct EditorView: View {
                 ) {
                     Text("HTML")
                 }
+
+                ShareLink(
+                    item: wordShareFile,
+                    preview: SharePreview("\(displayTitle), Word Document")
+                ) {
+                    Text("Word Document")
+                }
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
@@ -559,6 +566,14 @@ struct EditorView: View {
                 markdown: text,
                 format: .html
             )
+        )
+    }
+
+    private var wordShareFile: WordShareFile {
+        WordShareFile(
+            fileName: shareFileName,
+            title: displayTitle,
+            markdown: text
         )
     }
 

@@ -20,6 +20,7 @@ struct SettingsView: View {
     @AccessibilityFocusState private var focusedElement: FocusTarget?
     @State private var showingHelp = false
     @State private var showingWhyGhostWriter = false
+    @State private var showingAcknowledgements = false
     @State private var showingStatusBarSettings = false
     @State private var showingMailComposer = false
     @State private var showingMailUnavailable = false
@@ -36,6 +37,7 @@ struct SettingsView: View {
         case customizeStatusBar
         case help
         case whyGhostWriter
+        case acknowledgements
         case feedback
     }
 
@@ -218,6 +220,15 @@ struct SettingsView: View {
                         $focusedElement,
                         equals: .whyGhostWriter
                     )
+                    Button("Acknowledgements") {
+                        focusRequestGate.invalidate()
+                        showingAcknowledgements = true
+                    }
+                    .accessibilityHint("Opens software acknowledgements and licenses")
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .acknowledgements
+                    )
                     externalLink(
                         title: "ghostWriter on the web",
                         url: "https://marconius.com/fun/ghostWriter/"
@@ -276,6 +287,11 @@ struct SettingsView: View {
         }) {
             WhyGhostWriterView()
                 .presentationDragIndicator(.hidden)
+        }
+        .sheet(isPresented: $showingAcknowledgements, onDismiss: {
+            restoreFocus(to: .acknowledgements)
+        }) {
+            AcknowledgementsView()
         }
         .sheet(isPresented: $showingStatusBarSettings, onDismiss: {
             restoreFocus(to: .customizeStatusBar)

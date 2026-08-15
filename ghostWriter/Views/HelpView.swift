@@ -54,7 +54,7 @@ private struct HelpTopic: Identifiable {
             paragraphs: [
                 "New creates a named markdown file and opens it for editing.",
                 "New Folder creates a folder in your current location. Open a folder to see what is inside, and use Back to return to its parent folder.",
-                "Import copies one or more UTF-8 markdown or plain-text files from Files into your current folder. Name conflicts receive a safe numbered name.",
+                "Import copies one or more markdown, plain-text, or Word documents from Files into your current folder. Word documents are converted to markdown. Name conflicts receive a safe numbered name.",
                 "Choose any document in the library to open it. Folders always appear before documents."
             ]
         ),
@@ -104,8 +104,8 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Sharing and Export Formats",
             paragraphs: [
-                "Open File Actions, choose Share, and select Markdown, Plain Text, or HTML.",
-                "Markdown preserves the original syntax. Plain Text preserves the same text with a .txt filename. HTML creates a complete, rendered web document with a title and semantic main region."
+                "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, or Word Document.",
+                "Markdown preserves the original syntax. Plain Text preserves the same text with a .txt filename. HTML creates a complete, rendered web document. Word Document converts markdown structure into a .docx file."
             ]
         ),
         HelpTopic(

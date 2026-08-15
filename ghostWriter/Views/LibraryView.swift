@@ -420,7 +420,7 @@ struct LibraryView: View {
             .controlSize(.large)
             .disabled(!store.storageAvailable)
             .accessibilityLabel("Import document")
-            .accessibilityHint("Copies markdown or plain-text files into ghostWriter")
+            .accessibilityHint("Copies Markdown, plain-text, or Word documents into ghostWriter")
             .accessibilityFocused($focusedElement, equals: .importDocument)
             .keyboardShortcut(shortcut("o", modifiers: .command))
 
@@ -1416,7 +1416,7 @@ struct LibraryView: View {
     }
 
     private var importContentTypes: [UTType] {
-        ["md", "markdown", "mdown", "txt"].compactMap {
+        ["md", "markdown", "mdown", "txt", "docx"].compactMap {
             UTType(filenameExtension: $0)
         }
     }

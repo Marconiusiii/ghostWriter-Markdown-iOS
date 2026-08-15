@@ -136,6 +136,40 @@ nonisolated struct HTMLShareFile: Transferable {
     }
 }
 
+nonisolated struct WordShareFile: Transferable {
+    let fileName: String
+    let title: String
+    let markdown: String
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: wordType) { item in
+            let data = try MarkdownToWordConverter.convert(
+                title: item.title,
+                markdown: item.markdown
+            )
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent(
+                    "ghostWriter-Word-\(UUID().uuidString)",
+                    isDirectory: true
+                )
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+            let url = directory
+                .appendingPathComponent(item.fileName)
+                .appendingPathExtension("docx")
+            try data.write(to: url, options: .atomic)
+            return SentTransferredFile(url)
+        }
+    }
+
+    private static let wordType = UTType(
+        filenameExtension: "docx",
+        conformingTo: .data
+    ) ?? .data
+}
+
 nonisolated private func writeShareFile(
     named fileName: String,
     fileExtension: String,
