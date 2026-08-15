@@ -175,6 +175,17 @@ struct MarkdownTextViewTests {
         #expect(priority == .default)
     }
 
+    @Test func headingSwipeFeedbackUsesAnInterruptingAnnouncement() {
+        #expect(
+            MarkdownEditorTextView.headingFeedbackNotification
+                == .announcement
+        )
+        #expect(
+            MarkdownEditorTextView.headingFeedbackNotification
+                != .pageScrolled
+        )
+    }
+
     @MainActor
     @Test func rapidHeadingSwipesTraverseEveryHeadingInBothDirections() {
         let textView = MarkdownEditorTextView()

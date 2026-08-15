@@ -270,6 +270,8 @@ struct MarkdownTextView: UIViewRepresentable {
 }
 
 final class MarkdownEditorTextView: UITextView {
+    static let headingFeedbackNotification: UIAccessibility.Notification = .announcement
+
     var appKeyboardShortcutsEnabled = true
     var headingSwipeNavigationEnabled = true
     var onCommittedTextInput: ((String) -> Void)?
@@ -404,7 +406,7 @@ final class MarkdownEditorTextView: UITextView {
                 return
             }
             UIAccessibility.post(
-                notification: .pageScrolled,
+                notification: Self.headingFeedbackNotification,
                 argument: announcement
             )
         }
