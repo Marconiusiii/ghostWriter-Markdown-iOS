@@ -148,6 +148,21 @@ struct MarkdownTextViewTests {
     }
 
     @MainActor
+    @Test func headingSwipeFeedbackIncludesIndexTitleAndLevel() throws {
+        let heading = try #require(
+            OutlineBuilder.build(from: "# First\nBody\n## Second").last
+        )
+
+        let description = MarkdownEditorTextView.headingPositionDescription(
+            destination: heading,
+            position: 1,
+            count: 2
+        )
+
+        #expect(description == "Heading 2 of 2, Second, heading level 2.")
+    }
+
+    @MainActor
     @Test func disabledHeadingSwipesDoNotMoveTheInsertionPoint() {
         let textView = MarkdownEditorTextView()
         textView.text = "# First\n## Second"

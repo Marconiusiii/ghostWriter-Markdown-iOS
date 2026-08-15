@@ -131,8 +131,6 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("VoiceOver Verbosity")
                             .font(.headline)
-                            // The Picker below exposes this same label. Keep the
-                            // visible copy from becoming a duplicate stop.
                             .accessibilityHidden(true)
 
                         Picker(
@@ -144,10 +142,11 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(.segmented)
-                        .accessibilityLabel("VoiceOver Verbosity")
-
-                        Text(settings.voiceOverVerbosity.description)
                     }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("VoiceOver Verbosity")
+
+                    Text(settings.voiceOverVerbosity.description)
 
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle(

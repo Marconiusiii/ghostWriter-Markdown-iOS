@@ -336,14 +336,34 @@ final class MarkdownEditorTextView: UITextView {
         onHeadingSwipeSelectionChanged?(target)
 
         guard let position = entries.firstIndex(of: destination) else { return }
-        let title = destination.title.isEmpty ? "Empty heading" : destination.title
         postHeadingPosition(
-            "Heading \(position + 1) of \(entries.count), \(title), heading level \(destination.level)."
+            Self.headingPositionDescription(
+                destination: destination,
+                position: position,
+                count: entries.count
+            )
         )
     }
 
+    static func headingPositionDescription(
+        destination: OutlineEntry,
+        position: Int,
+        count: Int
+    ) -> String {
+        let title = destination.title.isEmpty ? "Empty heading" : destination.title
+        return "Heading \(position + 1) of \(count), \(title), heading level \(destination.level)."
+    }
+
     private func postHeadingPosition(_ description: String) {
-        UIAccessibility.post(notification: .announcement, argument: description)
+        // VoiceOver completes accessibilityScroll after this method returns.
+        // Post on the next run-loop turn so UIKit's cursor-change speech cannot
+        // replace the scroll-position description with the editor's contents.
+        DispatchQueue.main.async {
+            UIAccessibility.post(
+                notification: .pageScrolled,
+                argument: description
+            )
+        }
     }
 
     override var keyCommands: [UIKeyCommand]? {
