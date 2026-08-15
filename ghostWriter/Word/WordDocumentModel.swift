@@ -23,6 +23,7 @@ nonisolated struct WordRun: Equatable, Sendable {
     var text = ""
     var bold = false
     var italic = false
+    var underline = false
     var strikethrough = false
     var inlineCode = false
     var hyperlink: String?

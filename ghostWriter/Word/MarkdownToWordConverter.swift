@@ -198,6 +198,16 @@ nonisolated enum MarkdownToWordConverter {
                 }
             }
 
+            if remainder.hasPrefix("<u>"),
+               let close = remainder.dropFirst(3).range(of: "</u>") {
+                let afterOpen = remainder.dropFirst(3)
+                var formatting = inherited
+                formatting.underline = true
+                runs += parseInline(String(afterOpen[..<close.lowerBound]), inherited: formatting)
+                remainder = afterOpen[close.upperBound...]
+                continue
+            }
+
             let delimiters: [(String, WritableKeyPath<WordRun, Bool>)] = [
                 ("**", \.bold), ("__", \.bold), ("~~", \.strikethrough),
                 ("*", \.italic), ("_", \.italic), ("`", \.inlineCode)
@@ -236,7 +246,7 @@ nonisolated enum MarkdownToWordConverter {
 
     private static func nextSpecialIndex(in text: Substring) -> Substring.Index? {
         text.indices.first { index in
-            "![]*_~`\\".contains(text[index])
+            "![]*_~`\\<".contains(text[index])
         }
     }
 
@@ -250,6 +260,7 @@ nonisolated enum MarkdownToWordConverter {
             if var previous = result.last,
                previous.bold == run.bold,
                previous.italic == run.italic,
+               previous.underline == run.underline,
                previous.strikethrough == run.strikethrough,
                previous.inlineCode == run.inlineCode,
                previous.hyperlink == run.hyperlink {

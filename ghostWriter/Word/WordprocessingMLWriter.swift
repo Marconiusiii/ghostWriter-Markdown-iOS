@@ -98,6 +98,7 @@ nonisolated enum WordprocessingMLWriter {
         var properties = ""
         if run.bold { properties += "<w:b/>" }
         if run.italic { properties += "<w:i/>" }
+        if run.underline { properties += "<w:u w:val=\"single\"/>" }
         if run.strikethrough { properties += "<w:strike/>" }
         if run.inlineCode { properties += "<w:rStyle w:val=\"CodeChar\"/>" }
         let rPr = properties.isEmpty ? "" : "<w:rPr>\(properties)</w:rPr>"

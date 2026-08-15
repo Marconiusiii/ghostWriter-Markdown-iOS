@@ -433,105 +433,168 @@ enum MarkdownRenderer {
     /// backticks is never interpreted.
     static func inline(_ text: String, definitions: [String: String] = [:]) -> String {
         var placeholders: [String] = []
-        var working = ""
-        var remainder = Substring(text)
-
-        // Pull out inline code spans before escaping, so their contents are
-        // escaped but not parsed.
-        while let range = remainder.range(of: "`") {
-            working += escape(String(remainder[remainder.startIndex..<range.lowerBound]))
-            let afterOpen = remainder[range.upperBound...]
-
-            guard let close = afterOpen.range(of: "`") else {
-                working += escape(String(remainder[range.lowerBound...]))
-                remainder = Substring("")
-                break
-            }
-
-            let code = String(afterOpen[afterOpen.startIndex..<close.lowerBound])
-            working += "\u{0}CODE\(placeholders.count)\u{0}"
-            placeholders.append("<code>\(escape(code))</code>")
-            remainder = afterOpen[close.upperBound...]
-        }
-        working += escape(String(remainder))
+        let withoutCode = extractCodeSpans(text, placeholders: &placeholders)
+        let withoutFormatting = extractFormattingSpans(
+            withoutCode,
+            definitions: definitions,
+            placeholders: &placeholders
+        )
+        var working = escape(withoutFormatting)
 
         working = replaceImagesAndLinks(working, definitions: definitions)
 
-        // Emphasis. Bold before italic so "**text**" is not consumed as two
-        // italic markers.
-        working = working.replacing(/\*\*(?!\s)([^*]+?)\*\*/) { "<strong>\($0.1)</strong>" }
-        working = working.replacing(/__(?!\s)([^_]+?)__/) { "<strong>\($0.1)</strong>" }
-        working = working.replacing(/\*(?!\s)([^*]+?)\*/) { "<em>\($0.1)</em>" }
-        working = emphasizeUnderscores(working)
-        working = working.replacing(/~~([^~]+?)~~/) { "<del>\($0.1)</del>" }
-
         for (offset, markup) in placeholders.enumerated() {
-            working = working.replacingOccurrences(of: "\u{0}CODE\(offset)\u{0}", with: markup)
+            working = working.replacingOccurrences(of: placeholder(offset), with: markup)
         }
 
         return working
     }
 
-    /// Applies underscore italics, but only where the underscores sit on word
-    /// boundaries. Swift Regex has no lookbehind, so the preceding character is
-    /// checked by hand. This is what stops `snake_case_name` from turning into
-    /// mangled emphasis — a real hazard in a markdown editor used for notes
-    /// about code.
-    private static func emphasizeUnderscores(_ text: String) -> String {
-        let characters = Array(text)
+    private static func extractCodeSpans(
+        _ text: String,
+        placeholders: inout [String]
+    ) -> String {
         var result = ""
-        var index = 0
-
-        func isWordCharacter(_ character: Character) -> Bool {
-            character.isLetter || character.isNumber || character == "_"
+        var remainder = Substring(text)
+        while let opening = remainder.range(of: "`") {
+            result += String(remainder[..<opening.lowerBound])
+            let afterOpen = remainder[opening.upperBound...]
+            guard let closing = afterOpen.range(of: "`") else {
+                result += String(remainder[opening.lowerBound...])
+                return result
+            }
+            let code = String(afterOpen[..<closing.lowerBound])
+            result += placeholder(placeholders.count)
+            placeholders.append("<code>\(escape(code))</code>")
+            remainder = afterOpen[closing.upperBound...]
         }
-
-        while index < characters.count {
-            guard characters[index] == "_" else {
-                result.append(characters[index])
-                index += 1
-                continue
-            }
-
-            // The opening underscore must not follow a word character, and must
-            // not be followed by whitespace.
-            let precededByWord = index > 0 && isWordCharacter(characters[index - 1])
-            let followedBySpace = index + 1 >= characters.count
-                || characters[index + 1].isWhitespace
-
-            guard !precededByWord, !followedBySpace else {
-                result.append(characters[index])
-                index += 1
-                continue
-            }
-
-            // Find a closing underscore that is not followed by a word character.
-            var scan = index + 1
-            var closing: Int?
-            while scan < characters.count {
-                if characters[scan] == "_" {
-                    let followedByWord = scan + 1 < characters.count
-                        && isWordCharacter(characters[scan + 1])
-                    if !followedByWord {
-                        closing = scan
-                        break
-                    }
-                }
-                scan += 1
-            }
-
-            guard let close = closing, close > index + 1 else {
-                result.append(characters[index])
-                index += 1
-                continue
-            }
-
-            let inner = String(characters[(index + 1)..<close])
-            result += "<em>\(inner)</em>"
-            index = close + 1
-        }
-
+        result += String(remainder)
         return result
+    }
+
+    private static func extractFormattingSpans(
+        _ text: String,
+        definitions: [String: String],
+        placeholders: inout [String]
+    ) -> String {
+        let delimiters: [(opening: String, closing: String, element: String)] = [
+            ("***", "***", "strong-emphasis"),
+            ("___", "___", "strong-emphasis"),
+            ("**", "**", "strong"),
+            ("__", "__", "strong"),
+            ("~~", "~~", "del"),
+            ("<u>", "</u>", "u"),
+            ("*", "*", "em"),
+            ("_", "_", "em")
+        ]
+        var result = ""
+        var remainder = Substring(text)
+
+        while !remainder.isEmpty {
+            let candidates = delimiters.compactMap { delimiter -> (Substring.Index, String, String, String)? in
+                guard let range = openingRange(for: delimiter.opening, in: remainder) else { return nil }
+                return (range.lowerBound, delimiter.opening, delimiter.closing, delimiter.element)
+            }
+            guard let candidate = candidates.min(by: { $0.0 < $1.0 }) else {
+                result += String(remainder)
+                break
+            }
+
+            let (openingIndex, opening, closing, element) = candidate
+            result += String(remainder[..<openingIndex])
+            let openingEnd = remainder.index(openingIndex, offsetBy: opening.count)
+            let afterOpen = remainder[openingEnd...]
+            guard let closeRange = closingRange(
+                for: closing,
+                in: afterOpen
+            ), !afterOpen[..<closeRange.lowerBound].isEmpty else {
+                result.append(remainder[openingIndex])
+                remainder = remainder[remainder.index(after: openingIndex)...]
+                continue
+            }
+
+            let inner = String(afterOpen[..<closeRange.lowerBound])
+            let renderedInner = inline(inner, definitions: definitions)
+            let markup: String
+            switch element {
+            case "strong-emphasis":
+                markup = "<strong><em>\(renderedInner)</em></strong>"
+            case "strong":
+                markup = "<strong>\(renderedInner)</strong>"
+            case "em":
+                markup = "<em>\(renderedInner)</em>"
+            case "del":
+                markup = "<del>\(renderedInner)</del>"
+            default:
+                markup = "<u>\(renderedInner)</u>"
+            }
+            result += placeholder(placeholders.count)
+            placeholders.append(markup)
+            remainder = afterOpen[closeRange.upperBound...]
+        }
+        return result
+    }
+
+    private static func closingRange(
+        for delimiter: String,
+        in text: Substring
+    ) -> Range<Substring.Index>? {
+        guard delimiter == "*" || delimiter == "_" else {
+            return text.range(of: delimiter)
+        }
+        let marker = Character(delimiter)
+        var searchIndex = text.startIndex
+        while searchIndex < text.endIndex,
+              let index = text[searchIndex...].firstIndex(of: marker) {
+            let previousIsMarker = index > text.startIndex
+                && text[text.index(before: index)] == marker
+            let next = text.index(after: index)
+            let nextIsMarker = next < text.endIndex && text[next] == marker
+            let precededByWhitespace = index == text.startIndex
+                || text[text.index(before: index)].isWhitespace
+            let followedByWord = delimiter == "_"
+                && next < text.endIndex
+                && isWordCharacter(text[next])
+            if !previousIsMarker && !nextIsMarker && !precededByWhitespace && !followedByWord {
+                return index..<next
+            }
+            searchIndex = next
+        }
+        return nil
+    }
+
+    private static func openingRange(
+        for delimiter: String,
+        in text: Substring
+    ) -> Range<Substring.Index>? {
+        guard delimiter == "*" || delimiter == "_" else {
+            return text.range(of: delimiter)
+        }
+        let marker = Character(delimiter)
+        var searchIndex = text.startIndex
+        while searchIndex < text.endIndex,
+              let index = text[searchIndex...].firstIndex(of: marker) {
+            let previousIsWord = delimiter == "_"
+                && index > text.startIndex
+                && isWordCharacter(text[text.index(before: index)])
+            let next = text.index(after: index)
+            let followedByWhitespace = next == text.endIndex || text[next].isWhitespace
+            let adjacentMarker = (index > text.startIndex && text[text.index(before: index)] == marker)
+                || (next < text.endIndex && text[next] == marker)
+            if !previousIsWord && !followedByWhitespace && !adjacentMarker {
+                return index..<next
+            }
+            searchIndex = next
+        }
+        return nil
+    }
+
+    private static func isWordCharacter(_ character: Character) -> Bool {
+        character.isLetter || character.isNumber || character == "_"
+    }
+
+    private static func placeholder(_ offset: Int) -> String {
+        "\u{0}INLINE\(offset)\u{0}"
     }
 
     private static func replaceImagesAndLinks(

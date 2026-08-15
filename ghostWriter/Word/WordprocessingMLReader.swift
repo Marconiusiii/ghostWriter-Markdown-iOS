@@ -7,6 +7,10 @@ nonisolated enum WordprocessingMLReader {
         var outlineLevel: Int?
         var numberingID: String?
         var numberingLevel: Int?
+        var bold: Bool?
+        var italic: Bool?
+        var underline: Bool?
+        var strikethrough: Bool?
     }
 
     private struct NumberLevel {
@@ -161,6 +165,7 @@ nonisolated enum WordprocessingMLReader {
         paragraph.runs = parseInlineNodes(
             node.children.filter { $0.name != "pPr" },
             hyperlink: nil,
+            styles: styles,
             relationships: relationships,
             inheritedCode: paragraph.isCodeBlock
         )
@@ -170,6 +175,7 @@ nonisolated enum WordprocessingMLReader {
     private static func parseInlineNodes(
         _ nodes: [WordXMLNode],
         hyperlink: String?,
+        styles: [String: Style],
         relationships: [String: String],
         inheritedCode: Bool
     ) -> [WordRun] {
@@ -178,17 +184,30 @@ nonisolated enum WordprocessingMLReader {
             switch node.name {
             case "r":
                 let properties = node.child("rPr")
-                let runStyle = properties?.child("rStyle")?.attribute("val")?.lowercased() ?? ""
+                let runStyleID = properties?.child("rStyle")?.attribute("val")
+                let runStyle = runStyleID?.lowercased() ?? ""
+                let resolvedRunStyle = resolveStyle(runStyleID, styles: styles)
                 var text = ""
+                var textSegments: [String] = []
                 for child in node.children where child.name != "rPr" {
                     switch child.name {
                     case "t", "instrText": text += child.text
                     case "tab": text += "\t"
                     case "br", "cr": text += "\n"
                     case "footnoteReference":
-                        if let id = child.attribute("id") { text += "[^\(id)]" }
+                        if !text.isEmpty {
+                            textSegments.append(text)
+                            text = ""
+                        }
+                        if let id = child.attribute("id") { textSegments.append("[^\(id)]") }
                     case "endnoteReference":
-                        if let id = child.attribute("id") { text += "[^endnote-\(id)]" }
+                        if !text.isEmpty {
+                            textSegments.append(text)
+                            text = ""
+                        }
+                        if let id = child.attribute("id") {
+                            textSegments.append("[^endnote-\(id)]")
+                        }
                     case "drawing", "pict", "object":
                         let description = child.descendants(named: "docPr").first?.attribute("descr")
                             ?? child.descendants(named: "docPr").first?.attribute("title")
@@ -197,17 +216,34 @@ nonisolated enum WordprocessingMLReader {
                     default: break
                     }
                 }
-                guard !text.isEmpty else { continue }
-                result.append(
-                    WordRun(
-                        text: text,
-                        bold: enabled(properties?.child("b")),
-                        italic: enabled(properties?.child("i")),
-                        strikethrough: enabled(properties?.child("strike")),
+                if !text.isEmpty { textSegments.append(text) }
+                for textSegment in textSegments where !textSegment.isEmpty {
+                    result.append(WordRun(
+                        text: textSegment,
+                        bold: runProperty(
+                            properties?.child("b"),
+                            alternate: properties?.child("bCs"),
+                            inherited: resolvedRunStyle.bold
+                        ),
+                        italic: runProperty(
+                            properties?.child("i"),
+                            alternate: properties?.child("iCs"),
+                            inherited: resolvedRunStyle.italic
+                        ),
+                        underline: runProperty(
+                            properties?.child("u"),
+                            inherited: resolvedRunStyle.underline,
+                            disabledValue: "none"
+                        ),
+                        strikethrough: runProperty(
+                            properties?.child("strike"),
+                            alternate: properties?.child("dstrike"),
+                            inherited: resolvedRunStyle.strikethrough
+                        ),
                         inlineCode: inheritedCode || runStyle.contains("code"),
                         hyperlink: hyperlink
-                    )
-                )
+                    ))
+                }
             case "hyperlink":
                 let relationshipID = node.attribute("id")
                 let anchor = node.attribute("anchor")
@@ -216,6 +252,7 @@ nonisolated enum WordprocessingMLReader {
                 result += parseInlineNodes(
                     node.children,
                     hyperlink: destination,
+                    styles: styles,
                     relationships: relationships,
                     inheritedCode: inheritedCode
                 )
@@ -230,6 +267,7 @@ nonisolated enum WordprocessingMLReader {
                 result += parseInlineNodes(
                     node.children,
                     hyperlink: hyperlink,
+                    styles: styles,
                     relationships: relationships,
                     inheritedCode: inheritedCode
                 )
@@ -270,7 +308,23 @@ nonisolated enum WordprocessingMLReader {
                 basedOn: node.child("basedOn")?.attribute("val"),
                 outlineLevel: node.child("pPr")?.child("outlineLvl")?.attribute("val").flatMap(Int.init),
                 numberingID: node.child("pPr")?.child("numPr")?.child("numId")?.attribute("val"),
-                numberingLevel: node.child("pPr")?.child("numPr")?.child("ilvl")?.attribute("val").flatMap(Int.init)
+                numberingLevel: node.child("pPr")?.child("numPr")?.child("ilvl")?.attribute("val").flatMap(Int.init),
+                bold: styleProperty(
+                    node.child("rPr")?.child("b"),
+                    alternate: node.child("rPr")?.child("bCs")
+                ),
+                italic: styleProperty(
+                    node.child("rPr")?.child("i"),
+                    alternate: node.child("rPr")?.child("iCs")
+                ),
+                underline: styleProperty(
+                    node.child("rPr")?.child("u"),
+                    disabledValue: "none"
+                ),
+                strikethrough: styleProperty(
+                    node.child("rPr")?.child("strike"),
+                    alternate: node.child("rPr")?.child("dstrike")
+                )
             )
         }
         return styles
@@ -283,7 +337,11 @@ nonisolated enum WordprocessingMLReader {
                 basedOn: nil,
                 outlineLevel: nil,
                 numberingID: nil,
-                numberingLevel: nil
+                numberingLevel: nil,
+                bold: nil,
+                italic: nil,
+                underline: nil,
+                strikethrough: nil
             )
         }
         var visited: Set<String> = [id]
@@ -293,6 +351,10 @@ nonisolated enum WordprocessingMLReader {
             if resolved.outlineLevel == nil { resolved.outlineLevel = base.outlineLevel }
             if resolved.numberingID == nil { resolved.numberingID = base.numberingID }
             if resolved.numberingLevel == nil { resolved.numberingLevel = base.numberingLevel }
+            if resolved.bold == nil { resolved.bold = base.bold }
+            if resolved.italic == nil { resolved.italic = base.italic }
+            if resolved.underline == nil { resolved.underline = base.underline }
+            if resolved.strikethrough == nil { resolved.strikethrough = base.strikethrough }
             parent = base.basedOn
         }
         return resolved
@@ -445,18 +507,39 @@ nonisolated enum WordprocessingMLReader {
         return notes
     }
 
-    private static func enabled(_ node: WordXMLNode?) -> Bool {
-        guard let node else { return false }
-        let value = node.attribute("val")?.lowercased()
-        return value != "0" && value != "false" && value != "off"
+    private static func styleProperty(
+        _ node: WordXMLNode?,
+        alternate: WordXMLNode? = nil,
+        disabledValue: String? = nil
+    ) -> Bool? {
+        guard let property = node ?? alternate else { return nil }
+        let value = property.attribute("val")?.lowercased()
+        if let disabledValue, value == disabledValue { return false }
+        return value != "0"
+            && value != "false"
+            && value != "off"
+    }
+
+    private static func runProperty(
+        _ node: WordXMLNode?,
+        alternate: WordXMLNode? = nil,
+        inherited: Bool?,
+        disabledValue: String? = nil
+    ) -> Bool {
+        styleProperty(node, alternate: alternate, disabledValue: disabledValue)
+            ?? inherited
+            ?? false
     }
 
     private static func mergeAdjacentRuns(_ runs: [WordRun]) -> [WordRun] {
         var result: [WordRun] = []
         for run in runs {
             if var last = result.last,
+               !isFootnoteReference(last.text),
+               !isFootnoteReference(run.text),
                last.bold == run.bold,
                last.italic == run.italic,
+               last.underline == run.underline,
                last.strikethrough == run.strikethrough,
                last.inlineCode == run.inlineCode,
                last.hyperlink == run.hyperlink {
@@ -467,5 +550,9 @@ nonisolated enum WordprocessingMLReader {
             }
         }
         return result
+    }
+
+    private static func isFootnoteReference(_ text: String) -> Bool {
+        text.hasPrefix("[^") && text.hasSuffix("]")
     }
 }

@@ -137,6 +137,7 @@ struct WordConversionTests {
         #expect(!markdown.contains("Deleted"))
         #expect(markdown.contains("\\[Image: Diagram\\]"))
         #expect(markdown.contains("[^1]"))
+        #expect(!markdown.contains("\\[^1\\]"))
         #expect(markdown.contains("[^1]: Footnote text"))
     }
 
@@ -152,6 +153,81 @@ struct WordConversionTests {
         #expect(!markdown.contains("- Plain paragraph"))
         #expect(!markdown.contains("1. Plain paragraph"))
         #expect(markdown.contains("- Numbering style link"))
+    }
+
+    @Test func rendersContinuousFormattingSpansWithoutMarkerPiles() {
+        let document = WordDocumentModel(blocks: [
+            .paragraph(WordParagraph(runs: [
+                WordRun(text: "Both", bold: true, italic: true),
+                WordRun(text: ", "),
+                WordRun(text: "italic ", italic: true),
+                WordRun(text: "with bold", bold: true, italic: true),
+                WordRun(text: " text", italic: true),
+                WordRun(text: ", "),
+                WordRun(text: "bold ", bold: true),
+                WordRun(text: "with italic", bold: true, italic: true),
+                WordRun(text: " text", bold: true),
+                WordRun(text: ", "),
+                WordRun(text: "underlined", underline: true)
+            ]))
+        ])
+
+        let markdown = WordToMarkdownConverter.markdown(from: document)
+        #expect(markdown == "***Both***, *italic **with bold** text*, **bold *with italic* text**, <u>underlined</u>")
+    }
+
+    @Test func trimsFormattingMarkersAwayFromBoundaryWhitespace() {
+        let document = WordDocumentModel(blocks: [
+            .paragraph(WordParagraph(runs: [
+                WordRun(text: " leading and trailing ", italic: true)
+            ]))
+        ])
+
+        #expect(
+            WordToMarkdownConverter.markdown(from: document)
+                == "*leading and trailing*"
+        )
+    }
+
+    @Test func groupsFormattedRunsInsideOneLink() {
+        let destination = "https://example.com"
+        let document = WordDocumentModel(blocks: [
+            .paragraph(WordParagraph(runs: [
+                WordRun(text: "Read ", italic: true, hyperlink: destination),
+                WordRun(text: "this", bold: true, italic: true, hyperlink: destination)
+            ]))
+        ])
+
+        #expect(
+            WordToMarkdownConverter.markdown(from: document)
+                == "[*Read **this***](https://example.com)"
+        )
+    }
+
+    @Test func importsDirectInheritedAndExplicitlyDisabledTextDecoration() throws {
+        let markdown = try WordToMarkdownConverter.convert(
+            data: try decoratedTextFixture()
+        )
+
+        #expect(markdown.contains("*Direct italic*"))
+        #expect(markdown.contains("*Inherited italic*"))
+        #expect(markdown.contains("<u>Direct underline</u>"))
+        #expect(markdown.contains("<u>Inherited underline</u>"))
+        #expect(markdown.contains("***Complex script bold italic***"))
+        #expect(markdown.contains("Plain override"))
+        #expect(!markdown.contains("*Plain override*"))
+        #expect(!markdown.contains("<u>Plain override</u>"))
+    }
+
+    @Test func underlineRoundTripsThroughWordprocessingML() throws {
+        let markdown = "A <u>clear **bold** underline</u>."
+        let data = try MarkdownToWordConverter.convert(title: "Underline", markdown: markdown)
+        let entries = try WordPackage.entries(from: data, paths: ["word/document.xml"])
+        let documentData = try #require(entries["word/document.xml"])
+        let xml = try #require(String(data: documentData, encoding: .utf8))
+
+        #expect(xml.contains("<w:u w:val=\"single\"/>"))
+        #expect(try WordToMarkdownConverter.convert(data: data) == markdown)
     }
 
     @Test func rejectsEncryptedPackage() throws {
@@ -239,6 +315,32 @@ struct WordConversionTests {
             "word/document.xml": Data(document.utf8),
             "word/styles.xml": Data(styles.utf8),
             "word/numbering.xml": Data(numbering.utf8)
+        ])
+    }
+
+    private func decoratedTextFixture() throws -> Data {
+        let document = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+        <w:p><w:r><w:rPr><w:i/></w:rPr><w:t>Direct italic</w:t></w:r></w:p>
+        <w:p><w:r><w:rPr><w:rStyle w:val="InheritedItalic"/></w:rPr><w:t>Inherited italic</w:t></w:r></w:p>
+        <w:p><w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t>Direct underline</w:t></w:r></w:p>
+        <w:p><w:r><w:rPr><w:rStyle w:val="InheritedUnderline"/></w:rPr><w:t>Inherited underline</w:t></w:r></w:p>
+        <w:p><w:r><w:rPr><w:bCs/><w:iCs/></w:rPr><w:t>Complex script bold italic</w:t></w:r></w:p>
+        <w:p><w:r><w:rPr><w:rStyle w:val="PlainOverride"/></w:rPr><w:t>Plain override</w:t></w:r></w:p>
+        </w:body></w:document>
+        """
+        let styles = """
+        <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <w:style w:type="character" w:styleId="DecorationBase"><w:name w:val="Decoration base"/><w:rPr><w:i/><w:u w:val="single"/></w:rPr></w:style>
+        <w:style w:type="character" w:styleId="InheritedItalic"><w:name w:val="Inherited italic"/><w:basedOn w:val="DecorationBase"/><w:rPr><w:u w:val="none"/></w:rPr></w:style>
+        <w:style w:type="character" w:styleId="InheritedUnderline"><w:name w:val="Inherited underline"/><w:basedOn w:val="DecorationBase"/><w:rPr><w:i w:val="0"/></w:rPr></w:style>
+        <w:style w:type="character" w:styleId="PlainOverride"><w:name w:val="Plain override"/><w:basedOn w:val="DecorationBase"/><w:rPr><w:i w:val="0"/><w:u w:val="none"/></w:rPr></w:style>
+        </w:styles>
+        """
+        return try WordPackage.create(entries: [
+            "word/document.xml": Data(document.utf8),
+            "word/styles.xml": Data(styles.utf8)
         ])
     }
 }

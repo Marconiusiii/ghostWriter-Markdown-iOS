@@ -103,12 +103,14 @@ struct ReferenceSection: Identifiable {
         ),
         ReferenceSection(
             title: "Emphasis",
-            explanation: "Single markers for italics, double for bold. Two tildes give strikethrough, and backticks mark inline code.",
+            explanation: "Single markers give italics, double markers give bold, and triple markers combine both. Underlined text uses u tags. Two tildes give strikethrough, and backticks mark inline code.",
             syntax: [
                 "*italic*",
                 "_italic_",
                 "**bold**",
                 "__bold__",
+                "***bold and italic***",
+                "<u>underlined</u>",
                 "~~strikethrough~~",
                 "`inline code`"
             ]

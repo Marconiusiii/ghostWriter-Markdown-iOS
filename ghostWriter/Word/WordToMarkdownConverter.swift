@@ -1,6 +1,50 @@
 import Foundation
 
 nonisolated enum WordToMarkdownConverter {
+    private enum InlineStyle: Hashable {
+        case underline
+        case strikethrough
+        case bold
+        case italic
+
+        var openingMarker: String {
+            switch self {
+            case .underline: "<u>"
+            case .strikethrough: "~~"
+            case .bold: "**"
+            case .italic: "*"
+            }
+        }
+
+        var closingMarker: String {
+            switch self {
+            case .underline: "</u>"
+            default: openingMarker
+            }
+        }
+
+        var tieBreakOrder: Int {
+            switch self {
+            case .underline: 0
+            case .strikethrough: 1
+            case .bold: 2
+            case .italic: 3
+            }
+        }
+    }
+
+    private struct CharacterFragment {
+        var character: Character
+        var styles: Set<InlineStyle>
+        var inlineCode: Bool
+    }
+
+    private struct MarkdownFragment {
+        var text: String
+        var styles: Set<InlineStyle>
+        var inlineCode: Bool
+    }
+
     static func convert(data: Data) throws -> String {
         markdown(from: try WordprocessingMLReader.read(data: data))
     }
@@ -89,7 +133,7 @@ nonisolated enum WordToMarkdownConverter {
         paragraph: WordParagraph,
         numberedValue: Int?
     ) -> String {
-        let text = paragraph.runs.map(render).joined()
+        let text = render(paragraph.runs)
         if let level = paragraph.headingLevel {
             return String(repeating: "#", count: level) + " " + text
         }
@@ -114,22 +158,159 @@ nonisolated enum WordToMarkdownConverter {
         )
     }
 
-    private static func render(_ run: WordRun) -> String {
-        if run.text.hasPrefix("[^") && run.text.hasSuffix("]") {
-            return run.text
+    private static func render(_ runs: [WordRun]) -> String {
+        var result = ""
+        var index = 0
+        while index < runs.count {
+            if runs[index].hyperlink == nil, isFootnoteReference(runs[index].text) {
+                result += runs[index].text
+                index += 1
+                continue
+            }
+            let hyperlink = runs[index].hyperlink
+            var end = index + 1
+            while end < runs.count,
+                  runs[end].hyperlink == hyperlink,
+                  !isFootnoteReference(runs[end].text) {
+                end += 1
+            }
+            let group = Array(runs[index..<end])
+            let label = renderFormatting(group)
+            if let hyperlink, !hyperlink.isEmpty {
+                result += "[\(label)](\(escapeDestination(hyperlink)))"
+            } else {
+                result += label
+            }
+            index = end
         }
-        var text = escape(run.text)
-        if run.inlineCode {
-            text = "`\(run.text.replacingOccurrences(of: "`", with: "\\`"))`"
-        } else {
-            if run.bold { text = "**\(text)**" }
-            if run.italic { text = "*\(text)*" }
-            if run.strikethrough { text = "~~\(text)~~" }
+        return result
+    }
+
+    private static func isFootnoteReference(_ text: String) -> Bool {
+        text.hasPrefix("[^") && text.hasSuffix("]")
+    }
+
+    private static func renderFormatting(_ runs: [WordRun]) -> String {
+        let fragments = normalizedFragments(runs)
+        var result = ""
+        var activeStyles: [InlineStyle] = []
+
+        for (index, fragment) in fragments.enumerated() {
+            if fragment.inlineCode {
+                closeStyles(&activeStyles, into: &result)
+                result += "`\(fragment.text.replacingOccurrences(of: "`", with: "\\`"))`"
+                continue
+            }
+
+            var retainedCount = 0
+            while retainedCount < activeStyles.count,
+                  fragment.styles.contains(activeStyles[retainedCount]) {
+                retainedCount += 1
+            }
+            if retainedCount < activeStyles.count {
+                for style in activeStyles[retainedCount...].reversed() {
+                    result += style.closingMarker
+                }
+                activeStyles.removeSubrange(retainedCount...)
+            }
+
+            let retained = Set(activeStyles)
+            let additions = fragment.styles
+                .subtracting(retained)
+                .sorted { left, right in
+                    let leftEnd = styleEnd(left, from: index, fragments: fragments)
+                    let rightEnd = styleEnd(right, from: index, fragments: fragments)
+                    if leftEnd != rightEnd { return leftEnd > rightEnd }
+                    return left.tieBreakOrder < right.tieBreakOrder
+                }
+            for style in additions {
+                result += style.openingMarker
+                activeStyles.append(style)
+            }
+            result += escape(fragment.text)
         }
-        if let hyperlink = run.hyperlink, !hyperlink.isEmpty {
-            text = "[\(text)](\(escapeDestination(hyperlink)))"
+
+        closeStyles(&activeStyles, into: &result)
+        return result
+    }
+
+    private static func normalizedFragments(_ runs: [WordRun]) -> [MarkdownFragment] {
+        var characters: [CharacterFragment] = []
+        for run in runs {
+            var styles: Set<InlineStyle> = []
+            if !run.inlineCode {
+                if run.underline { styles.insert(.underline) }
+                if run.strikethrough { styles.insert(.strikethrough) }
+                if run.bold { styles.insert(.bold) }
+                if run.italic { styles.insert(.italic) }
+            }
+            characters += run.text.map {
+                CharacterFragment(character: $0, styles: styles, inlineCode: run.inlineCode)
+            }
         }
-        return text
+
+        for style in [InlineStyle.underline, .strikethrough, .bold, .italic] {
+            var index = 0
+            while index < characters.count {
+                guard characters[index].styles.contains(style) else {
+                    index += 1
+                    continue
+                }
+                let start = index
+                while index < characters.count, characters[index].styles.contains(style) {
+                    index += 1
+                }
+                let end = index
+                var leading = start
+                while leading < end, characters[leading].character.isWhitespace {
+                    characters[leading].styles.remove(style)
+                    leading += 1
+                }
+                var trailing = end
+                while trailing > leading, characters[trailing - 1].character.isWhitespace {
+                    characters[trailing - 1].styles.remove(style)
+                    trailing -= 1
+                }
+            }
+        }
+
+        var result: [MarkdownFragment] = []
+        for character in characters {
+            if var last = result.last,
+               last.styles == character.styles,
+               last.inlineCode == character.inlineCode {
+                last.text.append(character.character)
+                result[result.count - 1] = last
+            } else {
+                result.append(MarkdownFragment(
+                    text: String(character.character),
+                    styles: character.styles,
+                    inlineCode: character.inlineCode
+                ))
+            }
+        }
+        return result
+    }
+
+    private static func styleEnd(
+        _ style: InlineStyle,
+        from start: Int,
+        fragments: [MarkdownFragment]
+    ) -> Int {
+        var index = start
+        while index + 1 < fragments.count,
+              !fragments[index + 1].inlineCode,
+              fragments[index + 1].styles.contains(style) {
+            index += 1
+        }
+        return index
+    }
+
+    private static func closeStyles(_ styles: inout [InlineStyle], into result: inout String) {
+        for style in styles.reversed() {
+            result += style.closingMarker
+        }
+        styles.removeAll(keepingCapacity: true)
     }
 
     private static func render(table: WordTable) -> [String] {
