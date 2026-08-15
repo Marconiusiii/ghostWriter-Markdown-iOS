@@ -109,6 +109,11 @@ final class ghostWriterUITests: XCTestCase {
                 "The document context menu should contain \(action)."
             )
         }
+        XCTAssertEqual(
+            app.buttons.matching(identifier: "Pin").count,
+            1,
+            "The document context menu should expose Pin once."
+        )
         app.buttons["Rename"].tap()
         XCTAssertTrue(app.alerts["Rename Document"].waitForExistence(timeout: 5))
         app.alerts["Rename Document"].buttons["Cancel"].tap()

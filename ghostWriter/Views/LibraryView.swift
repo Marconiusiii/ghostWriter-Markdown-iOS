@@ -738,10 +738,12 @@ struct LibraryView: View {
         )
 
         let commonActions = primaryRow
-            .accessibilityAction(
-                named: presentation.isPinned ? "Unpin" : "Pin"
-            ) {
-                togglePin(document)
+            .accessibilityActions {
+                if store.usesICloudStorage {
+                    Button("Sync") {
+                        synchronize(document)
+                    }
+                }
             }
             .accessibilityAction(named: "Render") {
                 render(document)
@@ -803,6 +805,16 @@ struct LibraryView: View {
             }
 
         return swipeRow.contextMenu {
+            if store.usesICloudStorage {
+                Button {
+                    synchronize(document)
+                } label: {
+                    Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+                }
+
+                Divider()
+            }
+
             if case .failed = document.availability {
                 Button {
                     retryDownload(document)
@@ -1676,6 +1688,25 @@ struct LibraryView: View {
             pendingDocumentActions[url] = .open
         }
         beginDownload(document)
+    }
+
+    private func synchronize(_ document: Document) {
+        let url = document.url.standardizedFileURL
+        guard downloadTasks[url] == nil else { return }
+        focusAfterError = .document(document.url)
+
+        downloadTasks[url] = Task {
+            let succeeded = await store.synchronizeWithICloud(document)
+            downloadTasks[url] = nil
+            if succeeded {
+                focusAfterError = nil
+                restoreFocus(to: .document(document.url))
+                UIAccessibility.post(
+                    notification: .announcement,
+                    argument: "\(document.displayName) synced."
+                )
+            }
+        }
     }
 
     private func beginDownload(_ document: Document) {

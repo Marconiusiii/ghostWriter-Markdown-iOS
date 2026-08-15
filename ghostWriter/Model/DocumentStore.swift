@@ -823,6 +823,48 @@ final class DocumentStore {
         }
     }
 
+    @discardableResult
+    func synchronizeWithICloud(_ document: Document) async -> Bool {
+        guard usesICloudStorage else { return false }
+        let url = document.url.standardizedFileURL
+        guard !activeDownloadURLs.contains(url) else { return true }
+
+        activeDownloadURLs.insert(url)
+        updateAvailability(at: url, to: .downloading(percent: nil))
+
+        do {
+            try await downloadUbiquitousItem(url)
+            guard !Task.isCancelled else {
+                activeDownloadURLs.remove(url)
+                return false
+            }
+
+            let markdown = try await Task.detached(priority: .userInitiated) {
+                try CoordinatedFileAccess().string(at: url)
+            }.value
+            try await prepareAssociatedAssets(
+                referencedBy: markdown,
+                beside: url
+            )
+
+            activeDownloadURLs.remove(url)
+            let modified = Document(fileURL: url)?.modified
+                ?? document.modified
+            confirmAvailable(at: url, modified: modified)
+            updateAvailability(at: url, to: .available)
+            await refreshAsynchronously()
+            return true
+        } catch {
+            activeDownloadURLs.remove(url)
+            guard !Task.isCancelled else { return false }
+            let message =
+                "Could not sync \(document.displayName) with iCloud. \(error.localizedDescription)"
+            updateAvailability(at: url, to: .failed(message))
+            lastError = message
+            return false
+        }
+    }
+
     // MARK: - Writing
 
     /// Compares the current file with the contents the editor last loaded or

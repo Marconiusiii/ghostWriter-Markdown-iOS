@@ -176,6 +176,42 @@ struct WordConversionTests {
         #expect(markdown == "***Both***, *italic **with bold** text*, **bold *with italic* text**, <u>underlined</u>")
     }
 
+    @Test func keepsFormattingMarkersWithTextAcrossWordLineBreaks() {
+        let document = WordDocumentModel(blocks: [
+            .paragraph(WordParagraph(runs: [
+                WordRun(text: "Split ", italic: true),
+                WordRun(text: "italic", italic: true),
+                WordRun(text: "\n", bold: true, italic: true),
+                WordRun(text: "Split ", bold: true, italic: true),
+                WordRun(text: "bold italic", bold: true, italic: true)
+            ]))
+        ])
+
+        let markdown = WordToMarkdownConverter.markdown(from: document)
+        #expect(markdown == "*Split italic*  \n***Split bold italic***")
+        #expect(!markdown.components(separatedBy: .newlines).contains {
+            ["*", "**", "***"].contains($0.trimmingCharacters(in: .whitespaces))
+        })
+    }
+
+    @Test func importsSplitWordRunsWithoutStandaloneFormattingMarkers() throws {
+        let document = """
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+        <w:p><w:r><w:rPr><w:i/></w:rPr><w:t>Split </w:t></w:r><w:r><w:rPr><w:i/></w:rPr><w:t>italic</w:t></w:r></w:p>
+        <w:p><w:r><w:rPr><w:b/><w:i/></w:rPr><w:t>First line</w:t><w:br/><w:t>Second line</w:t></w:r></w:p>
+        </w:body></w:document>
+        """
+        let data = try WordPackage.create(entries: [
+            "word/document.xml": Data(document.utf8)
+        ])
+
+        let markdown = try WordToMarkdownConverter.convert(data: data)
+        #expect(markdown == "*Split italic*\n\n***First line***  \n***Second line***")
+        #expect(!markdown.components(separatedBy: .newlines).contains {
+            ["*", "**", "***"].contains($0.trimmingCharacters(in: .whitespaces))
+        })
+    }
+
     @Test func trimsFormattingMarkersAwayFromBoundaryWhitespace() {
         let document = WordDocumentModel(blocks: [
             .paragraph(WordParagraph(runs: [

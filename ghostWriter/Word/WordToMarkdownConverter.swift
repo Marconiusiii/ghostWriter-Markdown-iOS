@@ -270,6 +270,38 @@ nonisolated enum WordToMarkdownConverter {
 
     private static func renderFormatting(_ runs: [WordRun]) -> String {
         let fragments = normalizedFragments(runs)
+        var lines: [[MarkdownFragment]] = [[]]
+        for fragment in fragments {
+            var text = ""
+            for character in fragment.text {
+                if character.isNewline {
+                    if !text.isEmpty {
+                        lines[lines.count - 1].append(MarkdownFragment(
+                            text: text,
+                            styles: fragment.styles,
+                            inlineCode: fragment.inlineCode
+                        ))
+                        text = ""
+                    }
+                    lines.append([])
+                } else {
+                    text.append(character)
+                }
+            }
+            if !text.isEmpty {
+                lines[lines.count - 1].append(MarkdownFragment(
+                    text: text,
+                    styles: fragment.styles,
+                    inlineCode: fragment.inlineCode
+                ))
+            }
+        }
+        return lines.map(renderFormattingLine).joined(separator: "\n")
+    }
+
+    private static func renderFormattingLine(
+        _ fragments: [MarkdownFragment]
+    ) -> String {
         var result = ""
         var activeStyles: [InlineStyle] = []
 

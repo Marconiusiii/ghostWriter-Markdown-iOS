@@ -493,6 +493,90 @@ struct DocumentStoreTests {
         #expect(requestCount == 0)
     }
 
+    @Test func syncRequestsCurrentICloudContentsForAvailableDocument() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterExplicitSyncTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let url = directory.appendingPathComponent("Current.md")
+        try "Local version".write(to: url, atomically: true, encoding: .utf8)
+        var requestCount = 0
+        let store = DocumentStore(
+            directory: directory,
+            usesICloudStorage: true,
+            startDownloadingUbiquitousItem: { requestedURL in
+                requestCount += 1
+                try "iCloud version".write(
+                    to: requestedURL,
+                    atomically: true,
+                    encoding: .utf8
+                )
+            }
+        )
+        defer { cleanUp(store) }
+        store.refresh()
+        let document = try #require(store.documents.first)
+        #expect(document.availability == .available)
+
+        #expect(await store.synchronizeWithICloud(document))
+        #expect(requestCount == 1)
+        #expect(try String(contentsOf: url, encoding: .utf8) == "iCloud version")
+        #expect(store.documents.first?.availability == .available)
+    }
+
+    @Test func failedExplicitSyncReportsTheDocumentName() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterExplicitSyncFailure-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let url = directory.appendingPathComponent("Current.md")
+        try "Local version".write(to: url, atomically: true, encoding: .utf8)
+        let store = DocumentStore(
+            directory: directory,
+            usesICloudStorage: true,
+            startDownloadingUbiquitousItem: { _ in
+                throw CocoaError(.fileReadUnknown)
+            }
+        )
+        defer { cleanUp(store) }
+        store.refresh()
+        let document = try #require(store.documents.first)
+
+        #expect(!(await store.synchronizeWithICloud(document)))
+        #expect(store.documents.first?.availability.statusDescription == "Download failed")
+        #expect(store.lastError?.contains("Could not sync Current with iCloud.") == true)
+    }
+
+    @Test func localStorageDoesNotOfferAnICloudSynchronizationRequest() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriterExplicitLocalSync-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        var requestCount = 0
+        let store = DocumentStore(
+            directory: directory,
+            startDownloadingUbiquitousItem: { _ in requestCount += 1 }
+        )
+        defer { cleanUp(store) }
+        _ = await store.createDocument(named: "Local", contents: "Body")
+        store.refresh()
+        let document = try #require(store.documents.first)
+
+        #expect(!(await store.synchronizeWithICloud(document)))
+        #expect(requestCount == 0)
+    }
+
     @Test func staleWaitingSnapshotDoesNotDowngradeConfirmedDownload() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(

@@ -238,7 +238,9 @@ nonisolated enum WordprocessingMLReader {
                     switch child.name {
                     case "t", "instrText": text += child.text
                     case "tab": text += "\t"
-                    case "br", "cr": text += "\n"
+                    case "br", "cr":
+                        flushText()
+                        appendText("\n")
                     case "footnoteReference":
                         flushText()
                         if let id = child.attribute("id") { appendText("[^\(id)]") }
