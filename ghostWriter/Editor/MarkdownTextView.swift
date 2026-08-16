@@ -60,7 +60,12 @@ struct MarkdownTextView: UIViewRepresentable {
         textView.textColor = UIColor(named: "GhostText") ?? .label
         textView.tintColor = UIColor(named: "GhostAccent") ?? .tintColor
 
-        textView.alwaysBounceVertical = true
+        // Deliberately not `alwaysBounceVertical`. Forcing bounce makes the
+        // text view report itself as scrollable even when the text fits on
+        // screen, so VoiceOver offers a scroll control that cannot move
+        // anything — an adjustable stop that responds to nothing. Left at the
+        // default, the view is scrollable only when the content actually
+        // overflows, which is when a scroll control is meaningful.
         textView.textContainerInset = UIEdgeInsets(top: 16, left: 12, bottom: 16, right: 12)
 
         // Markdown is punctuation that must survive exactly as typed. Smart

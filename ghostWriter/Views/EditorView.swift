@@ -40,6 +40,7 @@ struct EditorView: View {
     @State private var showingRename = false
     @State private var showingJumpToLine = false
     @State private var showingInsertActions = false
+    @State private var sharingFormat: EditorShareFormat?
     @State private var insertionSelection = TextSelection(location: 0, length: 0)
     @State private var insertionInitialText = ""
     @State private var pendingInsertion: PendingInsertion?
@@ -75,6 +76,28 @@ struct EditorView: View {
         case close
         case rename(String)
         case duplicate
+    }
+
+    /// The export formats offered by Share. Identifiable so the share sheet can
+    /// be driven by `sheet(item:)`, which gives an onDismiss callback —
+    /// ShareLink presents the system sheet itself and reports nothing back, so
+    /// there was no point at which focus could be restored.
+    enum EditorShareFormat: String, Identifiable {
+        case markdown
+        case plainText
+        case html
+        case word
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .markdown: return "Markdown"
+            case .plainText: return "Plain Text"
+            case .html: return "HTML"
+            case .word: return "Word Document"
+            }
+        }
     }
 
     private struct PendingInsertion {
@@ -198,6 +221,21 @@ struct EditorView: View {
             restoreFocus(to: .fileActions)
         }) {
             MarkdownReferenceView()
+        }
+        // Presented here rather than by ShareLink so that dismissing — whether
+        // by sharing, by Close, or by swiping down — returns focus to File
+        // Actions, the control the writer opened this from.
+        .sheet(item: $sharingFormat, onDismiss: {
+            restoreFocus(to: .fileActions)
+        }) { format in
+            EditorShareView(
+                format: format,
+                title: displayTitle,
+                fileName: shareFileName,
+                markdown: text,
+                sourceDirectory: fileURL?.deletingLastPathComponent(),
+                onClose: { sharingFormat = nil }
+            )
         }
         .sheet(isPresented: $showingInsertActions, onDismiss: finishInsertionPresentation) {
             InsertActionsView(initialLinkText: insertionInitialText) { command in
@@ -440,33 +478,10 @@ struct EditorView: View {
             .keyboardShortcut(shortcut("s", modifiers: .command))
 
             Menu {
-                ShareLink(
-                    item: markdownShareFile,
-                    preview: SharePreview("\(displayTitle), Markdown")
-                ) {
-                    Text("Markdown")
-                }
-
-                ShareLink(
-                    item: plainTextShareFile,
-                    preview: SharePreview("\(displayTitle), Plain Text")
-                ) {
-                    Text("Plain Text")
-                }
-
-                ShareLink(
-                    item: htmlShareFile,
-                    preview: SharePreview("\(displayTitle), HTML")
-                ) {
-                    Text("HTML")
-                }
-
-                ShareLink(
-                    item: wordShareFile,
-                    preview: SharePreview("\(displayTitle), Word Document")
-                ) {
-                    Text("Word Document")
-                }
+                Button("Markdown") { present { sharingFormat = .markdown } }
+                Button("Plain Text") { present { sharingFormat = .plainText } }
+                Button("HTML") { present { sharingFormat = .html } }
+                Button("Word Document") { present { sharingFormat = .word } }
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
@@ -521,6 +536,12 @@ struct EditorView: View {
             .padding(.vertical, 10)
             .background(Color.panelBackground)
             .accessibilityIdentifier("editor-status-bar")
+            // A label on a Text replaces its content rather than prefixing it,
+            // so the statistics move to the value. VoiceOver then speaks the
+            // two together as "Status Bar, line 4 of 12…", naming the stop
+            // before reading what it holds.
+            .accessibilityLabel("Status Bar")
+            .accessibilityValue(statusBarText)
             .accessibilityFocused($focusedElement, equals: .status)
     }
 
@@ -554,33 +575,6 @@ struct EditorView: View {
         DocumentStore.sanitize(displayTitle)
     }
 
-    private var markdownShareFile: MarkdownShareFile {
-        MarkdownShareFile(fileName: shareFileName, contents: text)
-    }
-
-    private var plainTextShareFile: PlainTextShareFile {
-        PlainTextShareFile(fileName: shareFileName, contents: text)
-    }
-
-    private var htmlShareFile: HTMLShareFile {
-        HTMLShareFile(
-            fileName: shareFileName,
-            contents: ShareItemBuilder.contents(
-                title: displayTitle,
-                markdown: text,
-                format: .html
-            )
-        )
-    }
-
-    private var wordShareFile: WordShareFile {
-        WordShareFile(
-            fileName: shareFileName,
-            title: displayTitle,
-            markdown: text,
-            sourceDirectory: fileURL?.deletingLastPathComponent()
-        )
-    }
 
     // MARK: - Actions
 

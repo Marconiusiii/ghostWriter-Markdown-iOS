@@ -76,13 +76,13 @@ struct AppSettingsTests {
         #expect(settings.editorFontDesign == .monospaced)
     }
 
-    @Test func statusBarDefaultsAreUsefulButOptIn() {
+    @Test func statusBarIsOnByDefaultWithUsefulMetrics() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }
 
         let settings = AppSettings(defaults: testDefaults.defaults)
 
-        #expect(!settings.statusBarEnabled)
+        #expect(settings.statusBarEnabled)
         #expect(settings.statusShowsLineAndColumn)
         #expect(settings.statusShowsLineCount)
         #expect(settings.statusShowsWordCount)
@@ -97,13 +97,15 @@ struct AppSettingsTests {
         defer { cleanUp(testDefaults) }
 
         let settings = AppSettings(defaults: testDefaults.defaults)
-        settings.statusBarEnabled = true
+        // Turned off rather than on: the status bar now defaults to on, so
+        // storing true would pass even if nothing were persisted at all.
+        settings.statusBarEnabled = false
         settings.statusShowsLineCount = false
         settings.statusShowsHeadingLevel = true
         settings.statusShowsSelectedCharacterCount = true
 
         let restored = AppSettings(defaults: testDefaults.defaults)
-        #expect(restored.statusBarEnabled)
+        #expect(!restored.statusBarEnabled)
         #expect(!restored.statusShowsLineCount)
         #expect(restored.statusShowsHeadingLevel)
         #expect(restored.statusShowsSelectedCharacterCount)

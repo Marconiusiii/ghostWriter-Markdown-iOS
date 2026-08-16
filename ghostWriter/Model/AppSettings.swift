@@ -248,7 +248,7 @@ final class AppSettings {
             .flatMap(AppearanceMode.init(rawValue:))) ?? .system
         self.editorFontDesign = (defaults.string(forKey: Keys.editorFontDesign)
             .flatMap(EditorFontDesign.init(rawValue:))) ?? .monospaced
-        self.statusBarEnabled = defaults.object(forKey: Keys.statusBarEnabled) as? Bool ?? false
+        self.statusBarEnabled = defaults.object(forKey: Keys.statusBarEnabled) as? Bool ?? true
         self.statusShowsLineAndColumn = defaults.object(forKey: Keys.statusLineAndColumn) as? Bool ?? true
         self.statusShowsLineCount = defaults.object(forKey: Keys.statusLineCount) as? Bool ?? true
         self.statusShowsWordCount = defaults.object(forKey: Keys.statusWordCount) as? Bool ?? true

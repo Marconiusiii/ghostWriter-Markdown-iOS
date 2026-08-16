@@ -20,6 +20,157 @@ struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
+/// The editor's Share destination.
+///
+/// `ShareLink` presents the system sheet itself and reports nothing back when
+/// it closes, so there is no point at which the app can restore VoiceOver
+/// focus — it fell to the first element on screen, the Back button. The system
+/// sheet also offers no Close button, leaving the two-finger scrub as the only
+/// way out. Presenting the activity controller inside a sheet the app owns
+/// fixes both: Close is an ordinary button, and dismissal is observable.
+struct EditorShareView: View {
+    let format: EditorView.EditorShareFormat
+    let title: String
+    let fileName: String
+    let markdown: String
+    let sourceDirectory: URL?
+    let onClose: () -> Void
+
+    @State private var fileURL: URL?
+    @State private var failureMessage: String?
+
+    var body: some View {
+        Group {
+            if let failureMessage {
+                // Only this state needs a Close button of its own. There is no
+                // activity controller here to supply one, and without it the
+                // sheet would be a dead end.
+                NavigationStack {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(failureMessage)
+                            .font(.body)
+                            .foregroundStyle(Color.ghostText)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(16)
+                    .navigationTitle("Share Failed")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close", action: onClose)
+                        }
+                    }
+                }
+            } else if let fileURL {
+                // UIActivityViewController supplies its own Close button, in
+                // the right place — after the document name and before the
+                // sharing destinations. Wrapping this in a navigation stack
+                // would add a second one.
+                ShareSheet(items: [fileURL])
+            } else {
+                ProgressView("Preparing \(format.label)…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .task {
+            await prepareFile()
+        }
+    }
+
+    /// Conversion and file writing happen off the main thread. A large Word
+    /// export is real work, and doing it inline would freeze the sheet as it
+    /// appeared.
+    private func prepareFile() async {
+        guard fileURL == nil, failureMessage == nil else { return }
+
+        let format = format
+        let title = title
+        let fileName = fileName
+        let markdown = markdown
+        let sourceDirectory = sourceDirectory
+
+        let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
+            do {
+                return .success(
+                    try EditorShareFileWriter.write(
+                        format: format,
+                        title: title,
+                        fileName: fileName,
+                        markdown: markdown,
+                        sourceDirectory: sourceDirectory
+                    )
+                )
+            } catch {
+                return .failure(error)
+            }
+        }.value
+
+        switch result {
+        case .success(let url):
+            fileURL = url
+        case .failure(let error):
+            failureMessage = "\(title) could not be prepared for sharing. \(error.localizedDescription)"
+        }
+    }
+}
+
+/// Writes the shared document to a uniquely named temporary directory, so two
+/// shares of the same document cannot overwrite one another mid-transfer.
+nonisolated enum EditorShareFileWriter {
+    static func write(
+        format: EditorView.EditorShareFormat,
+        title: String,
+        fileName: String,
+        markdown: String,
+        sourceDirectory: URL?
+    ) throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ghostWriter-Share-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+
+        let safeName = fileName.isEmpty ? "Document" : fileName
+
+        switch format {
+        case .markdown:
+            let url = directory.appendingPathComponent(safeName)
+                .appendingPathExtension("md")
+            try markdown.write(to: url, atomically: true, encoding: .utf8)
+            return url
+        case .plainText:
+            let url = directory.appendingPathComponent(safeName)
+                .appendingPathExtension("txt")
+            try markdown.write(to: url, atomically: true, encoding: .utf8)
+            return url
+        case .html:
+            let url = directory.appendingPathComponent(safeName)
+                .appendingPathExtension("html")
+            let contents = ShareItemBuilder.contents(
+                title: title,
+                markdown: markdown,
+                format: .html
+            )
+            try contents.write(to: url, atomically: true, encoding: .utf8)
+            return url
+        case .word:
+            let url = directory.appendingPathComponent(safeName)
+                .appendingPathExtension("docx")
+            let data = try MarkdownToWordConverter.convert(
+                title: title,
+                markdown: markdown,
+                sourceDirectory: sourceDirectory
+            )
+            try data.write(to: url, options: .atomic)
+            return url
+        }
+    }
+}
+
 /// Builds the temporary files offered when sharing a document. Writing real
 /// files rather than sharing raw strings means the receiving app gets a
 /// properly named document with the right type.
