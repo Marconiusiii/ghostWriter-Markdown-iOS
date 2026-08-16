@@ -14,13 +14,16 @@ struct RecentlyDeletedView: View {
     @Environment(DocumentStore.self) private var store
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var pendingPermanentDeletion: DeletedLibraryItem?
     @State private var showingEmptyConfirmation = false
     @State private var focusAfterError: FocusTarget?
     @State private var focusRequestGate = FocusRestorationRequestGate()
     @State private var statusMessage = ""
+    /// Reading `store.recentlyDeletedItems` decodes one JSON deletion record
+    /// per item from disk. Sorting that on every body evaluation is what made
+    /// this screen lag, so the rows are built once per change instead.
+    @State private var deletedItems: [DeletedLibraryItem] = []
     @AccessibilityFocusState private var focusedElement: FocusTarget?
 
     private enum FocusTarget: Hashable {
@@ -30,13 +33,15 @@ struct RecentlyDeletedView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+                // Back comes first in both code and screen order, so it is the
+                // first thing reached when swiping into the screen.
+                Button("Back") { dismiss() }
+                    .buttonStyle(.bordered)
+
                 Text("Recently Deleted")
                     .font(.title.bold())
                     .foregroundStyle(Color.ghostAccent)
                     .accessibilityAddTraits(.isHeader)
-
-                Button("Back") { dismiss() }
-                    .buttonStyle(.bordered)
 
                 Text(countDescription)
                     .font(.title3.bold())
@@ -79,7 +84,13 @@ struct RecentlyDeletedView: View {
                 alignment: .topLeading
             )
             .background(Color.pageBackground)
-        .onAppear { store.refresh() }
+        .onAppear {
+            store.refresh()
+            rebuildDeletedItems()
+        }
+        .onChange(of: store.recentlyDeletedRevision) { _, _ in
+            rebuildDeletedItems()
+        }
         .alert("Delete Permanently?", isPresented: permanentDeletionBinding) {
             Button("Cancel", role: .cancel) {
                 cancelPermanentDeletion()
@@ -121,64 +132,76 @@ struct RecentlyDeletedView: View {
     private var deletedList: some View {
         List {
             ForEach(deletedItems) { item in
-                deletedDocumentLayout {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.displayName)
-                            .font(.headline)
-                            .foregroundStyle(Color.ghostText)
-                        Text(item.isFolder ? "Folder" : "Document")
-                            .font(.caption)
-                            .foregroundStyle(Color.ghostMuted)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(
-                        "\(item.displayName), \(item.isFolder ? "folder" : "document")"
+                deletedRow(item)
+                    .listRowInsets(
+                        EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
                     )
-                    .accessibilityHint("Deleted item")
-                    .accessibilityAction(
-                        named: "Restore \(item.displayName)"
-                    ) {
-                        restore(item)
-                    }
-                    .accessibilityAction(
-                        named: "Delete \(item.displayName) Permanently"
-                    ) {
-                        beginPermanentDeletion(item)
-                    }
-                    .accessibilityFocused(
-                        $focusedElement,
-                        equals: .item(item.url)
-                    )
-
-                    RecentlyDeletedActionsMenu(
-                        item: item,
-                        onRestore: { restore(item) },
-                        onDeletePermanently: {
-                            beginPermanentDeletion(item)
-                        }
-                    )
-                    .buttonStyle(.bordered)
-                }
-                .listRowInsets(
-                    EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
-                )
-                .listRowBackground(Color.clear)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
     }
 
-    private var deletedDocumentLayout: AnyLayout {
-        if dynamicTypeSize.isAccessibilitySize {
-            return AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+    /// The whole row is one button; Restore is the primary action, so
+    /// activating a row restores it rather than opening a menu first.
+    ///
+    /// Three affordances reach the same two actions: swipe actions and a
+    /// long-press context menu for sighted use, and VoiceOver custom actions.
+    /// SwiftUI publishes both the swipe actions and the context menu to
+    /// VoiceOver automatically, which is what announced each action three
+    /// times. The context menu is hidden from accessibility so it stays a
+    /// pointer affordance only, leaving the swipe actions as the single
+    /// source of the VoiceOver actions.
+    private func deletedRow(_ item: DeletedLibraryItem) -> some View {
+        let primaryRow = Button {
+            restore(item)
+        } label: {
+            DeletedItemRow(item: item)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        return AnyLayout(HStackLayout(spacing: 8))
+        .buttonStyle(.plain)
+        .accessibilityFocused($focusedElement, equals: .item(item.url))
+
+        let leadingSwipeRow = primaryRow
+            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                Button {
+                    restore(item)
+                } label: {
+                    Label("Restore", systemImage: "arrow.uturn.backward")
+                }
+                .tint(Color.controlFill)
+            }
+
+        let swipeRow = leadingSwipeRow
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button(role: .destructive) {
+                    beginPermanentDeletion(item)
+                } label: {
+                    Label("Delete Permanently", systemImage: "trash.slash")
+                }
+            }
+
+        return swipeRow.contextMenu {
+            Button {
+                restore(item)
+            } label: {
+                Label("Restore", systemImage: "arrow.uturn.backward")
+            }
+
+            Button(role: .destructive) {
+                beginPermanentDeletion(item)
+            } label: {
+                Label("Delete Permanently", systemImage: "trash.slash")
+            }
+        }
     }
 
-    private var deletedItems: [DeletedLibraryItem] {
-        store.recentlyDeletedItems.sorted {
+    /// Rebuilds the cached rows. Called on appear and whenever the store
+    /// reports the Recently Deleted contents changed.
+    private func rebuildDeletedItems() {
+        deletedItems = store.recentlyDeletedItems.sorted {
             $0.displayName.localizedStandardCompare($1.displayName)
                 == .orderedAscending
         }
@@ -217,6 +240,9 @@ struct RecentlyDeletedView: View {
             }
         }
         guard restoredURL != nil else { return }
+        // Refresh the cached rows before resolving the focus target, so
+        // `availableFocus` tests against the list as it now stands.
+        rebuildDeletedItems()
         focusAfterError = nil
         announceSuccess("\(item.displayName) restored")
         restoreFocus(to: availableFocus(nextTarget))
@@ -263,6 +289,7 @@ struct RecentlyDeletedView: View {
             pendingPermanentDeletion = nil
             return
         }
+        rebuildDeletedItems()
         pendingPermanentDeletion = nil
         focusAfterError = nil
         announceSuccess("\(item.displayName) deleted permanently")
@@ -277,7 +304,10 @@ struct RecentlyDeletedView: View {
         for item in items {
             switch item.item {
             case .document(let document):
-                guard store.deletePermanently(document) else { return }
+                guard store.deletePermanently(document) else {
+                    rebuildDeletedItems()
+                    return
+                }
                 EditorPositionStore.shared.removePosition(for: document.url)
                 libraryMetadata.removeMetadata(for: document.url)
             case .folder(let folder):
@@ -285,7 +315,10 @@ struct RecentlyDeletedView: View {
                     fromFolder: folder.url,
                     toFolder: folder.url
                 )
-                guard store.deletePermanently(folder) else { return }
+                guard store.deletePermanently(folder) else {
+                    rebuildDeletedItems()
+                    return
+                }
                 for pair in pairs {
                     EditorPositionStore.shared.removePosition(for: pair.sourceURL)
                     libraryMetadata.removeMetadata(for: pair.sourceURL)
@@ -293,6 +326,7 @@ struct RecentlyDeletedView: View {
             }
         }
 
+        rebuildDeletedItems()
         focusAfterError = nil
         restoreFocus(to: .count)
     }
@@ -397,27 +431,30 @@ struct RecentlyDeletedView: View {
     }
 }
 
-private struct RecentlyDeletedActionsMenu: View {
+/// One deleted item, collapsed into a single element reading as one sentence
+/// rather than a name and a kind announced as disconnected fragments.
+private struct DeletedItemRow: View {
     let item: DeletedLibraryItem
-    let onRestore: () -> Void
-    let onDeletePermanently: () -> Void
 
     var body: some View {
-        Menu {
-            Button(action: onRestore) {
-                Label("Restore", systemImage: "arrow.uturn.backward")
-            }
-            .accessibilityLabel("Restore \(item.displayName)")
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.displayName)
+                .font(.headline)
+                .foregroundStyle(Color.ghostText)
 
-            Button(role: .destructive, action: onDeletePermanently) {
-                Label(
-                    "Delete \(item.displayName) Permanently",
-                    systemImage: "trash.slash"
-                )
-            }
-        } label: {
-            Label("Actions", systemImage: "ellipsis.circle")
+            Label(
+                item.isFolder ? "Folder" : "Document",
+                systemImage: item.isFolder ? "folder" : "doc.text"
+            )
+            .font(.caption)
+            .foregroundStyle(Color.ghostMuted)
+            .labelStyle(.titleAndIcon)
         }
-        .accessibilityLabel("Actions for \(item.displayName)")
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "\(item.displayName), deleted \(item.isFolder ? "folder" : "document")"
+        )
+        .accessibilityHint("Restores this item")
     }
 }

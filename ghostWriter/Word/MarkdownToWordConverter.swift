@@ -22,6 +22,11 @@ nonisolated enum MarkdownToWordConverter {
             let line = lines[index]
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty {
+                // A blank line in the Markdown becomes a real empty paragraph
+                // in the Word document, so the spacing the writer typed is the
+                // spacing they get. These used to be dropped, which is what
+                // made exported documents read as one run-on block.
+                blocks.append(.paragraph(WordParagraph(runs: [])))
                 index += 1
                 continue
             }
@@ -139,6 +144,17 @@ nonisolated enum MarkdownToWordConverter {
                 return clean + (hardBreak && offset < paragraphLines.count - 1 ? "\n" : " ")
             }.joined().trimmingCharacters(in: .whitespaces)
             blocks.append(.paragraph(WordParagraph(runs: inlineRuns(joined))))
+        }
+
+        // A file ending in a newline yields one final empty line that the
+        // writer did not type, so drop exactly one trailing empty paragraph.
+        // Any blank lines beyond that were deliberate and are preserved.
+        if markdown.hasSuffix("\n"),
+           case .paragraph(let last) = blocks.last,
+           last.runs.isEmpty,
+           last.list == nil,
+           last.headingLevel == nil {
+            blocks.removeLast()
         }
 
         return WordDocumentModel(blocks: blocks)

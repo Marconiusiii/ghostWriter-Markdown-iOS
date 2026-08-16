@@ -57,8 +57,17 @@ final class DocumentStore {
     private(set) var folders: [LibraryFolder] = [] {
         didSet { libraryPresentationRevision &+= 1 }
     }
-    private(set) var recentlyDeletedDocuments: [Document] = []
-    private(set) var recentlyDeletedFolders: [LibraryFolder] = []
+    /// Bumped whenever the Recently Deleted contents change. Reading
+    /// `recentlyDeletedItems` decodes a deletion record per item from disk, so
+    /// Recently Deleted caches its rows against this rather than rebuilding
+    /// them on every view update.
+    private(set) var recentlyDeletedRevision = 0
+    private(set) var recentlyDeletedDocuments: [Document] = [] {
+        didSet { recentlyDeletedRevision &+= 1 }
+    }
+    private(set) var recentlyDeletedFolders: [LibraryFolder] = [] {
+        didSet { recentlyDeletedRevision &+= 1 }
+    }
     private(set) var storageAvailable: Bool
     private(set) var usesICloudStorage: Bool
     /// Set when a filesystem operation fails so the UI can surface it rather

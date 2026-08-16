@@ -18,27 +18,29 @@ struct WordConversionTests {
         """
 
         let document = MarkdownToWordConverter.document(from: markdown)
-        guard case .paragraph(let heading) = document.blocks[0] else {
-            Issue.record("Expected a heading paragraph")
-            return
+
+        // Blank lines in the Markdown are preserved as empty paragraphs, so
+        // these select by content rather than by position.
+        let paragraphs = document.blocks.compactMap { block -> WordParagraph? in
+            guard case .paragraph(let paragraph) = block else { return nil }
+            return paragraph
         }
+        let contentParagraphs = paragraphs.filter { !$0.runs.isEmpty }
+
+        let heading = try #require(contentParagraphs.first)
         #expect(heading.headingLevel == 1)
         #expect(heading.runs.map(\.text).joined() == "Guide")
 
-        guard case .paragraph(let paragraph) = document.blocks[1] else {
-            Issue.record("Expected a body paragraph")
-            return
-        }
+        let paragraph = try #require(
+            contentParagraphs.first { $0.runs.contains { $0.bold } }
+        )
         #expect(paragraph.runs.contains { $0.bold && $0.text == "bold" })
         #expect(paragraph.runs.contains { $0.italic && $0.text == "italic" })
         #expect(paragraph.runs.contains {
             $0.hyperlink == "https://example.com" && $0.text == "link"
         })
 
-        guard case .paragraph(let listItem) = document.blocks[2] else {
-            Issue.record("Expected a list paragraph")
-            return
-        }
+        let listItem = try #require(contentParagraphs.first { $0.list != nil })
         #expect(listItem.list?.kind == .numbered(start: 3))
         guard case .table(let table) = document.blocks.last else {
             Issue.record("Expected a table")
@@ -96,6 +98,46 @@ struct WordConversionTests {
         #expect(roundTrip.contains("- One"))
         #expect(roundTrip.contains("> A quotation"))
         #expect(roundTrip.contains("```\nlet value = 1\n```"))
+    }
+
+    /// A blank line between paragraphs must survive into the .docx as a real
+    /// empty paragraph — a line you can arrow through in Word — not merely as
+    /// margin between two paragraphs. These used to be discarded, which is why
+    /// exported documents opened as one run-on block.
+    @Test func blankLinesBecomeEmptyParagraphsInTheExportedDocument() throws {
+        let markdown = "First paragraph.\n\nSecond paragraph.\n"
+        let data = try MarkdownToWordConverter.convert(
+            title: "Blank lines",
+            markdown: markdown
+        )
+        let entries = try WordPackage.entries(
+            from: data,
+            paths: ["word/document.xml"]
+        )
+        let documentData = try #require(entries["word/document.xml"])
+        let documentXML = try #require(String(data: documentData, encoding: .utf8))
+
+        // Isolate the body's paragraphs in order.
+        let body = try #require(
+            documentXML
+                .components(separatedBy: "<w:body>").last?
+                .components(separatedBy: "<w:sectPr>").first
+        )
+        let paragraphs = body
+            .components(separatedBy: "<w:p>")
+            .dropFirst()
+            .map { $0.components(separatedBy: "</w:p>")[0] }
+
+        // First paragraph, one genuinely empty paragraph, second paragraph.
+        // The trailing newline must not add a fourth.
+        #expect(paragraphs.count == 3)
+        #expect(paragraphs[0].contains("First paragraph."))
+        #expect(!paragraphs[1].contains("<w:t"))
+        #expect(paragraphs[2].contains("Second paragraph."))
+
+        // And the blank line comes back on import rather than doubling up.
+        let roundTrip = try WordToMarkdownConverter.convert(data: data)
+        #expect(roundTrip == "First paragraph.\n\nSecond paragraph.")
     }
 
     @Test func inlineParserPreservesEscapesAndCombinedEmphasis() {
