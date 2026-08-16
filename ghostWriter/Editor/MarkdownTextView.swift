@@ -43,7 +43,7 @@ struct MarkdownTextView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> MarkdownEditorTextView {
-        let textView = MarkdownEditorTextView()
+        let textView = MarkdownEditorTextView.makeTextKit1()
         textView.delegate = context.coordinator
         textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
         textView.headingSwipeNavigationEnabled = headingSwipeNavigationEnabled
@@ -271,6 +271,35 @@ struct MarkdownTextView: UIViewRepresentable {
 
 final class MarkdownEditorTextView: UITextView {
     static let headingFeedbackNotification: UIAccessibility.Notification = .announcement
+
+    /// Builds the editor on TextKit 1 instead of the TextKit 2 stack that
+    /// `UITextView()` selects by default on iOS 16 and later.
+    ///
+    /// This is what stops the app locking up when VoiceOver reads the
+    /// deactivated editor line by line. That reading path asks the view for the
+    /// content and frame of a given line number. TextKit 2 lays out lazily by
+    /// viewport with no indexed access by line, so each request forces layout
+    /// over an ever-longer prefix of the document — the cost grows the further
+    /// down you are, and it blocks the main thread with no interruption point.
+    /// TextKit 1's NSLayoutManager keeps indexed line fragments, so the same
+    /// request is a lookup rather than a re-layout.
+    ///
+    /// UIKit silently falls back to TextKit 2 if the text container is not
+    /// wired to an NSLayoutManager, so the wiring below is load-bearing.
+    static func makeTextKit1() -> MarkdownEditorTextView {
+        let textStorage = NSTextStorage()
+        let layoutManager = NSLayoutManager()
+        textStorage.addLayoutManager(layoutManager)
+
+        let textContainer = NSTextContainer(size: .zero)
+        textContainer.widthTracksTextView = true
+        layoutManager.addTextContainer(textContainer)
+
+        return MarkdownEditorTextView(
+            frame: .zero,
+            textContainer: textContainer
+        )
+    }
 
     var appKeyboardShortcutsEnabled = true
     var headingSwipeNavigationEnabled = true
