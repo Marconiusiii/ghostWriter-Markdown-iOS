@@ -104,8 +104,15 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Sharing and Export Formats",
             paragraphs: [
-                "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, or Word Document.",
-                "Markdown preserves the original syntax. Plain Text preserves the same text with a .txt filename. HTML creates a complete, rendered web document. Word Document converts markdown structure into a .docx file."
+                "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, Word Document, PDF, or EPUB. Every format is written from the same document structure, so headings stay headings and tables stay tables wherever the format allows it.",
+                "Markdown preserves the original syntax exactly as you wrote it, and is the right choice when the document is going to another markdown editor or into version control.",
+                "Plain Text removes the markdown syntax and leaves readable prose. Headings are underlined or labelled with their level, lists keep their markers, tables are laid out as aligned columns, and quoted text is marked with the greater-than sign. Emphasis is dropped rather than replaced with asterisks, because the asterisks would be spoken aloud while the emphasis still would not be.",
+                "HTML creates a complete web document with real headings, lists, and tables. Text size follows the reading application rather than this device, so the document is not locked to your current settings.",
+                "Word Document converts markdown structure into a .docx file. See Handling Word Documents for what carries across in each direction.",
+                "PDF creates a tagged PDF. Tagging is what allows a screen reader to move through the document by heading, read a table cell by cell with its column headings, and announce the alternative text of an image. Most applications that produce a PDF on iPhone produce an untagged one, which is a picture of text that assistive technology cannot navigate. Pages are US Letter with one-inch margins, a table row is never split across a page, and headings stay with the text that follows them.",
+                "EPUB creates a reflowing ebook. Because the reader chooses the text size and the content adapts, an EPUB is often easier to read than a PDF, whose pages are fixed. The file includes a table of contents built from your headings, so a reading application can move between sections. Images travel inside the file, so the book is complete on any device.",
+                "Alternative text is carried into every format that supports it. An image written with empty alternative text is treated as decorative and is passed over silently rather than announced as an unlabelled graphic.",
+                "Task list items export as text beginning with Completed or Not completed. A checkbox character would either be skipped or read as a symbol name, and an exported list is not interactive, so the state is stated in words instead."
             ]
         ),
         HelpTopic(

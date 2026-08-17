@@ -103,26 +103,6 @@ struct EditorView: View {
             }
         }
 
-        /// Spoken alongside the label in the share menu. The formats differ in
-        /// ways that are not obvious from a name alone — chiefly whether the
-        /// result reflows to the reader's text size — and that is the detail
-        /// most likely to decide which one someone wants.
-        var accessibilityHint: String {
-            switch self {
-            case .markdown:
-                return "The document source, with its markdown formatting intact."
-            case .plainText:
-                return "Readable text with the markdown formatting removed."
-            case .html:
-                return "A web page with headings, lists, and tables."
-            case .word:
-                return "A Word document with headings, lists, and tables."
-            case .pdf:
-                return "A tagged PDF with fixed pages, readable by heading and by table cell."
-            case .epub:
-                return "An ebook that reflows to the reader's own text size."
-            }
-        }
     }
 
     private struct PendingInsertion {
@@ -509,7 +489,6 @@ struct EditorView: View {
                     Button(format.label) {
                         present { sharingFormat = format }
                     }
-                    .accessibilityHint(format.accessibilityHint)
                 }
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
