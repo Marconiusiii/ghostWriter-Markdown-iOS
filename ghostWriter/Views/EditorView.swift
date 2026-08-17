@@ -82,11 +82,13 @@ struct EditorView: View {
     /// be driven by `sheet(item:)`, which gives an onDismiss callback —
     /// ShareLink presents the system sheet itself and reports nothing back, so
     /// there was no point at which focus could be restored.
-    enum EditorShareFormat: String, Identifiable {
+    enum EditorShareFormat: String, CaseIterable, Identifiable {
         case markdown
         case plainText
         case html
         case word
+        case pdf
+        case epub
 
         var id: String { rawValue }
 
@@ -96,6 +98,29 @@ struct EditorView: View {
             case .plainText: return "Plain Text"
             case .html: return "HTML"
             case .word: return "Word Document"
+            case .pdf: return "PDF"
+            case .epub: return "EPUB"
+            }
+        }
+
+        /// Spoken alongside the label in the share menu. The formats differ in
+        /// ways that are not obvious from a name alone — chiefly whether the
+        /// result reflows to the reader's text size — and that is the detail
+        /// most likely to decide which one someone wants.
+        var accessibilityHint: String {
+            switch self {
+            case .markdown:
+                return "The document source, with its markdown formatting intact."
+            case .plainText:
+                return "Readable text with the markdown formatting removed."
+            case .html:
+                return "A web page with headings, lists, and tables."
+            case .word:
+                return "A Word document with headings, lists, and tables."
+            case .pdf:
+                return "A tagged PDF with fixed pages, readable by heading and by table cell."
+            case .epub:
+                return "An ebook that reflows to the reader's own text size."
             }
         }
     }
@@ -478,10 +503,14 @@ struct EditorView: View {
             .keyboardShortcut(shortcut("s", modifiers: .command))
 
             Menu {
-                Button("Markdown") { present { sharingFormat = .markdown } }
-                Button("Plain Text") { present { sharingFormat = .plainText } }
-                Button("HTML") { present { sharingFormat = .html } }
-                Button("Word Document") { present { sharingFormat = .word } }
+                // Driven from the enum so a new export format cannot be added
+                // without appearing here.
+                ForEach(EditorShareFormat.allCases) { format in
+                    Button(format.label) {
+                        present { sharingFormat = format }
+                    }
+                    .accessibilityHint(format.accessibilityHint)
+                }
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }

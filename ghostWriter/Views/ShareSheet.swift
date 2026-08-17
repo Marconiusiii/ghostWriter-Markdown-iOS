@@ -143,9 +143,14 @@ nonisolated enum EditorShareFileWriter {
             try markdown.write(to: url, atomically: true, encoding: .utf8)
             return url
         case .plainText:
+            // Not the markdown source. This option used to hand over the raw
+            // text, which meant the recipient got hashes and asterisks read
+            // aloud as punctuation — the least readable of the formats, under
+            // the name that promised the most readable.
             let url = directory.appendingPathComponent(safeName)
                 .appendingPathExtension("txt")
-            try markdown.write(to: url, atomically: true, encoding: .utf8)
+            let contents = PlainTextWriter.write(title: title, markdown: markdown)
+            try contents.write(to: url, atomically: true, encoding: .utf8)
             return url
         case .html:
             let url = directory.appendingPathComponent(safeName)
@@ -161,6 +166,26 @@ nonisolated enum EditorShareFileWriter {
             let url = directory.appendingPathComponent(safeName)
                 .appendingPathExtension("docx")
             let data = try MarkdownToWordConverter.convert(
+                title: title,
+                markdown: markdown,
+                sourceDirectory: sourceDirectory
+            )
+            try data.write(to: url, options: .atomic)
+            return url
+        case .pdf:
+            let url = directory.appendingPathComponent(safeName)
+                .appendingPathExtension("pdf")
+            let data = try TaggedPDFWriter.write(
+                title: title,
+                markdown: markdown,
+                sourceDirectory: sourceDirectory
+            )
+            try data.write(to: url, options: .atomic)
+            return url
+        case .epub:
+            let url = directory.appendingPathComponent(safeName)
+                .appendingPathExtension("epub")
+            let data = try EPUBWriter.write(
                 title: title,
                 markdown: markdown,
                 sourceDirectory: sourceDirectory
@@ -220,8 +245,10 @@ enum ShareItemBuilder {
     /// system actually begins a transfer.
     static func contents(title: String, markdown: String, format: Format) -> String {
         switch format {
-        case .markdown, .plainText:
+        case .markdown:
             return markdown
+        case .plainText:
+            return PlainTextWriter.write(title: title, markdown: markdown)
         case .html:
             return HTMLTemplate.exportDocument(
                 title: title,

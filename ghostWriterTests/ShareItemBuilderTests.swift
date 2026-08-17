@@ -61,7 +61,7 @@ struct ShareItemBuilderTests {
         #expect(html.contains("<p class=\"empty-state\">This document is empty.</p>"))
     }
 
-    @Test func textFormatsRemainUnrendered() {
+    @Test func markdownFormatKeepsTheSourceVerbatim() {
         let markdown = "# Literal Markdown"
 
         #expect(
@@ -71,12 +71,21 @@ struct ShareItemBuilderTests {
                 format: .markdown
             ) == markdown
         )
-        #expect(
-            ShareItemBuilder.contents(
-                title: "Note",
-                markdown: markdown,
-                format: .plainText
-            ) == markdown
+    }
+
+    @Test func plainTextFormatStripsMarkdownSyntax() {
+        // Plain text used to hand over the source verbatim, which meant hashes
+        // and asterisks were read aloud as punctuation — the least readable
+        // format under the name promising the most readable.
+        let contents = ShareItemBuilder.contents(
+            title: "Note",
+            markdown: "# Literal Markdown\n\nSome **bold** text.",
+            format: .plainText
         )
+
+        #expect(contents.contains("Literal Markdown"))
+        #expect(contents.contains("Some bold text."))
+        #expect(!contents.contains("#"))
+        #expect(!contents.contains("**"))
     }
 }

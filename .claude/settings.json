@@ -10,6 +10,8 @@
       "Bash(xcrun:*)",
       "Bash(swift:*)",
       "Bash(swiftc:*)",
+      "Bash(./*)",
+      "Bash(/private/tmp/claude-501/**)",
       "Bash(plutil:*)",
       "Bash(sips:*)",
       "Bash(python3:*)",
