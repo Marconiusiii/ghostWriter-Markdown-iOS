@@ -43,10 +43,25 @@ REQUIRED_META = [
     "a11y:completeTranscription",
     "a11y:producer",
     "dcterms:dateCopyrighted",
+    "dcterms:modified",
+    "a11y:tactileGraphics",
 ]
+
+# Marked RECOMMENDED by the spec rather than required, so their absence is
+# reported as advice and does not fail the file. Split by namespace because
+# Dublin Core elements are their own tags while dcterms lives in <meta>.
+RECOMMENDED_DC = ["source", "publisher", "rights", "subject", "description"]
+RECOMMENDED_META = ["dcterms:educationLevel"]
+
+# dcterms:dateCopyrighted MUST be YYYY, YYYY-MM, or YYYY-MM-DD.
+COPYRIGHT_DATE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
+
+# dcterms:modified MUST be an XML Schema dateTime in UTC.
+MODIFIED_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 problems = []
 notes = []
+advice = []
 
 
 def fail(msg):
@@ -55,6 +70,11 @@ def fail(msg):
 
 def ok(msg):
     notes.append(msg)
+
+
+def warn(msg):
+    """A recommendation, not a conformance failure. Never affects exit status."""
+    advice.append(msg)
 
 
 def check_container(path):
@@ -149,6 +169,60 @@ def check_metadata(archive, opf):
                     f"dc:language is {lang.text!r} but a11y:brailleSystem "
                     f"{code!r} is a {expected!r} braille code"
                 )
+
+    # Date formats. Both are REQUIRED and both have a fixed shape; a file that
+    # gets these wrong is non-conforming even though the property is present.
+    for meta in root.findall(f".//{OPF}meta"):
+        value = (meta.text or "").strip()
+        if meta.get("property") == "dcterms:dateCopyrighted":
+            if not COPYRIGHT_DATE.match(value):
+                fail(
+                    f"dcterms:dateCopyrighted {value!r} is not ISO 8601; "
+                    "it must be YYYY, YYYY-MM, or YYYY-MM-DD"
+                )
+            else:
+                ok(f"dcterms:dateCopyrighted {value!r} is a conformant date")
+        elif meta.get("property") == "dcterms:modified":
+            if not MODIFIED_DATE.match(value):
+                fail(
+                    f"dcterms:modified {value!r} is not an XML Schema dateTime "
+                    "of the form YYYY-MM-DDThh:mm:ssZ"
+                )
+            else:
+                ok(f"dcterms:modified {value!r} is a conformant dateTime")
+
+    # a11y:producer allows one or more; the transcriber and the producing
+    # software are both legitimate values, so this only reports the count.
+    producers = [
+        (m.text or "").strip()
+        for m in root.findall(f".//{OPF}meta")
+        if m.get("property") == "a11y:producer"
+    ]
+    if producers:
+        ok(f"a11y:producer names {', '.join(repr(p) for p in producers)}")
+
+    # dc:creator must name the author of the work, not the software that made
+    # the file. A creator that matches a producer usually means the two have
+    # been conflated, which misdescribes the authorship of the source work.
+    creator = root.find(f".//{DC}creator")
+    if creator is not None:
+        creator_text = (creator.text or "").strip()
+        if any(creator_text.lower() == p.lower() for p in producers):
+            warn(
+                f"dc:creator is {creator_text!r}, which is also an "
+                "a11y:producer — dc:creator should name the author of the "
+                "original work, not whoever produced the braille"
+            )
+
+    # Properties the spec recommends. Absent ones are worth mentioning because
+    # they are what makes a transcription traceable to its source.
+    for tag in RECOMMENDED_DC:
+        if root.find(f".//{DC}{tag}") is None:
+            warn(f"recommended metadata dc:{tag} is not present")
+    present_meta = {m.get("property") for m in root.findall(f".//{OPF}meta")}
+    for prop in RECOMMENDED_META:
+        if prop not in present_meta:
+            warn(f"recommended metadata {prop} is not present")
 
     manifest = {i.get("href") for i in root.findall(f".//{OPF}item")}
     names = set(archive.namelist())
@@ -570,6 +644,10 @@ def main():
     print("\n=== checks passed ===")
     for note in notes:
         print(f"  ok    {note}")
+    if advice:
+        print("\n=== recommendations ===")
+        for item in advice:
+            print(f"  note  {item}")
     if problems:
         print("\n=== problems ===")
         for problem in problems:

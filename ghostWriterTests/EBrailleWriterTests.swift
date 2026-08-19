@@ -175,15 +175,119 @@ struct EBrailleWriterTests {
         #expect(nav.contains("content.xhtml#heading-"))
     }
 
-    @Test func emptyCreatorFallsBackToTheProducer() async throws {
+    @Test func emptyCreatorDoesNotClaimTheSoftwareWroteTheWork() async throws {
         let entries = try await makePackage(
             markdown: "Text.",
             metadata: EBrailleMetadata(creator: "   ", grade: .grade2)
         )
         let package = try #require(entries["package.opf"])
 
-        // dc:creator is required, so an empty field cannot simply be omitted.
-        #expect(package.contains("<dc:creator>ghostWriter Markdown</dc:creator>"))
+        // dc:creator is required, so an empty field cannot simply be omitted —
+        // but it names the author of the original work, so falling back to the
+        // software would assert that ghostWriter wrote the book.
+        #expect(package.contains("<dc:creator>Unknown</dc:creator>"))
+        #expect(!package.contains("<dc:creator>ghostWriter Markdown</dc:creator>"))
+    }
+
+    @Test func transcriberAndSoftwareAreBothNamedAsProducers() async throws {
+        let entries = try await makePackage(
+            markdown: "Text.",
+            metadata: EBrailleMetadata(
+                creator: "A Writer",
+                transcriber: "Braille Services Ltd",
+                grade: .grade2
+            )
+        )
+        let package = try #require(entries["package.opf"])
+
+        // a11y:producer allows one or more values, so the transcriber and the
+        // software are recorded separately rather than merged.
+        #expect(package.contains(
+            "<meta property=\"a11y:producer\">Braille Services Ltd</meta>"
+        ))
+        #expect(package.contains(
+            "<meta property=\"a11y:producer\">ghostWriter Markdown</meta>"
+        ))
+        // The transcriber is not the author of the work being transcribed.
+        #expect(package.contains("<dc:creator>A Writer</dc:creator>"))
+    }
+
+    @Test func softwareIsTheOnlyProducerWhenNoTranscriberIsNamed() async throws {
+        let entries = try await makePackage(
+            markdown: "Text.",
+            metadata: EBrailleMetadata(creator: "A Writer", grade: .grade2)
+        )
+        let package = try #require(entries["package.opf"])
+
+        // Exactly one producer element, naming the software.
+        let producerCount = package.components(
+            separatedBy: "<meta property=\"a11y:producer\">"
+        ).count - 1
+        #expect(producerCount == 1)
+        #expect(package.contains(
+            "<meta property=\"a11y:producer\">ghostWriter Markdown</meta>"
+        ))
+    }
+
+    @Test func recommendedPropertiesAreWrittenWhenSupplied() async throws {
+        let entries = try await makePackage(
+            markdown: "Text.",
+            metadata: EBrailleMetadata(
+                creator: "A Writer",
+                grade: .grade2,
+                source: "urn:isbn:9780000000001",
+                publisher: "A Braille Press",
+                rights: "Copyright the author. Transcribed under licence.",
+                subject: "Geography",
+                descriptionText: "A short report, transcribed for classroom use.",
+                educationLevel: "Year 4"
+            )
+        )
+        let package = try #require(entries["package.opf"])
+
+        #expect(package.contains("<dc:source>urn:isbn:9780000000001</dc:source>"))
+        #expect(package.contains("<dc:publisher>A Braille Press</dc:publisher>"))
+        #expect(package.contains("<dc:subject>Geography</dc:subject>"))
+        #expect(package.contains(
+            "<meta property=\"dcterms:educationLevel\">Year 4</meta>"
+        ))
+        #expect(package.contains("Transcribed under licence."))
+    }
+
+    @Test func recommendedPropertiesAreOmittedWhenBlank() async throws {
+        let entries = try await makePackage(
+            markdown: "Text.",
+            metadata: EBrailleMetadata(
+                creator: "A Writer",
+                grade: .grade2,
+                source: "   ",
+                publisher: ""
+            )
+        )
+        let package = try #require(entries["package.opf"])
+
+        // An empty dc:rights asserts that the rights are known to be nothing,
+        // which is a worse claim than the element being absent.
+        #expect(!package.contains("<dc:source>"))
+        #expect(!package.contains("<dc:publisher>"))
+        #expect(!package.contains("<dc:rights>"))
+        #expect(!package.contains("dcterms:educationLevel"))
+    }
+
+    @Test func copyrightDateIsWrittenInAFormTheStandardAllows() async throws {
+        let entries = try await makePackage(
+            markdown: "Text.",
+            metadata: EBrailleMetadata(
+                creator: "A Writer",
+                grade: .grade2,
+                copyrightYear: "2026/04/17"
+            )
+        )
+        let package = try #require(entries["package.opf"])
+
+        #expect(package.contains(
+            "<meta property=\"dcterms:dateCopyrighted\">2026-04-17</meta>"
+        ))
     }
 }
 

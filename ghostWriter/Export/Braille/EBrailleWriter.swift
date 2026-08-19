@@ -303,6 +303,40 @@ nonisolated enum EBrailleWriter {
             ? "none"
             : graphicsFormats.joined(separator: ", ")
 
+        // `a11y:producer` allows one or more values. The transcriber and the
+        // software are separate producers of the file, so they are written as
+        // separate properties rather than run together into one name that
+        // describes neither accurately.
+        let producers = metadata.effectiveProducers.map { producer in
+            "<meta property=\"a11y:producer\">\(escape(producer))</meta>"
+        }.joined(separator: "\n")
+
+        // The RECOMMENDED properties. Each is written only when the writer
+        // supplied it: an empty `dc:rights` asserts that the rights are known
+        // to be nothing, which is worse than the element being absent.
+        let recommended = [
+            ("dc:source", metadata.source),
+            ("dc:publisher", metadata.publisher),
+            ("dc:rights", metadata.rights),
+            ("dc:subject", metadata.subject),
+            ("dc:description", metadata.descriptionText),
+        ].compactMap { name, value -> String? in
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            return "<\(name)>\(escape(trimmed))</\(name)>"
+        }
+        + [metadata.educationLevel].compactMap { value -> String? in
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            return "<meta property=\"dcterms:educationLevel\">\(escape(trimmed))</meta>"
+        }
+
+        // Joined with a leading newline so that an empty list leaves no blank
+        // line behind in the package document.
+        let recommendedBlock = recommended.isEmpty
+            ? ""
+            : "\n" + recommended.joined(separator: "\n")
+
         return """
         <?xml version="1.0" encoding="UTF-8"?>
         <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id" xml:lang="\(escape(language))" prefix="a11y: http://www.idpf.org/epub/vocab/package/a11y/# dcterms: http://purl.org/dc/terms/">
@@ -319,7 +353,7 @@ nonisolated enum EBrailleWriter {
         <meta property="a11y:brailleSystem">\(escape(metadata.grade.systemName))</meta>
         <meta property="a11y:completeTranscription">\(metadata.isCompleteTranscription)</meta>
         <meta property="a11y:tactileGraphics">\(escape(tactileGraphics))</meta>
-        <meta property="a11y:producer">\(escape(EBrailleMetadata.producer))</meta>
+        \(producers)\(recommendedBlock)
         <!-- The formatting standard the layout follows. eBraille defines no
              property for this, so the Dublin Core term is used; section 5.3.5
              allows additional metadata. Without it, nothing in the file says

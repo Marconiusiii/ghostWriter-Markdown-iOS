@@ -188,6 +188,40 @@ final class AppSettings {
         didSet { defaults.set(eBrailleCreator, forKey: Keys.eBrailleCreator) }
     }
 
+    /// Written to `a11y:producer` alongside the software's own name. Separate
+    /// from the creator because eBraille distinguishes the author of the work
+    /// from whoever produced the braille.
+    var eBrailleTranscriber: String {
+        didSet { defaults.set(eBrailleTranscriber, forKey: Keys.eBrailleTranscriber) }
+    }
+
+    /// The properties eBraille marks RECOMMENDED. Remembered like the required
+    /// ones: a transcriber working through a series records the same publisher
+    /// and rights on every volume.
+    var eBrailleSource: String {
+        didSet { defaults.set(eBrailleSource, forKey: Keys.eBrailleSource) }
+    }
+
+    var eBraillePublisher: String {
+        didSet { defaults.set(eBraillePublisher, forKey: Keys.eBraillePublisher) }
+    }
+
+    var eBrailleRights: String {
+        didSet { defaults.set(eBrailleRights, forKey: Keys.eBrailleRights) }
+    }
+
+    var eBrailleSubject: String {
+        didSet { defaults.set(eBrailleSubject, forKey: Keys.eBrailleSubject) }
+    }
+
+    var eBrailleDescription: String {
+        didSet { defaults.set(eBrailleDescription, forKey: Keys.eBrailleDescription) }
+    }
+
+    var eBrailleEducationLevel: String {
+        didSet { defaults.set(eBrailleEducationLevel, forKey: Keys.eBrailleEducationLevel) }
+    }
+
     var eBrailleCopyrightYear: String {
         didSet { defaults.set(eBrailleCopyrightYear, forKey: Keys.eBrailleCopyrightYear) }
     }
@@ -292,6 +326,13 @@ final class AppSettings {
         self.statusShowsSelectedWordCount = defaults.object(forKey: Keys.statusSelectedWordCount) as? Bool ?? false
         self.statusShowsSelectedCharacterCount = defaults.object(forKey: Keys.statusSelectedCharacterCount) as? Bool ?? false
         self.eBrailleCreator = defaults.string(forKey: Keys.eBrailleCreator) ?? ""
+        self.eBrailleTranscriber = defaults.string(forKey: Keys.eBrailleTranscriber) ?? ""
+        self.eBrailleSource = defaults.string(forKey: Keys.eBrailleSource) ?? ""
+        self.eBraillePublisher = defaults.string(forKey: Keys.eBraillePublisher) ?? ""
+        self.eBrailleRights = defaults.string(forKey: Keys.eBrailleRights) ?? ""
+        self.eBrailleSubject = defaults.string(forKey: Keys.eBrailleSubject) ?? ""
+        self.eBrailleDescription = defaults.string(forKey: Keys.eBrailleDescription) ?? ""
+        self.eBrailleEducationLevel = defaults.string(forKey: Keys.eBrailleEducationLevel) ?? ""
         self.eBrailleCopyrightYear = defaults.string(forKey: Keys.eBrailleCopyrightYear) ?? ""
         // Grade 2 is what most braille readers prefer, so it is the default
         // rather than the less contracted grade 1.
@@ -338,6 +379,13 @@ final class AppSettings {
         static let statusSelectedWordCount = "statusShowsSelectedWordCount"
         static let statusSelectedCharacterCount = "statusShowsSelectedCharacterCount"
         static let eBrailleCreator = "eBrailleCreator"
+        static let eBrailleTranscriber = "eBrailleTranscriber"
+        static let eBrailleSource = "eBrailleSource"
+        static let eBraillePublisher = "eBraillePublisher"
+        static let eBrailleRights = "eBrailleRights"
+        static let eBrailleSubject = "eBrailleSubject"
+        static let eBrailleDescription = "eBrailleDescription"
+        static let eBrailleEducationLevel = "eBrailleEducationLevel"
         static let eBrailleCopyrightYear = "eBrailleCopyrightYear"
         static let eBrailleGrade = "eBrailleGrade"
         static let eBrailleCompleteTranscription = "eBrailleCompleteTranscription"

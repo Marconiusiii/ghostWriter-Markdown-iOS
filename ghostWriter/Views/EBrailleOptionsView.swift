@@ -5,10 +5,22 @@
 //  Collects the facts eBraille requires before an export can be produced.
 //
 //  Every other share format is derivable from the document alone. eBraille is
-//  not: the standard makes a creator, a copyright year, a braille grade, and a
-//  completeness declaration mandatory, and none of those can be inferred from
-//  markdown. Rather than guess and produce a file that misdescribes itself,
-//  this asks.
+//  not: the standard makes a creator, a producer, a copyright date, a braille
+//  grade, and a completeness declaration mandatory, and none of those can be
+//  inferred from markdown. Rather than guess and produce a file that
+//  misdescribes itself, this asks.
+//
+//  The standard also marks six properties RECOMMENDED — the source work, the
+//  publisher, the rights, the subject, a description, and the education level.
+//  Those sit in their own section below the required ones, so the short path
+//  stays short for someone exporting a document they wrote themselves, while a
+//  transcriber working from a published book has somewhere to record what they
+//  are transcribing and under what terms.
+//
+//  Author and transcriber are deliberately two fields. eBraille reserves
+//  `dc:creator` for the author of the original work and `a11y:producer` for
+//  whoever produced the braille; collapsing them into one "Author" box meant
+//  every transcription of someone else's book named the wrong person.
 //
 //  Answers are remembered in settings, so a second export is a matter of
 //  confirming rather than retyping. The fields edit local state rather than
@@ -46,8 +58,15 @@ struct EBrailleOptionsView: View {
 
     @State private var grade: BrailleGrade
     @State private var creator: String
+    @State private var transcriber: String
     @State private var copyrightYear: String
     @State private var isCompleteTranscription: Bool
+    @State private var source: String
+    @State private var publisher: String
+    @State private var rights: String
+    @State private var subject: String
+    @State private var descriptionText: String
+    @State private var educationLevel: String
     @FocusState private var focusedField: Field?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -59,7 +78,31 @@ struct EBrailleOptionsView: View {
 
     private enum Field {
         case creator
+        case transcriber
         case copyrightYear
+        case source
+        case publisher
+        case rights
+        case subject
+        case descriptionText
+        case educationLevel
+    }
+
+    /// What the copyright date will actually become in the file.
+    ///
+    /// The spec allows only `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`, so a typed
+    /// value that is not one of those gets corrected on the way out. Saying so
+    /// here means the correction is visible before the file is written rather
+    /// than discovered afterwards by a validator.
+    private var copyrightNote: String? {
+        let trimmed = copyrightYear.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let normalized = EBrailleMetadata.normalizedCopyrightDate(trimmed) else {
+            let year = String(Calendar.current.component(.year, from: Date()))
+            return "That is not a date the standard allows, so the file will record \(year). Use a year, a year and month, or a full date."
+        }
+        guard normalized != trimmed else { return nil }
+        return "The file will record this as \(normalized)."
     }
 
     init(
@@ -73,10 +116,17 @@ struct EBrailleOptionsView: View {
         self.onExport = onExport
         _grade = State(initialValue: settings.eBrailleGrade)
         _creator = State(initialValue: settings.eBrailleCreator)
+        _transcriber = State(initialValue: settings.eBrailleTranscriber)
         _copyrightYear = State(initialValue: settings.eBrailleCopyrightYear)
         _isCompleteTranscription = State(
             initialValue: settings.eBrailleCompleteTranscription
         )
+        _source = State(initialValue: settings.eBrailleSource)
+        _publisher = State(initialValue: settings.eBraillePublisher)
+        _rights = State(initialValue: settings.eBrailleRights)
+        _subject = State(initialValue: settings.eBrailleSubject)
+        _descriptionText = State(initialValue: settings.eBrailleDescription)
+        _educationLevel = State(initialValue: settings.eBrailleEducationLevel)
     }
 
     var body: some View {
@@ -84,6 +134,16 @@ struct EBrailleOptionsView: View {
             Form {
                 Section {
                     Text("Converts your file to the eBraille 1.0 standard.")
+                }
+
+                // The title is not editable here — it comes from the document
+                // and is what every other export uses — but it is written to
+                // the file as dc:title, so it is shown rather than left as a
+                // silent decision.
+                Section {
+                    LabeledContent("Title", value: documentTitle)
+                } footer: {
+                    Text("Taken from your document. Rename the document to change it.")
                 }
 
                 Section {
@@ -112,15 +172,39 @@ struct EBrailleOptionsView: View {
                             .autocorrectionDisabled()
                             .multilineTextAlignment(fieldAlignment)
                     }
+                } footer: {
+                    Text("Who wrote the original work. Left empty, the file records the author as Unknown.")
+                }
 
-                    LabeledContent("Copyright Year") {
-                        TextField("", text: $copyrightYear)
-                            .focused($focusedField, equals: .copyrightYear)
-                            .keyboardType(.numberPad)
+                Section {
+                    LabeledContent("Transcriber") {
+                        TextField("", text: $transcriber)
+                            .focused($focusedField, equals: .transcriber)
+                            .textInputAutocapitalization(.words)
+                            .autocorrectionDisabled()
                             .multilineTextAlignment(fieldAlignment)
                     }
                 } footer: {
-                    Text("The eBraille standard requires an author and a copyright year. Left empty, the author is recorded as ghostWriter Markdown and the year as the current one.")
+                    Text("You or your agency, if you are transcribing someone else's work. ghostWriter Markdown is always recorded alongside this as the producing software.")
+                }
+
+                Section {
+                    LabeledContent("Copyright Date") {
+                        TextField("", text: $copyrightYear)
+                            .focused($focusedField, equals: .copyrightYear)
+                            .keyboardType(.numbersAndPunctuation)
+                            .autocorrectionDisabled()
+                            .multilineTextAlignment(fieldAlignment)
+                    }
+                } footer: {
+                    // The note replaces the general guidance once there is
+                    // something specific to say, rather than adding a second
+                    // paragraph to read past.
+                    if let copyrightNote {
+                        Text(copyrightNote)
+                    } else {
+                        Text("A year, a year and month, or a full date — such as 2026, 2026-04, or 2026-04-17. Left empty, the file records the current year.")
+                    }
                 }
 
                 Section {
@@ -137,11 +221,48 @@ struct EBrailleOptionsView: View {
                 }
 
                 Section {
-                    // Read-only: ghostWriter produced the file, so this is a
-                    // statement of fact rather than something to choose.
-                    LabeledContent("Producer", value: EBrailleMetadata.producer)
+                    LabeledContent("Source Work") {
+                        TextField("", text: $source)
+                            .focused($focusedField, equals: .source)
+                            .autocorrectionDisabled()
+                            .multilineTextAlignment(fieldAlignment)
+                    }
+
+                    LabeledContent("Publisher") {
+                        TextField("", text: $publisher)
+                            .focused($focusedField, equals: .publisher)
+                            .textInputAutocapitalization(.words)
+                            .multilineTextAlignment(fieldAlignment)
+                    }
+
+                    LabeledContent("Rights") {
+                        TextField("", text: $rights)
+                            .focused($focusedField, equals: .rights)
+                            .multilineTextAlignment(fieldAlignment)
+                    }
+
+                    LabeledContent("Subject") {
+                        TextField("", text: $subject)
+                            .focused($focusedField, equals: .subject)
+                            .multilineTextAlignment(fieldAlignment)
+                    }
+
+                    LabeledContent("Description") {
+                        TextField("", text: $descriptionText, axis: .vertical)
+                            .focused($focusedField, equals: .descriptionText)
+                            .lineLimit(1...4)
+                            .multilineTextAlignment(fieldAlignment)
+                    }
+
+                    LabeledContent("Education Level") {
+                        TextField("", text: $educationLevel)
+                            .focused($focusedField, equals: .educationLevel)
+                            .multilineTextAlignment(fieldAlignment)
+                    }
+                } header: {
+                    Text("Recommended Details")
                 } footer: {
-                    Text("Recorded in the file to identify the software that produced it.")
+                    Text("The standard recommends these. Any you leave empty are left out of the file. Source Work identifies the book or document being transcribed, and Education Level records the grade or year the material was produced for.")
                 }
 
                 Section {
@@ -168,15 +289,29 @@ struct EBrailleOptionsView: View {
 
         settings.eBrailleGrade = grade
         settings.eBrailleCreator = creator
+        settings.eBrailleTranscriber = transcriber
         settings.eBrailleCopyrightYear = copyrightYear
         settings.eBrailleCompleteTranscription = isCompleteTranscription
+        settings.eBrailleSource = source
+        settings.eBraillePublisher = publisher
+        settings.eBrailleRights = rights
+        settings.eBrailleSubject = subject
+        settings.eBrailleDescription = descriptionText
+        settings.eBrailleEducationLevel = educationLevel
 
         onExport(
             EBrailleMetadata(
                 creator: creator,
+                transcriber: transcriber,
                 grade: grade,
                 copyrightYear: copyrightYear,
-                isCompleteTranscription: isCompleteTranscription
+                isCompleteTranscription: isCompleteTranscription,
+                source: source,
+                publisher: publisher,
+                rights: rights,
+                subject: subject,
+                descriptionText: descriptionText,
+                educationLevel: educationLevel
             )
         )
     }
