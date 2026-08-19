@@ -41,10 +41,15 @@ struct EditorShareView: View {
     @State private var fileURL: URL?
     @State private var failureMessage: String?
 
-    /// Set once the writer has confirmed the eBraille options. Formats that
-    /// need no options begin preparing immediately; eBraille waits here, which
-    /// is why preparation is keyed on this rather than started in `task`.
+    /// Set once the writer has confirmed the export options. Formats that need
+    /// none begin preparing immediately; the braille formats wait here, which
+    /// is why preparation is keyed on these rather than started in `task`.
+    ///
+    /// The two braille formats ask for different things: eBraille carries
+    /// metadata a BRF file has nowhere to put, and BRF needs a page geometry
+    /// eBraille leaves to the reading system.
     @State private var eBrailleMetadata: EBrailleMetadata?
+    @State private var brfOptions: BRFExportOptions?
 
     var body: some View {
         Group {
@@ -68,13 +73,21 @@ struct EditorShareView: View {
                         }
                     }
                 }
-            } else if format.requiresOptions, eBrailleMetadata == nil {
+            } else if format == .eBraille, eBrailleMetadata == nil {
                 EBrailleOptionsView(
                     settings: settings,
                     documentTitle: title,
                     onCancel: onClose,
                     onExport: { metadata in
                         eBrailleMetadata = metadata
+                    }
+                )
+            } else if format == .brf, brfOptions == nil {
+                BRFOptionsView(
+                    settings: settings,
+                    onCancel: onClose,
+                    onExport: { options in
+                        brfOptions = options
                     }
                 )
             } else if let fileURL {
@@ -94,6 +107,9 @@ struct EditorShareView: View {
         .task(id: eBrailleMetadata) {
             await prepareFile()
         }
+        .task(id: brfOptions) {
+            await prepareFile()
+        }
     }
 
     /// Conversion and file writing happen off the main thread. A large Word
@@ -101,9 +117,9 @@ struct EditorShareView: View {
     /// appeared.
     private func prepareFile() async {
         guard fileURL == nil, failureMessage == nil else { return }
-        // eBraille cannot be written until the writer has supplied the metadata
-        // the standard requires.
-        if format.requiresOptions, eBrailleMetadata == nil { return }
+        // Neither braille format can be written until its options are in.
+        if format == .eBraille, eBrailleMetadata == nil { return }
+        if format == .brf, brfOptions == nil { return }
 
         let format = format
         let title = title
@@ -111,6 +127,7 @@ struct EditorShareView: View {
         let markdown = markdown
         let sourceDirectory = sourceDirectory
         let metadata = eBrailleMetadata
+        let brf = brfOptions
 
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
             do {
@@ -121,7 +138,8 @@ struct EditorShareView: View {
                         fileName: fileName,
                         markdown: markdown,
                         sourceDirectory: sourceDirectory,
-                        eBrailleMetadata: metadata
+                        eBrailleMetadata: metadata,
+                        brfOptions: brf
                     )
                 )
             } catch {
@@ -147,7 +165,8 @@ nonisolated enum EditorShareFileWriter {
         fileName: String,
         markdown: String,
         sourceDirectory: URL?,
-        eBrailleMetadata: EBrailleMetadata? = nil
+        eBrailleMetadata: EBrailleMetadata? = nil,
+        brfOptions: BRFExportOptions? = nil
     ) async throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -232,6 +251,23 @@ nonisolated enum EditorShareFileWriter {
                 metadata: eBrailleMetadata,
                 translator: LiblouisBridge.shared,
                 sourceDirectory: sourceDirectory
+            )
+            try data.write(to: url, options: .atomic)
+            return url
+        case .brf:
+            // The page geometry is written into the file, so it has to be
+            // chosen before the file exists.
+            guard let brfOptions else {
+                throw BrailleTranslationError.tablesMissing
+            }
+            let url = directory.appendingPathComponent(safeName)
+                .appendingPathExtension("brf")
+            let data = try await BRFWriter.write(
+                markdown: markdown,
+                title: title,
+                grade: brfOptions.grade,
+                pageSetup: brfOptions.pageSetup,
+                translator: LiblouisBridge.shared
             )
             try data.write(to: url, options: .atomic)
             return url

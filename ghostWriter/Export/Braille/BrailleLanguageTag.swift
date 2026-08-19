@@ -48,6 +48,31 @@ nonisolated enum BrailleLanguageTag {
             .joined(separator: "-")
     }
 
+    /// A braille tag for `language`, carrying over the region from another
+    /// tag when the two languages agree.
+    ///
+    /// The braille code fixes the language — UEB is English regardless of
+    /// where the device is set — but a reader in Britain and one in the United
+    /// States both want their own region recorded. Region is only carried over
+    /// when the languages match, so a French-locale device exporting English
+    /// braille produces `en-Brai`, not `en-Brai-FR`.
+    static func brailleTag(from language: String, regionFrom other: String) -> String {
+        let base = brailleTag(from: language)
+        let baseParts = base.split(separator: "-").map(String.init)
+        let otherParts = other.split(separator: "-").map(String.init)
+
+        guard baseParts.count == 2,
+              let baseLanguage = baseParts.first,
+              let otherLanguage = otherParts.first,
+              baseLanguage == otherLanguage,
+              otherParts.count > 2 else {
+            return base
+        }
+
+        return ([baseLanguage, brailleScript] + otherParts.dropFirst(2))
+            .joined(separator: "-")
+    }
+
     /// The device's language, as a braille tag.
     static func currentBrailleTag() -> String {
         let preferred = Locale.preferredLanguages.first

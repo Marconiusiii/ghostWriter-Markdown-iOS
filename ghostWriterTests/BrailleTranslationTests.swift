@@ -84,8 +84,8 @@ struct BrailleTranslationTests {
     @Test func gradeMetadataNamesMatchTheStandard() {
         // These strings are written into the publication's a11y:brailleSystem
         // metadata, so they are part of the file format rather than UI wording.
-        #expect(BrailleGrade.grade1.systemName == "UEB grade 1")
-        #expect(BrailleGrade.grade2.systemName == "UEB grade 2")
+        #expect(BrailleGrade.grade1.systemName == "ueb grade1")
+        #expect(BrailleGrade.grade2.systemName == "ueb grade2")
         #expect(BrailleGrade.grade1.tableName == "en-ueb-g1.ctb")
         #expect(BrailleGrade.grade2.tableName == "en-ueb-g2.ctb")
     }

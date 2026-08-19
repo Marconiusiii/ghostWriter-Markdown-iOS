@@ -196,6 +196,14 @@ final class AppSettings {
         didSet { defaults.set(eBrailleGrade.rawValue, forKey: Keys.eBrailleGrade) }
     }
 
+    var brfCellsPerLine: Int {
+        didSet { defaults.set(brfCellsPerLine, forKey: Keys.brfCellsPerLine) }
+    }
+
+    var brfLinesPerPage: Int {
+        didSet { defaults.set(brfLinesPerPage, forKey: Keys.brfLinesPerPage) }
+    }
+
     var eBrailleCompleteTranscription: Bool {
         didSet {
             defaults.set(
@@ -291,6 +299,13 @@ final class AppSettings {
             .flatMap(BrailleGrade.init(rawValue:))) ?? .grade2
         self.eBrailleCompleteTranscription =
             defaults.object(forKey: Keys.eBrailleCompleteTranscription) as? Bool ?? true
+
+        // 40 by 25 is the standard braille page. Devices vary, so these are
+        // remembered rather than fixed.
+        let storedCells = defaults.integer(forKey: Keys.brfCellsPerLine)
+        self.brfCellsPerLine = storedCells > 0 ? storedCells : 40
+        let storedLines = defaults.integer(forKey: Keys.brfLinesPerPage)
+        self.brfLinesPerPage = storedLines > 0 ? storedLines : 25
         self.renderSoundEnabled = defaults.object(forKey: Keys.renderSound) as? Bool ?? true
         self.smartListsEnabled = defaults.object(forKey: Keys.smartLists) as? Bool ?? true
         self.keyboardShortcutsEnabled =
@@ -326,6 +341,8 @@ final class AppSettings {
         static let eBrailleCopyrightYear = "eBrailleCopyrightYear"
         static let eBrailleGrade = "eBrailleGrade"
         static let eBrailleCompleteTranscription = "eBrailleCompleteTranscription"
+        static let brfCellsPerLine = "brfCellsPerLine"
+        static let brfLinesPerPage = "brfLinesPerPage"
         static let renderSound = "renderSoundEnabled"
         static let smartLists = "smartListsEnabled"
         static let keyboardShortcuts = "keyboardShortcutsEnabled"

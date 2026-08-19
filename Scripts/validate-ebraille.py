@@ -109,12 +109,46 @@ def check_metadata(archive, opf):
     if all(p in present for p in REQUIRED_META):
         ok("all required eBraille metadata properties present")
 
+    # a11y:brailleSystem should follow the registry form: "[code] [grade]",
+    # where grade is grade0/grade1/grade2/no-grade, optionally followed by a
+    # specialization. "UEB grade 2" reads well but is not registry syntax.
+    system_re = re.compile(
+        r"^\S+ (grade0|grade1|grade2|no-grade)( \S+)?$"
+    )
+    for meta in root.findall(f".//{OPF}meta"):
+        if meta.get("property") != "a11y:brailleSystem":
+            continue
+        value = " ".join((meta.text or "").split())
+        if not system_re.match(value):
+            fail(
+                f"a11y:brailleSystem {value!r} is not registry form "
+                "'[code] [grade]' with grade spelled grade1/grade2/no-grade"
+            )
+        else:
+            ok(f"a11y:brailleSystem {value!r} follows the registry form")
+
     lang = root.find(f".//{DC}language")
     if lang is not None:
         if "Brai" not in lang.text:
             fail(f"dc:language {lang.text!r} lacks the Brai script subtag")
         else:
             ok(f"dc:language is {lang.text}")
+
+        # The document language and the braille code must describe the same
+        # thing. A file translated through a UEB table but declaring itself
+        # French misdescribes its own contents.
+        code_languages = {"ueb": "en", "ebae": "en", "seb": "en", "cbc": "en"}
+        declared = lang.text.split("-")[0].lower()
+        for meta in root.findall(f".//{OPF}meta"):
+            if meta.get("property") != "a11y:brailleSystem":
+                continue
+            code = (meta.text or "").strip().split(" ")[0].lower()
+            expected = code_languages.get(code)
+            if expected and expected != declared:
+                fail(
+                    f"dc:language is {lang.text!r} but a11y:brailleSystem "
+                    f"{code!r} is a {expected!r} braille code"
+                )
 
     manifest = {i.get("href") for i in root.findall(f".//{OPF}item")}
     names = set(archive.namelist())
@@ -309,6 +343,24 @@ def check_forbidden(archive, opf, manifest):
                     f"note: {href} sets typographic properties the spec advises "
                     f"against: {', '.join(font_props)}"
                 )
+            # Horizontal positions must be in ch. Reading systems guarantee
+            # 1ch is the cell-to-cell distance and 1em the line-to-line
+            # distance, so an em margin indents by lines and lands on an
+            # arbitrary cell — braille layout standards are written in cells.
+            horizontal = re.findall(
+                r"\b(margin-left|margin-right|padding-left|padding-right|text-indent)"
+                r"\s*:\s*(-?\d+(?:\.\d+)?)(em|rem)\b",
+                css,
+            )
+            if horizontal:
+                props = sorted({f"{prop} in {unit}" for prop, _, unit in horizontal})
+                fail(
+                    f"{href}: horizontal spacing uses line units: "
+                    f"{', '.join(props)}; use ch, which is one braille cell"
+                )
+            elif re.search(r"\b(padding-left|text-indent|margin-left)\s*:\s*-?\d", css):
+                ok(f"{href}: horizontal spacing is in cell units")
+
             if re.search(r"\b\d+(\.\d+)?(px|pt|cm|mm|in|pc)\b", css):
                 notes.append(
                     f"note: {href} uses absolute lengths; the spec asks for "

@@ -18,6 +18,16 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
     /// rather than a preference, and the export sheet shows it read-only.
     static let producer = "ghostWriter Markdown"
 
+    /// The formatting standard the exported layout follows.
+    ///
+    /// Braille layout is national: cell positions for headings, paragraphs,
+    /// and lists differ between BANA, UKAAF, and the Australian Braille
+    /// Authority, even when all three transcribe into the same UEB code. The
+    /// stylesheet implements BANA *Braille Formats* (2016), so the file says
+    /// so — a reader or agency can then tell which conventions to expect
+    /// rather than inferring them from the layout.
+    static let formatStandard = "BANA Braille Formats 2016"
+
     /// Written to `dc:format`. The standard requires this exact string.
     static let formatIdentifier = "eBraille 1.0"
 

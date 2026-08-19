@@ -76,3 +76,6 @@ fastlane/test_output
 # Claude Code
 .claude/settings.local.json
 CLAUDE_RESPONSE.md
+
+# Python bytecode from the Scripts helpers
+__pycache__/

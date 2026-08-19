@@ -92,8 +92,8 @@ struct EBrailleWriterTests {
             metadata: EBrailleMetadata(creator: "A Writer", grade: .grade2)
         )
 
-        #expect(try #require(grade1["package.opf"]).contains("UEB grade 1"))
-        #expect(try #require(grade2["package.opf"]).contains("UEB grade 2"))
+        #expect(try #require(grade1["package.opf"]).contains("ueb grade1"))
+        #expect(try #require(grade2["package.opf"]).contains("ueb grade2"))
     }
 
     @Test func producerIsFixedRegardlessOfCreator() async throws {
@@ -209,5 +209,26 @@ struct BrailleLanguageTagTests {
     @Test func unreadableTagsFallBackToEnglishBraille() {
         #expect(BrailleLanguageTag.brailleTag(from: "") == "en-Brai")
         #expect(BrailleLanguageTag.brailleTag(from: "!!!") == "en-Brai")
+    }
+
+    @Test func languageComesFromTheTableNotTheDevice() {
+        // UEB is English. A device set to French must not make the file claim
+        // to be French braille, but an English region is still worth keeping.
+        #expect(
+            BrailleLanguageTag.brailleTag(from: "en", regionFrom: "en-Brai-US")
+                == "en-Brai-US"
+        )
+        #expect(
+            BrailleLanguageTag.brailleTag(from: "en", regionFrom: "en-Brai-GB")
+                == "en-Brai-GB"
+        )
+        #expect(
+            BrailleLanguageTag.brailleTag(from: "en", regionFrom: "fr-Brai-FR")
+                == "en-Brai"
+        )
+        #expect(
+            BrailleLanguageTag.brailleTag(from: "en", regionFrom: "en-Brai")
+                == "en-Brai"
+        )
     }
 }

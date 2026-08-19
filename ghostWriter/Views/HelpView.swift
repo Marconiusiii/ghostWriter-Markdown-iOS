@@ -104,13 +104,17 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Sharing and Export Formats",
             paragraphs: [
-                "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, Word Document, PDF, or EPUB.",
+                "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, Word Document, PDF, EPUB, eBraille, or Braille Ready Format.",
                 "Markdown preserves the original syntax with a .md filename.",
                 "Plain Text removes the markdown syntax and leaves readable text with a .txt filename. Level 1 and level 2 headings are underlined, and deeper headings state their level. Lists keep their bullets and numbers, tables become aligned columns, and quoted text begins with a greater-than sign.",
                 "HTML creates a complete, rendered web document. Headings, lists, links, tables, quotes, code, and tasks retain their document structure. Text size follows the application the document is opened in.",
                 "Word Document converts markdown structure into a .docx file. Handling Word Documents describes what is preserved in each direction.",
                 "PDF creates a tagged PDF with fixed pages. Headings, lists, tables, quotes, code, and images are marked as document structure, so a screen reader moves through the document by heading and reads a table cell by cell with its column headings. Pages are US Letter with one-inch margins. A table row stays whole on one page, and a heading stays with the text that follows it.",
                 "EPUB creates an ebook that reflows to the text size chosen in the reading application. Headings, lists, links, tables, quotes, code, and tasks retain their document structure. The file includes a table of contents built from the document’s headings, and images are stored inside the file.",
+                "eBraille creates a braille edition with a .ebrl filename. Headings, lists, links, tables, and quotes retain their document structure. The file includes a table of contents built from the document\u{2019}s headings, and text reflows to the line length of the display it is read on. Images are stored inside the file, and their alternative text is translated into braille.",
+                "The eBraille screen asks for the braille grade, an author, a copyright year, and whether the document is a complete transcription. Left empty, the author is recorded as ghostWriter Markdown and the year as the current one.",
+                "Braille Ready Format creates a braille file with a .brf filename. The screen asks for the braille grade and the page size in cells per line and lines per page. Tables are written as a labelled line for each cell rather than as columns.",
+                "Grade 1 is uncontracted braille and grade 2 is contracted. Both braille formats use Unified English Braille and follow BANA Braille Formats: centered top-level headings, second-level headings in cell 5, deeper headings in cell 7, paragraphs beginning in cell 3 with following lines in cell 1, and list items in cell 1 with following lines in cell 3. Your answers are remembered for the next export.",
                 "Alternative text is carried into every format that supports it. An image written with empty alternative text is marked decorative and is passed over by screen readers.",
                 "Task list items export as text beginning with Completed or Not completed."
             ]

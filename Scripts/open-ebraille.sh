@@ -35,5 +35,43 @@ if [ ! -f "$dest/index.html" ]; then
   exit 0
 fi
 
+# index.html is the navigation document: a bare list of links, with no
+# stylesheet, because its job is to get you into the publication. The formatted
+# braille is in the spine documents. Open the first of those, and print the
+# entry page as the alternative rather than making it the default.
+first_content=""
+if [ -f "$dest/package.opf" ]; then
+  # The first itemref in the spine, resolved to its manifest href.
+  first_content=$(python3 - "$dest/package.opf" <<'PYTHON'
+import sys
+from xml.etree import ElementTree as ET
+
+OPF = "{http://www.idpf.org/2007/opf}"
+try:
+    root = ET.parse(sys.argv[1]).getroot()
+except ET.ParseError:
+    sys.exit(0)
+
+hrefs = {
+    item.get("id"): item.get("href")
+    for item in root.findall(f".//{OPF}item")
+}
+for ref in root.findall(f".//{OPF}itemref"):
+    href = hrefs.get(ref.get("idref"))
+    if href:
+        print(href)
+        break
+PYTHON
+  )
+fi
+
 echo "unpacked to: $dest"
-open "$dest/index.html"
+
+if [ -n "$first_content" ] && [ -f "$dest/$first_content" ]; then
+  echo "opening content:    $first_content"
+  echo "table of contents:  index.html"
+  open "$dest/$first_content"
+else
+  echo "no spine content found; opening the table of contents"
+  open "$dest/index.html"
+fi

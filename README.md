@@ -55,12 +55,73 @@ assistive technology users are especially welcome.
 - Navigate long documents through a heading-based Outline
 - Jump directly to a numbered line from File Actions
 - Render Markdown as structured HTML inside the app
-- Share complete standalone HTML, Markdown, or plain-text files
+- Export to Markdown, plain text, HTML, Word, PDF, EPUB, eBraille, and Braille
+  Ready Format
+- Produce contracted or uncontracted braille editions translated with liblouis
 - Insert links, external images, formatting, headings, quotes, code, and lists
   through a dedicated Insert Actions workflow
 - Customize the information presented in the editor Status Bar
 - Choose an editor typeface without losing Dynamic Type support
 - Use optional hardware-keyboard shortcuts for common Library and editor actions
+
+## Export formats
+
+Documents are shared through File Actions > Share.
+
+| Format | Extension | Notes |
+| --- | --- | --- |
+| Markdown | `.md` | The original syntax, unchanged |
+| Plain Text | `.txt` | Markdown syntax removed |
+| HTML | `.html` | Complete standalone document |
+| Word Document | `.docx` | Word heading styles, lists, and tables |
+| PDF | `.pdf` | Tagged PDF, US Letter, one-inch margins |
+| EPUB | `.epub` | Reflowable ebook with a table of contents |
+| eBraille | `.ebrl` | Reflowable braille conforming to eBraille 1.0 |
+| Braille Ready Format | `.brf` | Fixed-page braille for displays and embossers |
+
+Headings, lists, links, tables, quotes, and code retain their document
+structure in every format that can express them. Alternative text is carried
+into every format that supports it, and an image with empty alternative text is
+marked decorative.
+
+### Braille exports
+
+Both braille formats translate through [liblouis](https://liblouis.io/) into
+Unified English Braille, in contracted (grade 2) or uncontracted (grade 1)
+form. Each format asks for what it can record; answers are remembered between
+exports.
+
+Layout follows [BANA Braille Formats
+2016](https://www.brailleauthority.org/formats/2016manual-web/): centered
+top-level headings, cell-5 and cell-7 headings below them, 3-1 paragraphs, and
+1-3 lists with each nested level two cells further in.
+
+**eBraille** produces a `.ebrl` file conforming to [eBraille
+1.0](https://daisy.github.io/ebraille/published/1.0/). Content is Unicode
+braille that reflows to the line length of the display it is read on, with a
+navigation document, embedded images, and the metadata the standard requires.
+The export asks for the braille grade, an author, a copyright year, and whether
+the document is a complete transcription.
+
+**Braille Ready Format** produces a `.brf` file of ASCII braille, wrapped and
+paginated to a fixed page. The export asks for the braille grade and the page
+size; the default is the standard braille page of 40 cells by 25 lines.
+
+Two scripts in `Scripts/` help when working on braille output:
+
+```sh
+# Check an eBraille file against the specification and read it back in English
+python3 Scripts/validate-ebraille.py FILE.ebrl
+
+# Show the cell layout of each block
+python3 Scripts/preview-ebraille-layout.py FILE.ebrl
+
+# Unpack an eBraille file and open it in a browser
+Scripts/open-ebraille.sh FILE.ebrl
+```
+
+The validation and preview scripts need liblouis installed locally
+(`brew install liblouis`).
 
 ## Supported Markdown
 
@@ -84,7 +145,9 @@ JavaScript is not used in rendered documents.
 
 - iOS or iPadOS 17.6 or later
 - Xcode with support for the project's iOS deployment target
-- No third-party packages or external dependencies
+- No Swift package dependencies. liblouis is vendored in `Vendor/liblouis` as a
+  prebuilt XCFramework and is used under the LGPL v2.1 or later; its licence and
+  source location are recorded in the app under Settings > Acknowledgements
 
 ## Building
 

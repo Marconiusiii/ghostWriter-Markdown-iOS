@@ -55,11 +55,12 @@ struct EBrailleSettingsTests {
         #expect(metadata.effectiveCopyrightYear.count == 4)
     }
 
-    @Test func onlyEBrailleRequiresOptions() {
-        // Every other format is derivable from the document alone, so none of
-        // them should stop to ask.
-        for format in EditorView.EditorShareFormat.allCases {
-            #expect(format.requiresOptions == (format == .eBraille))
-        }
+    @Test func brfPageSetupDefaultsToTheStandardBraillePage() {
+        // 40 by 25 is the standard braille page. A file wrapped for the wrong
+        // width reads badly on the device it lands on, so the default has to
+        // be the one most hardware expects.
+        let setup = BRFWriter.PageSetup.standard
+        #expect(setup.cellsPerLine == 40)
+        #expect(setup.linesPerPage == 25)
     }
 }

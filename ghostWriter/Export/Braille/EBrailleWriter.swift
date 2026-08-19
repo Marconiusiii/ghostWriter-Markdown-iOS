@@ -40,7 +40,16 @@ nonisolated enum EBrailleWriter {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let bookTitle = trimmedTitle.isEmpty ? "Document" : trimmedTitle
 
-        let language = BrailleLanguageTag.currentBrailleTag()
+        // The language comes from the translation table, not the device.
+        // These tables are UEB, which is English: a French-locale device
+        // exporting an English UEB transcription previously declared
+        // `fr-Brai-FR`, describing a French braille document that the file is
+        // not. The region is still taken from the device, since it is a
+        // regional preference rather than a claim about the braille code.
+        let language = BrailleLanguageTag.brailleTag(
+            from: metadata.grade.languageTag,
+            regionFrom: BrailleLanguageTag.currentBrailleTag()
+        )
         let identifier = "urn:uuid:\(UUID().uuidString.lowercased())"
 
         // Every piece of readable text is translated up front. Doing it here,
@@ -213,18 +222,50 @@ nonisolated enum EBrailleWriter {
     </container>
     """
 
-    /// Layout only. eBraille reserves rendering to the reading system, so this
-    /// sets no font, size, colour, or decoration — the reader's display and
-    /// their own preferences decide all of that.
+    /// Layout following BANA *Braille Formats* (2016), the formatting standard
+    /// for North American braille transcription.
+    ///
+    /// Positions are in `ch`, which is the only unit that means anything here:
+    /// eBraille requires a reading system to guarantee that `1ch` is the
+    /// cell-to-cell distance and `1em` the line-to-line distance. A margin in
+    /// `em` — as this used to be — indents by *lines*, so it lands on an
+    /// arbitrary cell. Braille Formats is written entirely in cell positions,
+    /// so `ch` is what expresses it.
+    ///
+    /// Rendering is still left to the reading system: no font, size, colour,
+    /// or decoration is set. Only the positions BANA specifies.
+    ///
+    /// The conventional notation below is "start-runover": 3-1 means the first
+    /// line begins in cell 3 and continued lines return to cell 1. In CSS that
+    /// is a `margin-left` for the runover and a `text-indent` for the
+    /// difference on the first line.
     private static let stylesheet = """
     body { margin: 0; }
-    h1, h2, h3, h4, h5, h6 { margin: 1em 0 0 0; }
-    p { margin: 0 0 1em 0; }
-    blockquote { margin-left: 2em; }
-    ol, ul { margin: 0 0 1em 0; padding-left: 0; list-style-type: none; }
-    li { margin: 0; }
+
+    /* Headings, in BANA's hierarchy: centered, then cell 5, then cell 7.
+       A centered heading is preceded and followed by a blank line; cell-5
+       and cell-7 headings are preceded by one but not followed. */
+    h1 { text-align: center; margin: 1em 0; }
+    h2 { margin: 1em 0 0 0; padding-left: 4ch; }
+    h3, h4, h5, h6 { margin: 1em 0 0 0; padding-left: 6ch; }
+
+    /* Body paragraphs are 3-1: first line in cell 3, runover in cell 1. */
+    p { margin: 0; text-indent: 2ch; }
+
+    /* Lists are 1-3: item begins in cell 1, runover two cells right. Each
+       nested level moves two cells further, with runovers following. */
+    ol, ul { margin: 1em 0; padding-left: 0; list-style-type: none; }
+    li { margin: 0; padding-left: 2ch; text-indent: -2ch; }
+    li ol, li ul { margin: 0; padding-left: 2ch; }
+
+    /* Displayed material sits two cells in from the surrounding margin. */
+    blockquote { margin: 1em 0; padding-left: 2ch; }
+
+    /* Preformatted text keeps its own line breaks rather than reflowing. */
+    pre { margin: 1em 0; padding-left: 2ch; white-space: pre-wrap; }
+
     table { border-collapse: collapse; }
-    td, th { padding: 0; text-align: left; }
+    td, th { padding: 0 1ch 0 0; text-align: left; vertical-align: top; }
     """
 
     private static func packageDocument(
@@ -279,6 +320,11 @@ nonisolated enum EBrailleWriter {
         <meta property="a11y:completeTranscription">\(metadata.isCompleteTranscription)</meta>
         <meta property="a11y:tactileGraphics">\(escape(tactileGraphics))</meta>
         <meta property="a11y:producer">\(escape(EBrailleMetadata.producer))</meta>
+        <!-- The formatting standard the layout follows. eBraille defines no
+             property for this, so the Dublin Core term is used; section 5.3.5
+             allows additional metadata. Without it, nothing in the file says
+             which national layout conventions the cell positions follow. -->
+        <meta property="dcterms:conformsTo">\(escape(EBrailleMetadata.formatStandard))</meta>
         <meta property="schema:accessMode">tactile</meta>
         <meta property="schema:accessModeSufficient">tactile</meta>
         <meta property="schema:accessibilityFeature">braille</meta>
