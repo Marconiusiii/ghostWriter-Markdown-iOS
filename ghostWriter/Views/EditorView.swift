@@ -89,8 +89,14 @@ struct EditorView: View {
         case word
         case pdf
         case epub
+        case eBraille
 
         var id: String { rawValue }
+
+        /// eBraille is the one format that cannot be produced from the
+        /// document alone: the standard requires facts about the transcription
+        /// that only the writer can supply, so it collects them first.
+        var requiresOptions: Bool { self == .eBraille }
 
         var label: String {
             switch self {
@@ -100,6 +106,7 @@ struct EditorView: View {
             case .word: return "Word Document"
             case .pdf: return "PDF"
             case .epub: return "EPUB"
+            case .eBraille: return "eBraille"
             }
         }
 

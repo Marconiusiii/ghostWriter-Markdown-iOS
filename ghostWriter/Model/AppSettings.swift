@@ -178,6 +178,33 @@ final class AppSettings {
         didSet { defaults.set(statusShowsSelectedWordCount, forKey: Keys.statusSelectedWordCount) }
     }
 
+    // MARK: - eBraille export
+
+    /// Remembered between exports. eBraille requires a creator, a copyright
+    /// year, and a braille grade on every file, and re-entering the same three
+    /// answers each time would make the format tedious to use for anyone who
+    /// exports more than once.
+    var eBrailleCreator: String {
+        didSet { defaults.set(eBrailleCreator, forKey: Keys.eBrailleCreator) }
+    }
+
+    var eBrailleCopyrightYear: String {
+        didSet { defaults.set(eBrailleCopyrightYear, forKey: Keys.eBrailleCopyrightYear) }
+    }
+
+    var eBrailleGrade: BrailleGrade {
+        didSet { defaults.set(eBrailleGrade.rawValue, forKey: Keys.eBrailleGrade) }
+    }
+
+    var eBrailleCompleteTranscription: Bool {
+        didSet {
+            defaults.set(
+                eBrailleCompleteTranscription,
+                forKey: Keys.eBrailleCompleteTranscription
+            )
+        }
+    }
+
     var statusShowsSelectedCharacterCount: Bool {
         didSet { defaults.set(statusShowsSelectedCharacterCount, forKey: Keys.statusSelectedCharacterCount) }
     }
@@ -256,6 +283,14 @@ final class AppSettings {
         self.statusShowsHeadingLevel = defaults.object(forKey: Keys.statusHeadingLevel) as? Bool ?? false
         self.statusShowsSelectedWordCount = defaults.object(forKey: Keys.statusSelectedWordCount) as? Bool ?? false
         self.statusShowsSelectedCharacterCount = defaults.object(forKey: Keys.statusSelectedCharacterCount) as? Bool ?? false
+        self.eBrailleCreator = defaults.string(forKey: Keys.eBrailleCreator) ?? ""
+        self.eBrailleCopyrightYear = defaults.string(forKey: Keys.eBrailleCopyrightYear) ?? ""
+        // Grade 2 is what most braille readers prefer, so it is the default
+        // rather than the less contracted grade 1.
+        self.eBrailleGrade = (defaults.string(forKey: Keys.eBrailleGrade)
+            .flatMap(BrailleGrade.init(rawValue:))) ?? .grade2
+        self.eBrailleCompleteTranscription =
+            defaults.object(forKey: Keys.eBrailleCompleteTranscription) as? Bool ?? true
         self.renderSoundEnabled = defaults.object(forKey: Keys.renderSound) as? Bool ?? true
         self.smartListsEnabled = defaults.object(forKey: Keys.smartLists) as? Bool ?? true
         self.keyboardShortcutsEnabled =
@@ -287,6 +322,10 @@ final class AppSettings {
         static let statusHeadingLevel = "statusShowsHeadingLevel"
         static let statusSelectedWordCount = "statusShowsSelectedWordCount"
         static let statusSelectedCharacterCount = "statusShowsSelectedCharacterCount"
+        static let eBrailleCreator = "eBrailleCreator"
+        static let eBrailleCopyrightYear = "eBrailleCopyrightYear"
+        static let eBrailleGrade = "eBrailleGrade"
+        static let eBrailleCompleteTranscription = "eBrailleCompleteTranscription"
         static let renderSound = "renderSoundEnabled"
         static let smartLists = "smartListsEnabled"
         static let keyboardShortcuts = "keyboardShortcutsEnabled"

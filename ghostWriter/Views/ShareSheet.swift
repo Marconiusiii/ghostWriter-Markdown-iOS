@@ -39,6 +39,11 @@ struct EditorShareView: View {
     @State private var fileURL: URL?
     @State private var failureMessage: String?
 
+    /// Set once the writer has confirmed the eBraille options. Formats that
+    /// need no options begin preparing immediately; eBraille waits here, which
+    /// is why preparation is keyed on this rather than started in `task`.
+    @State private var eBrailleMetadata: EBrailleMetadata?
+
     var body: some View {
         Group {
             if let failureMessage {
@@ -61,6 +66,14 @@ struct EditorShareView: View {
                         }
                     }
                 }
+            } else if format.requiresOptions, eBrailleMetadata == nil {
+                EBrailleOptionsView(
+                    documentTitle: title,
+                    onCancel: onClose,
+                    onExport: { metadata in
+                        eBrailleMetadata = metadata
+                    }
+                )
             } else if let fileURL {
                 // UIActivityViewController supplies its own Close button, in
                 // the right place — after the document name and before the
@@ -75,6 +88,9 @@ struct EditorShareView: View {
         .task {
             await prepareFile()
         }
+        .task(id: eBrailleMetadata) {
+            await prepareFile()
+        }
     }
 
     /// Conversion and file writing happen off the main thread. A large Word
@@ -82,22 +98,27 @@ struct EditorShareView: View {
     /// appeared.
     private func prepareFile() async {
         guard fileURL == nil, failureMessage == nil else { return }
+        // eBraille cannot be written until the writer has supplied the metadata
+        // the standard requires.
+        if format.requiresOptions, eBrailleMetadata == nil { return }
 
         let format = format
         let title = title
         let fileName = fileName
         let markdown = markdown
         let sourceDirectory = sourceDirectory
+        let metadata = eBrailleMetadata
 
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
             do {
                 return .success(
-                    try EditorShareFileWriter.write(
+                    try await EditorShareFileWriter.write(
                         format: format,
                         title: title,
                         fileName: fileName,
                         markdown: markdown,
-                        sourceDirectory: sourceDirectory
+                        sourceDirectory: sourceDirectory,
+                        eBrailleMetadata: metadata
                     )
                 )
             } catch {
@@ -122,8 +143,9 @@ nonisolated enum EditorShareFileWriter {
         title: String,
         fileName: String,
         markdown: String,
-        sourceDirectory: URL?
-    ) throws -> URL {
+        sourceDirectory: URL?,
+        eBrailleMetadata: EBrailleMetadata? = nil
+    ) async throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "ghostWriter-Share-\(UUID().uuidString)",
@@ -188,6 +210,24 @@ nonisolated enum EditorShareFileWriter {
             let data = try EPUBWriter.write(
                 title: title,
                 markdown: markdown,
+                sourceDirectory: sourceDirectory
+            )
+            try data.write(to: url, options: .atomic)
+            return url
+        case .eBraille:
+            // .ebrl is the packaged eBraille extension. The metadata is
+            // required, so its absence is a programming error rather than
+            // something to paper over with defaults.
+            guard let eBrailleMetadata else {
+                throw BrailleTranslationError.tablesMissing
+            }
+            let url = directory.appendingPathComponent(safeName)
+                .appendingPathExtension("ebrl")
+            let data = try await EBrailleWriter.write(
+                title: title,
+                markdown: markdown,
+                metadata: eBrailleMetadata,
+                translator: LiblouisBridge.shared,
                 sourceDirectory: sourceDirectory
             )
             try data.write(to: url, options: .atomic)
