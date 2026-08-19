@@ -40,7 +40,7 @@ nonisolated enum EPUBWriter {
 
         entries["META-INF/container.xml"] = Data(containerXML.utf8)
 
-        let images = collectImages(document, sourceDirectory: sourceDirectory)
+        let images = collectEmbeddedImages(document, sourceDirectory: sourceDirectory)
 
         entries["OEBPS/content.opf"] = Data(packageDocument(
             title: bookTitle,
@@ -416,7 +416,7 @@ nonisolated enum EPUBWriter {
     /// Gathers the local images a document refers to, so they can be embedded.
     /// An EPUB that links to files on the device would be empty on any other
     /// machine, so the bytes have to travel with the book.
-    private static func collectImages(
+    static func collectEmbeddedImages(
         _ document: ExportDocument,
         sourceDirectory: URL?
     ) -> [EmbeddedImage] {
