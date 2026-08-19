@@ -1,0 +1,9 @@
+// Exposes liblouis's C interface to Swift as the `CLiblouis` module.
+//
+// A module map rather than a bridging header: bridging headers are per-target
+// and would have to be duplicated for the test target, while a module is
+// imported like any other and works the same in both.
+module CLiblouis {
+header "liblouis.h"
+export *
+}
