@@ -19,18 +19,32 @@ struct NewDocumentView: View {
     @State private var name = ""
     @FocusState private var nameFieldFocused: Bool
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Text in a field lines up with the row it sits in: trailing beside its
+    /// label, leading when stacked beneath it.
+    private var fieldAlignment: TextAlignment {
+        dynamicTypeSize.isAccessibilitySize ? .leading : .trailing
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("", text: $name)
-                        .focused($nameFieldFocused)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.words)
-                        .submitLabel(.done)
-                        .accessibilityLabel("Document name")
-                        .onSubmit(create)
+                    // The name was previously announced through an
+                    // accessibilityLabel with nothing on screen to match it,
+                    // so the field was unlabelled to anyone looking at it.
+                    // LabeledContent makes the label visible and permanent,
+                    // and is the field's only accessible name.
+                    LabeledContent("Document Name") {
+                        TextField("", text: $name)
+                            .focused($nameFieldFocused)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.words)
+                            .submitLabel(.done)
+                            .multilineTextAlignment(fieldAlignment)
+                            .onSubmit(create)
+                    }
                 } footer: {
                     Text("The document is saved as a markdown file with this name. You can rename it later from File Actions.")
                 }
@@ -40,6 +54,7 @@ struct NewDocumentView: View {
                         .disabled(trimmedName.isEmpty)
                 }
             }
+            .labeledContentStyle(ReflowingLabeledContentStyle())
             .navigationTitle("New Document")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

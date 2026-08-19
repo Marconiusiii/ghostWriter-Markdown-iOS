@@ -30,6 +30,13 @@ struct MarkdownInsertionView: View {
     @State private var descriptiveText: String
     @State private var address = ""
     @FocusState private var focusedField: Field?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Text in a field lines up with the row it sits in: trailing beside its
+    /// label, leading when stacked beneath it.
+    private var fieldAlignment: TextAlignment {
+        dynamicTypeSize.isAccessibilitySize ? .leading : .trailing
+    }
 
     private enum Field {
         case descriptiveText
@@ -51,16 +58,27 @@ struct MarkdownInsertionView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(descriptiveTextLabel, text: $descriptiveText, axis: .vertical)
-                        .focused($focusedField, equals: .descriptiveText)
+                    // LabeledContent rather than a placeholder: a placeholder
+                    // disappears as soon as there is a value, leaving a field
+                    // no one can identify afterwards. The label is visible for
+                    // good and is the row's only accessible name, so the
+                    // fields themselves pass no label of their own.
+                    LabeledContent(descriptiveTextLabel) {
+                        TextField("", text: $descriptiveText, axis: .vertical)
+                            .focused($focusedField, equals: .descriptiveText)
+                            .multilineTextAlignment(fieldAlignment)
+                    }
 
-                    TextField("Address", text: $address)
-                        .focused($focusedField, equals: .address)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .submitLabel(.done)
-                        .onSubmit(insert)
+                    LabeledContent("Address") {
+                        TextField("", text: $address)
+                            .focused($focusedField, equals: .address)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                            .submitLabel(.done)
+                            .multilineTextAlignment(fieldAlignment)
+                            .onSubmit(insert)
+                    }
                 } footer: {
                     Text(instructions)
                 }
@@ -70,6 +88,7 @@ struct MarkdownInsertionView: View {
                         .disabled(!canInsert)
                 }
             }
+            .labeledContentStyle(ReflowingLabeledContentStyle())
             .navigationTitle(kind.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

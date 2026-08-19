@@ -127,9 +127,16 @@ nonisolated enum EBrailleWriter {
             Self.collect(document.blocks, into: &strings)
 
             for string in strings {
-                let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { continue }
-                braille[string] = try await translator.translate(trimmed, grade: grade)
+                // Translate the string as it stands, not a trimmed copy.
+                // Leading and trailing spaces are word boundaries: a run like
+                // "This text is " sits directly against an emphasised run, and
+                // trimming the space here joined them into "isbold". liblouis
+                // renders a space as U+2800 and preserves it, so the only
+                // thing trimming achieved was losing it.
+                guard !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    continue
+                }
+                braille[string] = try await translator.translate(string, grade: grade)
             }
         }
 
@@ -237,14 +244,20 @@ nonisolated enum EBrailleWriter {
         // Tactile graphics are declared by the formats actually present, or
         // `none`. Claiming graphics that are not there would mislead a reader
         // deciding whether the file is usable on their device.
-        let graphicsFormats = Set(images.compactMap { image -> String? in
-            switch image.mediaType {
-            case "image/jpeg": return "JPG"
-            case "image/png": return "PNG"
-            case "image/svg+xml": return "SVG"
-            default: return nil
-            }
-        }).sorted()
+        //
+        // The spec orders this list most-used to least-used, so it is counted
+        // rather than sorted alphabetically. Ties fall back to a fixed order
+        // so the same document always produces the same declaration.
+        var graphicsCounts: [String: Int] = [:]
+        for image in images {
+            guard let format = Self.graphicsFormat(for: image.mediaType) else { continue }
+            graphicsCounts[format, default: 0] += 1
+        }
+        let formatRank = ["JPG": 0, "PNG": 1, "SVG": 2, "PDF": 3]
+        let graphicsFormats = graphicsCounts.sorted { left, right in
+            if left.value != right.value { return left.value > right.value }
+            return (formatRank[left.key] ?? .max) < (formatRank[right.key] ?? .max)
+        }.map(\.key)
         let tactileGraphics = graphicsFormats.isEmpty
             ? "none"
             : graphicsFormats.joined(separator: ", ")
@@ -298,8 +311,11 @@ nonisolated enum EBrailleWriter {
 
         for block in document.blocks {
             guard case .heading(let level, let content) = block, level <= 3 else { continue }
-            let text = content.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { continue }
+            // Looked up untrimmed: the table is keyed by the exact string
+            // that was collected, so trimming here would miss the entry and
+            // silently emit an empty nav label.
+            let text = content.plainText
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
             counter += 1
             items.append(
                 "<li><a href=\"content.xhtml#heading-\(counter)\">\(escape(translations(text)))</a></li>"
@@ -317,6 +333,10 @@ nonisolated enum EBrailleWriter {
         <head>
         <meta charset="utf-8"/>
         <title>\(escape(translations(title)))</title>
+        <!-- Required: the primary entry page must point at the package
+             document, so a browser opening index.html directly can find the
+             rest of the publication. -->
+        <link rel="publication" href="package.opf" type="application/oebps-package+xml"/>
         </head>
         <body>
         <nav epub:type="toc" id="toc" role="doc-toc">
@@ -425,10 +445,10 @@ nonisolated enum EBrailleWriter {
                 let marker = list.isOrdered
                     ? "\(list.start + offset)."
                     : "-"
-                output += escape(translations(marker)) + " "
+                output += escape(translations(marker)) + Self.brailleSpace
 
                 if let state = item.taskState {
-                    output += escape(translations(state.spokenPrefix)) + " "
+                    output += escape(translations(state.spokenPrefix)) + Self.brailleSpace
                 }
                 output += inline(item.content)
                 if !item.children.isEmpty {
@@ -469,6 +489,13 @@ nonisolated enum EBrailleWriter {
             return output + "</table>\n"
         }
 
+        /// The space between a list marker and its text.
+        ///
+        /// U+2800, not U+0020. Every character in rendered eBraille text comes
+        /// from the braille block; an ASCII space is a print character in a
+        /// braille document, and a validator will reject it.
+        static let brailleSpace = "\u{2800}"
+
         func inline(_ spans: [ExportInline]) -> String {
             var output = ""
 
@@ -507,6 +534,18 @@ nonisolated enum EBrailleWriter {
             }
             let alternative = image.alternativeText.map { translations($0) } ?? ""
             return "<img src=\"\(escape(href))\" alt=\"\(escape(alternative))\"/>"
+        }
+    }
+
+    /// The eBraille name for a core image media type, or nil for anything the
+    /// standard does not count as a graphics format.
+    private static func graphicsFormat(for mediaType: String) -> String? {
+        switch mediaType {
+        case "image/jpeg": return "JPG"
+        case "image/png": return "PNG"
+        case "image/svg+xml": return "SVG"
+        case "application/pdf": return "PDF"
+        default: return nil
         }
     }
 

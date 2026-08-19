@@ -36,6 +36,8 @@ struct EditorShareView: View {
     let sourceDirectory: URL?
     let onClose: () -> Void
 
+    @Environment(AppSettings.self) private var settings
+
     @State private var fileURL: URL?
     @State private var failureMessage: String?
 
@@ -68,6 +70,7 @@ struct EditorShareView: View {
                 }
             } else if format.requiresOptions, eBrailleMetadata == nil {
                 EBrailleOptionsView(
+                    settings: settings,
                     documentTitle: title,
                     onCancel: onClose,
                     onExport: { metadata in
