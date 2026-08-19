@@ -13,6 +13,10 @@
 //  Answers are remembered in settings, so a second export is a matter of
 //  confirming rather than retyping.
 //
+//  The actions sit at the end of the form rather than in the toolbar, so they
+//  come last in reading order — after the choices they act on, which is where
+//  someone moving through the screen in sequence expects to meet them.
+//
 
 import SwiftUI
 
@@ -29,15 +33,15 @@ struct EBrailleOptionsView: View {
         NavigationStack {
             Form {
                 Section {
+                    Text("Converts your file to the eBraille 1.0 standard.")
+                }
+
+                Section {
                     Picker("Braille Grade", selection: $settings.eBrailleGrade) {
                         ForEach(BrailleGrade.allCases) { grade in
                             Text(grade.displayName).tag(grade)
                         }
                     }
-                } header: {
-                    Text("Braille")
-                } footer: {
-                    Text("Grade 2 uses contractions and is what most braille readers prefer. Grade 1 spells every word out in full.")
                 }
 
                 Section {
@@ -47,8 +51,6 @@ struct EBrailleOptionsView: View {
 
                     TextField("Copyright Year", text: $settings.eBrailleCopyrightYear)
                         .keyboardType(.numberPad)
-                } header: {
-                    Text("Publication")
                 } footer: {
                     Text("The eBraille standard requires an author and a copyright year. Left empty, the author is recorded as ghostWriter Markdown and the year as the current one.")
                 }
@@ -69,14 +71,8 @@ struct EBrailleOptionsView: View {
                 } footer: {
                     Text("Recorded in the file to identify the software that produced it.")
                 }
-            }
-            .navigationTitle("eBraille Options")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
-                }
-                ToolbarItem(placement: .confirmationAction) {
+
+                Section {
                     Button("Export and Share…") {
                         onExport(
                             EBrailleMetadata(
@@ -87,8 +83,11 @@ struct EBrailleOptionsView: View {
                             )
                         )
                     }
+                    Button("Cancel", role: .cancel, action: onCancel)
                 }
             }
+            .navigationTitle("eBraille Export")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

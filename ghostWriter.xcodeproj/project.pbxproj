@@ -7,11 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A11D0C010000000000000003 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A11D0C010000000000000002 /* ZIPFoundation */; };
 		A11D0C020000000000000002 /* liblouis.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11D0C020000000000000001 /* liblouis.xcframework */; };
-		A11D0C020000000000000007 /* liblouis.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11D0C020000000000000001 /* liblouis.xcframework */; };
 		A11D0C020000000000000005 /* tables in Resources */ = {isa = PBXBuildFile; fileRef = A11D0C020000000000000004 /* tables */; };
 		A11D0C020000000000000008 /* tables in Resources */ = {isa = PBXBuildFile; fileRef = A11D0C020000000000000004 /* tables */; };
-		A11D0C010000000000000003 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A11D0C010000000000000002 /* ZIPFoundation */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,11 +31,11 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A11D0C020000000000000001 /* liblouis.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = liblouis.xcframework; path = Vendor/liblouis/liblouis.xcframework; sourceTree = "<group>"; };
-		A11D0C020000000000000004 /* tables */ = {isa = PBXFileReference; lastKnownFileType = folder; name = tables; path = Vendor/liblouis/tables; sourceTree = "<group>"; };
 		82AAC97730181C6100A4551F /* ghostWriter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ghostWriter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		82AAC98430181C6200A4551F /* ghostWriterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ghostWriterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		82AAC98E30181C6200A4551F /* ghostWriterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ghostWriterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A11D0C020000000000000001 /* liblouis.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = liblouis.xcframework; path = Vendor/liblouis/liblouis.xcframework; sourceTree = "<group>"; };
+		A11D0C020000000000000004 /* tables */ = {isa = PBXFileReference; lastKnownFileType = folder; name = tables; path = Vendor/liblouis/tables; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -84,15 +83,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A11D0C020000000000000006 /* Vendor */ = {
-			isa = PBXGroup;
-			children = (
-				A11D0C020000000000000001 /* liblouis.xcframework */,
-				A11D0C020000000000000004 /* tables */,
-			);
-			name = Vendor;
-			sourceTree = "<group>";
-		};
 		82AAC96E30181C6100A4551F = {
 			isa = PBXGroup;
 			children = (
@@ -112,6 +102,15 @@
 				82AAC98E30181C6200A4551F /* ghostWriterUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A11D0C020000000000000006 /* Vendor */ = {
+			isa = PBXGroup;
+			children = (
+				A11D0C020000000000000001 /* liblouis.xcframework */,
+				A11D0C020000000000000004 /* tables */,
+			);
+			name = Vendor;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -356,13 +355,13 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
@@ -415,12 +414,12 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -446,18 +445,18 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marconius.ghostwriter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -485,18 +484,18 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marconius.ghostwriter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -512,13 +511,13 @@
 				DEVELOPMENT_TEAM = 4FL3XZDQ9P;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marconius.ghostWriterTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -535,13 +534,13 @@
 				DEVELOPMENT_TEAM = 4FL3XZDQ9P;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marconius.ghostWriterTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Vendor/liblouis/module";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
