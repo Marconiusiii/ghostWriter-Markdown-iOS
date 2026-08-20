@@ -37,8 +37,6 @@ final class ShareFileActivityItemSource: NSObject, UIActivityItemSource {
         _ activityViewController: UIActivityViewController
     ) -> LPLinkMetadata? {
         let metadata = LPLinkMetadata()
-        metadata.originalURL = fileURL
-        metadata.url = fileURL
         metadata.title = fileURL.lastPathComponent
         return metadata
     }

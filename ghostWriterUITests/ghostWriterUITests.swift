@@ -79,6 +79,36 @@ final class ghostWriterUITests: XCTestCase {
     }
 
     @MainActor
+    func testEBrailleMetadataDefaultsAreAvailableFromSettings() throws {
+        let app = launchLibraryApp()
+        app.buttons["Settings"].tap()
+
+        let editDefaults = app.buttons["Edit defaults"]
+        for _ in 0..<8 where !editDefaults.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(editDefaults.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts[
+                "Fills in new eBraille exports. You can edit these values before sharing."
+            ].exists
+        )
+
+        editDefaults.tap()
+
+        XCTAssertTrue(app.textFields["Author"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["Produced by"].exists)
+        XCTAssertTrue(app.textFields["Copyright date"].exists)
+        XCTAssertTrue(app.switches["Complete document"].exists)
+
+        let educationLevel = app.textFields["Education level"]
+        for _ in 0..<6 where !educationLevel.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(educationLevel.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testDocumentRowProvidesActionsWithoutASeparateMenuStop() throws {
         let app = launchLibraryApp()
         let name = "Row Actions \(UUID().uuidString)"

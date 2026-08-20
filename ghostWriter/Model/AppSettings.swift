@@ -180,15 +180,74 @@ final class AppSettings {
 
     // MARK: - eBraille export
 
-    /// The transcriber and grade are reusable export preferences. Details
-    /// about a particular work are kept only in that export sheet so metadata
-    /// from one document cannot silently leak into another.
+    var eBrailleCreator: String {
+        didSet { defaults.set(eBrailleCreator, forKey: Keys.eBrailleCreator) }
+    }
+
     var eBrailleTranscriber: String {
         didSet { defaults.set(eBrailleTranscriber, forKey: Keys.eBrailleTranscriber) }
     }
 
     var eBrailleGrade: BrailleGrade {
         didSet { defaults.set(eBrailleGrade.rawValue, forKey: Keys.eBrailleGrade) }
+    }
+
+    var eBrailleCopyrightDate: String {
+        didSet { defaults.set(eBrailleCopyrightDate, forKey: Keys.eBrailleCopyrightDate) }
+    }
+
+    var eBrailleIsCompleteDocument: Bool {
+        didSet {
+            defaults.set(
+                eBrailleIsCompleteDocument,
+                forKey: Keys.eBrailleIsCompleteDocument
+            )
+        }
+    }
+
+    var eBrailleSource: String {
+        didSet { defaults.set(eBrailleSource, forKey: Keys.eBrailleSource) }
+    }
+
+    var eBraillePublisher: String {
+        didSet { defaults.set(eBraillePublisher, forKey: Keys.eBraillePublisher) }
+    }
+
+    var eBrailleRights: String {
+        didSet { defaults.set(eBrailleRights, forKey: Keys.eBrailleRights) }
+    }
+
+    var eBrailleSubject: String {
+        didSet { defaults.set(eBrailleSubject, forKey: Keys.eBrailleSubject) }
+    }
+
+    var eBrailleDescription: String {
+        didSet { defaults.set(eBrailleDescription, forKey: Keys.eBrailleDescription) }
+    }
+
+    var eBrailleEducationLevel: String {
+        didSet {
+            defaults.set(
+                eBrailleEducationLevel,
+                forKey: Keys.eBrailleEducationLevel
+            )
+        }
+    }
+
+    var eBrailleMetadataDefaults: EBrailleMetadata {
+        EBrailleMetadata(
+            creator: eBrailleCreator,
+            transcriber: eBrailleTranscriber,
+            grade: eBrailleGrade,
+            copyrightYear: eBrailleCopyrightDate,
+            isCompleteTranscription: eBrailleIsCompleteDocument,
+            source: eBrailleSource,
+            publisher: eBraillePublisher,
+            rights: eBrailleRights,
+            subject: eBrailleSubject,
+            descriptionText: eBrailleDescription,
+            educationLevel: eBrailleEducationLevel
+        )
     }
 
     var brfCellsPerLine: Int {
@@ -277,11 +336,28 @@ final class AppSettings {
         self.statusShowsHeadingLevel = defaults.object(forKey: Keys.statusHeadingLevel) as? Bool ?? false
         self.statusShowsSelectedWordCount = defaults.object(forKey: Keys.statusSelectedWordCount) as? Bool ?? false
         self.statusShowsSelectedCharacterCount = defaults.object(forKey: Keys.statusSelectedCharacterCount) as? Bool ?? false
+        self.eBrailleCreator = defaults.string(forKey: Keys.eBrailleCreator) ?? ""
         self.eBrailleTranscriber = defaults.string(forKey: Keys.eBrailleTranscriber) ?? ""
         // Grade 2 is what most braille readers prefer, so it is the default
         // rather than the less contracted grade 1.
         self.eBrailleGrade = (defaults.string(forKey: Keys.eBrailleGrade)
             .flatMap(BrailleGrade.init(rawValue:))) ?? .grade2
+        self.eBrailleCopyrightDate = defaults.string(
+            forKey: Keys.eBrailleCopyrightDate
+        ) ?? ""
+        self.eBrailleIsCompleteDocument = defaults.object(
+            forKey: Keys.eBrailleIsCompleteDocument
+        ) as? Bool ?? true
+        self.eBrailleSource = defaults.string(forKey: Keys.eBrailleSource) ?? ""
+        self.eBraillePublisher = defaults.string(forKey: Keys.eBraillePublisher) ?? ""
+        self.eBrailleRights = defaults.string(forKey: Keys.eBrailleRights) ?? ""
+        self.eBrailleSubject = defaults.string(forKey: Keys.eBrailleSubject) ?? ""
+        self.eBrailleDescription = defaults.string(
+            forKey: Keys.eBrailleDescription
+        ) ?? ""
+        self.eBrailleEducationLevel = defaults.string(
+            forKey: Keys.eBrailleEducationLevel
+        ) ?? ""
         // 40 by 25 is the standard braille page. Devices vary, so these are
         // remembered rather than fixed.
         let storedCells = defaults.integer(forKey: Keys.brfCellsPerLine)
@@ -319,8 +395,17 @@ final class AppSettings {
         static let statusHeadingLevel = "statusShowsHeadingLevel"
         static let statusSelectedWordCount = "statusShowsSelectedWordCount"
         static let statusSelectedCharacterCount = "statusShowsSelectedCharacterCount"
+        static let eBrailleCreator = "eBrailleCreator"
         static let eBrailleTranscriber = "eBrailleTranscriber"
         static let eBrailleGrade = "eBrailleGrade"
+        static let eBrailleCopyrightDate = "eBrailleCopyrightDate"
+        static let eBrailleIsCompleteDocument = "eBrailleIsCompleteDocument"
+        static let eBrailleSource = "eBrailleSource"
+        static let eBraillePublisher = "eBraillePublisher"
+        static let eBrailleRights = "eBrailleRights"
+        static let eBrailleSubject = "eBrailleSubject"
+        static let eBrailleDescription = "eBrailleDescription"
+        static let eBrailleEducationLevel = "eBrailleEducationLevel"
         static let brfCellsPerLine = "brfCellsPerLine"
         static let brfLinesPerPage = "brfLinesPerPage"
         static let renderSound = "renderSoundEnabled"

@@ -210,6 +210,16 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink("Edit defaults") {
+                        EBrailleMetadataSettingsView()
+                    }
+                } header: {
+                    Text("eBraille metadata")
+                } footer: {
+                    Text("Fills in new eBraille exports. You can edit these values before sharing.")
+                }
+
+                Section {
                     LabeledContent("Version", value: appVersion)
                     Button("Why ghostWriter?") {
                         focusRequestGate.invalidate()

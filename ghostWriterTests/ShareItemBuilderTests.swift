@@ -29,8 +29,8 @@ struct ShareItemBuilderTests {
             source.activityViewControllerLinkMetadata(controller)
         )
         #expect(metadata.title == "Produce.brf")
-        #expect(metadata.originalURL == url)
-        #expect(metadata.url == url)
+        #expect(metadata.originalURL == nil)
+        #expect(metadata.url == nil)
         #expect(
             source.activityViewController(
                 controller,

@@ -22,11 +22,8 @@
 //  whoever produced the braille; collapsing them into one "Author" box meant
 //  every braille edition of someone else's book named the wrong person.
 //
-//  Document-specific facts remain local to this sheet so they cannot leak into
-//  a later document. Only reusable choices — the braille grade and producer
-//  name — are written to settings when an export succeeds. Keeping text fields
-//  off AppSettings also avoids republishing the settings object on every
-//  keystroke and redrawing the editor behind this sheet.
+//  Settings supplies initial values. Changes made here apply only to this
+//  export, so a one-time edit does not replace the saved defaults.
 //
 //  The actions sit at the end of the form rather than in the toolbar, so they
 //  come last in reading order — after the choices they act on, which is where
@@ -49,8 +46,6 @@
 import SwiftUI
 
 struct EBrailleOptionsView: View {
-    @Environment(AppSettings.self) private var settings
-
     let documentTitle: String
     let onCancel: () -> Void
     let onExport: (EBrailleMetadata) -> Void
@@ -114,17 +109,20 @@ struct EBrailleOptionsView: View {
         self.documentTitle = documentTitle
         self.onCancel = onCancel
         self.onExport = onExport
-        _grade = State(initialValue: settings.eBrailleGrade)
-        _creator = State(initialValue: "")
-        _transcriber = State(initialValue: settings.eBrailleTranscriber)
-        _copyrightYear = State(initialValue: "")
-        _isCompleteTranscription = State(initialValue: true)
-        _source = State(initialValue: "")
-        _publisher = State(initialValue: "")
-        _rights = State(initialValue: "")
-        _subject = State(initialValue: "")
-        _descriptionText = State(initialValue: "")
-        _educationLevel = State(initialValue: "")
+        let defaults = settings.eBrailleMetadataDefaults
+        _grade = State(initialValue: defaults.grade)
+        _creator = State(initialValue: defaults.creator)
+        _transcriber = State(initialValue: defaults.transcriber)
+        _copyrightYear = State(initialValue: defaults.copyrightYear)
+        _isCompleteTranscription = State(
+            initialValue: defaults.isCompleteTranscription
+        )
+        _source = State(initialValue: defaults.source)
+        _publisher = State(initialValue: defaults.publisher)
+        _rights = State(initialValue: defaults.rights)
+        _subject = State(initialValue: defaults.subject)
+        _descriptionText = State(initialValue: defaults.descriptionText)
+        _educationLevel = State(initialValue: defaults.educationLevel)
     }
 
     var body: some View {
@@ -290,13 +288,8 @@ struct EBrailleOptionsView: View {
         }
     }
 
-    /// Remembers the reusable producer and grade, then hands this document's
-    /// details to the writer.
     private func export() {
         focusedField = nil
-
-        settings.eBrailleGrade = grade
-        settings.eBrailleTranscriber = transcriber
         onExport(metadata)
     }
 

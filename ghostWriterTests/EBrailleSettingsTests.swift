@@ -2,8 +2,7 @@
 //  EBrailleSettingsTests.swift
 //  ghostWriterTests
 //
-//  Reusable braille preferences are remembered. Metadata about one work is
-//  deliberately kept out of global settings.
+//  eBraille defaults are remembered and mapped into each new export.
 //
 
 import Foundation
@@ -17,22 +16,61 @@ struct EBrailleSettingsTests {
         return suite
     }
 
-    @Test func reusableOptionsAreRememberedAcrossSessions() {
+    @Test func exportDefaultsAreRememberedAcrossSessions() {
         let defaults = makeDefaults()
 
         let first = AppSettings(defaults: defaults)
+        first.eBrailleCreator = "Morgan Author"
         first.eBrailleTranscriber = "Braille Services Ltd"
         first.eBrailleGrade = .grade1
+        first.eBrailleCopyrightDate = "2026-08"
+        first.eBrailleIsCompleteDocument = false
+        first.eBrailleSource = "Source edition"
+        first.eBraillePublisher = "Example Press"
+        first.eBrailleRights = "Shared with permission"
+        first.eBrailleSubject = "Accessible publishing"
+        first.eBrailleDescription = "A sample description"
+        first.eBrailleEducationLevel = "Adult"
         first.brfCellsPerLine = 32
         first.brfLinesPerPage = 24
 
         // A fresh instance stands in for the next launch.
         let second = AppSettings(defaults: defaults)
 
-        #expect(second.eBrailleTranscriber == "Braille Services Ltd")
-        #expect(second.eBrailleGrade == .grade1)
+        #expect(
+            second.eBrailleMetadataDefaults == EBrailleMetadata(
+                creator: "Morgan Author",
+                transcriber: "Braille Services Ltd",
+                grade: .grade1,
+                copyrightYear: "2026-08",
+                isCompleteTranscription: false,
+                source: "Source edition",
+                publisher: "Example Press",
+                rights: "Shared with permission",
+                subject: "Accessible publishing",
+                descriptionText: "A sample description",
+                educationLevel: "Adult"
+            )
+        )
         #expect(second.brfCellsPerLine == 32)
         #expect(second.brfLinesPerPage == 24)
+    }
+
+    @Test func metadataDefaultsStartEmptyAndComplete() {
+        let metadata = AppSettings(defaults: makeDefaults())
+            .eBrailleMetadataDefaults
+
+        #expect(metadata.creator.isEmpty)
+        #expect(metadata.transcriber.isEmpty)
+        #expect(metadata.grade == .grade2)
+        #expect(metadata.copyrightYear.isEmpty)
+        #expect(metadata.isCompleteTranscription)
+        #expect(metadata.source.isEmpty)
+        #expect(metadata.publisher.isEmpty)
+        #expect(metadata.rights.isEmpty)
+        #expect(metadata.subject.isEmpty)
+        #expect(metadata.descriptionText.isEmpty)
+        #expect(metadata.educationLevel.isEmpty)
     }
 
     @Test func gradeTwoIsTheDefault() {
