@@ -19,11 +19,12 @@ struct ExportImageResourceTests {
     }
 
     @Test func rasterSignaturesMustMatchTheirDeclaredFormat() {
-        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
-        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0])
+        let png = tinyPNG
+        let truncatedJPEG = Data([0xFF, 0xD8, 0xFF, 0xE0])
 
         #expect(EPUBWriter.hasValidImageSignature(png, mediaType: "image/png"))
-        #expect(EPUBWriter.hasValidImageSignature(jpeg, mediaType: "image/jpeg"))
+        #expect(!EPUBWriter.hasValidImageSignature(png, mediaType: "image/jpeg"))
+        #expect(!EPUBWriter.hasValidImageSignature(truncatedJPEG, mediaType: "image/jpeg"))
         #expect(!EPUBWriter.hasValidImageSignature(Data([1, 2, 3]), mediaType: "image/png"))
     }
 
@@ -36,8 +37,8 @@ struct ExportImageResourceTests {
         try FileManager.default.createDirectory(at: secondDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        try Data([1, 2, 3]).write(to: firstDirectory.appendingPathComponent("photo.png"))
-        try Data([4, 5, 6]).write(to: secondDirectory.appendingPathComponent("photo.png"))
+        try tinyPNG.write(to: firstDirectory.appendingPathComponent("photo.png"))
+        try tinyPNG.write(to: secondDirectory.appendingPathComponent("photo.png"))
         try Data([7, 8, 9]).write(to: root.appendingPathComponent("private.png"))
 
         let markdown = """
@@ -57,6 +58,23 @@ struct ExportImageResourceTests {
         #expect(resources.hrefBySource["https://example.com/image.png"] == nil)
     }
 
+    @Test func incorrectlyLabeledOrAnimatedImagesAreNotPackaged() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ghostWriter-image-signature-\(UUID().uuidString)")
+        let assets = root.appendingPathComponent(".ghostwriter-assets-test")
+        try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try Data("not a png".utf8).write(to: assets.appendingPathComponent("fake.png"))
+        try Data("GIF89a".utf8).write(to: assets.appendingPathComponent("animated.gif"))
+        let document = MarkdownDocumentParser.parse(
+            "![Fake](.ghostwriter-assets-test/fake.png)\n![Animated](.ghostwriter-assets-test/animated.gif)"
+        )
+
+        let resources = EPUBWriter.collectImageResources(document, sourceDirectory: root)
+        #expect(resources.images.isEmpty)
+    }
+
     @Test func unavailableImageBecomesAlternativeTextInsteadOfBrokenReference() throws {
         let data = try EPUBWriter.write(
             title: "Images",
@@ -70,5 +88,11 @@ struct ExportImageResourceTests {
 
         #expect(content.contains("Image: Remote description"))
         #expect(!content.contains("src=\"https://example.com/image.png\""))
+    }
+
+    private var tinyPNG: Data {
+        Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        ) ?? Data()
     }
 }

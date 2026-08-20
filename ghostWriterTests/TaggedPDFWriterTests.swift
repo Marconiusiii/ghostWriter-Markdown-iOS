@@ -30,9 +30,14 @@ struct TaggedPDFWriterTests {
 
     private func makePDF(
         title: String = "Test Document",
-        markdown: String
+        markdown: String,
+        sourceDirectory: URL? = nil
     ) throws -> Data {
-        try TaggedPDFWriter.write(title: title, markdown: markdown)
+        try TaggedPDFWriter.write(
+            title: title,
+            markdown: markdown,
+            sourceDirectory: sourceDirectory
+        )
     }
 
     // MARK: - Document validity
@@ -67,6 +72,36 @@ struct TaggedPDFWriterTests {
         // file can contain marked content and still be untagged without it.
         #expect(text.contains("/StructTreeRoot"))
         #expect(text.contains("/StructElem"))
+    }
+
+    @Test func structureTreeHasAReachableParentTreeAndPageMappings() throws {
+        let markdown = (1...120)
+            .map { "Paragraph \($0) with enough text to span several pages." }
+            .joined(separator: "\n\n")
+        let data = try makePDF(markdown: markdown)
+        let provider = try #require(CGDataProvider(data: data as CFData))
+        let document = try #require(CGPDFDocument(provider))
+        let catalog = try #require(document.catalog)
+
+        var structureTree: CGPDFDictionaryRef?
+        #expect(CGPDFDictionaryGetDictionary(catalog, "StructTreeRoot", &structureTree))
+        var parentTree: CGPDFDictionaryRef?
+        #expect(CGPDFDictionaryGetDictionary(
+            try #require(structureTree),
+            "ParentTree",
+            &parentTree
+        ))
+
+        for pageNumber in 1...document.numberOfPages {
+            let page = try #require(document.page(at: pageNumber))
+            var structParents: CGPDFInteger = -1
+            #expect(CGPDFDictionaryGetInteger(
+                try #require(page.dictionary),
+                "StructParents",
+                &structParents
+            ))
+            #expect(structParents >= 0)
+        }
     }
 
     @Test func declaresTheDocumentLanguageInTheCatalog() throws {
@@ -157,6 +192,7 @@ struct TaggedPDFWriterTests {
         #expect(text.contains("/L"))
         #expect(text.contains("/LI"))
         #expect(text.contains("/Lbl"))
+        #expect(text.contains("/LBody"))
     }
 
     @Test func tablesProduceTableStructure() throws {
@@ -184,6 +220,16 @@ struct TaggedPDFWriterTests {
     @Test func codeBlocksProduceCodeElements() throws {
         let text = rawText(try makePDF(markdown: "```\nlet x = 1\n```"))
         #expect(text.contains("/Code"))
+    }
+
+    @Test func longCodeLinesWrapInsteadOfBeingClipped() throws {
+        let longLine = Array(repeating: "accessibleCodeToken", count: 1_500)
+            .joined(separator: " ")
+        let data = try makePDF(markdown: "```swift\n\(longLine)\n```")
+        let provider = try #require(CGDataProvider(data: data as CFData))
+        let document = try #require(CGPDFDocument(provider))
+
+        #expect(document.numberOfPages > 1)
     }
 
     @Test func paragraphsProduceParagraphElements() throws {
@@ -241,6 +287,12 @@ struct TaggedPDFWriterTests {
         #expect(headingCount <= 1)
     }
 
+    @Test func matchingLevelTwoHeadingStillGetsARealTitleHeading() throws {
+        let text = rawText(try makePDF(title: "Report", markdown: "## Report\n\nBody."))
+        #expect(text.contains("/H1"))
+        #expect(text.contains("/H2"))
+    }
+
     @Test func documentsWithUnicodeSurvive() throws {
         let data = try makePDF(
             title: "Unicode",
@@ -248,6 +300,7 @@ struct TaggedPDFWriterTests {
         )
         let provider = try #require(CGDataProvider(data: data as CFData))
         #expect(CGPDFDocument(provider) != nil)
+        #expect(rawText(data).contains("/ActualText"))
     }
 
     @Test func linksBecomeAnnotations() throws {
@@ -256,5 +309,68 @@ struct TaggedPDFWriterTests {
         // A link that is only coloured text is indistinguishable from ordinary
         // text once printed, and cannot be followed.
         #expect(text.contains("/Annots") || text.contains("/URI"))
+        #expect(text.contains("/Link"))
+    }
+
+    @Test func informativeFiguresCarryAlternativeText() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ghostWriter-pdf-image-\(UUID().uuidString)")
+        let assets = root.appendingPathComponent(".ghostwriter-assets-test")
+        try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let image = Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        ) ?? Data()
+        try image.write(to: assets.appendingPathComponent("figure.png"))
+
+        let data = try makePDF(
+            markdown: "![A blue square](.ghostwriter-assets-test/figure.png)",
+            sourceDirectory: root
+        )
+        let text = rawText(data)
+
+        #expect(text.contains("/Figure"))
+        #expect(text.contains("/Alt"))
+        // PDF text strings are written as UTF-16BE hex so every language is
+        // preserved without relying on PDFDocEncoding.
+        #expect(text.contains(
+            "/Alt <FEFF004100200062006C007500650020007300710075006100720065>"
+        ))
+
+        let provider = try #require(CGDataProvider(data: data as CFData))
+        let document = try #require(CGPDFDocument(provider))
+        let page = try #require(document.page(at: 1))
+        let pageDictionary = try #require(page.dictionary)
+        var resources: CGPDFDictionaryRef?
+        #expect(CGPDFDictionaryGetDictionary(pageDictionary, "Resources", &resources))
+        var xObjects: CGPDFDictionaryRef?
+        #expect(CGPDFDictionaryGetDictionary(
+            try #require(resources), "XObject", &xObjects
+        ))
+        var imageStream: CGPDFStreamRef?
+        #expect(CGPDFDictionaryGetStream(try #require(xObjects), "Im1", &imageStream))
+        let requiredImageStream = try #require(imageStream)
+        let imageDictionary = try #require(CGPDFStreamGetDictionary(requiredImageStream))
+        var colorSpace: CGPDFObjectRef?
+        #expect(CGPDFDictionaryGetObject(imageDictionary, "ColorSpace", &colorSpace))
+        #expect(CGPDFObjectGetType(try #require(colorSpace)) == .array)
+    }
+
+    @Test func imagesOutsideManagedAssetsAreNotRead() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ghostWriter-pdf-image-sandbox-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let image = Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        ) ?? Data()
+        try image.write(to: root.appendingPathComponent("outside.png"))
+
+        let text = rawText(try makePDF(
+            markdown: "![Outside](outside.png)",
+            sourceDirectory: root
+        ))
+        #expect(!text.contains("/Figure"))
+        #expect(text.contains("/Caption"))
     }
 }

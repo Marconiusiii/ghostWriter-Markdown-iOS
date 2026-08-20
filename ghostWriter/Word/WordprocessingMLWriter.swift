@@ -1,8 +1,10 @@
 import Foundation
 import ImageIO
+import UniformTypeIdentifiers
 
 nonisolated enum WordprocessingMLWriter {
     private struct NumberingKey: Hashable {
+        var identifier: String
         var isBullet: Bool
         var start: Int
     }
@@ -36,7 +38,8 @@ nonisolated enum WordprocessingMLWriter {
                 sourceDirectory: sourceDirectory
             ), data.count <= Int(WordPackage.maximumEntrySize) else { return nil }
             let sourceName = URL(fileURLWithPath: image.fileName).lastPathComponent
-            guard let ext = normalizedImageExtension(sourceName) else { return nil }
+            guard let ext = normalizedImageExtension(sourceName),
+                  isDecodableImage(data, matching: ext) else { return nil }
             let fileName = "image\(images.count + 1).\(ext)"
             let part = ImagePart(
                 id: "rIdImage\(images.count + 1)",
@@ -84,7 +87,7 @@ nonisolated enum WordprocessingMLWriter {
             "docProps/app.xml": data(appPropertiesXML),
             "word/document.xml": data(documentXML),
             "word/_rels/document.xml.rels": data(documentRelationships),
-            "word/styles.xml": data(stylesXML),
+            "word/styles.xml": data(stylesXML(language: documentLanguage())),
             "word/numbering.xml": data(numberingXML(keys: numberingKeys))
         ]
         for image in context.images {
@@ -130,8 +133,10 @@ nonisolated enum WordprocessingMLWriter {
         if let list = paragraph.list {
             let key: NumberingKey
             switch list.kind {
-            case .bullet: key = NumberingKey(isBullet: true, start: 1)
-            case .numbered(let start): key = NumberingKey(isBullet: false, start: start)
+            case .bullet:
+                key = NumberingKey(identifier: list.identifier, isBullet: true, start: 1)
+            case .numbered(let start):
+                key = NumberingKey(identifier: list.identifier, isBullet: false, start: start)
             }
             if let numberID = numberingIDs[key] {
                 properties += "<w:numPr><w:ilvl w:val=\"\(max(0, min(8, list.level)))\"/><w:numId w:val=\"\(numberID)\"/></w:numPr>"
@@ -242,15 +247,37 @@ nonisolated enum WordprocessingMLWriter {
     ) -> Data? {
         guard let sourceDirectory else { return nil }
         let decoded = target.removingPercentEncoding ?? target
-        if decoded.lowercased().hasPrefix("http://")
-            || decoded.lowercased().hasPrefix("https://") { return nil }
-        let url: URL
-        if let absolute = URL(string: decoded), absolute.isFileURL {
-            url = absolute
-        } else {
-            url = sourceDirectory.appendingPathComponent(decoded).standardizedFileURL
-        }
+        guard !decoded.hasPrefix("/"), URL(string: decoded)?.scheme == nil else { return nil }
+        let root = sourceDirectory.standardizedFileURL.resolvingSymlinksInPath()
+        let url = root.appendingPathComponent(decoded).standardizedFileURL
+            .resolvingSymlinksInPath()
+        let rootPrefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
+        guard url.path.hasPrefix(rootPrefix) else { return nil }
         return try? Data(contentsOf: url)
+    }
+
+    private static func isDecodableImage(_ data: Data, matching ext: String) -> Bool {
+        guard !data.isEmpty,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0,
+              let typeIdentifier = CGImageSourceGetType(source) as String?,
+              let actualType = UTType(typeIdentifier),
+              let expectedType = expectedImageType(for: ext),
+              actualType.conforms(to: expectedType),
+              CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else { return false }
+        return true
+    }
+
+    private static func expectedImageType(for ext: String) -> UTType? {
+        switch ext {
+        case "jpg", "jpeg": return .jpeg
+        case "png": return .png
+        case "gif": return .gif
+        case "bmp": return .bmp
+        case "tif", "tiff": return .tiff
+        case "heic": return .heic
+        default: return nil
+        }
     }
 
     private static func normalizedImageExtension(_ fileName: String) -> String? {
@@ -284,8 +311,14 @@ nonisolated enum WordprocessingMLWriter {
             case .paragraph(let paragraph):
                 guard let list = paragraph.list else { continue }
                 switch list.kind {
-                case .bullet: add(NumberingKey(isBullet: true, start: 1))
-                case .numbered(let start): add(NumberingKey(isBullet: false, start: start))
+                case .bullet:
+                    add(NumberingKey(identifier: list.identifier, isBullet: true, start: 1))
+                case .numbered(let start):
+                    add(NumberingKey(
+                        identifier: list.identifier,
+                        isBullet: false,
+                        start: start
+                    ))
                 }
             case .table(let table):
                 for row in table.rows {
@@ -337,16 +370,23 @@ nonisolated enum WordprocessingMLWriter {
     """
 
     private static func corePropertiesXML(title: String) -> String {
-        xmlHeader + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><dc:title>\(xmlText(title))</dc:title><dc:creator>ghostWriter</dc:creator><cp:lastModifiedBy>ghostWriter</cp:lastModifiedBy></cp:coreProperties>"
+        xmlHeader + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><dc:title>\(xmlText(title))</dc:title><dc:creator>ghostWriter</dc:creator><dc:language>\(xmlText(documentLanguage()))</dc:language><cp:lastModifiedBy>ghostWriter</cp:lastModifiedBy></cp:coreProperties>"
     }
 
     private static let appPropertiesXML = xmlHeader + """
     <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>ghostWriter</Application></Properties>
     """
 
-    private static let stylesXML = xmlHeader + """
-    <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="3"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading5"><w:name w:val="heading 5"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="4"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading6"><w:name w:val="heading 6"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="5"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:pPr><w:ind w:left="720"/></w:pPr></w:style><w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/><w:basedOn w:val="Normal"/><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/></w:rPr></w:style><w:style w:type="character" w:styleId="CodeChar"><w:name w:val="Code Character"/><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/></w:rPr></w:style><w:style w:type="table" w:styleId="TableGrid"><w:name w:val="Table Grid"/><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4" w:color="auto"/><w:left w:val="single" w:sz="4" w:color="auto"/><w:bottom w:val="single" w:sz="4" w:color="auto"/><w:right w:val="single" w:sz="4" w:color="auto"/><w:insideH w:val="single" w:sz="4" w:color="auto"/><w:insideV w:val="single" w:sz="4" w:color="auto"/></w:tblBorders></w:tblPr></w:style></w:styles>
-    """
+    private static func stylesXML(language: String) -> String {
+        xmlHeader + """
+        <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="22"/><w:lang w:val="\(xmlAttribute(language))"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="3"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading5"><w:name w:val="heading 5"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="4"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading6"><w:name w:val="heading 6"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="5"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:pPr><w:ind w:left="720"/></w:pPr></w:style><w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/><w:basedOn w:val="Normal"/><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/></w:rPr></w:style><w:style w:type="character" w:styleId="CodeChar"><w:name w:val="Code Character"/><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/></w:rPr></w:style><w:style w:type="table" w:styleId="TableGrid"><w:name w:val="Table Grid"/><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4" w:color="auto"/><w:left w:val="single" w:sz="4" w:color="auto"/><w:bottom w:val="single" w:sz="4" w:color="auto"/><w:right w:val="single" w:sz="4" w:color="auto"/><w:insideH w:val="single" w:sz="4" w:color="auto"/><w:insideV w:val="single" w:sz="4" w:color="auto"/></w:tblBorders></w:tblPr></w:style></w:styles>
+        """
+    }
+
+    private static func documentLanguage() -> String {
+        Locale.preferredLanguages.first
+            ?? Locale.current.identifier.replacingOccurrences(of: "_", with: "-")
+    }
 
     private static func data(_ string: String) -> Data { Data(string.utf8) }
 

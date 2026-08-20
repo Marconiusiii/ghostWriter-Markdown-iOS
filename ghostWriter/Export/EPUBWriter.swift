@@ -13,6 +13,8 @@
 //
 
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 nonisolated enum EPUBWriter {
 
@@ -46,6 +48,7 @@ nonisolated enum EPUBWriter {
             title: bookTitle,
             identifier: identifier,
             language: language,
+            document: document,
             images: imageResources.images
         ).utf8)
 
@@ -82,7 +85,7 @@ nonisolated enum EPUBWriter {
         _ document: ExportDocument,
         title: String
     ) -> Bool {
-        guard case .heading(_, let content)? = document.blocks.first else { return false }
+        guard case .heading(1, let content)? = document.blocks.first else { return false }
         return content.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
             .caseInsensitiveCompare(title) == .orderedSame
     }
@@ -117,6 +120,7 @@ nonisolated enum EPUBWriter {
         title: String,
         identifier: String,
         language: String,
+        document: ExportDocument,
         images: [EmbeddedImage]
     ) -> String {
         let manifestImages = images.map { image in
@@ -126,6 +130,31 @@ nonisolated enum EPUBWriter {
         // dcterms:modified is mandatory in EPUB 3 and must be in this exact
         // form; a reading system rejects the package without it.
         let modified = ISO8601DateFormatter().string(from: Date())
+        let embeddedSources = Set(images.map(\.source))
+        let embeddedReferences = imageReferences(in: document.blocks).filter {
+            embeddedSources.contains($0.source)
+        }
+        let informativeImages = embeddedReferences.filter { !$0.isDecorative }
+        let hasVisualContent = !embeddedReferences.isEmpty
+        let textIsSufficient = informativeImages.allSatisfy {
+            !($0.alternativeText ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        let accessModes = hasVisualContent
+            ? "<meta property=\"schema:accessMode\">textual</meta>\n<meta property=\"schema:accessMode\">visual</meta>"
+            : "<meta property=\"schema:accessMode\">textual</meta>"
+        let sufficientMode = textIsSufficient ? "textual" : "textual,visual"
+        let alternativeTextFeature = informativeImages.isEmpty
+            ? ""
+            : "\n<meta property=\"schema:accessibilityFeature\">alternativeText</meta>"
+        let accessibilitySummary: String
+        if informativeImages.isEmpty {
+            accessibilitySummary = "Includes structured navigation and a table of contents."
+        } else if textIsSufficient {
+            accessibilitySummary = "Includes structured navigation, a table of contents, and alternative text for informative images."
+        } else {
+            accessibilitySummary = "Includes structured navigation and a table of contents. Some informative images do not have alternative text."
+        }
 
         return """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -135,12 +164,12 @@ nonisolated enum EPUBWriter {
         <dc:title>\(escape(title))</dc:title>
         <dc:language>\(escape(language))</dc:language>
         <meta property="dcterms:modified">\(modified)</meta>
-        <meta property="schema:accessMode">textual</meta>
-        <meta property="schema:accessModeSufficient">textual</meta>
+        \(accessModes)
+        <meta property="schema:accessModeSufficient">\(sufficientMode)</meta>
         <meta property="schema:accessibilityFeature">structuralNavigation</meta>
-        <meta property="schema:accessibilityFeature">tableOfContents</meta>
+        <meta property="schema:accessibilityFeature">tableOfContents</meta>\(alternativeTextFeature)
         <meta property="schema:accessibilityHazard">none</meta>
-        <meta property="schema:accessibilitySummary">This publication uses semantic headings, lists, and table markup throughout, and provides alternative text for images.</meta>
+        <meta property="schema:accessibilitySummary">\(escape(accessibilitySummary))</meta>
         </metadata>
         <manifest>
         <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
@@ -286,7 +315,7 @@ nonisolated enum EPUBWriter {
                         + inline(content) + "</h\(clamped)>\n"
 
                 case .paragraph(let content):
-                    guard !content.isEffectivelyEmpty else { continue }
+                    guard !content.isEffectivelyEmpty || containsImage(content) else { continue }
                     output += "<p>" + inline(content) + "</p>\n"
 
                 case .list(let list):
@@ -420,6 +449,23 @@ nonisolated enum EPUBWriter {
             if image.isDecorative { return "<img src=\"\(escape(href))\" alt=\"\"/>" }
             return "<img src=\"\(escape(href))\" alt=\"\(escape(image.alternativeText ?? ""))\"/>"
         }
+
+        private func containsImage(_ spans: [ExportInline]) -> Bool {
+            spans.contains { span in
+                switch span {
+                case .image:
+                    return true
+                case .emphasis(let children),
+                     .strong(let children),
+                     .strikethrough(let children),
+                     .underline(let children),
+                     .link(_, let children):
+                    return containsImage(children)
+                case .text, .code, .lineBreak:
+                    return false
+                }
+            }
+        }
     }
 
     // MARK: - Images
@@ -483,7 +529,8 @@ nonisolated enum EPUBWriter {
             guard url.path.hasPrefix(rootPrefix),
                   let mediaType = mediaType(for: url.pathExtension.lowercased()),
                   let data = try? Data(contentsOf: url),
-                  !data.isEmpty else { continue }
+                  !data.isEmpty,
+                  hasValidImageSignature(data, mediaType: mediaType) else { continue }
 
             let href = "images/image-\(images.count + 1)-\(sanitizedFileName(decoded))"
             hrefBySource[source] = href
@@ -529,6 +576,51 @@ nonisolated enum EPUBWriter {
         }
     }
 
+    private static func imageReferences(in blocks: [ExportBlock]) -> [ExportImage] {
+        var images: [ExportImage] = []
+
+        func collect(_ spans: [ExportInline]) {
+            for span in spans {
+                switch span {
+                case .image(let image):
+                    images.append(image)
+                case .emphasis(let children),
+                     .strong(let children),
+                     .strikethrough(let children),
+                     .underline(let children),
+                     .link(_, let children):
+                    collect(children)
+                case .text, .code, .lineBreak:
+                    continue
+                }
+            }
+        }
+
+        func collect(_ blocks: [ExportBlock]) {
+            for block in blocks {
+                switch block {
+                case .heading(_, let content), .paragraph(let content):
+                    collect(content)
+                case .list(let list):
+                    for item in list.items {
+                        collect(item.content)
+                        collect(item.children)
+                    }
+                case .table(let table):
+                    table.headers.forEach(collect)
+                    table.rows.flatMap { $0 }.forEach(collect)
+                case .blockQuote(let children):
+                    collect(children)
+                case .codeBlock, .thematicBreak:
+                    continue
+                }
+            }
+        }
+
+        collect(blocks)
+        return images
+    }
+
     private static func collectImageSources(
         inline spans: [ExportInline],
         into sources: inout [String]
@@ -552,8 +644,6 @@ nonisolated enum EPUBWriter {
     private static func mediaType(for pathExtension: String) -> String? {
         switch pathExtension {
         case "jpg", "jpeg": return "image/jpeg"
-        case "gif": return "image/gif"
-        case "webp": return "image/webp"
         case "png": return "image/png"
         case "svg": return "image/svg+xml"
         default: return nil
@@ -575,14 +665,29 @@ nonisolated enum EPUBWriter {
     static func hasValidImageSignature(_ data: Data, mediaType: String) -> Bool {
         switch mediaType {
         case "image/jpeg":
-            return data.starts(with: [0xFF, 0xD8, 0xFF])
+            return isDecodableRaster(data, expectedType: .jpeg)
         case "image/png":
-            return data.starts(with: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+            return isDecodableRaster(data, expectedType: .png)
         case "image/svg+xml":
             return isSafeSVG(data)
         default:
             return false
         }
+    }
+
+    private static func isDecodableRaster(
+        _ data: Data,
+        expectedType: UTType
+    ) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0,
+              let identifier = CGImageSourceGetType(source) as String?,
+              let actualType = UTType(identifier),
+              actualType.conforms(to: expectedType),
+              CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else {
+            return false
+        }
+        return true
     }
 
     // MARK: - Escaping

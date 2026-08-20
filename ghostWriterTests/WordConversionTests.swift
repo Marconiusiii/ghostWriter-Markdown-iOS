@@ -128,16 +128,18 @@ struct WordConversionTests {
             .dropFirst()
             .map { $0.components(separatedBy: "</w:p>")[0] }
 
-        // First paragraph, one genuinely empty paragraph, second paragraph.
-        // The trailing newline must not add a fourth.
-        #expect(paragraphs.count == 3)
-        #expect(paragraphs[0].contains("First paragraph."))
-        #expect(!paragraphs[1].contains("<w:t"))
-        #expect(paragraphs[2].contains("Second paragraph."))
+        // The document title is a real level-one heading, followed by the
+        // first paragraph, one genuinely empty paragraph, and the second.
+        // The trailing newline must not add another empty paragraph.
+        #expect(paragraphs.count == 4)
+        #expect(paragraphs[0].contains("Blank lines"))
+        #expect(paragraphs[1].contains("First paragraph."))
+        #expect(!paragraphs[2].contains("<w:t"))
+        #expect(paragraphs[3].contains("Second paragraph."))
 
         // And the blank line comes back on import rather than doubling up.
         let roundTrip = try WordToMarkdownConverter.convert(data: data)
-        #expect(roundTrip == "First paragraph.\n\nSecond paragraph.")
+        #expect(roundTrip == "# Blank lines\n\nFirst paragraph.\n\nSecond paragraph.")
     }
 
     @Test func inlineParserPreservesEscapesAndCombinedEmphasis() {
@@ -151,6 +153,48 @@ struct WordConversionTests {
         #expect(!runs.contains {
             $0.text == "literal" && ($0.bold || $0.italic)
         })
+    }
+
+    @Test func inlineParserUsesSharedMarkdownRulesAndImageTitles() {
+        let runs = MarkdownToWordConverter.inlineRuns(
+            "snake_case_name [reference][site] ![Diagram](.ghostwriter-assets-test/figure.png \"Sample figure\")",
+            definitions: ["site": "https://example.com"]
+        )
+
+        #expect(runs.map(\.text).joined() == "snake_case_name reference ")
+        #expect(!runs.contains { $0.italic })
+        #expect(runs.contains {
+            $0.text == "reference" && $0.hyperlink == "https://example.com"
+        })
+        #expect(runs.last?.image?.fileName == ".ghostwriter-assets-test/figure.png")
+        #expect(runs.last?.image?.alternativeText == "Diagram")
+    }
+
+    @Test func exportedTitleLanguageAndNumberingAreSemantic() throws {
+        let data = try MarkdownToWordConverter.convert(
+            title: "Numbered guide",
+            markdown: "## Section\n\n3. First\n4. Second\n\n7. Restarted"
+        )
+        let entries = try WordPackage.entries(from: data, paths: [
+            "word/document.xml", "word/numbering.xml", "word/styles.xml"
+        ])
+        let documentXML = try #require(
+            entries["word/document.xml"].flatMap { String(data: $0, encoding: .utf8) }
+        )
+        let numberingXML = try #require(
+            entries["word/numbering.xml"].flatMap { String(data: $0, encoding: .utf8) }
+        )
+        let stylesXML = try #require(
+            entries["word/styles.xml"].flatMap { String(data: $0, encoding: .utf8) }
+        )
+
+        #expect(documentXML.hasPrefix("<?xml"))
+        #expect(documentXML.contains("w:val=\"Heading1\""))
+        #expect(documentXML.contains("Numbered guide"))
+        #expect(documentXML.components(separatedBy: "<w:numId w:val=\"1\"/>").count - 1 == 2)
+        #expect(documentXML.components(separatedBy: "<w:numId w:val=\"2\"/>").count - 1 == 1)
+        #expect(numberingXML.components(separatedBy: "<w:num w:numId=").count - 1 == 2)
+        #expect(stylesXML.contains("<w:lang w:val="))
     }
 
     @Test func importedParagraphTextCannotAccidentallyBecomeAList() {
@@ -305,7 +349,10 @@ struct WordConversionTests {
         let xml = try #require(String(data: documentData, encoding: .utf8))
 
         #expect(xml.contains("<w:u w:val=\"single\"/>"))
-        #expect(try WordToMarkdownConverter.convert(data: data) == markdown)
+        #expect(
+            try WordToMarkdownConverter.convert(data: data)
+                == "# Underline\n\n\(markdown)"
+        )
     }
 
     @Test func importsEmbeddedInformativeAndDecorativeImages() throws {
@@ -347,12 +394,14 @@ struct WordConversionTests {
         )
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        try tinyPNG.write(to: directory.appendingPathComponent("informative.png"))
-        try tinyPNG.write(to: directory.appendingPathComponent("decorative.png"))
+        let assets = directory.appendingPathComponent(".ghostwriter-assets-test")
+        try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+        try tinyPNG.write(to: assets.appendingPathComponent("informative.png"))
+        try tinyPNG.write(to: assets.appendingPathComponent("decorative.png"))
 
         let data = try MarkdownToWordConverter.convert(
             title: "Images",
-            markdown: "![A blue square](informative.png)\n\n![](decorative.png)",
+            markdown: "![A blue square](.ghostwriter-assets-test/informative.png \"Sample\")\n\n![](.ghostwriter-assets-test/decorative.png)",
             sourceDirectory: directory
         )
         let entries = try WordPackage.entries(from: data, paths: [
@@ -383,6 +432,58 @@ struct WordConversionTests {
         #expect(roundTrip.markdown.contains("![A blue square]("))
         #expect(roundTrip.markdown.contains("![]("))
         #expect(roundTrip.imagesNeedingAlternativeText == 0)
+    }
+
+    @Test func doesNotEmbedImagesOutsideTheSourceDirectory() throws {
+        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "ghostWriterUnsafeImageExport-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let directory = parent.appendingPathComponent("document", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: parent) }
+        try tinyPNG.write(to: parent.appendingPathComponent("outside.png"))
+
+        let data = try MarkdownToWordConverter.convert(
+            title: "Images",
+            markdown: "![Outside](../outside.png)",
+            sourceDirectory: directory
+        )
+        let entries = try WordPackage.entries(from: data, paths: [
+            "word/document.xml", "word/_rels/document.xml.rels", "word/media/image1.png"
+        ])
+        let documentXML = try #require(
+            entries["word/document.xml"].flatMap { String(data: $0, encoding: .utf8) }
+        )
+
+        #expect(entries["word/media/image1.png"] == nil)
+        #expect(documentXML.contains("Image: Outside"))
+    }
+
+    @Test func doesNotPackageImageBytesUnderTheWrongContentType() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "ghostWriterMismatchedImageExport-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let assets = directory.appendingPathComponent(".ghostwriter-assets-test")
+        try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try tinyPNG.write(to: assets.appendingPathComponent("incorrect.jpg"))
+
+        let data = try MarkdownToWordConverter.convert(
+            title: "Images",
+            markdown: "![Incorrect](.ghostwriter-assets-test/incorrect.jpg)",
+            sourceDirectory: directory
+        )
+        let entries = try WordPackage.entries(from: data, paths: [
+            "word/document.xml", "word/media/image1.jpg"
+        ])
+        let documentXML = try #require(
+            entries["word/document.xml"].flatMap { String(data: $0, encoding: .utf8) }
+        )
+
+        #expect(entries["word/media/image1.jpg"] == nil)
+        #expect(documentXML.contains("Image: Incorrect"))
     }
 
     @Test func rejectsEncryptedPackage() throws {

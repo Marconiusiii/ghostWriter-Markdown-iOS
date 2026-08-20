@@ -6,21 +6,33 @@ nonisolated enum MarkdownToWordConverter {
         markdown: String,
         sourceDirectory: URL? = nil
     ) throws -> Data {
-        try WordprocessingMLWriter.write(
+        var document = document(from: markdown)
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cleanTitle.isEmpty, !startsWithMatchingTitle(document, title: cleanTitle) {
+            document.blocks.insert(.paragraph(WordParagraph(
+                runs: [WordRun(text: cleanTitle)],
+                headingLevel: 1
+            )), at: 0)
+        }
+        return try WordprocessingMLWriter.write(
             title: title,
-            document: document(from: markdown),
+            document: document,
             sourceDirectory: sourceDirectory
         )
     }
 
     static func document(from markdown: String) -> WordDocumentModel {
-        let lines = markdown.components(separatedBy: "\n")
+        var lines = markdown.components(separatedBy: "\n")
+        let definitions = extractLinkDefinitions(&lines)
         var blocks: [WordBlock] = []
         var index = 0
+        var nextListIdentifier = 1
+        var activeLists: [ListSequenceKey: WordListReference] = [:]
 
         while index < lines.count {
             let line = lines[index]
             let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if ListMarker(line: line) == nil { activeLists.removeAll() }
             if trimmed.isEmpty {
                 // A blank line in the Markdown becomes a real empty paragraph
                 // in the Word document, so the spacing the writer typed is the
@@ -54,7 +66,7 @@ nonisolated enum MarkdownToWordConverter {
                     .replacingOccurrences(of: "#+$", with: "", options: .regularExpression)
                     .trimmingCharacters(in: .whitespaces)
                 blocks.append(.paragraph(WordParagraph(
-                    runs: inlineRuns(heading),
+                    runs: inlineRuns(heading, definitions: definitions),
                     headingLevel: level
                 )))
                 index += 1
@@ -67,7 +79,7 @@ nonisolated enum MarkdownToWordConverter {
                    underline.allSatisfy({ $0 == "=" || $0 == "-" }),
                    Set(underline).count == 1 {
                     blocks.append(.paragraph(WordParagraph(
-                        runs: inlineRuns(trimmed),
+                        runs: inlineRuns(trimmed, definitions: definitions),
                         headingLevel: underline.first == "=" ? 1 : 2
                     )))
                     index += 2
@@ -76,7 +88,7 @@ nonisolated enum MarkdownToWordConverter {
             }
 
             if tableStarts(lines, at: index) {
-                let (table, next) = parseTable(lines, at: index)
+                let (table, next) = parseTable(lines, at: index, definitions: definitions)
                 blocks.append(.table(table))
                 index = next
                 continue
@@ -84,10 +96,28 @@ nonisolated enum MarkdownToWordConverter {
 
             if let marker = ListMarker(line: line) {
                 let level = max(0, LineAnalyzer.indentColumns(of: line) / 4)
-                let listKind: WordListReference.Kind
+                let style: ListSequenceKey.Style
+                let initialKind: WordListReference.Kind
                 switch marker.style {
-                case .unordered: listKind = .bullet
-                case .ordered(let number): listKind = .numbered(start: number)
+                case .unordered:
+                    style = .bullet
+                    initialKind = .bullet
+                case .ordered(let number):
+                    style = .numbered
+                    initialKind = .numbered(start: number)
+                }
+                let sequenceKey = ListSequenceKey(level: level, style: style)
+                let listReference: WordListReference
+                if let existing = activeLists[sequenceKey] {
+                    listReference = existing
+                } else {
+                    listReference = WordListReference(
+                        identifier: "markdown-list-\(nextListIdentifier)",
+                        level: level,
+                        kind: initialKind
+                    )
+                    nextListIdentifier += 1
+                    activeLists[sequenceKey] = listReference
                 }
                 var content = marker.content
                 if marker.taskBox != nil {
@@ -95,12 +125,8 @@ nonisolated enum MarkdownToWordConverter {
                     content = (completed ? "Completed: " : "Not completed: ") + content
                 }
                 blocks.append(.paragraph(WordParagraph(
-                    runs: inlineRuns(content),
-                    list: WordListReference(
-                        identifier: "markdown-list",
-                        level: level,
-                        kind: listKind
-                    )
+                    runs: inlineRuns(content, definitions: definitions),
+                    list: listReference
                 )))
                 index += 1
                 continue
@@ -109,7 +135,7 @@ nonisolated enum MarkdownToWordConverter {
             if trimmed.hasPrefix(">") {
                 let text = trimmed.drop(while: { $0 == ">" || $0 == " " })
                 blocks.append(.paragraph(WordParagraph(
-                    runs: inlineRuns(String(text)),
+                    runs: inlineRuns(String(text), definitions: definitions),
                     isBlockQuote: true
                 )))
                 index += 1
@@ -143,7 +169,9 @@ nonisolated enum MarkdownToWordConverter {
                 let clean = value.trimmingCharacters(in: .whitespaces)
                 return clean + (hardBreak && offset < paragraphLines.count - 1 ? "\n" : " ")
             }.joined().trimmingCharacters(in: .whitespaces)
-            blocks.append(.paragraph(WordParagraph(runs: inlineRuns(joined))))
+            blocks.append(.paragraph(WordParagraph(
+                runs: inlineRuns(joined, definitions: definitions)
+            )))
         }
 
         // A file ending in a newline yields one final empty line that the
@@ -160,124 +188,65 @@ nonisolated enum MarkdownToWordConverter {
         return WordDocumentModel(blocks: blocks)
     }
 
-    static func inlineRuns(_ source: String) -> [WordRun] {
-        parseInline(source, inherited: WordRun())
+    static func inlineRuns(
+        _ source: String,
+        definitions: [String: String] = [:]
+    ) -> [WordRun] {
+        wordRuns(from: MarkdownInlineParser.parse(source, definitions: definitions))
     }
 
-    private static func parseInline(_ source: String, inherited: WordRun) -> [WordRun] {
+    private static func wordRuns(
+        from spans: [ExportInline],
+        inherited: WordRun = WordRun()
+    ) -> [WordRun] {
         var runs: [WordRun] = []
-        var remainder = source[...]
-        while !remainder.isEmpty {
-            if remainder.first == "\\", remainder.count > 1 {
-                remainder.removeFirst()
-                var literal = inherited
-                literal.text = String(remainder.removeFirst())
-                runs.append(literal)
-                continue
-            }
-            if remainder.hasPrefix("!["),
-               let closeLabel = remainder.firstIndex(of: "]"),
-               remainder.index(after: closeLabel) < remainder.endIndex,
-               remainder[remainder.index(after: closeLabel)] == "(",
-               let closeDestination = remainder[remainder.index(closeLabel, offsetBy: 2)...].firstIndex(of: ")") {
-                let alt = String(remainder[remainder.index(remainder.startIndex, offsetBy: 2)..<closeLabel])
-                let destinationStart = remainder.index(closeLabel, offsetBy: 2)
-                let destination = String(remainder[destinationStart..<closeDestination])
-                var imageRun = inherited
-                imageRun.text = ""
-                imageRun.image = WordImage(
-                    fileName: destination.removingPercentEncoding ?? destination,
-                    alternativeText: alt.isEmpty ? nil : unescape(alt),
-                    isDecorative: alt.isEmpty,
-                    externalTarget: destination
-                )
-                runs.append(imageRun)
-                remainder = remainder[remainder.index(after: closeDestination)...]
-                continue
-            }
-            if remainder.hasPrefix("["),
-               let closeLabel = remainder.firstIndex(of: "]"),
-               remainder.index(after: closeLabel) < remainder.endIndex,
-               remainder[remainder.index(after: closeLabel)] == "(",
-               let closeDestination = remainder[remainder.index(closeLabel, offsetBy: 2)...].firstIndex(of: ")") {
-                let labelStart = remainder.index(after: remainder.startIndex)
-                let label = String(remainder[labelStart..<closeLabel])
-                let destinationStart = remainder.index(closeLabel, offsetBy: 2)
-                let destination = String(remainder[destinationStart..<closeDestination])
-                var linked = parseInline(label, inherited: inherited)
-                for index in linked.indices { linked[index].hyperlink = destination }
-                runs += linked
-                remainder = remainder[remainder.index(after: closeDestination)...]
-                continue
-            }
-
-            if remainder.hasPrefix("***") || remainder.hasPrefix("___") {
-                let delimiter = remainder.hasPrefix("***") ? "***" : "___"
-                let afterOpen = remainder.dropFirst(3)
-                if let close = afterOpen.range(of: delimiter) {
-                    var formatting = inherited
-                    formatting.bold = true
-                    formatting.italic = true
-                    runs += parseInline(String(afterOpen[..<close.lowerBound]), inherited: formatting)
-                    remainder = afterOpen[close.upperBound...]
-                    continue
-                }
-            }
-
-            if remainder.hasPrefix("<u>"),
-               let close = remainder.dropFirst(3).range(of: "</u>") {
-                let afterOpen = remainder.dropFirst(3)
-                var formatting = inherited
-                formatting.underline = true
-                runs += parseInline(String(afterOpen[..<close.lowerBound]), inherited: formatting)
-                remainder = afterOpen[close.upperBound...]
-                continue
-            }
-
-            let delimiters: [(String, WritableKeyPath<WordRun, Bool>)] = [
-                ("**", \.bold), ("__", \.bold), ("~~", \.strikethrough),
-                ("*", \.italic), ("_", \.italic), ("`", \.inlineCode)
-            ]
-            var matched = false
-            for (delimiter, property) in delimiters where remainder.hasPrefix(delimiter) {
-                let afterOpen = remainder.dropFirst(delimiter.count)
-                if let close = afterOpen.range(of: delimiter) {
-                    var formatting = inherited
-                    formatting[keyPath: property] = true
-                    runs += parseInline(String(afterOpen[..<close.lowerBound]), inherited: formatting)
-                    remainder = afterOpen[close.upperBound...]
-                    matched = true
-                    break
-                }
-            }
-            if matched { continue }
-
-            let next = nextSpecialIndex(in: remainder) ?? remainder.endIndex
-            var text: String
-            if next == remainder.startIndex {
-                text = String(remainder.removeFirst())
-            } else {
-                text = String(remainder[..<next])
-                remainder = remainder[next...]
-            }
-            text = unescape(text)
-            if !text.isEmpty {
+        for span in spans {
+            switch span {
+            case .text(let text):
                 var run = inherited
                 run.text = text
+                runs.append(run)
+            case .emphasis(let children):
+                var formatting = inherited
+                formatting.italic = true
+                runs += wordRuns(from: children, inherited: formatting)
+            case .strong(let children):
+                var formatting = inherited
+                formatting.bold = true
+                runs += wordRuns(from: children, inherited: formatting)
+            case .strikethrough(let children):
+                var formatting = inherited
+                formatting.strikethrough = true
+                runs += wordRuns(from: children, inherited: formatting)
+            case .underline(let children):
+                var formatting = inherited
+                formatting.underline = true
+                runs += wordRuns(from: children, inherited: formatting)
+            case .code(let text):
+                var run = inherited
+                run.text = text
+                run.inlineCode = true
+                runs.append(run)
+            case .link(let destination, let children):
+                var formatting = inherited
+                formatting.hyperlink = destination
+                runs += wordRuns(from: children, inherited: formatting)
+            case .image(let image):
+                var run = inherited
+                run.image = WordImage(
+                    fileName: image.source.removingPercentEncoding ?? image.source,
+                    alternativeText: image.alternativeText,
+                    isDecorative: image.isDecorative,
+                    externalTarget: image.source
+                )
+                runs.append(run)
+            case .lineBreak:
+                var run = inherited
+                run.text = "\n"
                 runs.append(run)
             }
         }
         return merge(runs)
-    }
-
-    private static func nextSpecialIndex(in text: Substring) -> Substring.Index? {
-        text.indices.first { index in
-            "![]*_~`\\<".contains(text[index])
-        }
-    }
-
-    private static func unescape(_ text: String) -> String {
-        text.replacingOccurrences(of: #"\\([\\`*_{}\[\]()<>#+\-.!|~])"#, with: "$1", options: .regularExpression)
     }
 
     private static func merge(_ runs: [WordRun]) -> [WordRun] {
@@ -307,13 +276,22 @@ nonisolated enum MarkdownToWordConverter {
             && LineAnalyzer.isTableDivider(lines[index + 1].trimmingCharacters(in: .whitespaces))
     }
 
-    private static func parseTable(_ lines: [String], at start: Int) -> (WordTable, Int) {
-        var rows = [WordTableRow(cells: splitRow(lines[start]).map(cellBlocks), isHeader: true)]
+    private static func parseTable(
+        _ lines: [String],
+        at start: Int,
+        definitions: [String: String]
+    ) -> (WordTable, Int) {
+        var rows = [WordTableRow(
+            cells: splitRow(lines[start]).map { cellBlocks($0, definitions: definitions) },
+            isHeader: true
+        )]
         var index = start + 2
         while index < lines.count {
             let line = lines[index]
             guard !line.trimmingCharacters(in: .whitespaces).isEmpty, line.contains("|") else { break }
-            rows.append(WordTableRow(cells: splitRow(line).map(cellBlocks)))
+            rows.append(WordTableRow(
+                cells: splitRow(line).map { cellBlocks($0, definitions: definitions) }
+            ))
             index += 1
         }
         return (WordTable(rows: rows), index)
@@ -328,7 +306,53 @@ nonisolated enum MarkdownToWordConverter {
         }
     }
 
-    private static func cellBlocks(_ text: String) -> [WordBlock] {
-        [.paragraph(WordParagraph(runs: inlineRuns(text.replacingOccurrences(of: "<br>", with: "\n"))))]
+    private static func cellBlocks(
+        _ text: String,
+        definitions: [String: String]
+    ) -> [WordBlock] {
+        [.paragraph(WordParagraph(runs: inlineRuns(
+            text.replacingOccurrences(of: "<br>", with: "\n"),
+            definitions: definitions
+        )))]
+    }
+
+    private static func startsWithMatchingTitle(
+        _ document: WordDocumentModel,
+        title: String
+    ) -> Bool {
+        guard case .paragraph(let first)? = document.blocks.first,
+              first.headingLevel == 1 else { return false }
+        return first.runs.map(\.text).joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare(title) == .orderedSame
+    }
+
+    private static func extractLinkDefinitions(_ lines: inout [String]) -> [String: String] {
+        var definitions: [String: String] = [:]
+        var remaining: [String] = []
+        var insideCodeBlock = false
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                insideCodeBlock.toggle()
+                remaining.append(line)
+            } else if !insideCodeBlock,
+                      let match = trimmed.firstMatch(
+                        of: /^\[([^\]]+)\]:\s*(\S+)(?:\s+["'(].*["')])?$/
+                      ) {
+                definitions[String(match.1).lowercased()] = String(match.2)
+            } else {
+                remaining.append(line)
+            }
+        }
+        lines = remaining
+        return definitions
+    }
+
+    private struct ListSequenceKey: Hashable {
+        enum Style: Hashable { case bullet, numbered }
+        var level: Int
+        var style: Style
     }
 }

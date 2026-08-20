@@ -88,7 +88,7 @@ nonisolated enum TaggedPDFWriter {
         // The language is not set here. CGPDFContext accepts a languageText
         // property and then discards it, so it is written into the catalog
         // after the file is closed — see PDFLanguageTag.
-        tagged(.document, context: context) {
+        tagged(.document, state: &state) { state in
             // A leading title heading gives the document an H1 even when the
             // body does not open with one, which is what a screen reader's
             // heading navigation lands on first.
@@ -112,11 +112,17 @@ nonisolated enum TaggedPDFWriter {
             throw PDFExportError.couldNotCreateDocument
         }
 
+        let completedStructure = PDFStructureFinalizer.finalizing(
+            data as Data,
+            figureAlternativeTexts: state.figureAlternativeTexts,
+            actualTexts: state.actualTexts
+        )
+
         // CGPDFContext writes no language attribute, and a tagged PDF without
         // one fails an accessibility audit, so it is added to the finished file.
         return PDFLanguageTag.adding(
             language: documentLanguage(),
-            to: data as Data
+            to: completedStructure
         )
     }
 
@@ -124,7 +130,7 @@ nonisolated enum TaggedPDFWriter {
         _ document: ExportDocument,
         title: String
     ) -> Bool {
-        guard case .heading(_, let content)? = document.blocks.first else { return false }
+        guard case .heading(1, let content)? = document.blocks.first else { return false }
         return content.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
             .caseInsensitiveCompare(title) == .orderedSame
     }
@@ -151,12 +157,20 @@ nonisolated enum TaggedPDFWriter {
     /// Tracks where on the page the next block goes, and how deep the tag tree
     /// currently is.
     private struct RenderState {
+        struct ActiveTag {
+            let type: CGPDFTagType
+            let properties: [CGPDFTagProperty: String]
+        }
+
         let context: CGContext
         let sourceDirectory: URL?
         var cursor: CGFloat = 0
         var pageIsOpen = false
         /// Left edge of the current text column. Lists and quotes shift it.
         var leftInset: CGFloat = 0
+        var activeTags: [ActiveTag] = []
+        var figureAlternativeTexts: [String] = []
+        var actualTexts: [String] = []
 
         var availableWidth: CGFloat {
             contentWidth - leftInset
@@ -173,15 +187,24 @@ nonisolated enum TaggedPDFWriter {
 
     /// Ends the current page and starts a new one.
     ///
-    /// Tags are *not* closed across the break. A paragraph split over two pages
-    /// remains one structure element containing marked content on both, which
-    /// is what keeps it a single unit in the reading order rather than two
-    /// fragments a screen reader announces separately.
+    /// PDF structure elements cannot remain open while a page is ended. Close
+    /// the active hierarchy before the break and reopen the same hierarchy on
+    /// the new page so every page has a valid marked-content relationship.
     private static func newPage(_ state: inout RenderState) {
         if state.pageIsOpen {
+            for _ in state.activeTags.reversed() {
+                CGPDFContextEndTag(state.context)
+            }
             state.context.endPDFPage()
         }
         state.context.beginPDFPage(pageAttributes())
+        for tag in state.activeTags {
+            CGPDFContextBeginTag(
+                state.context,
+                tag.type,
+                tag.properties as CFDictionary
+            )
+        }
         state.pageIsOpen = true
         state.cursor = contentTop
     }
@@ -202,15 +225,17 @@ nonisolated enum TaggedPDFWriter {
     private static func tagged(
         _ tag: CGPDFTagType,
         properties: [CGPDFTagProperty: String] = [:],
-        context: CGContext,
-        body: () -> Void
+        state: inout RenderState,
+        body: (inout RenderState) -> Void
     ) {
         // The C function takes a nullable dictionary, but Swift imports the
         // parameter as non-optional, so an empty dictionary stands in for "no
         // properties" — it produces the same tag with no extra attributes.
-        CGPDFContextBeginTag(context, tag, properties as CFDictionary)
-        body()
-        CGPDFContextEndTag(context)
+        CGPDFContextBeginTag(state.context, tag, properties as CFDictionary)
+        state.activeTags.append(RenderState.ActiveTag(type: tag, properties: properties))
+        body(&state)
+        state.activeTags.removeLast()
+        CGPDFContextEndTag(state.context)
     }
 
     /// The tag used for purely visual marks — rules, table borders, the bar
@@ -340,12 +365,15 @@ nonisolated enum TaggedPDFWriter {
         let properties: [CGPDFTagProperty: String] = image.isDecorative
             ? [:]
             : [.alternativeText: image.alternativeText ?? ""]
+        if !image.isDecorative {
+            state.figureAlternativeTexts.append(image.alternativeText ?? "")
+        }
 
         tagged(
             image.isDecorative ? decorationTag : .figure,
             properties: properties,
-            context: state.context
-        ) {
+            state: &state
+        ) { state in
             let rect = CGRect(
                 x: state.originX,
                 y: state.cursor - drawHeight,
@@ -365,26 +393,50 @@ nonisolated enum TaggedPDFWriter {
         _ image: ExportImage,
         sourceDirectory: URL?
     ) -> CGImage? {
+        guard let sourceDirectory else { return nil }
         let decoded = image.source.removingPercentEncoding ?? image.source
-        let lowercased = decoded.lowercased()
-        guard !lowercased.hasPrefix("http://"), !lowercased.hasPrefix("https://") else {
-            return nil
-        }
-
-        let url: URL
-        if let absolute = URL(string: decoded), absolute.isFileURL {
-            url = absolute
-        } else if let sourceDirectory {
-            url = sourceDirectory.appendingPathComponent(decoded).standardizedFileURL
-        } else {
-            return nil
-        }
+        guard !decoded.hasPrefix("/"), URL(string: decoded)?.scheme == nil else { return nil }
+        let relativeComponents = decoded.split(separator: "/", omittingEmptySubsequences: true)
+        guard let assetDirectory = relativeComponents.first,
+              assetDirectory.hasPrefix(".ghostwriter-assets-") else { return nil }
+        let root = sourceDirectory.standardizedFileURL.resolvingSymlinksInPath()
+        let url = root.appendingPathComponent(decoded).standardizedFileURL
+            .resolvingSymlinksInPath()
+        let rootPrefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
+        guard url.path.hasPrefix(rootPrefix) else { return nil }
 
         guard let data = try? Data(contentsOf: url),
               let source = CGImageSourceCreateWithData(data as CFData, nil),
               CGImageSourceGetCount(source) > 0 else { return nil }
 
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        guard let decodedImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            return nil
+        }
+        return normalizedImageForPDF(decodedImage)
+    }
+
+    /// Quartz PDF output can produce an invalid image colour-space dictionary
+    /// for otherwise decodable indexed or grayscale-plus-alpha images. Drawing
+    /// through a standard sRGB bitmap first gives every embedded image a stable
+    /// eight-bit RGB representation that PDF readers agree on.
+    private static func normalizedImageForPDF(_ image: CGImage) -> CGImage? {
+        guard image.width > 0, image.height > 0,
+              let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: image.width,
+                height: image.height,
+                bitsPerComponent: 8,
+                bytesPerRow: image.width * 4,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(
+            image,
+            in: CGRect(x: 0, y: 0, width: image.width, height: image.height)
+        )
+        return context.makeImage()
     }
 
     // MARK: - Headings
@@ -412,7 +464,7 @@ nonisolated enum TaggedPDFWriter {
         let needed = PDFTextLayout.height(of: lines) + metrics.body * 2
         ensureSpace(needed, state: &state)
 
-        tagged(headingTag(level: level), context: state.context) {
+        tagged(headingTag(level: level), state: &state) { state in
             drawLines(lines, attributed: attributed, state: &state)
         }
 
@@ -448,7 +500,7 @@ nonisolated enum TaggedPDFWriter {
         let lines = PDFTextLayout.lines(for: attributed, width: state.availableWidth)
         guard !lines.isEmpty else { return }
 
-        tagged(tag, context: state.context) {
+        tagged(tag, state: &state) { state in
             drawLines(lines, attributed: attributed, state: &state)
         }
 
@@ -481,8 +533,21 @@ nonisolated enum TaggedPDFWriter {
                 alignment: alignment
             )
 
-            context.textPosition = CGPoint(x: x, y: state.cursor)
-            CTLineDraw(line.ctLine, context)
+            let spokenText = attributed.attributedSubstring(from: line.range).string
+            state.actualTexts.append(spokenText)
+            tagged(
+                .span,
+                properties: [.actualText: spokenText],
+                state: &state
+            ) { state in
+                drawLineContent(
+                    line,
+                    attributed: attributed,
+                    originX: x,
+                    baseline: state.cursor,
+                    state: &state
+                )
+            }
 
             addLinkAnnotations(
                 for: line,
@@ -494,6 +559,84 @@ nonisolated enum TaggedPDFWriter {
 
             state.cursor -= line.descent + line.leading
         }
+    }
+
+    /// Draws link text inside Link structure elements while leaving ordinary
+    /// text in its surrounding paragraph, heading, list body, or table cell.
+    /// The link annotation is added separately below; both pieces are needed
+    /// for a link to be discoverable and actionable in a tagged PDF.
+    private static func drawLineContent(
+        _ line: PDFTextLayout.Line,
+        attributed: NSAttributedString,
+        originX: CGFloat,
+        baseline: CGFloat,
+        state: inout RenderState
+    ) {
+        guard line.range.length > 0,
+              line.range.upperBound <= attributed.length else { return }
+
+        var linkRanges: [NSRange] = []
+        attributed.enumerateAttribute(.link, in: line.range) { value, range, _ in
+            if linkURL(from: value) != nil { linkRanges.append(range) }
+        }
+
+        guard !linkRanges.isEmpty else {
+            state.context.textPosition = CGPoint(x: originX, y: baseline)
+            CTLineDraw(line.ctLine, state.context)
+            return
+        }
+
+        var cursor = line.range.location
+        for linkRange in linkRanges {
+            if cursor < linkRange.location {
+                drawLineFragment(
+                    NSRange(location: cursor, length: linkRange.location - cursor),
+                    line: line,
+                    attributed: attributed,
+                    originX: originX,
+                    baseline: baseline,
+                    context: state.context
+                )
+            }
+            tagged(.link, state: &state) { state in
+                drawLineFragment(
+                    linkRange,
+                    line: line,
+                    attributed: attributed,
+                    originX: originX,
+                    baseline: baseline,
+                    context: state.context
+                )
+            }
+            cursor = linkRange.upperBound
+        }
+
+        if cursor < line.range.upperBound {
+            drawLineFragment(
+                NSRange(location: cursor, length: line.range.upperBound - cursor),
+                line: line,
+                attributed: attributed,
+                originX: originX,
+                baseline: baseline,
+                context: state.context
+            )
+        }
+    }
+
+    private static func drawLineFragment(
+        _ range: NSRange,
+        line: PDFTextLayout.Line,
+        attributed: NSAttributedString,
+        originX: CGFloat,
+        baseline: CGFloat,
+        context: CGContext
+    ) {
+        guard range.length > 0 else { return }
+        let fragment = attributed.attributedSubstring(from: range)
+        let fragmentLine = CTLineCreateWithAttributedString(fragment)
+        let offset = CTLineGetOffsetForStringIndex(line.ctLine, range.location, nil)
+        context.textPosition = CGPoint(x: originX + offset, y: baseline)
+        CTLineDraw(fragmentLine, context)
     }
 
     /// Emits a real PDF link annotation for any link attribute on this line, so
@@ -548,12 +691,12 @@ nonisolated enum TaggedPDFWriter {
         let markerWidth = CGFloat(22)
         var number = list.start
 
-        tagged(.list, context: state.context) {
+        tagged(.list, state: &state) { state in
             for item in list.items {
                 let marker = list.isOrdered ? "\(number)." : "•"
                 number += 1
 
-                tagged(.listItem, context: state.context) {
+                tagged(.listItem, state: &state) { state in
                     drawListItem(
                         item,
                         marker: marker,
@@ -599,7 +742,7 @@ nonisolated enum TaggedPDFWriter {
         // text but still in the reading order — a reader that announces list
         // position uses it, and one that does not simply skips it.
         let markerBaseline = state.cursor - (lines.first?.ascent ?? metrics.body)
-        tagged(.label, context: state.context) {
+        tagged(.label, state: &state) { state in
             let markerString = NSAttributedString(
                 string: marker,
                 attributes: [
@@ -619,7 +762,7 @@ nonisolated enum TaggedPDFWriter {
         state.leftInset = textInset
 
         if !lines.isEmpty {
-            tagged(.paragraph, context: state.context) {
+            tagged(.listBody, state: &state) { state in
                 drawLines(lines, attributed: attributed, state: &state)
             }
         }
@@ -646,19 +789,17 @@ nonisolated enum TaggedPDFWriter {
 
         let outerInset = state.leftInset
         let startCursor = state.cursor
-        var startPageWasOpen = state.pageIsOpen
-        _ = startPageWasOpen
 
         state.leftInset = outerInset + indent
 
-        tagged(.blockQuote, context: state.context) {
+        tagged(.blockQuote, state: &state) { state in
             draw(children, state: &state)
         }
 
         // The vertical rule is drawn after the text, once the quote's extent on
         // this page is known. It is decoration, so it sits inside an artifact
         // tag and is never announced.
-        tagged(decorationTag, context: state.context) {
+        tagged(decorationTag, state: &state) { state in
             let top = min(startCursor, contentTop)
             let bottom = max(state.cursor, contentBottom)
             if top > bottom {
@@ -687,9 +828,9 @@ nonisolated enum TaggedPDFWriter {
         style.monospaced = true
         style.color = PDFPalette.secondary
 
-        // Code is drawn line by line rather than as one wrapped block, because
-        // wrapping a code line silently changes what it says. Long lines are
-        // allowed to run to the margin and clip.
+        // Code is laid out one source line at a time. Long source lines wrap
+        // visually instead of being clipped; the underlying text remains one
+        // continuous source line because no newline is inserted into it.
         let sourceLines = code.components(separatedBy: "\n")
 
         state.cursor -= metrics.paragraphSpacing / 2
@@ -710,7 +851,7 @@ nonisolated enum TaggedPDFWriter {
             )
         }
 
-        tagged(.code, context: state.context) {
+        tagged(.code, state: &state) { state in
             for source in sourceLines {
                 let attributed = NSAttributedString(
                     string: source.isEmpty ? " " : source,
@@ -723,19 +864,15 @@ nonisolated enum TaggedPDFWriter {
                     for: attributed,
                     width: max(state.availableWidth - padding * 2, 40)
                 )
-                guard let line = lines.first else { continue }
+                guard !lines.isEmpty else { continue }
 
-                if state.remainingHeight < line.height {
-                    newPage(&state)
-                }
-
-                state.cursor -= line.ascent
-                state.context.textPosition = CGPoint(
-                    x: state.originX + padding,
-                    y: state.cursor
+                state.leftInset += padding
+                drawLines(
+                    lines,
+                    attributed: attributed,
+                    state: &state
                 )
-                CTLineDraw(line.ctLine, state.context)
-                state.cursor -= line.descent + line.leading
+                state.leftInset -= padding
             }
         }
 
@@ -751,7 +888,7 @@ nonisolated enum TaggedPDFWriter {
 
         // A horizontal rule is purely visual, so it is an artifact. Announcing
         // "line" at every section break would be noise.
-        tagged(decorationTag, context: state.context) {
+        tagged(decorationTag, state: &state) { state in
             state.context.setStrokeColor(PDFPalette.rule.cgColor)
             state.context.setLineWidth(0.5)
             state.context.move(to: CGPoint(x: margin, y: state.cursor))
@@ -774,13 +911,13 @@ nonisolated enum TaggedPDFWriter {
 
         state.cursor -= metrics.paragraphSpacing / 2
 
-        tagged(.table, context: state.context) {
+        tagged(.table, state: &state) { state in
             // Header rows are grouped in a TableHeader element and body rows in
             // a TableBody. The grouping is what tells a reader which row holds
             // the column labels, so a data cell can be announced with its
             // header rather than as a bare value.
             if !table.headers.isEmpty, !table.headers.allSatisfy(\.isEffectivelyEmpty) {
-                tagged(.tableHeader, context: state.context) {
+                tagged(.tableHeader, state: &state) { state in
                     drawTableRow(
                         cells: table.headers,
                         table: table,
@@ -793,7 +930,7 @@ nonisolated enum TaggedPDFWriter {
             }
 
             if !table.rows.isEmpty {
-                tagged(.tableBody, context: state.context) {
+                tagged(.tableBody, state: &state) { state in
                     for row in table.rows {
                         drawTableRow(
                             cells: row,
@@ -848,11 +985,11 @@ nonisolated enum TaggedPDFWriter {
         let rowTop = state.cursor
         let context = state.context
 
-        tagged(.tableRow, context: context) {
+        tagged(.tableRow, state: &state) { state in
             var x = state.originX
 
             for column in 0..<columnCount {
-                let (attributed, lines) = laidOut[column]
+                let (_, lines) = laidOut[column]
                 let alignment = table.alignment(forColumn: column)
 
                 // A header cell is tagged TableHeaderCell rather than
@@ -864,8 +1001,8 @@ nonisolated enum TaggedPDFWriter {
                 // below carry it instead.
                 tagged(
                     isHeader ? .tableHeaderCell : .tableDataCell,
-                    context: context
-                ) {
+                    state: &state
+                ) { state in
                     var cellCursor = rowTop - padding
 
                     for line in lines {
@@ -892,7 +1029,7 @@ nonisolated enum TaggedPDFWriter {
 
         // Rules are decoration only; the structure tree already carries the
         // grid, so drawing them inside an artifact keeps them silent.
-        tagged(decorationTag, context: context) {
+        tagged(decorationTag, state: &state) { state in
             context.setStrokeColor(PDFPalette.tableRule.cgColor)
             context.setLineWidth(isHeader ? 0.9 : 0.4)
             context.move(to: CGPoint(x: state.originX, y: state.cursor))
