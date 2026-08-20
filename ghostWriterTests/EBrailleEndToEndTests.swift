@@ -20,6 +20,8 @@ struct EBrailleEndToEndTests {
 
         The quick brown fox knows braille. It exports 26 files.
 
+        brown words
+
         - First item
         - Second item
         """
@@ -48,6 +50,16 @@ struct EBrailleEndToEndTests {
         // Real braille cells are present.
         let brailleCells = content.unicodeScalars.filter { (0x2800...0x28FF).contains($0.value) }
         #expect(brailleCells.count > 40)
+
+        // The exact cells that exposed the earlier BRF table corruption must
+        // survive unchanged in the packaged eBraille XHTML.
+        let brownWords = "\u{2803}\u{2817}\u{282A}\u{281D}\u{2800}\u{2818}\u{283A}\u{280E}"
+        #expect(content.contains(brownWords))
+
+        // Lists stay structural in eBraille; a reading system receives two
+        // separate items rather than one run of braille text.
+        #expect(content.components(separatedBy: "<li ").count - 1 == 2)
+        #expect(content.components(separatedBy: "</li>").count - 1 == 2)
     }
 
     @Test func gradeChoiceChangesTheBrailleInTheFile() async throws {

@@ -7,11 +7,47 @@
 //
 
 import Foundation
+import LinkPresentation
 import Testing
+import UIKit
 import UniformTypeIdentifiers
 @testable import ghostWriter
 
 struct ShareItemBuilderTests {
+
+    @MainActor
+    @Test func fileActivitySourceShowsAndDeliversTheCompleteFileName() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Produce.brf")
+        let source = ShareFileActivityItemSource(fileURL: url)
+        let controller = UIActivityViewController(
+            activityItems: [],
+            applicationActivities: nil
+        )
+
+        let metadata = try #require(
+            source.activityViewControllerLinkMetadata(controller)
+        )
+        #expect(metadata.title == "Produce.brf")
+        #expect(metadata.originalURL == url)
+        #expect(metadata.url == url)
+        #expect(
+            source.activityViewController(
+                controller,
+                itemForActivityType: nil
+            ) as? URL == url
+        )
+        #expect(
+            source.activityViewControllerPlaceholderItem(controller) as? URL
+                == url
+        )
+        #expect(
+            source.activityViewController(
+                controller,
+                dataTypeIdentifierForActivityType: nil
+            ) == UTType(filenameExtension: "brf")?.identifier
+        )
+    }
 
     @Test func htmlShareIsACompleteRenderedDocument() throws {
         let url = try ShareItemBuilder.makeFile(

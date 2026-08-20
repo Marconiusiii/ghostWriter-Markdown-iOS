@@ -50,6 +50,22 @@ private nonisolated enum DocumentTextReadOutcome: Sendable {
 
 @Observable
 final class DocumentStore {
+    enum DocumentNameValidation: Equatable {
+        case valid(String)
+        case invalid(String)
+
+        var isValid: Bool {
+            if case .valid = self { return true }
+            return false
+        }
+    }
+
+    private static let invalidNameCharacters = CharacterSet(
+        charactersIn: "/\\:?%*|\"<>"
+    ).union(.controlCharacters)
+    private static let maximumNameCharacters = 120
+    private static let maximumNameBytes = 240
+
     private(set) var libraryPresentationRevision = 0
     private(set) var documents: [Document] = [] {
         didSet { libraryPresentationRevision &+= 1 }
@@ -1852,21 +1868,61 @@ final class DocumentStore {
         }
     }
 
+    /// Validates the name typed into the New Document field. The returned name
+    /// is the file's base name, with one optional `.md` suffix removed.
+    static func validateDocumentName(_ name: String) -> DocumentNameValidation {
+        let base = documentBaseName(from: name)
+        guard !base.isEmpty else {
+            return .invalid("Enter a document name.")
+        }
+        guard base.rangeOfCharacter(from: invalidNameCharacters) == nil else {
+            return .invalid("Remove characters that cannot be used in a document name.")
+        }
+        guard !base.hasPrefix("."), !base.hasSuffix(".") else {
+            return .invalid("A document name cannot begin or end with a period.")
+        }
+        guard base.count <= maximumNameCharacters,
+              base.utf8.count <= maximumNameBytes else {
+            return .invalid("The document name is too long.")
+        }
+        return .valid(base)
+    }
+
     /// Strips characters that are illegal in a filename and collapses the rest,
-    /// so a heading pasted into the title field cannot produce an unwritable
-    /// path or escape the ghostWriter folder.
+    /// so a heading pasted into a filename cannot produce an unwritable path or
+    /// escape the ghostWriter folder. Validation remains the user-facing path;
+    /// this is the final safety boundary for names received elsewhere.
     static func sanitize(_ name: String) -> String {
-        let illegal = CharacterSet(charactersIn: "/\\:?%*|\"<>")
         let cleaned = name
-            .components(separatedBy: illegal)
+            .components(separatedBy: invalidNameCharacters)
             .joined(separator: " ")
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard !cleaned.isEmpty else { return "Untitled" }
+
+        var safe = ""
+        for character in cleaned {
+            let candidate = safe + String(character)
+            guard candidate.count <= maximumNameCharacters,
+                  candidate.utf8.count <= maximumNameBytes else { break }
+            safe = candidate
+        }
+        return safe.isEmpty ? "Untitled" : safe
+    }
+
+    private static func documentBaseName(from name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.lowercased().hasSuffix(".md") else { return trimmed }
+        return String(trimmed.dropLast(3))
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty ? "Untitled" : String(cleaned.prefix(120))
     }
 
     /// Finds a free URL for a name, appending " 2", " 3" and so on if needed.
     private func availableURL(for name: String, in directory: URL) -> URL {
-        let base = DocumentStore.sanitize(name)
+        let base = DocumentStore.sanitize(
+            DocumentStore.documentBaseName(from: name)
+        )
         var candidate = directory.appendingPathComponent(base).appendingPathExtension("md")
         var counter = 2
 

@@ -9,12 +9,61 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import LinkPresentation
+
+/// Supplies the system share sheet with a complete filename for its preview
+/// while continuing to hand the selected activity the original file URL.
+final class ShareFileActivityItemSource: NSObject, UIActivityItemSource {
+    let fileURL: URL
+
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+    }
+
+    func activityViewControllerPlaceholderItem(
+        _ activityViewController: UIActivityViewController
+    ) -> Any {
+        fileURL
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        fileURL
+    }
+
+    func activityViewControllerLinkMetadata(
+        _ activityViewController: UIActivityViewController
+    ) -> LPLinkMetadata? {
+        let metadata = LPLinkMetadata()
+        metadata.originalURL = fileURL
+        metadata.url = fileURL
+        metadata.title = fileURL.lastPathComponent
+        return metadata
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?
+    ) -> String {
+        UTType(filenameExtension: fileURL.pathExtension)?.identifier
+            ?? UTType.data.identifier
+    }
+}
 
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+        let activityItems = items.map { item -> Any in
+            guard let url = item as? URL, url.isFileURL else { return item }
+            return ShareFileActivityItemSource(fileURL: url)
+        }
+        return UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: nil
+        )
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}

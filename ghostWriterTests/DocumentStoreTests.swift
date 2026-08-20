@@ -940,6 +940,44 @@ struct DocumentStoreTests {
         #expect(DocumentStore.sanitize("Perfectly Fine") == "Perfectly Fine")
     }
 
+    @Test func documentNameValidationNormalizesAnOptionalMarkdownExtension() {
+        #expect(
+            DocumentStore.validateDocumentName("  Produce.md  ")
+                == .valid("Produce")
+        )
+        #expect(
+            DocumentStore.validateDocumentName("Café 日本語")
+                == .valid("Café 日本語")
+        )
+    }
+
+    @Test func documentNameValidationRejectsUnsafeNames() {
+        #expect(!DocumentStore.validateDocumentName("   ").isValid)
+        #expect(!DocumentStore.validateDocumentName("Bad/name").isValid)
+        #expect(!DocumentStore.validateDocumentName("Bad\nname").isValid)
+        #expect(!DocumentStore.validateDocumentName(".hidden").isValid)
+        #expect(!DocumentStore.validateDocumentName("trailing.").isValid)
+        #expect(
+            !DocumentStore.validateDocumentName(
+                String(repeating: "a", count: 121)
+            ).isValid
+        )
+        // Under the character limit, but over the filesystem's byte limit.
+        #expect(
+            !DocumentStore.validateDocumentName(
+                String(repeating: "😀", count: 61)
+            ).isValid
+        )
+    }
+
+    @Test func documentCreationDoesNotDuplicateAnEnteredMarkdownExtension() throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+
+        let url = try #require(store.createDocument(named: "Produce.md"))
+        #expect(url.lastPathComponent == "Produce.md")
+    }
+
     @Test func invalidUTF8IsNotPresentedAsAnEmptyDocument() throws {
         let store = makeStore()
         defer { cleanUp(store) }

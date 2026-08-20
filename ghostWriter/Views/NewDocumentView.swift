@@ -19,42 +19,42 @@ struct NewDocumentView: View {
     @State private var name = ""
     @FocusState private var nameFieldFocused: Bool
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var attemptedSubmission = false
 
-    /// Text in a field lines up with the row it sits in: trailing beside its
-    /// label, leading when stacked beneath it.
-    private var fieldAlignment: TextAlignment {
-        dynamicTypeSize.isAccessibilitySize ? .leading : .trailing
-    }
+    private let fieldLabel = "Document name"
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    // The name was previously announced through an
-                    // accessibilityLabel with nothing on screen to match it,
-                    // so the field was unlabelled to anyone looking at it.
-                    // LabeledContent makes the label visible and permanent,
-                    // and is the field's only accessible name.
-                    LabeledContent("Document Name") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(fieldLabel)
+                            .font(.subheadline)
+                            .accessibilityHidden(true)
+
                         TextField("", text: $name)
+                            .textFieldStyle(.roundedBorder)
                             .focused($nameFieldFocused)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.words)
                             .submitLabel(.done)
-                            .multilineTextAlignment(fieldAlignment)
+                            .accessibilityLabel(fieldLabel)
                             .onSubmit(create)
+
+                        if shouldShowValidationMessage,
+                           case .invalid(let message) = validation {
+                            Text(message)
+                        }
                     }
                 } footer: {
-                    Text("The document is saved as a markdown file with this name. You can rename it later from File Actions.")
+                    Text("The .md filename extension is added automatically.")
                 }
 
                 Section {
                     Button("Create", action: create)
-                        .disabled(trimmedName.isEmpty)
+                        .disabled(!validation.isValid)
                 }
             }
-            .labeledContentStyle(ReflowingLabeledContentStyle())
             .navigationTitle("New Document")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -70,13 +70,18 @@ struct NewDocumentView: View {
         }
     }
 
-    private var trimmedName: String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    private var validation: DocumentStore.DocumentNameValidation {
+        DocumentStore.validateDocumentName(name)
+    }
+
+    private var shouldShowValidationMessage: Bool {
+        attemptedSubmission || !name.isEmpty
     }
 
     private func create() {
-        guard !trimmedName.isEmpty else { return }
-        onCreate(trimmedName)
+        attemptedSubmission = true
+        guard case .valid(let normalizedName) = validation else { return }
+        onCreate(normalizedName)
         dismiss()
     }
 }

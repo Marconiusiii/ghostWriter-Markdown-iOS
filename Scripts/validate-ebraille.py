@@ -127,12 +127,26 @@ def check_metadata(archive, opf):
     else:
         ok("dc:format declares eBraille 1.0")
 
-    present = {m.get("property") for m in root.findall(f".//{OPF}meta")}
+    metadata_nodes = root.findall(f".//{OPF}meta")
+    present = {m.get("property") for m in metadata_nodes}
     for prop in REQUIRED_META:
         if prop not in present:
             fail(f"required metadata {prop} is missing")
     if all(p in present for p in REQUIRED_META):
         ok("all required eBraille metadata properties present")
+
+    cell_types = [
+        (meta.text or "").strip()
+        for meta in metadata_nodes
+        if meta.get("property") == "a11y:brailleCellType"
+    ]
+    cell_type = cell_types[0] if len(cell_types) == 1 else None
+    if len(cell_types) != 1:
+        fail("a11y:brailleCellType must occur exactly once")
+    elif cell_type not in {"6", "8"}:
+        fail(f"a11y:brailleCellType {cell_type!r} must be '6' or '8'")
+    else:
+        ok(f"a11y:brailleCellType declares {cell_type}-dot braille")
 
     # a11y:brailleSystem should follow the registry form: "[code] [grade]",
     # where grade is grade0/grade1/grade2/no-grade, optionally followed by a
@@ -237,7 +251,7 @@ def check_metadata(archive, opf):
         if href not in names:
             fail(f"manifest lists {href}, which is not in the archive")
     ok(f"{len(manifest)} manifest items all present in the archive")
-    return manifest
+    return manifest, cell_type
 
 
 def text_nodes(xhtml):
@@ -249,7 +263,7 @@ def text_nodes(xhtml):
     return nodes, alts
 
 
-def check_braille(archive, manifest, table, show):
+def check_braille(archive, manifest, table, show, cell_type):
     names = set(archive.namelist())
     for href in sorted(manifest):
         if not href.endswith((".xhtml", ".html")) or href not in names:
@@ -264,6 +278,14 @@ def check_braille(archive, manifest, table, show):
                 bad -= {"\n"}
                 if bad:
                     fail(f"{href}: print characters in rendered text: {sorted(bad)!r}")
+                    break
+            if cell_type == "6":
+                eight_dot = sorted({c for c in value if "\u2840" <= c <= "\u28ff"})
+                if eight_dot:
+                    fail(
+                        f"{href}: contains eight-dot cells while "
+                        "a11y:brailleCellType declares 6"
+                    )
                     break
         else:
             ok(f"{href}: all rendered text is braille")
@@ -614,7 +636,7 @@ def check_graphics(archive, opf, manifest):
         ok(f"a11y:tactileGraphics matches tactile content formats: {declared}")
 
 
-def check_image_alt(archive, manifest, table, show):
+def check_image_alt(archive, manifest, table, show, cell_type):
     """Every non-decorative image needs braille alt text.
 
     An image with no description is inert to a reader who cannot see it, and
@@ -654,6 +676,12 @@ def check_image_alt(archive, manifest, table, show):
             if not BRAILLE.match(value):
                 bad = sorted({c for c in value if not ("\u2800" <= c <= "\u28ff")})
                 fail(f"{href}: alt text for {src!r} is not braille: {bad!r}")
+                continue
+            if cell_type == "6" and any("\u2840" <= c <= "\u28ff" for c in value):
+                fail(
+                    f"{href}: alt text for {src!r} contains eight-dot cells "
+                    "while a11y:brailleCellType declares 6"
+                )
                 continue
 
             described += 1
@@ -728,12 +756,16 @@ def main():
         check_container(args.file)
         with zipfile.ZipFile(args.file) as archive:
             opf = opf_path(archive)
-            manifest = check_metadata(archive, opf)
-            check_braille(archive, manifest, args.table, not args.quiet)
+            manifest, cell_type = check_metadata(archive, opf)
+            check_braille(
+                archive, manifest, args.table, not args.quiet, cell_type
+            )
             check_entry_page(archive, opf, manifest)
             check_forbidden(archive, opf, manifest)
             check_graphics(archive, opf, manifest)
-            check_image_alt(archive, manifest, args.table, not args.quiet)
+            check_image_alt(
+                archive, manifest, args.table, not args.quiet, cell_type
+            )
             check_roundtrip(archive, manifest, args.table)
     except Exception as error:
         # Report rather than exit silently: a crash part-way through must not

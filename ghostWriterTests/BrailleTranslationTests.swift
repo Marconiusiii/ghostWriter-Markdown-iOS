@@ -50,6 +50,14 @@ struct BrailleTranslationTests {
         #expect(grade1.count == text.count)
     }
 
+    @Test func grade2UsesTheExpectedOwAndWordsContractions() async throws {
+        let braille = try await translator.translate("brown words", grade: .grade2)
+
+        // brown: b, r, ow, n. words: dots 45, w, s.
+        let expected = "\u{2803}\u{2817}\u{282A}\u{281D}\u{2800}\u{2818}\u{283A}\u{280E}"
+        #expect(braille == expected)
+    }
+
     @Test func capitalsAndNumbersGainIndicators() async throws {
         // Braille marks capitals and numbers with indicator cells, so this
         // output is longer than its input rather than shorter. It is the case
