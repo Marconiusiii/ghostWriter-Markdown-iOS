@@ -21,7 +21,7 @@ struct BRFWriterTests {
         }
     }
 
-    @Test func oversizedWordIsKeptWholeForAnExplicitGeometryError() {
+    @Test func oversizedWordIsDividedWithoutExceedingTheWidth() {
         let lines = BRFWriter.wrapped(
             "abcdefghijklmnop",
             width: 6,
@@ -29,21 +29,77 @@ struct BRFWriterTests {
             runover: 2
         )
 
-        #expect(lines == ["abcdefghijklmnop"])
+        #expect(lines == ["abcde-", "  fgh-", "  ijk-", "  lmn-", "  op"])
+        #expect(lines.allSatisfy { $0.count <= 6 })
     }
 
-    @Test func exportRejectsAWidthThatCannotContainACompleteBrailleWord() async {
+    @Test func fortyThreeCellSequenceExportsAtFortyCells() async throws {
         let translator = RecordingTranslator()
+        let data = try await BRFWriter.write(
+            markdown: String(repeating: "a", count: 43),
+            title: "",
+            grade: .grade2,
+            pageSetup: .init(cellsPerLine: 40, linesPerPage: 25),
+            translator: translator
+        )
+        let lines = String(decoding: data, as: UTF8.self)
+            .components(separatedBy: "\r\n")
+            .filter { !$0.isEmpty }
 
-        await #expect(throws: BRFExportError.self) {
-            _ = try await BRFWriter.write(
-                markdown: "elephantine",
-                title: "",
-                grade: .grade2,
-                pageSetup: .init(cellsPerLine: 6, linesPerPage: 25),
-                translator: translator
-            )
-        }
+        #expect(lines.count == 2)
+        #expect(lines[0].hasPrefix("  "))
+        #expect(lines[0].hasSuffix("-"))
+        #expect(lines.allSatisfy { $0.count <= 40 })
+        #expect(lines.map { $0.trimmingCharacters(in: .whitespaces) }
+            .joined()
+            .replacingOccurrences(of: "-", with: "").count == 43)
+    }
+
+    @Test func realLiblouisOversizedWordExportsWithinFortyCells() async throws {
+        let data = try await BRFWriter.write(
+            markdown: "pneumonoultramicroscopicsilicovolcanoconiosis",
+            title: "",
+            grade: .grade1,
+            pageSetup: .standard,
+            translator: LiblouisBridge.shared
+        )
+        let lines = String(decoding: data, as: UTF8.self)
+            .components(separatedBy: "\r\n")
+            .filter { !$0.isEmpty }
+
+        #expect(lines.count > 1)
+        #expect(lines[0].hasSuffix("-"))
+        #expect(lines.allSatisfy { $0.count <= 40 })
+    }
+
+    @Test func oversizedSequencePrefersAnExistingHyphen() {
+        let lines = BRFWriter.wrapped(
+            "abc-defgh",
+            width: 6,
+            start: 0,
+            runover: 0
+        )
+
+        #expect(lines == ["abc-", "defgh"])
+    }
+
+    @Test func oversizedListWordUsesTheListRunoverMargin() async throws {
+        let translator = RecordingTranslator()
+        let data = try await BRFWriter.write(
+            markdown: "- \(String(repeating: "a", count: 43))",
+            title: "",
+            grade: .grade2,
+            pageSetup: .init(cellsPerLine: 40, linesPerPage: 25),
+            translator: translator
+        )
+        let lines = String(decoding: data, as: UTF8.self)
+            .components(separatedBy: "\r\n")
+            .filter { !$0.isEmpty }
+
+        #expect(lines.count == 3)
+        #expect(lines[0] == "_4")
+        #expect(lines.dropFirst().allSatisfy { $0.hasPrefix("  ") })
+        #expect(lines.allSatisfy { $0.count <= 40 })
     }
 
     @Test func matchingTitleHeadingIsTranslatedOnlyOnce() async throws {

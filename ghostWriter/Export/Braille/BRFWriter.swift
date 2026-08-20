@@ -66,12 +66,10 @@ nonisolated enum BRFWriter {
             )
         }
 
-        if let line = lines.first(where: { $0.count > pageSetup.cellsPerLine }) {
-            throw BRFExportError.contentExceedsLineWidth(
-                width: pageSetup.cellsPerLine,
-                cells: line.count
-            )
-        }
+        assert(
+            lines.allSatisfy { $0.count <= pageSetup.cellsPerLine },
+            "BRF layout produced a line wider than its configured page."
+        )
 
         let paginated = paginate(lines, linesPerPage: pageSetup.linesPerPage)
         return Data(paginated.utf8)
@@ -345,17 +343,46 @@ nonisolated enum BRFWriter {
                     current = String(repeating: " ", count: continuationMargin)
                     isEmptyLine = true
                 } else {
-                    // Keep the complete braille word. `write` validates the
-                    // finished line and reports geometry that cannot contain it
-                    // instead of silently changing the word at a cell boundary.
-                    current += remainder
-                    remainder = ""
-                    isEmptyLine = false
+                    let division = dividedPrefix(of: remainder, fitting: available)
+                    lines.append(current + division.line)
+                    remainder = division.remainder
+                    current = String(repeating: " ", count: continuationMargin)
+                    isEmptyLine = true
                 }
             }
         }
         if !isEmptyLine { lines.append(current) }
         return lines
+    }
+
+    /// Divides the exceptional unspaced sequence that is wider than a complete
+    /// braille line. Normal words are moved intact to the next line by
+    /// `wrapped`. An existing hyphen is the preferred division point. When no
+    /// hyphen fits, reserve the final cell for a braille word-division hyphen so
+    /// the reader knows that the sequence continues on the next line.
+    private static func dividedPrefix(
+        of text: String,
+        fitting available: Int
+    ) -> (line: String, remainder: String) {
+        precondition(!text.isEmpty)
+        let safeAvailable = max(available, 1)
+        let candidate = String(text.prefix(safeAvailable))
+
+        if let hyphen = candidate.lastIndex(of: "-"), hyphen != candidate.startIndex {
+            let end = candidate.index(after: hyphen)
+            let line = String(candidate[..<end])
+            return (line, String(text.dropFirst(line.count)))
+        }
+
+        // A one-cell layout has no room for both content and a division sign.
+        // Consuming one cell still guarantees progress and valid page width.
+        guard safeAvailable > 1 else {
+            return (String(text.prefix(1)), String(text.dropFirst(1)))
+        }
+
+        let contentCount = safeAvailable - 1
+        let line = String(text.prefix(contentCount)) + "-"
+        return (line, String(text.dropFirst(contentCount)))
     }
 
     /// Wraps preformatted material without collapsing indentation or repeated
@@ -482,14 +509,11 @@ nonisolated enum BRFWriter {
 }
 
 nonisolated enum BRFExportError: LocalizedError, Equatable, Sendable {
-    case contentExceedsLineWidth(width: Int, cells: Int)
     case eightDotBrailleNotRepresentable
     case unexpectedCharacter(UInt32)
 
     var errorDescription: String? {
         switch self {
-        case .contentExceedsLineWidth(let width, let cells):
-            return "A braille word requires \(cells) cells and does not fit the selected \(width)-cell line width. Choose a wider layout."
         case .eightDotBrailleNotRepresentable:
             return "The translation contains eight-dot braille, which cannot be represented safely in BRF."
         case .unexpectedCharacter(let value):
