@@ -195,7 +195,8 @@ nonisolated enum MarkdownInlineParser {
             return (
                 .image(ExportImage(
                     source: destination.value,
-                    alternativeText: alt.isEmpty ? nil : unescape(alt)
+                    alternativeText: alt.isEmpty ? nil : unescape(alt),
+                    title: destination.title
                 )),
                 destination.remainder
             )
@@ -262,18 +263,26 @@ nonisolated enum MarkdownInlineParser {
         in text: Substring,
         definitions: [String: String],
         label: String
-    ) -> (value: String, remainder: Substring)? {
+    ) -> (value: String, title: String?, remainder: Substring)? {
         guard index < text.endIndex else { return nil }
 
         if text[index] == "(" {
             let afterParen = text.index(after: index)
             guard let close = text[afterParen...].firstIndex(of: ")") else { return nil }
-            var raw = String(text[afterParen..<close]).trimmingCharacters(in: .whitespaces)
-            // Strip an optional title: (url "title")
-            if let space = raw.firstIndex(where: { $0 == " " || $0 == "\t" }) {
-                raw = String(raw[..<space])
+            let raw = String(text[afterParen..<close])
+                .trimmingCharacters(in: .whitespaces)
+            let split = raw.firstIndex(where: { $0 == " " || $0 == "\t" })
+            let value = split.map { String(raw[..<$0]) } ?? raw
+            let title = split.flatMap { index -> String? in
+                let remainder = raw[index...].trimmingCharacters(in: .whitespaces)
+                guard remainder.count >= 2,
+                      let first = remainder.first,
+                      let last = remainder.last,
+                      (first == "\"" && last == "\"")
+                        || (first == "'" && last == "'") else { return nil }
+                return unescape(String(remainder.dropFirst().dropLast()))
             }
-            return (raw, text[text.index(after: close)...])
+            return (value, title, text[text.index(after: close)...])
         }
 
         if text[index] == "[" {
@@ -281,12 +290,12 @@ nonisolated enum MarkdownInlineParser {
             let key = String(text[index...][reference.inner])
             let lookup = (key.isEmpty ? label : key).lowercased()
             guard let resolved = definitions[lookup] else { return nil }
-            return (resolved, text[index...][reference.after...])
+            return (resolved, nil, text[index...][reference.after...])
         }
 
         // A shortcut reference: [label] with a matching definition.
         if let resolved = definitions[label.lowercased()] {
-            return (resolved, text[index...])
+            return (resolved, nil, text[index...])
         }
 
         return nil

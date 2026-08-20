@@ -41,6 +41,19 @@ struct MarkdownInsertionTests {
         #expect(result.text == "Before ![](https://example.com/image.jpg) after")
     }
 
+    @Test func tactileGraphicUsesTheDocumentedMarkdownTitle() {
+        let result = MarkdownInsertion.tactileGraphic(
+            in: "",
+            selection: TextSelection(location: 0, length: 0),
+            description: "Raised map of the route",
+            address: ".ghostwriter-assets-123/map.svg"
+        )
+
+        #expect(
+            result.text == "![Raised map of the route](.ghostwriter-assets-123/map.svg \"tactile\")"
+        )
+    }
+
     @Test func addressesAreTrimmedAndUnsafeDelimitersAreEncoded() {
         let result = MarkdownInsertion.link(
             in: "",

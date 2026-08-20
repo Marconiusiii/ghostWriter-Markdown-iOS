@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum MarkdownInsertionKind: String, Identifiable {
     case link
@@ -17,6 +18,123 @@ enum MarkdownInsertionKind: String, Identifiable {
         switch self {
         case .link: return "Insert Link"
         case .image: return "Insert Image"
+        }
+    }
+}
+
+struct TactileGraphicInsertionView: View {
+    let documentURL: URL
+    let onInsert: (String, String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var descriptionText = ""
+    @State private var selectedFile: URL?
+    @State private var showingImporter = false
+    @State private var isImporting = false
+    @State private var failureMessage: String?
+    @FocusState private var descriptionFocused: Bool
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("Description") {
+                        TextField("", text: $descriptionText, axis: .vertical)
+                            .focused($descriptionFocused)
+                    }
+                } footer: {
+                    Text("Briefly identify the tactile graphic and the information it presents. This description is used when the graphic cannot be displayed.")
+                }
+
+                Section {
+                    LabeledContent("File", value: selectedFile?.lastPathComponent ?? "None selected")
+                    Button(selectedFile == nil ? "Choose file…" : "Choose another file…") {
+                        showingImporter = true
+                    }
+                } footer: {
+                    Text("Choose an SVG, PNG, or JPG file that was prepared for tactile presentation.")
+                }
+
+                Section {
+                    Button(isImporting ? "Attaching…" : "Attach and insert", action: insert)
+                        .disabled(!canInsert || isImporting)
+                }
+            }
+            .navigationTitle("Tactile Graphic")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Dismiss") { descriptionFocused = false }
+                        .accessibilityLabel("Dismiss keyboard")
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [.svg, .png, .jpeg],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls): selectedFile = urls.first
+            case .failure(let error): failureMessage = error.localizedDescription
+            }
+        }
+        .alert("Could Not Attach Tactile Graphic", isPresented: failureBinding) {
+            Button("OK") { failureMessage = nil }
+        } message: {
+            Text(failureMessage ?? "The selected file could not be attached.")
+        }
+    }
+
+    private var trimmedDescription: String {
+        descriptionText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var canInsert: Bool {
+        selectedFile != nil && !trimmedDescription.isEmpty
+    }
+
+    private var failureBinding: Binding<Bool> {
+        Binding(
+            get: { failureMessage != nil },
+            set: { if !$0 { failureMessage = nil } }
+        )
+    }
+
+    private func insert() {
+        guard canInsert, let source = selectedFile else { return }
+        descriptionFocused = false
+        isImporting = true
+        let description = trimmedDescription
+        let accessed = source.startAccessingSecurityScopedResource()
+
+        Task {
+            defer {
+                if accessed { source.stopAccessingSecurityScopedResource() }
+            }
+            let result = await Task.detached(priority: .userInitiated) {
+                Result {
+                    let data = try Data(contentsOf: source)
+                    return try DocumentAssets.importAsset(
+                        data: data,
+                        originalFileName: source.lastPathComponent,
+                        beside: documentURL
+                    )
+                }
+            }.value
+
+            isImporting = false
+            switch result {
+            case .success(let relativePath):
+                onInsert(description, relativePath)
+                dismiss()
+            case .failure(let error):
+                failureMessage = error.localizedDescription
+            }
         }
     }
 }

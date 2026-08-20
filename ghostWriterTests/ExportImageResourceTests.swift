@@ -4,6 +4,29 @@ import ZIPFoundation
 @testable import ghostWriter
 
 struct ExportImageResourceTests {
+    @Test func safeSelfContainedSVGIsAccepted() {
+        let svg = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"5\" cy=\"5\" r=\"4\"/></svg>".utf8)
+
+        #expect(EPUBWriter.isSafeSVG(svg))
+    }
+
+    @Test func activeOrExternalSVGContentIsRejected() {
+        let script = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><script>bad()</script></svg>".utf8)
+        let external = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><image href=\"https://example.com/a.png\"/></svg>".utf8)
+
+        #expect(!EPUBWriter.isSafeSVG(script))
+        #expect(!EPUBWriter.isSafeSVG(external))
+    }
+
+    @Test func rasterSignaturesMustMatchTheirDeclaredFormat() {
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0])
+
+        #expect(EPUBWriter.hasValidImageSignature(png, mediaType: "image/png"))
+        #expect(EPUBWriter.hasValidImageSignature(jpeg, mediaType: "image/jpeg"))
+        #expect(!EPUBWriter.hasValidImageSignature(Data([1, 2, 3]), mediaType: "image/png"))
+    }
+
     @Test func onlyDocumentManagedAssetsArePackaged() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("ghostWriter-image-test-\(UUID().uuidString)")

@@ -61,18 +61,19 @@ struct EBrailleSettingsTests {
         #expect(EBrailleMetadata.normalizedCopyrightDate("2026/04/17") == "2026-04-17")
         #expect(EBrailleMetadata.normalizedCopyrightDate(" 2026.4.7 ") == "2026-04-07")
 
-        // Detail that cannot be trusted is dropped rather than guessed at.
-        #expect(EBrailleMetadata.normalizedCopyrightDate("2026-13") == "2026")
+        // Invalid detail rejects the whole value rather than changing the
+        // publication fact the writer supplied.
+        #expect(EBrailleMetadata.normalizedCopyrightDate("2026-13") == nil)
 
         // A day the month does not have must not survive. Calendar rolls such
         // a date forward rather than rejecting it, so 30 February would
         // otherwise be written to the file as 2 March.
-        #expect(EBrailleMetadata.normalizedCopyrightDate("2026-02-30") == "2026-02")
-        #expect(EBrailleMetadata.normalizedCopyrightDate("2026-04-31") == "2026-04")
+        #expect(EBrailleMetadata.normalizedCopyrightDate("2026-02-30") == nil)
+        #expect(EBrailleMetadata.normalizedCopyrightDate("2026-04-31") == nil)
 
         // A leap day that does exist is kept.
         #expect(EBrailleMetadata.normalizedCopyrightDate("2024-02-29") == "2024-02-29")
-        #expect(EBrailleMetadata.normalizedCopyrightDate("2026-02-29") == "2026-02")
+        #expect(EBrailleMetadata.normalizedCopyrightDate("2026-02-29") == nil)
 
         // Nothing usable at all.
         #expect(EBrailleMetadata.normalizedCopyrightDate("202") == nil)

@@ -3,6 +3,25 @@ import Testing
 @testable import ghostWriter
 
 struct DocumentAssetsTests {
+    @Test func importedTactileAssetUsesAManagedRelativeReference() throws {
+        let root = temporaryDirectory()
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let document = root.appendingPathComponent("Document.md")
+        let access = CoordinatedFileAccess()
+
+        let reference = try DocumentAssets.importAsset(
+            data: Data([1, 2, 3]),
+            originalFileName: "Raised map.svg",
+            beside: document,
+            fileAccess: access
+        )
+
+        #expect(reference.hasPrefix(".ghostwriter-assets-"))
+        #expect(reference.hasSuffix("/Raised_map.svg"))
+        #expect(access.itemExists(at: root.appendingPathComponent(reference)))
+    }
+
     @Test func importedAssetsMoveWithTheirDocument() throws {
         let root = temporaryDirectory()
         let sourceFolder = root.appendingPathComponent("Source", isDirectory: true)

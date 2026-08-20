@@ -18,6 +18,7 @@ enum MarkdownInsertionCommand: Equatable {
     case heading(level: Int)
     case link(label: String, address: String)
     case image(alternativeText: String, address: String)
+    case tactileGraphic(description: String, address: String)
     case bold
     case italic
     case strikethrough
@@ -38,6 +39,8 @@ enum MarkdownInsertionCommand: Equatable {
             return "Link created."
         case .image:
             return "Image created."
+        case .tactileGraphic:
+            return "Tactile graphic attached."
         case .bold:
             return "Bold applied."
         case .italic:
@@ -87,6 +90,13 @@ enum MarkdownInsertion {
                 in: text,
                 selection: selection,
                 alternativeText: alternativeText,
+                address: address
+            )
+        case .tactileGraphic(let description, let address):
+            return tactileGraphic(
+                in: text,
+                selection: selection,
+                description: description,
                 address: address
             )
         case .bold:
@@ -147,6 +157,19 @@ enum MarkdownInsertion {
             in: text,
             selection: selection,
             with: "![\(escapeBracketText(alternativeText))](\(normalizeAddress(address)))"
+        )
+    }
+
+    static func tactileGraphic(
+        in text: String,
+        selection: TextSelection,
+        description: String,
+        address: String
+    ) -> MarkdownInsertionResult {
+        replaceSelection(
+            in: text,
+            selection: selection,
+            with: "![\(escapeBracketText(description))](\(normalizeAddress(address)) \"tactile\")"
         )
     }
 

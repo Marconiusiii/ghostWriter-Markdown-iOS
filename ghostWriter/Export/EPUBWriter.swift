@@ -426,6 +426,7 @@ nonisolated enum EPUBWriter {
 
     nonisolated struct EmbeddedImage {
         let id: String
+        let source: String
         let href: String
         let mediaType: String
         let data: Data
@@ -488,6 +489,7 @@ nonisolated enum EPUBWriter {
             hrefBySource[source] = href
             images.append(EmbeddedImage(
                 id: "img-\(images.count + 1)",
+                source: source,
                 href: href,
                 mediaType: mediaType,
                 data: data
@@ -553,7 +555,33 @@ nonisolated enum EPUBWriter {
         case "gif": return "image/gif"
         case "webp": return "image/webp"
         case "png": return "image/png"
+        case "svg": return "image/svg+xml"
         default: return nil
+        }
+    }
+
+    /// SVG is executable XML, not merely a collection of drawing commands.
+    /// Publications are shared outside the app, so only self-contained,
+    /// script-free graphics are safe to package.
+    static func isSafeSVG(_ data: Data) -> Bool {
+        let validator = SafeSVGValidator()
+        let parser = XMLParser(data: data)
+        parser.shouldProcessNamespaces = true
+        parser.shouldResolveExternalEntities = false
+        parser.delegate = validator
+        return parser.parse() && validator.isSafe && validator.sawSVGRoot
+    }
+
+    static func hasValidImageSignature(_ data: Data, mediaType: String) -> Bool {
+        switch mediaType {
+        case "image/jpeg":
+            return data.starts(with: [0xFF, 0xD8, 0xFF])
+        case "image/png":
+            return data.starts(with: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        case "image/svg+xml":
+            return isSafeSVG(data)
+        default:
+            return false
         }
     }
 
@@ -575,5 +603,72 @@ nonisolated enum EPUBWriter {
             }
         }
         return escaped
+    }
+}
+
+private final class SafeSVGValidator: NSObject, XMLParserDelegate {
+    private static let forbiddenElements: Set<String> = [
+        "script", "foreignobject", "iframe", "object", "embed", "audio",
+        "video", "form", "input", "button", "animate", "animatemotion",
+        "animatetransform", "set"
+    ]
+
+    private(set) var isSafe = true
+    private(set) var sawSVGRoot = false
+    private var insideStyle = false
+
+    func parser(
+        _ parser: XMLParser,
+        didStartElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?,
+        attributes attributeDict: [String: String]
+    ) {
+        let name = elementName.lowercased()
+        if !sawSVGRoot { sawSVGRoot = name == "svg" }
+        if Self.forbiddenElements.contains(name) { isSafe = false }
+        insideStyle = insideStyle || name == "style"
+
+        for (rawName, rawValue) in attributeDict {
+            let attribute = rawName.lowercased()
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            if attribute.hasPrefix("on") { isSafe = false }
+            if attribute == "style", containsExternalCSS(value) { isSafe = false }
+            if attribute == "href" || attribute == "xlink:href" || attribute == "src" {
+                guard value.isEmpty || value.hasPrefix("#") else {
+                    isSafe = false
+                    continue
+                }
+            }
+        }
+    }
+
+    func parser(
+        _ parser: XMLParser,
+        didEndElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?
+    ) {
+        if elementName.caseInsensitiveCompare("style") == .orderedSame {
+            insideStyle = false
+        }
+    }
+
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        if insideStyle, containsExternalCSS(string.lowercased()) { isSafe = false }
+    }
+
+    func parser(
+        _ parser: XMLParser,
+        foundExternalEntityDeclarationWithName name: String,
+        publicID: String?,
+        systemID: String?
+    ) {
+        isSafe = false
+    }
+
+    private func containsExternalCSS(_ value: String) -> Bool {
+        value.contains("url(") || value.contains("@import")
     }
 }

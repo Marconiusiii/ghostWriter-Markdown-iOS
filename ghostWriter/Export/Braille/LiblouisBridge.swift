@@ -113,7 +113,20 @@ actor LiblouisBridge: BrailleTranslator {
                 continue
             }
 
-            return String(decoding: output.prefix(Int(outputLength)), as: UTF16.self)
+            let translated = String(
+                decoding: output.prefix(Int(outputLength)),
+                as: UTF16.self
+            )
+            guard translated.unicodeScalars.allSatisfy({ scalar in
+                (0x2800...0x283F).contains(scalar.value)
+                    || scalar.value == 0x20
+                    || scalar.value == 0x0A
+                    || scalar.value == 0x0D
+                    || scalar.value == 0x09
+            }) else {
+                throw BrailleTranslationError.invalidOutput
+            }
+            return translated
         }
 
         throw BrailleTranslationError.translationFailed(grade: grade)
@@ -123,6 +136,7 @@ actor LiblouisBridge: BrailleTranslator {
 nonisolated enum BrailleTranslationError: LocalizedError, Equatable, Sendable {
     case tablesMissing
     case invalidTypeforms
+    case invalidOutput
     case translationFailed(grade: BrailleGrade)
 
     var errorDescription: String? {
@@ -131,6 +145,8 @@ nonisolated enum BrailleTranslationError: LocalizedError, Equatable, Sendable {
             return "The braille translation tables could not be found."
         case .invalidTypeforms:
             return "The braille emphasis information did not match the text."
+        case .invalidOutput:
+            return "The braille translator produced characters that are not valid six-dot braille."
         case .translationFailed(let grade):
             return "The document could not be translated into \(grade.systemName)."
         }

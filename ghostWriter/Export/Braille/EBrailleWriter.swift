@@ -40,19 +40,19 @@ nonisolated enum EBrailleWriter {
             throw EBrailleExportError.invalidMetadata(message)
         }
         let document = MarkdownDocumentParser.parse(markdown)
+        for image in document.images where image.isTactile {
+            guard image.alternativeText?.trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty == false else {
+                throw EBrailleExportError.tactileGraphicNeedsDescription(image.source)
+            }
+        }
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let bookTitle = trimmedTitle.isEmpty ? "Document" : trimmedTitle
 
-        // The language comes from the translation table, not the device.
-        // These tables are UEB, which is English: a French-locale device
-        // exporting an English UEB transcription previously declared
-        // `fr-Brai-FR`, describing a French braille document that the file is
-        // not. The region is still taken from the device, since it is a
-        // regional preference rather than a claim about the braille code.
-        let language = BrailleLanguageTag.brailleTag(
-            from: metadata.grade.languageTag,
-            regionFrom: BrailleLanguageTag.currentBrailleTag()
-        )
+        // The UEB table establishes English braille. Device region is not
+        // evidence about the document or its intended audience, so do not add
+        // a regional claim that the author never made.
+        let language = BrailleLanguageTag.brailleTag(from: metadata.grade.languageTag)
         let identifier = "urn:uuid:\(UUID().uuidString.lowercased())"
 
         // Every piece of readable text is translated up front. Doing it here,
@@ -75,8 +75,9 @@ nonisolated enum EBrailleWriter {
             document,
             sourceDirectory: sourceDirectory
         )
+        let tactileSources = Set(document.images.filter(\.isTactile).map(\.source))
         let supportedImages = collectedImages.images.filter {
-            $0.mediaType == "image/jpeg" || $0.mediaType == "image/png"
+            EPUBWriter.hasValidImageSignature($0.data, mediaType: $0.mediaType)
         }
         let supportedHrefs = Set(supportedImages.map(\.href))
         let imageResources = EPUBWriter.ImageResources(
@@ -85,6 +86,24 @@ nonisolated enum EBrailleWriter {
                 supportedHrefs.contains($0.value)
             }
         )
+        for source in tactileSources {
+            guard let href = imageResources.hrefBySource[source],
+                  let image = imageResources.images.first(where: { $0.href == href }) else {
+                if let collected = collectedImages.images.first(where: { $0.source == source }) {
+                    if collected.mediaType == "image/svg+xml" {
+                        throw EBrailleExportError.unsafeTactileSVG(source)
+                    }
+                    if !["image/jpeg", "image/png"].contains(collected.mediaType) {
+                        throw EBrailleExportError.unsupportedTactileGraphic(source)
+                    }
+                    throw EBrailleExportError.invalidTactileGraphic(source)
+                }
+                throw EBrailleExportError.missingTactileGraphic(source)
+            }
+            guard ["image/jpeg", "image/png", "image/svg+xml"].contains(image.mediaType) else {
+                throw EBrailleExportError.unsupportedTactileGraphic(source)
+            }
+        }
 
         entries["package.opf"] = Data(packageDocument(
             title: bookTitle,
@@ -92,6 +111,7 @@ nonisolated enum EBrailleWriter {
             language: language,
             metadata: metadata,
             images: imageResources.images,
+            tactileSources: tactileSources,
             translations: translations
         ).utf8)
 
@@ -195,8 +215,9 @@ nonisolated enum EBrailleWriter {
                     collect(inline: content, into: &inputs)
                 case .list(let list):
                     for (offset, item) in list.items.enumerated() {
-                        let marker = list.isOrdered ? "\(list.start + offset)." : "-"
-                        inputs.insert(BrailleTranslationInput(text: marker))
+                        if list.isOrdered {
+                            inputs.insert(BrailleTranslationInput(text: "\(list.start + offset)."))
+                        }
                         if let state = item.taskState {
                             inputs.insert(BrailleTranslationInput(text: state.spokenPrefix))
                         }
@@ -354,11 +375,11 @@ nonisolated enum EBrailleWriter {
     /* Body paragraphs are 3-1: first line in cell 3, runover in cell 1. */
     p { margin: 0; text-indent: 2ch; }
 
-    /* Lists are 1-3: item begins in cell 1, runover two cells right. Each
-       nested level moves two cells further, with runovers following. */
+    /* List-specific start and common runover margins are written inline after
+       the complete nested list tree is inspected. */
     ol, ul { margin: 1em 0; padding-left: 0; list-style-type: none; }
-    li { margin: 0; padding-left: 2ch; text-indent: -2ch; }
-    li ol, li ul { margin: 0; padding-left: 2ch; }
+    li { margin: 0; }
+    li ol, li ul { margin-top: 0; margin-bottom: 0; }
 
     /* Displayed material sits two cells in from the surrounding margin. */
     blockquote { margin: 1em 0; padding-left: 2ch; }
@@ -376,18 +397,41 @@ nonisolated enum EBrailleWriter {
         language: String,
         metadata: EBrailleMetadata,
         images: [EPUBWriter.EmbeddedImage],
+        tactileSources: Set<String>,
         translations: TranslationTable
     ) -> String {
         let manifestImages = images.map { image in
             "<item id=\"\(image.id)\" href=\"\(image.href)\" media-type=\"\(image.mediaType)\"/>"
         }.joined(separator: "\n")
+        let contentProperties = images.contains { $0.mediaType == "image/svg+xml" }
+            ? " properties=\"svg\""
+            : ""
 
         let modified = ISO8601DateFormatter().string(from: Date())
 
-        // Ordinary embedded pictures are not automatically tactile graphics.
-        // Markdown has no way to assert that an image was prepared as one, so
-        // the export makes the conservative and accurate declaration.
-        let tactileGraphics = "none"
+        let tactileImages = images.filter { tactileSources.contains($0.source) }
+        let tactileGraphics: String
+        if tactileImages.isEmpty {
+            tactileGraphics = "none"
+        } else {
+            let names = tactileImages.reduce(into: [String: Int]()) { counts, image in
+                let name: String
+                switch image.mediaType {
+                case "image/jpeg": name = "JPG"
+                case "image/png": name = "PNG"
+                case "image/svg+xml": name = "SVG"
+                default: return
+                }
+                counts[name, default: 0] += 1
+            }
+            let stableOrder = ["JPG", "PNG", "SVG"]
+            tactileGraphics = names.keys.sorted {
+                let left = names[$0, default: 0]
+                let right = names[$1, default: 0]
+                if left != right { return left > right }
+                return stableOrder.firstIndex(of: $0)! < stableOrder.firstIndex(of: $1)!
+            }.joined(separator: ", ")
+        }
 
         let producers = metadata.effectiveProducers.map { producer in
             "<meta property=\"a11y:producer\">\(escape(producer))</meta>"
@@ -424,7 +468,7 @@ nonisolated enum EBrailleWriter {
         <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id" xml:lang="\(escape(language))" prefix="a11y: http://www.idpf.org/epub/vocab/package/a11y/# dcterms: http://purl.org/dc/terms/">
         <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
         <dc:identifier id="pub-id">\(escape(identifier))</dc:identifier>
-        <dc:title>\(escape(translations(title)))</dc:title>
+        <dc:title xml:lang="en">\(escape(title))</dc:title>
         <dc:creator>\(escape(metadata.effectiveCreator))</dc:creator>
         <dc:language>\(escape(language))</dc:language>
         <dc:format>\(EBrailleMetadata.formatIdentifier)</dc:format>
@@ -442,11 +486,11 @@ nonisolated enum EBrailleWriter {
         <meta property="schema:accessibilityFeature">structuralNavigation</meta>
         <meta property="schema:accessibilityFeature">tableOfContents</meta>
         <meta property="schema:accessibilityHazard">none</meta>
-        <meta property="schema:accessibilitySummary">Braille transcription with semantic headings, lists, and table markup, produced from a markdown source.</meta>
+        <meta property="schema:accessibilitySummary">Unified English Braille document with semantic headings, lists, links, and table markup, generated from Markdown.</meta>
         </metadata>
         <manifest>
         <item id="nav" href="index.html" media-type="application/xhtml+xml" properties="nav"/>
-        <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
+        <item id="content" href="content.xhtml" media-type="application/xhtml+xml"\(contentProperties)/>
         <item id="style" href="style.css" media-type="text/css"/>
         \(manifestImages)
         </manifest>
@@ -614,33 +658,68 @@ nonisolated enum EBrailleWriter {
             return output
         }
 
-        mutating func renderList(_ list: ExportList) -> String {
+        mutating func renderList(
+            _ list: ExportList,
+            depth: Int = 0,
+            commonRunover: Int? = nil
+        ) -> String {
             let tag = list.isOrdered ? "ol" : "ul"
-            var output = "<\(tag)>\n"
+            let runover = commonRunover ?? deepestLevel(in: list) * 2
+            let listStyle = depth == 0
+                ? ""
+                : " style=\"margin-left: -\(runover)ch; padding-left: 0\""
+            var output = "<\(tag)\(listStyle)>\n"
 
             for (offset, item) in list.items.enumerated() {
-                output += "<li>"
+                let start = depth * 2
+                output += "<li style=\"padding-left: \(runover)ch; text-indent: \(start - runover)ch\">"
 
                 // eBraille forbids relying on reading-system generated markers,
                 // so the marker is part of the content. Numbers are translated
                 // through the braille table rather than written as digits,
                 // since braille numerals need their own indicator.
-                let marker = list.isOrdered
-                    ? "\(list.start + offset)."
-                    : "-"
-                output += escape(translations(marker)) + Self.brailleSpace
+                if list.isOrdered {
+                    output += escape(translations("\(list.start + offset)."))
+                } else {
+                    // Unicode cells for BANA's primary bullet: dots 456, 256.
+                    output += "\u{2838}\u{2832}"
+                }
+                output += Self.brailleSpace
 
                 if let state = item.taskState {
                     output += escape(translations(state.spokenPrefix)) + Self.brailleSpace
                 }
                 output += inline(item.content)
                 if !item.children.isEmpty {
-                    output += "\n" + render(item.children)
+                    output += "\n"
+                    for child in item.children {
+                        if case .list(let nested) = child {
+                            output += renderList(
+                                nested,
+                                depth: depth + 1,
+                                commonRunover: runover
+                            )
+                        } else {
+                            output += render([child])
+                        }
+                    }
                 }
                 output += "</li>\n"
             }
 
             return output + "</\(tag)>\n"
+        }
+
+        private func deepestLevel(in list: ExportList) -> Int {
+            var deepest = 1
+            for item in list.items {
+                for child in item.children {
+                    if case .list(let nested) = child {
+                        deepest = max(deepest, 1 + deepestLevel(in: nested))
+                    }
+                }
+            }
+            return deepest
         }
 
         mutating func renderTable(_ table: ExportTable) -> String {
@@ -713,7 +792,8 @@ nonisolated enum EBrailleWriter {
             }
             if image.isDecorative { return "<img src=\"\(escape(href))\" alt=\"\"/>" }
             let alternative = image.alternativeText.map { translations($0) } ?? ""
-            return "<img src=\"\(escape(href))\" alt=\"\(escape(alternative))\"/>"
+            let classification = image.isTactile ? " class=\"tactile-graphic\"" : ""
+            return "<img\(classification) src=\"\(escape(href))\" alt=\"\(escape(alternative))\"/>"
         }
     }
 
@@ -724,10 +804,25 @@ nonisolated enum EBrailleWriter {
 
 nonisolated enum EBrailleExportError: LocalizedError, Equatable, Sendable {
     case invalidMetadata(String)
+    case tactileGraphicNeedsDescription(String)
+    case missingTactileGraphic(String)
+    case unsupportedTactileGraphic(String)
+    case invalidTactileGraphic(String)
+    case unsafeTactileSVG(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidMetadata(let message): return message
+        case .tactileGraphicNeedsDescription(let source):
+            return "Add a description to the tactile graphic \(source) before exporting."
+        case .missingTactileGraphic(let source):
+            return "The tactile graphic \(source) could not be found or read. Attach it again before exporting."
+        case .unsupportedTactileGraphic(let source):
+            return "The tactile graphic \(source) is not an SVG, PNG, or JPG file."
+        case .invalidTactileGraphic(let source):
+            return "The tactile graphic \(source) is not a valid SVG, PNG, or JPG file. Attach it again before exporting."
+        case .unsafeTactileSVG(let source):
+            return "The tactile SVG \(source) contains active or external content and cannot be shared safely."
         }
     }
 }

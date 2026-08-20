@@ -116,11 +116,13 @@ struct ReferenceSection: Identifiable {
             ]
         ),
         ReferenceSection(
-            title: "Links and Images",
-            explanation: "Square brackets for the visible text, parentheses for the address. Images are the same with a leading exclamation mark, and the bracketed text becomes the alt text. Always write meaningful alt text.",
+            title: "Links and images",
+            explanation: "Square brackets hold visible link text or an image description, and parentheses hold the address. Empty image brackets mean the image is decorative. The optional title tactile declares that an attached SVG, PNG, or JPG was prepared for tactile presentation; Insert Actions can attach one without typing its managed path.",
             syntax: [
                 "[Marconius](https://marconius.com)",
                 "![Alt text](https://example.com/image.jpg)",
+                "![](decorative-divider.png)",
+                "![Tactile map](map.svg \"tactile\")",
                 "[Marconius][home]",
                 "[home]: https://marconius.com"
             ]

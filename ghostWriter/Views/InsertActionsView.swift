@@ -10,6 +10,7 @@ import SwiftUI
 
 struct InsertActionsView: View {
     let initialLinkText: String
+    let documentURL: URL
     let onInsert: (MarkdownInsertionCommand) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -24,6 +25,7 @@ struct InsertActionsView: View {
                 categoryButton("Headings…", category: .headings)
                 categoryButton("Link…", category: .link)
                 categoryButton("Image from Web…", category: .image)
+                categoryButton("Tactile Graphic…", category: .tactileGraphic)
                 categoryButton("Emphasis…", category: .emphasis)
                 categoryButton("Code…", category: .code)
                 categoryButton("Lists…", category: .lists)
@@ -78,6 +80,10 @@ struct InsertActionsView: View {
         case .image:
             MarkdownInsertionView(kind: .image, initialText: "") {
                 choose(.image(alternativeText: $0, address: $1))
+            }
+        case .tactileGraphic:
+            TactileGraphicInsertionView(documentURL: documentURL) {
+                choose(.tactileGraphic(description: $0, address: $1))
             }
         case .emphasis:
             InsertChoiceView(
@@ -148,6 +154,7 @@ private enum InsertCategory: String, Identifiable, Hashable {
     case headings
     case link
     case image
+    case tactileGraphic
     case emphasis
     case code
     case lists

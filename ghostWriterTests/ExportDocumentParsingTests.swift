@@ -172,6 +172,35 @@ struct ExportDocumentParsingTests {
         #expect(image.isDecorative)
     }
 
+    @Test func tactileTitleClassifiesTheImageCaseInsensitively() {
+        let document = MarkdownDocumentParser.parse(
+            "![Raised map](map.svg \"TACTILE\")"
+        )
+
+        guard case .paragraph(let content) = document.blocks[0],
+              case .image(let image)? = content.first else {
+            Issue.record("Expected a tactile image")
+            return
+        }
+        #expect(image.title == "TACTILE")
+        #expect(image.isTactile)
+        #expect(!image.isDecorative)
+    }
+
+    @Test func anUnrelatedImageTitleRemainsAnOrdinaryImage() {
+        let document = MarkdownDocumentParser.parse(
+            "![Photo](photo.jpg \"Figure one\")"
+        )
+
+        guard case .paragraph(let content) = document.blocks[0],
+              case .image(let image)? = content.first else {
+            Issue.record("Expected an image")
+            return
+        }
+        #expect(image.title == "Figure one")
+        #expect(!image.isTactile)
+    }
+
     @Test func referenceLinksResolve() {
         let markdown = """
         See [the site][home].

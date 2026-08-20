@@ -9,9 +9,8 @@
 //  40 cells reads badly on a 32-cell display, so these are asked rather than
 //  assumed. The braille grade is asked for the same reason it is for eBraille.
 //
-//  Nothing else applies. BRF has no metadata container, so an author, a
-//  copyright year, and a transcription declaration would be collected and then
-//  discarded.
+//  BRF has no metadata container. This export creates reader-oriented UEB BRF,
+//  not the preliminary pages and source pagination of a production transcription.
 //
 
 import SwiftUI
@@ -23,6 +22,7 @@ struct BRFOptionsView: View {
     let onExport: (BRFExportOptions) -> Void
 
     @State private var grade: BrailleGrade
+    @State private var layout: Layout
     @State private var cellsPerLine: Int
     @State private var linesPerPage: Int
     @AccessibilityFocusState private var accessibilityFocus: AccessibilityTarget?
@@ -30,8 +30,22 @@ struct BRFOptionsView: View {
 
     private enum AccessibilityTarget: Hashable {
         case grade
+        case layout
         case cellsPerLine
         case linesPerPage
+    }
+
+    private enum Layout: String, CaseIterable, Identifiable {
+        case standard
+        case custom
+
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .standard: return "Standard BRF page (40 by 25)"
+            case .custom: return "Custom display layout"
+            }
+        }
     }
 
     /// Widths and depths real braille hardware uses.
@@ -46,6 +60,10 @@ struct BRFOptionsView: View {
         self.onCancel = onCancel
         self.onExport = onExport
         _grade = State(initialValue: settings.eBrailleGrade)
+        _layout = State(
+            initialValue: settings.brfCellsPerLine == 40
+                && settings.brfLinesPerPage == 25 ? .standard : .custom
+        )
         _cellsPerLine = State(initialValue: settings.brfCellsPerLine)
         _linesPerPage = State(initialValue: settings.brfLinesPerPage)
     }
@@ -69,6 +87,24 @@ struct BRFOptionsView: View {
                 }
 
                 Section {
+                    LabeledContent("Layout") {
+                        Picker(selection: $layout) {
+                            ForEach(Layout.allCases) { layout in
+                                Text(layout.label).tag(layout)
+                            }
+                        } label: {
+                            EmptyView()
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityFocused($accessibilityFocus, equals: .layout)
+                        .onChange(of: layout) { _, _ in restoreFocus(to: .layout) }
+                    }
+                } footer: {
+                    Text("Standard BRF uses 40 cells by 25 lines. Choose a custom layout only when preparing the file for a particular display size.")
+                }
+
+                if layout == .custom {
+                    Section {
                     LabeledContent("Cells per line") {
                         Picker(selection: $cellsPerLine) {
                             ForEach(Self.cellChoices, id: \.self) { value in
@@ -98,8 +134,9 @@ struct BRFOptionsView: View {
                             restoreFocus(to: .linesPerPage)
                         }
                     }
-                } footer: {
-                    Text("Match these to your braille display or embosser. The standard braille page is 40 cells by 25 lines.")
+                    } footer: {
+                        Text("Match these dimensions to the intended braille display.")
+                    }
                 }
 
                 Section {
@@ -115,16 +152,19 @@ struct BRFOptionsView: View {
 
     private func export() {
         settings.eBrailleGrade = grade
-        settings.brfCellsPerLine = cellsPerLine
-        settings.brfLinesPerPage = linesPerPage
+        let pageSetup = layout == .standard
+            ? BRFWriter.PageSetup.standard
+            : BRFWriter.PageSetup(
+                cellsPerLine: cellsPerLine,
+                linesPerPage: linesPerPage
+            )
+        settings.brfCellsPerLine = pageSetup.cellsPerLine
+        settings.brfLinesPerPage = pageSetup.linesPerPage
 
         onExport(
             BRFExportOptions(
                 grade: grade,
-                pageSetup: BRFWriter.PageSetup(
-                    cellsPerLine: cellsPerLine,
-                    linesPerPage: linesPerPage
-                )
+                pageSetup: pageSetup
             )
         )
     }

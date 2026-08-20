@@ -44,7 +44,7 @@ nonisolated enum BRFWriter {
         // The title is set apart as a centered heading.
         if !trimmedTitle.isEmpty {
             let braille = try await translator.translate(trimmedTitle, grade: grade)
-            lines += centered(asciiBraille(braille), width: pageSetup.cellsPerLine)
+            lines += centered(try asciiBraille(braille), width: pageSetup.cellsPerLine)
             lines.append("")
         }
 
@@ -61,7 +61,15 @@ nonisolated enum BRFWriter {
                 grade: grade,
                 pageSetup: pageSetup,
                 translator: translator,
-                listDepth: 0
+                listDepth: 0,
+                listRunover: nil
+            )
+        }
+
+        if let line = lines.first(where: { $0.count > pageSetup.cellsPerLine }) {
+            throw BRFExportError.contentExceedsLineWidth(
+                width: pageSetup.cellsPerLine,
+                cells: line.count
             )
         }
 
@@ -76,7 +84,8 @@ nonisolated enum BRFWriter {
         grade: BrailleGrade,
         pageSetup: PageSetup,
         translator: BrailleTranslator,
-        listDepth: Int
+        listDepth: Int,
+        listRunover: Int?
     ) async throws -> [String] {
         let width = pageSetup.cellsPerLine
 
@@ -105,15 +114,28 @@ nonisolated enum BRFWriter {
             return wrapped(text, width: width, start: 2, runover: 0)
 
         case .list(let list):
-            var out: [String] = [""]
+            let commonRunover = listRunover
+                ?? (listDepth + deepestLevel(in: list)) * 2
+            var out: [String] = listDepth == 0 ? [""] : []
             for (offset, item) in list.items.enumerated() {
-                let marker = list.isOrdered ? "\(list.start + offset)." : "-"
-                let markerBraille = asciiBraille(
-                    try await translate(marker, grade: grade, translator: translator)
-                )
+                let markerBraille: String
+                if list.isOrdered {
+                    markerBraille = try asciiBraille(
+                        try await translate(
+                            "\(list.start + offset).",
+                            grade: grade,
+                            translator: translator
+                        )
+                    )
+                } else {
+                    // BANA's primary bullet is dots 456, 256, represented as
+                    // `_4` in Braille ASCII. A translated print hyphen is not a
+                    // bullet and can defeat list recognition during reflow.
+                    markerBraille = "_4"
+                }
                 var parts: [String] = []
                 if let state = item.taskState {
-                    parts.append(asciiBraille(
+                    parts.append(try asciiBraille(
                         try await translator.translate(state.spokenPrefix, grade: grade)
                     ))
                 }
@@ -124,14 +146,14 @@ nonisolated enum BRFWriter {
                 )
                 if !itemText.isEmpty { parts.append(itemText) }
                 let body = parts.joined(separator: " ")
-                // 1-3 at the top level, each nested level two cells further.
+                // Every level shares the runover determined by the deepest
+                // level in this list section: 1-5 and 3-5 for two levels, etc.
                 let start = listDepth * 2
-                let runover = start + 2
                 out += wrapped(
                     "\(markerBraille) \(body)",
                     width: width,
                     start: start,
-                    runover: runover
+                    runover: commonRunover
                 )
 
                 for child in item.children {
@@ -140,23 +162,29 @@ nonisolated enum BRFWriter {
                         grade: grade,
                         pageSetup: pageSetup,
                         translator: translator,
-                        listDepth: listDepth + 1
+                        listDepth: listDepth + 1,
+                        listRunover: commonRunover
                     )
                 }
             }
-            out.append("")
+            if listDepth == 0 { out.append("") }
             return out
 
         case .blockQuote(let blocks):
             // Displayed material sits two cells in from the surrounding text.
             var out: [String] = [""]
+            let nestedSetup = PageSetup(
+                cellsPerLine: max(width - 2, 1),
+                linesPerPage: pageSetup.linesPerPage
+            )
             for inner in blocks {
                 let rendered = try await render(
                     block: inner,
                     grade: grade,
-                    pageSetup: pageSetup,
+                    pageSetup: nestedSetup,
                     translator: translator,
-                    listDepth: listDepth
+                    listDepth: listDepth,
+                    listRunover: listRunover
                 )
                 out += rendered.map { $0.isEmpty ? $0 : "  " + $0 }
             }
@@ -164,9 +192,10 @@ nonisolated enum BRFWriter {
             return out
 
         case .codeBlock(_, let code):
-            let text = asciiBraille(
+            let fixedCellCode = code.replacingOccurrences(of: "\t", with: "    ")
+            let text = try asciiBraille(
                 try await translator.translate(
-                    EBrailleWriter.TranslationTable.styledInput(code, adding: .noContract),
+                    EBrailleWriter.TranslationTable.styledInput(fixedCellCode, adding: .noContract),
                     grade: grade
                 )
             )
@@ -174,14 +203,16 @@ nonisolated enum BRFWriter {
             var out: [String] = [""]
             // Code keeps its own line breaks rather than reflowing.
             for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
-                out += wrapped(String(line), width: width, start: 2, runover: 2)
+                out += wrappedPreformatted(String(line), width: width, margin: 2)
             }
             out.append("")
             return out
 
         case .thematicBreak:
-            // A full line of dot-2-5 cells marks a thematic separation.
-            return ["", String(repeating: "3", count: min(width, 40)), ""]
+            // Markdown supplies no information about which braille separator
+            // the author intended. Blank-line separation is accurate and does
+            // not invent a full-width symbol sequence.
+            return [""]
 
         case .table(let table):
             // Tables become a labelled list: a braille reader on a 40-cell
@@ -189,21 +220,24 @@ nonisolated enum BRFWriter {
             var out: [String] = [""]
             var headers: [String] = []
             for header in table.headers {
-                headers.append(
-                    asciiBraille(try await translate(header, grade: grade, translator: translator))
-                )
+                headers.append(try await translate(header, grade: grade, translator: translator))
             }
-            for row in table.rows {
+            let separator = try asciiBraille(
+                try await translator.translate(": ", grade: grade)
+            )
+            for (rowIndex, row) in table.rows.enumerated() {
+                let rowHeading = try asciiBraille(
+                    try await translator.translate("Row \(rowIndex + 1)", grade: grade)
+                )
+                out += wrapped(rowHeading, width: width, start: 0, runover: 2)
                 var cells: [String] = []
                 for cell in row {
-                    cells.append(
-                        asciiBraille(try await translate(cell, grade: grade, translator: translator))
-                    )
+                    cells.append(try await translate(cell, grade: grade, translator: translator))
                 }
                 for (index, cell) in cells.enumerated() {
                     let label = index < headers.count ? headers[index] : ""
-                    let line = label.isEmpty ? cell : "\(label): \(cell)"
-                    out += wrapped(line, width: width, start: 0, runover: 2)
+                    let line = label.isEmpty ? cell : "\(label)\(separator)\(cell)"
+                    out += wrapped(line, width: width, start: 2, runover: 4)
                 }
                 out.append("")
             }
@@ -231,12 +265,14 @@ nonisolated enum BRFWriter {
         for unit in EBrailleWriter.TranslationTable.inlineUnits(spans) {
             switch unit {
             case .text(let input), .link(_, let input):
-                result += asciiBraille(try await translator.translate(input, grade: grade))
+                result += try asciiBraille(try await translator.translate(input, grade: grade))
             case .image(let image):
                 if let alternative = image.alternativeText {
-                    result += asciiBraille(
-                        try await translator.translate(alternative, grade: grade)
+                    let prefix = image.isTactile ? "Tactile graphic: " : "Image: "
+                    let description = try asciiBraille(
+                        try await translator.translate(prefix + alternative, grade: grade)
                     )
+                    result += description
                 }
             case .lineBreak:
                 result += "\n"
@@ -309,16 +345,40 @@ nonisolated enum BRFWriter {
                     current = String(repeating: " ", count: continuationMargin)
                     isEmptyLine = true
                 } else {
-                    let split = remainder.index(remainder.startIndex, offsetBy: available)
-                    current += String(remainder[..<split])
-                    lines.append(current)
-                    remainder = String(remainder[split...])
-                    current = String(repeating: " ", count: continuationMargin)
-                    isEmptyLine = true
+                    // Keep the complete braille word. `write` validates the
+                    // finished line and reports geometry that cannot contain it
+                    // instead of silently changing the word at a cell boundary.
+                    current += remainder
+                    remainder = ""
+                    isEmptyLine = false
                 }
             }
         }
         if !isEmptyLine { lines.append(current) }
+        return lines
+    }
+
+    /// Wraps preformatted material without collapsing indentation or repeated
+    /// spaces. Code tokens may be wider than a physical line, so continuation
+    /// is a mechanical slice rather than literary word wrapping.
+    static func wrappedPreformatted(_ text: String, width: Int, margin: Int) -> [String] {
+        let safeWidth = max(width, 1)
+        let safeMargin = min(max(margin, 0), safeWidth - 1)
+        let available = max(safeWidth - safeMargin, 1)
+        if text.isEmpty { return [String(repeating: " ", count: safeMargin)] }
+
+        var remainder = text[...]
+        var lines: [String] = []
+        while !remainder.isEmpty {
+            let end = remainder.index(
+                remainder.startIndex,
+                offsetBy: min(available, remainder.count)
+            )
+            lines.append(
+                String(repeating: " ", count: safeMargin) + String(remainder[..<end])
+            )
+            remainder = remainder[end...]
+        }
         return lines
     }
 
@@ -346,6 +406,15 @@ nonisolated enum BRFWriter {
             // Never open a page with a blank line: it wastes a line of a very
             // small page and reads as a missing heading.
             if page.isEmpty && line.isEmpty { continue }
+            // A separating blank line signals the start of a new block. Keep
+            // room for that block's first line and at least one following line
+            // instead of leaving a heading or list opening at the page bottom.
+            if line.isEmpty, !page.isEmpty,
+               linesPerPage - page.count < 3 {
+                pages.append(page.joined(separator: "\r\n"))
+                page = []
+                continue
+            }
             page.append(line)
             if page.count == linesPerPage {
                 pages.append(page.joined(separator: "\r\n"))
@@ -377,7 +446,7 @@ nonisolated enum BRFWriter {
     )
 
     /// Converts Unicode braille patterns to the ASCII braille BRF requires.
-    static func asciiBraille(_ braille: String) -> String {
+    static func asciiBraille(_ braille: String) throws -> String {
         var output = ""
         output.reserveCapacity(braille.count)
 
@@ -386,15 +455,45 @@ nonisolated enum BRFWriter {
             case 0x2800...0x283F:
                 output.append(asciiTable[Int(character.value - 0x2800)])
             case 0x2840...0x28FF:
-                // Eight-dot patterns have no BRF encoding. The low six dots
-                // are the closest honest approximation.
-                output.append(asciiTable[Int((character.value - 0x2800) & 0x3F)])
+                throw BRFExportError.eightDotBrailleNotRepresentable
             case 0x0A, 0x0D:
                 output.append("\n")
+            case 0x20:
+                output.append(" ")
             default:
-                output.unicodeScalars.append(character)
+                throw BRFExportError.unexpectedCharacter(character.value)
             }
         }
         return output
+    }
+
+
+    private static func deepestLevel(in list: ExportList) -> Int {
+        var deepest = 1
+        for item in list.items {
+            for child in item.children {
+                if case .list(let nested) = child {
+                    deepest = max(deepest, 1 + deepestLevel(in: nested))
+                }
+            }
+        }
+        return deepest
+    }
+}
+
+nonisolated enum BRFExportError: LocalizedError, Equatable, Sendable {
+    case contentExceedsLineWidth(width: Int, cells: Int)
+    case eightDotBrailleNotRepresentable
+    case unexpectedCharacter(UInt32)
+
+    var errorDescription: String? {
+        switch self {
+        case .contentExceedsLineWidth(let width, let cells):
+            return "A braille word requires \(cells) cells and does not fit the selected \(width)-cell line width. Choose a wider layout."
+        case .eightDotBrailleNotRepresentable:
+            return "The translation contains eight-dot braille, which cannot be represented safely in BRF."
+        case .unexpectedCharacter(let value):
+            return "The translation contains a character that cannot be represented in BRF (Unicode \(String(value, radix: 16).uppercased()))."
+        }
     }
 }

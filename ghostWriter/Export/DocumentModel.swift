@@ -149,15 +149,77 @@ nonisolated indirect enum ExportInline: Equatable, Sendable {
 }
 
 nonisolated struct ExportImage: Equatable, Sendable {
+    nonisolated enum Presentation: Equatable, Sendable {
+        case ordinary
+        case decorative
+        case tactile
+    }
+
     /// The source exactly as written in the markdown.
     var source: String
     var alternativeText: String?
+    /// Standard Markdown's optional image title. ghostWriter reserves the exact
+    /// title "tactile" as an author declaration that the attached resource was
+    /// prepared for tactile presentation.
+    var title: String? = nil
 
-    /// An image with empty alt text is decorative by markdown convention, and
-    /// every export has to say so explicitly — an untagged image is announced
-    /// as "image" with no further information, which is worse than being
-    /// skipped outright.
-    var isDecorative: Bool { (alternativeText ?? "").isEmpty }
+    var presentation: Presentation {
+        if title?.trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare("tactile") == .orderedSame {
+            return .tactile
+        }
+        return (alternativeText ?? "").isEmpty ? .decorative : .ordinary
+    }
+
+    var isDecorative: Bool { presentation == .decorative }
+    var isTactile: Bool { presentation == .tactile }
+}
+
+extension ExportDocument {
+    nonisolated var images: [ExportImage] {
+        var result: [ExportImage] = []
+
+        func collect(inline: [ExportInline]) {
+            for span in inline {
+                switch span {
+                case .image(let image):
+                    result.append(image)
+                case .emphasis(let children), .strong(let children),
+                     .strikethrough(let children), .underline(let children),
+                     .link(_, let children):
+                    collect(inline: children)
+                case .text, .code, .lineBreak:
+                    break
+                }
+            }
+        }
+
+        func collect(blocks: [ExportBlock]) {
+            for block in blocks {
+                switch block {
+                case .heading(_, let content), .paragraph(let content):
+                    collect(inline: content)
+                case .list(let list):
+                    for item in list.items {
+                        collect(inline: item.content)
+                        collect(blocks: item.children)
+                    }
+                case .table(let table):
+                    for cell in table.headers { collect(inline: cell) }
+                    for row in table.rows {
+                        for cell in row { collect(inline: cell) }
+                    }
+                case .blockQuote(let children):
+                    collect(blocks: children)
+                case .codeBlock, .thematicBreak:
+                    break
+                }
+            }
+        }
+
+        collect(blocks: blocks)
+        return result
+    }
 }
 
 // MARK: - Inline text extraction

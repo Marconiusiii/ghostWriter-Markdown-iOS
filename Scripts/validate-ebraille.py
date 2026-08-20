@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Validate an eBraille (.ebrl) file.
+"""Run local structural and content checks on an eBraille (.ebrl) file.
 
 Checks the container is a well-formed eBraille package, that required metadata
 is present, that every rendered character is legal braille, and — the check
 that actually catches translation bugs — back-translates the braille to English
 so you can read what the file really says.
+
+This is a focused project validator, not an official certification service and
+not a substitute for reading the exported document on target hardware.
 
 Usage:  validate-ebraille.py FILE.ebrl [--table en-ueb-g2.ctb]
 """
@@ -487,27 +490,47 @@ def check_forbidden(archive, opf, manifest):
                 )
             ok(f"{href}: no forbidden CSS features")
 
+        if href.endswith(".svg"):
+            with archive.open(href) as handle:
+                svg = handle.read().decode("utf-8")
+            lowered = svg.lower()
+            forbidden_elements = (
+                "script", "foreignobject", "iframe", "object", "embed",
+                "audio", "video", "form", "input", "button", "animate",
+                "animatemotion", "animatetransform", "set",
+            )
+            for element in forbidden_elements:
+                if re.search(rf"<{element}\b", lowered):
+                    fail(f"{href}: <{element}> is not allowed in a shared tactile SVG")
+            if re.search(r"\son[a-z0-9_-]+\s*=", lowered):
+                fail(f"{href}: event-handler attributes are not allowed in a tactile SVG")
+            if re.search(r"\b(?:href|xlink:href|src)\s*=\s*['\"](?!#|['\"])", lowered):
+                fail(f"{href}: external resource references are not allowed in a tactile SVG")
+            if "@import" in lowered or "url(" in lowered:
+                fail(f"{href}: external CSS references are not allowed in a tactile SVG")
+            if "<!entity" in lowered:
+                fail(f"{href}: external entity declarations are not allowed in a tactile SVG")
+
 
 def check_graphics(archive, opf, manifest):
     """Validate images and the tactile graphics declaration.
 
-    An ordinary embedded picture is not necessarily a tactile graphic. The
-    package has no machine-readable flag that lets this script determine which
-    images were prepared for tactile use, so `none` is valid even when ordinary
-    images are present. A non-none declaration can still be checked against the
-    media types available in the manifest.
+    ghostWriter identifies tactile images with the tactile-graphic class in
+    XHTML. This lets the validator compare the declaration with the resources
+    actually presented as tactile, without misclassifying ordinary images.
     """
     with archive.open(opf) as handle:
         root = ET.parse(handle).getroot()
 
-    # Count the image formats the manifest actually declares.
-    counts = {}
+    image_formats = {}
+    manifest_items = {}
     foreign = []
     for item in root.findall(f".//{OPF}item"):
         media = item.get("media-type", "")
         href = item.get("href", "")
+        manifest_items[href] = item
         if media in CORE_IMAGE_TYPES:
-            counts[CORE_IMAGE_TYPES[media]] = counts.get(CORE_IMAGE_TYPES[media], 0) + 1
+            image_formats[href] = CORE_IMAGE_TYPES[media]
         elif media in FOREIGN_IMAGE_TYPES:
             counts[FOREIGN_IMAGE_TYPES[media]] = counts.get(FOREIGN_IMAGE_TYPES[media], 0) + 1
             if item.get("fallback") is None:
@@ -523,27 +546,72 @@ def check_graphics(archive, opf, manifest):
     for href in foreign:
         fail(f"{href} is a foreign resource (PDF) with no fallback declared")
 
+    tactile_sources = []
+    referenced_images = []
+    names = set(archive.namelist())
+    for href in sorted(manifest):
+        if not href.endswith((".xhtml", ".html")) or href not in names:
+            continue
+        with archive.open(href) as handle:
+            xhtml = handle.read().decode("utf-8")
+        for tag in re.findall(r"<img\b[^>]*/?>", xhtml):
+            src = re.search(r'src="([^"]*)"', tag)
+            if src:
+                referenced_images.append(unquote(src.group(1)))
+            classes = re.search(r'class="([^"]*)"', tag)
+            class_names = (classes.group(1).split() if classes else [])
+            if "tactile-graphic" not in class_names:
+                continue
+            if not src:
+                fail(f"{href}: tactile graphic has no src")
+                continue
+            tactile_sources.append(unquote(src.group(1)))
+
+    tactile_formats = [image_formats.get(source) for source in tactile_sources]
+    for source, image_format in zip(tactile_sources, tactile_formats):
+        if image_format is None:
+            fail(f"tactile graphic {source!r} is not a supported manifested image")
+
+    if any(image_formats.get(source) == "SVG" for source in referenced_images):
+        for href in sorted(manifest):
+            if not href.endswith((".xhtml", ".html")) or href not in names:
+                continue
+            with archive.open(href) as handle:
+                xhtml = handle.read().decode("utf-8")
+            references_svg = any(
+                source in xhtml
+                for source in referenced_images
+                if image_formats.get(source) == "SVG"
+            )
+            properties = (manifest_items.get(href).get("properties", "")
+                          if manifest_items.get(href) is not None else "")
+            if references_svg and "svg" not in properties.split():
+                fail(f"{href}: manifest item must declare the svg property")
+
     if declared is None:
         fail("a11y:tactileGraphics is missing")
         return
 
     if declared == "none":
-        ok("a11y:tactileGraphics declares that no tactile graphics are present")
+        if tactile_sources:
+            fail("a11y:tactileGraphics declares none but tactile graphics are present")
+        else:
+            ok("a11y:tactileGraphics declares that no tactile graphics are present")
         return
 
-    if not counts:
-        fail(f"a11y:tactileGraphics says {declared!r} but the file has no images")
+    if not tactile_sources:
+        fail(f"a11y:tactileGraphics says {declared!r} but no tactile graphics are marked in the content")
         return
 
     listed = [part.strip() for part in declared.split(",") if part.strip()]
-
-    if not set(listed).issubset(set(counts)):
+    actual = {value for value in tactile_formats if value is not None}
+    if set(listed) != actual:
         fail(
-            f"a11y:tactileGraphics lists {declared!r}, but matching image "
-            f"formats are not all present in the manifest"
+            f"a11y:tactileGraphics lists {declared!r}, but tactile content "
+            f"uses {', '.join(sorted(actual)) or 'no supported format'}"
         )
     else:
-        ok(f"a11y:tactileGraphics uses manifest-supported formats: {declared}")
+        ok(f"a11y:tactileGraphics matches tactile content formats: {declared}")
 
 
 def check_image_alt(archive, manifest, table, show):
@@ -572,18 +640,13 @@ def check_image_alt(archive, manifest, table, show):
                 continue
 
             value = alt.group(1)
-            presentation = 'role="presentation"' in tag or 'aria-hidden="true"' in tag
-
             if value == "":
-                if presentation:
-                    decorative += 1
-                else:
-                    fail(
-                        f"{href}: <img src={src!r}> has empty alt but is not "
-                        "marked decorative"
-                    )
+                # Native HTML defines alt="" as decorative. Redundant ARIA is
+                # neither required nor desirable here.
+                decorative += 1
                 continue
 
+            presentation = 'role="presentation"' in tag or 'aria-hidden="true"' in tag
             if presentation:
                 fail(f"{href}: <img src={src!r}> is decorative but has alt text")
                 continue

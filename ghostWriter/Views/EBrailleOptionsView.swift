@@ -14,16 +14,16 @@
 //  publisher, the rights, the subject, a description, and the education level.
 //  Those sit in their own section below the required ones, so the short path
 //  stays short for someone exporting a document they wrote themselves, while a
-//  transcriber working from a published book has somewhere to record what they
-//  are transcribing and under what terms.
+//  producer working from a published book has somewhere to record the source
+//  work and the terms under which the braille edition is being shared.
 //
-//  Author and transcriber are deliberately two fields. eBraille reserves
+//  Author and producer are deliberately two fields. eBraille reserves
 //  `dc:creator` for the author of the original work and `a11y:producer` for
 //  whoever produced the braille; collapsing them into one "Author" box meant
-//  every transcription of someone else's book named the wrong person.
+//  every braille edition of someone else's book named the wrong person.
 //
 //  Document-specific facts remain local to this sheet so they cannot leak into
-//  a later document. Only reusable choices — the braille grade and transcriber
+//  a later document. Only reusable choices — the braille grade and producer
 //  name — are written to settings when an export succeeds. Keeping text fields
 //  off AppSettings also avoids republishing the settings object on every
 //  keystroke and redrawing the editor behind this sheet.
@@ -131,7 +131,7 @@ struct EBrailleOptionsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("Converts your file to the eBraille 1.0 standard.")
+                    Text("Creates a reflowable Unified English Braille document using the eBraille 1.0 format.")
                 }
 
                 // The title is not editable here — it comes from the document
@@ -179,7 +179,7 @@ struct EBrailleOptionsView: View {
                 }
 
                 Section {
-                    LabeledContent("Transcriber") {
+                    LabeledContent("Produced by") {
                         TextField("", text: $transcriber)
                             .focused($focusedField, equals: .transcriber)
                             .textInputAutocapitalization(.words)
@@ -187,7 +187,7 @@ struct EBrailleOptionsView: View {
                             .multilineTextAlignment(fieldAlignment)
                     }
                 } footer: {
-                    Text("You or the organization responsible for the braille transcription.")
+                    Text("The person or organization creating and sharing this braille edition.")
                 }
 
                 Section {
@@ -213,7 +213,7 @@ struct EBrailleOptionsView: View {
                     // A switch is a fixed width no matter the type size, so at
                     // accessibility sizes it leaves the label a sliver of the
                     // row. The style below gives the label the full width.
-                    LabeledContent("Complete transcription") {
+                    LabeledContent("Complete document") {
                         Toggle(isOn: $isCompleteTranscription) {
                             EmptyView()
                         }
@@ -264,7 +264,7 @@ struct EBrailleOptionsView: View {
                 } header: {
                     Text("Recommended details")
                 } footer: {
-                    Text("The standard recommends these. Any you leave empty are left out of the file. Source Work identifies the book or document being transcribed, and Education Level records the grade or year the material was produced for.")
+                    Text("The standard recommends these. Any you leave empty are left out of the file. Source Work identifies an original publication when this document comes from one. Publisher identifies who publishes this eBraille edition.")
                 }
 
                 Section {
@@ -290,7 +290,8 @@ struct EBrailleOptionsView: View {
         }
     }
 
-    /// Remembers the answers for next time, then hands them to the writer.
+    /// Remembers the reusable producer and grade, then hands this document's
+    /// details to the writer.
     private func export() {
         focusedField = nil
 

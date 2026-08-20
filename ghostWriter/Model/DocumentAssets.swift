@@ -7,6 +7,45 @@ nonisolated enum DocumentAssets {
         directoryPrefix + UUID().uuidString.lowercased()
     }
 
+    /// Stores a user-selected resource beside the document and returns the
+    /// relative path written into Markdown. Using the same managed-directory
+    /// convention as Word import means rename, duplicate, iCloud download, and
+    /// deletion already carry the attachment with its document.
+    static func importAsset(
+        data: Data,
+        originalFileName: String,
+        beside documentURL: URL,
+        fileAccess: CoordinatedFileAccess = CoordinatedFileAccess()
+    ) throws -> String {
+        guard !data.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
+
+        let directoryName = newDirectoryName()
+        let assetDirectory = directory(named: directoryName, beside: documentURL)
+        let fileName = safeFileName(originalFileName)
+
+        do {
+            try fileAccess.createDirectory(at: assetDirectory)
+            try fileAccess.write(data, to: assetDirectory.appendingPathComponent(fileName))
+            return "\(directoryName)/\(fileName)"
+        } catch {
+            if fileAccess.itemExists(at: assetDirectory) {
+                try? fileAccess.removeItem(at: assetDirectory)
+            }
+            throw error
+        }
+    }
+
+    private static func safeFileName(_ original: String) -> String {
+        let name = URL(fileURLWithPath: original).lastPathComponent
+        let allowed = CharacterSet.alphanumerics.union(
+            CharacterSet(charactersIn: "._-")
+        )
+        let cleaned = String(name.unicodeScalars.map {
+            allowed.contains($0) ? Character($0) : "_"
+        })
+        return cleaned.isEmpty ? "graphic" : cleaned
+    }
+
     static func directory(
         named name: String,
         beside documentURL: URL

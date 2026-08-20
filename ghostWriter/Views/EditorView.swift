@@ -247,17 +247,22 @@ struct EditorView: View {
             )
         }
         .sheet(isPresented: $showingInsertActions, onDismiss: finishInsertionPresentation) {
-            InsertActionsView(initialLinkText: insertionInitialText) { command in
-                pendingInsertion = PendingInsertion(
-                    result: MarkdownInsertion.apply(
-                        command,
-                        in: text,
-                        selection: insertionSelection
-                    ),
-                    confirmation: command.confirmation
-                )
+            if let documentURL = fileURL ?? saveController.currentURL {
+                InsertActionsView(
+                    initialLinkText: insertionInitialText,
+                    documentURL: documentURL
+                ) { command in
+                    pendingInsertion = PendingInsertion(
+                        result: MarkdownInsertion.apply(
+                            command,
+                            in: text,
+                            selection: insertionSelection
+                        ),
+                        confirmation: command.confirmation
+                    )
+                }
+                .presentationDragIndicator(.hidden)
             }
-            .presentationDragIndicator(.hidden)
         }
         .alert("Rename Document", isPresented: $showingRename) {
             TextField("Name", text: $renameText)

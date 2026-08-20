@@ -34,16 +34,14 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
     /// transcribed — not the person who transcribed it.
     var creator: String
 
-    /// `a11y:producer`. The person or agency that produced the braille.
-    /// ghostWriter is always listed as a producer as well; this names the
-    /// human or organisation responsible for the transcription.
+    /// `a11y:producer`. The person or agency producing the braille edition.
     var transcriber: String
 
     var grade: BrailleGrade
 
     /// Written to `dcterms:dateCopyrighted`. The spec requires ISO 8601 in one
     /// of three forms — `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` — so anything else
-    /// is corrected before it reaches the file.
+    /// is rejected before it reaches the file.
     var copyrightYear: String
 
     /// Whether the file contains the whole of the source work. A partial
@@ -122,8 +120,8 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
     ///
     /// Separators are accepted liberally — a writer typing slashes means the
     /// same thing as one typing hyphens — but the result is always written
-    /// with hyphens, and the month and day are range-checked so that a typo
-    /// cannot produce a date the spec would reject.
+    /// with hyphens. Invalid precision is rejected rather than silently reduced
+    /// to a different date than the writer entered.
     static func normalizedCopyrightDate(_ date: String) -> String? {
         let cleaned = date.trimmed.replacingOccurrences(
             of: "[/.]",
@@ -143,15 +141,12 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
         let yearText = String(format: "%04d", year)
         guard parts.count > 1 else { return yearText }
 
-        guard let month = Int(parts[1]), (1...12).contains(month) else {
-            return yearText
-        }
+        guard parts.count <= 3,
+              let month = Int(parts[1]), (1...12).contains(month) else { return nil }
         let monthText = String(format: "%02d", month)
         guard parts.count > 2 else { return "\(yearText)-\(monthText)" }
 
-        guard let day = Int(parts[2]), (1...31).contains(day) else {
-            return "\(yearText)-\(monthText)"
-        }
+        guard let day = Int(parts[2]), (1...31).contains(day) else { return nil }
 
         // A day the month does not have — 30 February — is not a date, and
         // writing one would make the file non-conforming. `date(from:)` alone
@@ -169,7 +164,7 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
               calendar.component(.month, from: resolved) == month,
               calendar.component(.day, from: resolved) == day
         else {
-            return "\(yearText)-\(monthText)"
+            return nil
         }
 
         return "\(yearText)-\(monthText)-\(String(format: "%02d", day))"
@@ -180,7 +175,7 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
             return "Enter the author or enter Unknown when the author is not known."
         }
         if effectiveProducers.isEmpty {
-            return "Enter the person or organization responsible for the braille transcription."
+            return "Enter the person or organization producing this braille edition."
         }
         if effectiveCopyrightYear == nil {
             return "Enter a copyright date as a year, year and month, or full date."

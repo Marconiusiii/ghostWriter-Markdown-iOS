@@ -34,6 +34,7 @@ struct EBrailleWriterTests {
     private func makePackage(
         title: String = "Test Document",
         markdown: String,
+        sourceDirectory: URL? = nil,
         metadata: EBrailleMetadata = EBrailleMetadata(
             creator: "A Writer",
             transcriber: "Test Transcriber",
@@ -45,7 +46,8 @@ struct EBrailleWriterTests {
             title: title,
             markdown: markdown,
             metadata: metadata,
-            translator: StubTranslator()
+            translator: StubTranslator(),
+            sourceDirectory: sourceDirectory
         )
 
         let archive = try Archive(data: data, accessMode: .read)
@@ -88,6 +90,7 @@ struct EBrailleWriterTests {
         #expect(package.contains("a11y:producer"))
         #expect(package.contains("dcterms:dateCopyrighted"))
         #expect(package.contains("<dc:creator>A Writer</dc:creator>"))
+        #expect(package.contains("<dc:title xml:lang=\"en\">Test Document</dc:title>"))
     }
 
     @Test func brailleSystemMatchesTheChosenGrade() async throws {
@@ -119,7 +122,7 @@ struct EBrailleWriterTests {
         let entries = try await makePackage(markdown: "Text.")
         let package = try #require(entries["package.opf"])
 
-        #expect(package.contains("Brai"))
+        #expect(package.contains("<dc:language>en-Brai</dc:language>"))
     }
 
     @Test func contentContainsBrailleRatherThanPrint() async throws {
@@ -150,11 +153,18 @@ struct EBrailleWriterTests {
         // eBraille forbids relying on generated markers, so each item carries
         // its own. With the stub every translated string is braille, so the
         // check is that list items contain more than their text alone.
-        #expect(content.contains("<li>"))
-        #expect(content.contains("<li>\u{2801}\u{2801}\u{2800}"))
+        #expect(content.contains("<li style="))
+        #expect(content.contains("ch\">\u{2801}\u{2801}\u{2800}"))
         #expect(content.contains("list-style-type: none") == false)
         let css = try #require(entries["style.css"])
         #expect(css.contains("list-style-type: none"))
+    }
+
+    @Test func unorderedListUsesTheUEBBulletInEveryListItem() async throws {
+        let entries = try await makePackage(markdown: "- First\n- Second")
+        let content = try #require(entries["content.xhtml"])
+
+        #expect(content.components(separatedBy: "ch\">\u{2838}\u{2832}\u{2800}").count - 1 == 2)
     }
 
     @Test func imageAlternativeTextIsTranslated() async throws {
@@ -173,6 +183,85 @@ struct EBrailleWriterTests {
         let package = try #require(entries["package.opf"])
 
         #expect(package.contains("<meta property=\"a11y:tactileGraphics\">none</meta>"))
+    }
+
+    @Test func tactileSVGIsPackagedAndDeclaredFromTheMarkdownTitle() async throws {
+        let fixture = try tactileFixture(
+            fileName: "map.svg",
+            data: Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0L10 10\"/></svg>".utf8)
+        )
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let entries = try await makePackage(
+            markdown: "![Raised route map](\(fixture.reference) \"tactile\")",
+            sourceDirectory: fixture.root
+        )
+        let package = try #require(entries["package.opf"])
+        let content = try #require(entries["content.xhtml"])
+
+        #expect(package.contains("<meta property=\"a11y:tactileGraphics\">SVG</meta>"))
+        #expect(package.contains("href=\"content.xhtml\" media-type=\"application/xhtml+xml\" properties=\"svg\""))
+        #expect(entries.keys.contains { $0.hasSuffix("map.svg") })
+        #expect(content.contains("class=\"tactile-graphic\""))
+        #expect(!content.contains("Raised route map"))
+    }
+
+    @Test func ordinaryImageDoesNotClaimTactileGraphics() async throws {
+        let fixture = try tactileFixture(fileName: "photo.png", data: Data([0x89, 0x50, 0x4E, 0x47]))
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let entries = try await makePackage(
+            markdown: "![A photograph](\(fixture.reference))",
+            sourceDirectory: fixture.root
+        )
+        let package = try #require(entries["package.opf"])
+        let content = try #require(entries["content.xhtml"])
+
+        #expect(package.contains("<meta property=\"a11y:tactileGraphics\">none</meta>"))
+        #expect(!content.contains("class=\"tactile-graphic\""))
+    }
+
+    @Test func missingTactileGraphicFailsInsteadOfBecomingFallbackText() async {
+        await #expect(throws: EBrailleExportError.self) {
+            _ = try await makePackage(
+                markdown: "![Raised map](.ghostwriter-assets-missing/map.svg \"tactile\")"
+            )
+        }
+    }
+
+    @Test func unsafeTactileSVGIsRejected() async throws {
+        let fixture = try tactileFixture(
+            fileName: "map.svg",
+            data: Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><script>bad()</script></svg>".utf8)
+        )
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        await #expect(throws: EBrailleExportError.self) {
+            _ = try await makePackage(
+                markdown: "![Raised map](\(fixture.reference) \"tactile\")",
+                sourceDirectory: fixture.root
+            )
+        }
+    }
+
+    @Test func corruptTactileRasterIsRejected() async throws {
+        let fixture = try tactileFixture(fileName: "map.png", data: Data([1, 2, 3]))
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        await #expect(throws: EBrailleExportError.self) {
+            _ = try await makePackage(
+                markdown: "![Raised map](\(fixture.reference) \"tactile\")",
+                sourceDirectory: fixture.root
+            )
+        }
+    }
+
+    @Test func tactileGraphicRequiresAUsefulDescription() async {
+        await #expect(throws: EBrailleExportError.self) {
+            _ = try await makePackage(
+                markdown: "![](.ghostwriter-assets-missing/map.svg \"tactile\")"
+            )
+        }
     }
 
     @Test func navigationDocumentListsHeadings() async throws {
@@ -206,7 +295,7 @@ struct EBrailleWriterTests {
 
         #expect(!content.contains("Completed:"))
         #expect(!content.contains("Not completed:"))
-        #expect(content.components(separatedBy: "<li>").count - 1 == 2)
+        #expect(content.components(separatedBy: "<li style=").count - 1 == 2)
     }
 
     @Test func missingCreatorIsRejectedInsteadOfInvented() async {
@@ -312,6 +401,19 @@ struct EBrailleWriterTests {
             "<meta property=\"dcterms:dateCopyrighted\">2026-04-17</meta>"
         ))
     }
+
+    private func tactileFixture(
+        fileName: String,
+        data: Data
+    ) throws -> (root: URL, reference: String) {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ghostWriter-tactile-test-\(UUID().uuidString)")
+        let directoryName = ".ghostwriter-assets-\(UUID().uuidString.lowercased())"
+        let directory = root.appendingPathComponent(directoryName, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try data.write(to: directory.appendingPathComponent(fileName))
+        return (root, "\(directoryName)/\(fileName)")
+    }
 }
 
 struct BrailleLanguageTagTests {
@@ -338,24 +440,7 @@ struct BrailleLanguageTagTests {
         #expect(BrailleLanguageTag.brailleTag(from: "!!!") == "en-Brai")
     }
 
-    @Test func languageComesFromTheTableNotTheDevice() {
-        // UEB is English. A device set to French must not make the file claim
-        // to be French braille, but an English region is still worth keeping.
-        #expect(
-            BrailleLanguageTag.brailleTag(from: "en", regionFrom: "en-Brai-US")
-                == "en-Brai-US"
-        )
-        #expect(
-            BrailleLanguageTag.brailleTag(from: "en", regionFrom: "en-Brai-GB")
-                == "en-Brai-GB"
-        )
-        #expect(
-            BrailleLanguageTag.brailleTag(from: "en", regionFrom: "fr-Brai-FR")
-                == "en-Brai"
-        )
-        #expect(
-            BrailleLanguageTag.brailleTag(from: "en", regionFrom: "en-Brai")
-                == "en-Brai"
-        )
+    @Test func languageComesFromTheTableWithoutAnInferredDeviceRegion() {
+        #expect(BrailleLanguageTag.brailleTag(from: "en") == "en-Brai")
     }
 }
