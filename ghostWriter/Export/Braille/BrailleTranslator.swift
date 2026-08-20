@@ -67,5 +67,31 @@ nonisolated protocol BrailleTranslator: Sendable {
     ///
     /// The result contains only characters from the U+2800 block plus spaces
     /// and newlines, which is what eBraille permits in renderable text.
-    func translate(_ text: String, grade: BrailleGrade) async throws -> String
+    func translate(_ input: BrailleTranslationInput, grade: BrailleGrade) async throws -> String
+}
+
+nonisolated struct BrailleTypeform: OptionSet, Hashable, Sendable {
+    let rawValue: UInt16
+
+    static let italic = BrailleTypeform(rawValue: 1)
+    static let underline = BrailleTypeform(rawValue: 2)
+    static let bold = BrailleTypeform(rawValue: 4)
+    static let noContract = BrailleTypeform(rawValue: 0x1000)
+}
+
+nonisolated struct BrailleTranslationInput: Hashable, Sendable {
+    var text: String
+    /// One mask for each UTF-16 code unit, matching liblouis's input model.
+    var typeforms: [BrailleTypeform]
+
+    init(text: String, typeforms: [BrailleTypeform] = []) {
+        self.text = text
+        self.typeforms = typeforms
+    }
+}
+
+extension BrailleTranslator {
+    func translate(_ text: String, grade: BrailleGrade) async throws -> String {
+        try await translate(BrailleTranslationInput(text: text), grade: grade)
+    }
 }

@@ -36,6 +36,9 @@ nonisolated enum EBrailleWriter {
         translator: BrailleTranslator,
         sourceDirectory: URL? = nil
     ) async throws -> Data {
+        if let message = metadata.validationMessage {
+            throw EBrailleExportError.invalidMetadata(message)
+        }
         let document = MarkdownDocumentParser.parse(markdown)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let bookTitle = trimmedTitle.isEmpty ? "Document" : trimmedTitle
@@ -68,9 +71,19 @@ nonisolated enum EBrailleWriter {
         entries["mimetype"] = Data("application/epub+zip".utf8)
         entries["META-INF/container.xml"] = Data(containerXML.utf8)
 
-        let images = EPUBWriter.collectEmbeddedImages(
+        let collectedImages = EPUBWriter.collectImageResources(
             document,
             sourceDirectory: sourceDirectory
+        )
+        let supportedImages = collectedImages.images.filter {
+            $0.mediaType == "image/jpeg" || $0.mediaType == "image/png"
+        }
+        let supportedHrefs = Set(supportedImages.map(\.href))
+        let imageResources = EPUBWriter.ImageResources(
+            images: supportedImages,
+            hrefBySource: collectedImages.hrefBySource.filter {
+                supportedHrefs.contains($0.value)
+            }
         )
 
         entries["package.opf"] = Data(packageDocument(
@@ -78,7 +91,7 @@ nonisolated enum EBrailleWriter {
             identifier: identifier,
             language: language,
             metadata: metadata,
-            images: images,
+            images: imageResources.images,
             translations: translations
         ).utf8)
 
@@ -86,7 +99,8 @@ nonisolated enum EBrailleWriter {
             title: bookTitle,
             language: language,
             document: document,
-            translations: translations
+            translations: translations,
+            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle)
         ).utf8)
 
         entries["style.css"] = Data(stylesheet.utf8)
@@ -96,10 +110,11 @@ nonisolated enum EBrailleWriter {
             language: language,
             document: document,
             translations: translations,
-            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle)
+            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle),
+            imageResources: imageResources
         ).utf8)
 
-        for image in images {
+        for image in imageResources.images {
             entries[image.href] = image.data
         }
 
@@ -123,7 +138,14 @@ nonisolated enum EBrailleWriter {
     /// markup builders. Collecting every string first turns what would be
     /// hundreds of awaits scattered through a recursive render into one pass.
     struct TranslationTable {
-        private var braille: [String: String] = [:]
+        private var braille: [BrailleTranslationInput: String] = [:]
+
+        enum InlineUnit {
+            case text(BrailleTranslationInput)
+            case link(destination: String, input: BrailleTranslationInput)
+            case image(ExportImage)
+            case lineBreak
+        }
 
         mutating func gather(
             from document: ExportDocument,
@@ -131,21 +153,21 @@ nonisolated enum EBrailleWriter {
             grade: BrailleGrade,
             translator: BrailleTranslator
         ) async throws {
-            var strings = Set<String>()
-            strings.insert(title)
-            Self.collect(document.blocks, into: &strings)
+            var inputs = Set<BrailleTranslationInput>()
+            inputs.insert(BrailleTranslationInput(text: title))
+            Self.collect(document.blocks, into: &inputs)
 
-            for string in strings {
+            for input in inputs {
                 // Translate the string as it stands, not a trimmed copy.
                 // Leading and trailing spaces are word boundaries: a run like
                 // "This text is " sits directly against an emphasised run, and
                 // trimming the space here joined them into "isbold". liblouis
                 // renders a space as U+2800 and preserves it, so the only
                 // thing trimming achieved was losing it.
-                guard !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                guard !input.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     continue
                 }
-                braille[string] = try await translator.translate(string, grade: grade)
+                braille[input] = try await translator.translate(input, grade: grade)
             }
         }
 
@@ -153,61 +175,148 @@ nonisolated enum EBrailleWriter {
         /// output: an empty result is correct for whitespace, and anything
         /// else would be a print string appearing in a braille document.
         func callAsFunction(_ text: String) -> String {
-            braille[text] ?? ""
+            self(BrailleTranslationInput(text: text))
         }
 
-        private static func collect(_ blocks: [ExportBlock], into strings: inout Set<String>) {
+        func callAsFunction(_ input: BrailleTranslationInput) -> String {
+            braille[input] ?? ""
+        }
+
+        private static func collect(
+            _ blocks: [ExportBlock],
+            into inputs: inout Set<BrailleTranslationInput>
+        ) {
             for block in blocks {
                 switch block {
-                case .heading(_, let content), .paragraph(let content):
-                    collect(inline: content, into: &strings)
+                case .heading(_, let content):
+                    inputs.insert(BrailleTranslationInput(text: content.plainText))
+                    collect(inline: content, into: &inputs)
+                case .paragraph(let content):
+                    collect(inline: content, into: &inputs)
                 case .list(let list):
-                    for item in list.items {
+                    for (offset, item) in list.items.enumerated() {
+                        let marker = list.isOrdered ? "\(list.start + offset)." : "-"
+                        inputs.insert(BrailleTranslationInput(text: marker))
                         if let state = item.taskState {
-                            strings.insert(state.spokenPrefix)
+                            inputs.insert(BrailleTranslationInput(text: state.spokenPrefix))
                         }
-                        collect(inline: item.content, into: &strings)
-                        collect(item.children, into: &strings)
+                        collect(inline: item.content, into: &inputs)
+                        collect(item.children, into: &inputs)
                     }
                 case .table(let table):
-                    for cell in table.headers { collect(inline: cell, into: &strings) }
+                    for cell in table.headers { collect(inline: cell, into: &inputs) }
                     for row in table.rows {
-                        for cell in row { collect(inline: cell, into: &strings) }
+                        for cell in row { collect(inline: cell, into: &inputs) }
                     }
                 case .blockQuote(let children):
-                    collect(children, into: &strings)
+                    collect(children, into: &inputs)
                 case .codeBlock(_, let code):
-                    strings.insert(code)
+                    inputs.insert(styledInput(code, adding: .noContract))
                 case .thematicBreak:
                     continue
                 }
             }
         }
 
-        private static func collect(inline spans: [ExportInline], into strings: inout Set<String>) {
-            for span in spans {
-                switch span {
-                case .text(let value):
-                    strings.insert(value)
-                case .code(let value):
-                    strings.insert(value)
-                case .emphasis(let children),
-                     .strong(let children),
-                     .strikethrough(let children),
-                     .underline(let children),
-                     .link(_, let children):
-                    collect(inline: children, into: &strings)
+        private static func collect(
+            inline spans: [ExportInline],
+            into inputs: inout Set<BrailleTranslationInput>
+        ) {
+            for unit in inlineUnits(spans) {
+                switch unit {
+                case .text(let input), .link(_, let input):
+                    inputs.insert(input)
                 case .image(let image):
-                    // Alternative text is renderable, so it is translated too.
-                    // A print caption inside a braille document would be read
-                    // as meaningless cell patterns.
                     if let alternative = image.alternativeText {
-                        strings.insert(alternative)
+                        inputs.insert(BrailleTranslationInput(text: alternative))
                     }
                 case .lineBreak:
-                    continue
+                    break
                 }
             }
+        }
+
+        static func inlineUnits(_ spans: [ExportInline]) -> [InlineUnit] {
+            var units: [InlineUnit] = []
+            var text = ""
+            var typeforms: [BrailleTypeform] = []
+
+            func append(_ input: BrailleTranslationInput) {
+                text += input.text
+                typeforms += input.typeforms
+            }
+
+            func flush() {
+                guard !text.isEmpty else { return }
+                units.append(.text(BrailleTranslationInput(text: text, typeforms: typeforms)))
+                text = ""
+                typeforms = []
+            }
+
+            for span in spans {
+                switch span {
+                case .link(let destination, let children):
+                    flush()
+                    units.append(.link(
+                        destination: destination,
+                        input: flattened(children)
+                    ))
+                case .image(let image):
+                    flush()
+                    units.append(.image(image))
+                case .lineBreak:
+                    flush()
+                    units.append(.lineBreak)
+                default:
+                    append(flattened([span]))
+                }
+            }
+            flush()
+            return units
+        }
+
+        private static func flattened(
+            _ spans: [ExportInline],
+            form: BrailleTypeform = []
+        ) -> BrailleTranslationInput {
+            var text = ""
+            var typeforms: [BrailleTypeform] = []
+
+            func append(_ value: String, using typeform: BrailleTypeform) {
+                text += value
+                typeforms.append(
+                    contentsOf: repeatElement(typeform, count: value.utf16.count)
+                )
+            }
+
+            func visit(_ children: [ExportInline], using typeform: BrailleTypeform) {
+                for child in children {
+                    switch child {
+                    case .text(let value): append(value, using: typeform)
+                    case .emphasis(let nested): visit(nested, using: typeform.union(.italic))
+                    case .strong(let nested): visit(nested, using: typeform.union(.bold))
+                    case .underline(let nested): visit(nested, using: typeform.union(.underline))
+                    case .strikethrough(let nested): visit(nested, using: typeform)
+                    case .code(let value): append(value, using: typeform.union(.noContract))
+                    case .link(_, let nested): visit(nested, using: typeform)
+                    case .image(let image): append(image.alternativeText ?? "", using: typeform)
+                    case .lineBreak: append("\n", using: typeform)
+                    }
+                }
+            }
+
+            visit(spans, using: form)
+            return BrailleTranslationInput(text: text, typeforms: typeforms)
+        }
+
+        static func styledInput(
+            _ text: String,
+            adding form: BrailleTypeform
+        ) -> BrailleTranslationInput {
+            BrailleTranslationInput(
+                text: text,
+                typeforms: Array(repeating: form, count: text.utf16.count)
+            )
         }
     }
 
@@ -222,18 +331,13 @@ nonisolated enum EBrailleWriter {
     </container>
     """
 
-    /// Layout following BANA *Braille Formats* (2016), the formatting standard
-    /// for North American braille transcription.
-    ///
-    /// Positions are in `ch`, which is the only unit that means anything here:
+    /// Positions are in `ch`, which is the unit eBraille defines for cell
+    /// spacing:
     /// eBraille requires a reading system to guarantee that `1ch` is the
-    /// cell-to-cell distance and `1em` the line-to-line distance. A margin in
-    /// `em` — as this used to be — indents by *lines*, so it lands on an
-    /// arbitrary cell. Braille Formats is written entirely in cell positions,
-    /// so `ch` is what expresses it.
+    /// cell-to-cell distance and `1em` the line-to-line distance.
     ///
     /// Rendering is still left to the reading system: no font, size, colour,
-    /// or decoration is set. Only the positions BANA specifies.
+    /// or decoration is set. The stylesheet supplies only structural spacing.
     ///
     /// The conventional notation below is "start-runover": 3-1 means the first
     /// line begins in cell 3 and continued lines return to cell 1. In CSS that
@@ -242,9 +346,7 @@ nonisolated enum EBrailleWriter {
     private static let stylesheet = """
     body { margin: 0; }
 
-    /* Headings, in BANA's hierarchy: centered, then cell 5, then cell 7.
-       A centered heading is preceded and followed by a blank line; cell-5
-       and cell-7 headings are preceded by one but not followed. */
+    /* A simple heading hierarchy that does not constrain font or cell size. */
     h1 { text-align: center; margin: 1em 0; }
     h2 { margin: 1em 0 0 0; padding-left: 4ch; }
     h3, h4, h5, h6 { margin: 1em 0 0 0; padding-left: 6ch; }
@@ -282,31 +384,11 @@ nonisolated enum EBrailleWriter {
 
         let modified = ISO8601DateFormatter().string(from: Date())
 
-        // Tactile graphics are declared by the formats actually present, or
-        // `none`. Claiming graphics that are not there would mislead a reader
-        // deciding whether the file is usable on their device.
-        //
-        // The spec orders this list most-used to least-used, so it is counted
-        // rather than sorted alphabetically. Ties fall back to a fixed order
-        // so the same document always produces the same declaration.
-        var graphicsCounts: [String: Int] = [:]
-        for image in images {
-            guard let format = Self.graphicsFormat(for: image.mediaType) else { continue }
-            graphicsCounts[format, default: 0] += 1
-        }
-        let formatRank = ["JPG": 0, "PNG": 1, "SVG": 2, "PDF": 3]
-        let graphicsFormats = graphicsCounts.sorted { left, right in
-            if left.value != right.value { return left.value > right.value }
-            return (formatRank[left.key] ?? .max) < (formatRank[right.key] ?? .max)
-        }.map(\.key)
-        let tactileGraphics = graphicsFormats.isEmpty
-            ? "none"
-            : graphicsFormats.joined(separator: ", ")
+        // Ordinary embedded pictures are not automatically tactile graphics.
+        // Markdown has no way to assert that an image was prepared as one, so
+        // the export makes the conservative and accurate declaration.
+        let tactileGraphics = "none"
 
-        // `a11y:producer` allows one or more values. The transcriber and the
-        // software are separate producers of the file, so they are written as
-        // separate properties rather than run together into one name that
-        // describes neither accurately.
         let producers = metadata.effectiveProducers.map { producer in
             "<meta property=\"a11y:producer\">\(escape(producer))</meta>"
         }.joined(separator: "\n")
@@ -347,18 +429,13 @@ nonisolated enum EBrailleWriter {
         <dc:language>\(escape(language))</dc:language>
         <dc:format>\(EBrailleMetadata.formatIdentifier)</dc:format>
         <dc:date>\(modified)</dc:date>
-        <meta property="dcterms:dateCopyrighted">\(escape(metadata.effectiveCopyrightYear))</meta>
+        <meta property="dcterms:dateCopyrighted">\(escape(metadata.effectiveCopyrightYear ?? ""))</meta>
         <meta property="dcterms:modified">\(modified)</meta>
         <meta property="a11y:brailleCellType">\(EBrailleMetadata.cellType)</meta>
         <meta property="a11y:brailleSystem">\(escape(metadata.grade.systemName))</meta>
         <meta property="a11y:completeTranscription">\(metadata.isCompleteTranscription)</meta>
         <meta property="a11y:tactileGraphics">\(escape(tactileGraphics))</meta>
         \(producers)\(recommendedBlock)
-        <!-- The formatting standard the layout follows. eBraille defines no
-             property for this, so the Dublin Core term is used; section 5.3.5
-             allows additional metadata. Without it, nothing in the file says
-             which national layout conventions the cell positions follow. -->
-        <meta property="dcterms:conformsTo">\(escape(EBrailleMetadata.formatStandard))</meta>
         <meta property="schema:accessMode">tactile</meta>
         <meta property="schema:accessModeSufficient">tactile</meta>
         <meta property="schema:accessibilityFeature">braille</meta>
@@ -384,27 +461,14 @@ nonisolated enum EBrailleWriter {
         title: String,
         language: String,
         document: ExportDocument,
-        translations: TranslationTable
+        translations: TranslationTable,
+        includeTitleHeading: Bool
     ) -> String {
-        var items: [String] = []
-        var counter = 0
-
-        for block in document.blocks {
-            guard case .heading(let level, let content) = block, level <= 3 else { continue }
-            // Looked up untrimmed: the table is keyed by the exact string
-            // that was collected, so trimming here would miss the entry and
-            // silently emit an empty nav label.
-            let text = content.plainText
-            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
-            counter += 1
-            items.append(
-                "<li><a href=\"content.xhtml#heading-\(counter)\">\(escape(translations(text)))</a></li>"
-            )
-        }
-
-        if items.isEmpty {
-            items.append("<li><a href=\"content.xhtml\">\(escape(translations(title)))</a></li>")
-        }
+        let headings = document.headings(startingAt: includeTitleHeading ? 2 : 1)
+        let items = navigationList(headings, translations: translations)
+        let contents = items.isEmpty
+            ? "<ol>\n<li><a href=\"content.xhtml\">\(escape(translations(title)))</a></li>\n</ol>"
+            : items
 
         return """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -420,13 +484,46 @@ nonisolated enum EBrailleWriter {
         </head>
         <body>
         <nav epub:type="toc" id="toc" role="doc-toc">
-        <ol>
-        \(items.joined(separator: "\n"))
-        </ol>
+        \(contents)
         </nav>
         </body>
         </html>
         """
+    }
+
+    private final class NavigationNode {
+        let heading: ExportHeading
+        var children: [NavigationNode] = []
+
+        init(_ heading: ExportHeading) {
+            self.heading = heading
+        }
+    }
+
+    private static func navigationList(
+        _ headings: [ExportHeading],
+        translations: TranslationTable
+    ) -> String {
+        var roots: [NavigationNode] = []
+        var stack: [NavigationNode] = []
+        for heading in headings {
+            while let last = stack.last, last.heading.level >= heading.level {
+                stack.removeLast()
+            }
+            let node = NavigationNode(heading)
+            if let parent = stack.last { parent.children.append(node) } else { roots.append(node) }
+            stack.append(node)
+        }
+
+        func render(_ nodes: [NavigationNode]) -> String {
+            guard !nodes.isEmpty else { return "" }
+            let items = nodes.map { node in
+                let label = translations(BrailleTranslationInput(text: node.heading.content.plainText))
+                return "<li><a href=\"content.xhtml#\(node.heading.identifier)\">\(escape(label))</a>\(render(node.children))</li>"
+            }.joined(separator: "\n")
+            return "<ol>\n\(items)\n</ol>"
+        }
+        return render(roots)
     }
 
     private static func contentDocument(
@@ -434,9 +531,13 @@ nonisolated enum EBrailleWriter {
         language: String,
         document: ExportDocument,
         translations: TranslationTable,
-        includeTitleHeading: Bool
+        includeTitleHeading: Bool,
+        imageResources: EPUBWriter.ImageResources
     ) -> String {
-        var builder = ContentBuilder(translations: translations)
+        var builder = ContentBuilder(
+            translations: translations,
+            imageResources: imageResources
+        )
         var body = ""
 
         if includeTitleHeading {
@@ -472,6 +573,7 @@ nonisolated enum EBrailleWriter {
     /// instruct the display.
     private struct ContentBuilder {
         let translations: TranslationTable
+        let imageResources: EPUBWriter.ImageResources
         var headingCounter = 0
 
         mutating func render(_ blocks: [ExportBlock]) -> String {
@@ -501,7 +603,8 @@ nonisolated enum EBrailleWriter {
                 case .codeBlock(_, let code):
                     // The language class is dropped: it exists for syntax
                     // highlighting, which a braille display has no notion of.
-                    output += "<pre>" + escape(translations(code)) + "</pre>\n"
+                    let input = TranslationTable.styledInput(code, adding: .noContract)
+                    output += "<pre>" + escape(translations(input)) + "</pre>\n"
 
                 case .thematicBreak:
                     output += "<hr/>\n"
@@ -579,24 +682,19 @@ nonisolated enum EBrailleWriter {
         func inline(_ spans: [ExportInline]) -> String {
             var output = ""
 
-            for span in spans {
-                switch span {
-                case .text(let value):
-                    output += escape(translations(value))
-                case .emphasis(let children):
-                    output += "<em>" + inline(children) + "</em>"
-                case .strong(let children):
-                    output += "<strong>" + inline(children) + "</strong>"
-                case .strikethrough(let children):
-                    output += "<del>" + inline(children) + "</del>"
-                case .underline(let children):
-                    output += "<u>" + inline(children) + "</u>"
-                case .code(let value):
-                    output += "<code>" + escape(translations(value)) + "</code>"
-                case .link(let destination, let content):
+            for unit in TranslationTable.inlineUnits(spans) {
+                switch unit {
+                case .text(let input):
+                    output += escape(translations(input))
+                case .link(let destination, let input):
                     // The href stays a real URL — it is machine-readable, not
                     // rendered text, and translating it would break the link.
-                    output += "<a href=\"\(escape(destination))\">" + inline(content) + "</a>"
+                    let label = escape(translations(input))
+                    if let href = EPUBWriter.safeLinkHref(destination) {
+                        output += "<a href=\"\(escape(href))\">" + label + "</a>"
+                    } else {
+                        output += label
+                    }
                 case .image(let image):
                     output += renderImage(image)
                 case .lineBreak:
@@ -608,28 +706,28 @@ nonisolated enum EBrailleWriter {
         }
 
         func renderImage(_ image: ExportImage) -> String {
-            let href = EPUBWriter.imageHref(for: image.source)
-            if image.isDecorative {
-                return "<img src=\"\(escape(href))\" alt=\"\" role=\"presentation\"/>"
+            guard let href = imageResources.hrefBySource[image.source] else {
+                guard !image.isDecorative,
+                      let alternative = image.alternativeText else { return "" }
+                return "<span class=\"image-description\">\(escape(translations(alternative)))</span>"
             }
+            if image.isDecorative { return "<img src=\"\(escape(href))\" alt=\"\"/>" }
             let alternative = image.alternativeText.map { translations($0) } ?? ""
             return "<img src=\"\(escape(href))\" alt=\"\(escape(alternative))\"/>"
         }
     }
 
-    /// The eBraille name for a core image media type, or nil for anything the
-    /// standard does not count as a graphics format.
-    private static func graphicsFormat(for mediaType: String) -> String? {
-        switch mediaType {
-        case "image/jpeg": return "JPG"
-        case "image/png": return "PNG"
-        case "image/svg+xml": return "SVG"
-        case "application/pdf": return "PDF"
-        default: return nil
-        }
-    }
-
     private static func escape(_ text: String) -> String {
         EPUBWriter.escape(text)
+    }
+}
+
+nonisolated enum EBrailleExportError: LocalizedError, Equatable, Sendable {
+    case invalidMetadata(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidMetadata(let message): return message
+        }
     }
 }

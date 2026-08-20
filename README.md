@@ -76,32 +76,30 @@ Documents are shared through File Actions > Share.
 | Word Document | `.docx` | Word heading styles, lists, and tables |
 | PDF | `.pdf` | Tagged PDF, US Letter, one-inch margins |
 | EPUB | `.epub` | Reflowable ebook with a table of contents |
-| eBraille | `.ebrl` | Reflowable braille conforming to eBraille 1.0 |
+| eBraille | `.ebrl` | Reflowable Unicode braille targeting eBraille 1.0 |
 | Braille Ready Format | `.brf` | Fixed-page braille for displays and embossers |
 
 Headings, lists, links, tables, quotes, and code retain their document
-structure in every format that can express them. Alternative text is carried
-into every format that supports it, and an image with empty alternative text is
-marked decorative.
+structure in formats that can express it. EPUB and eBraille package images from
+the app-managed asset directory created by Word import. Unsafe, external,
+missing, or unsupported image references fall back to readable alternative
+text instead of becoming broken package references.
 
 ### Braille exports
 
 Both braille formats translate through [liblouis](https://liblouis.io/) into
 Unified English Braille, in contracted (grade 2) or uncontracted (grade 1)
-form. Each format asks for what it can record; answers are remembered between
-exports.
+form. The app remembers the grade, transcriber, and BRF page dimensions.
+Metadata about a particular work is not reused automatically for another
+document.
 
-Layout follows [BANA Braille Formats
-2016](https://www.brailleauthority.org/formats/2016manual-web/): centered
-top-level headings, cell-5 and cell-7 headings below them, 3-1 paragraphs, and
-1-3 lists with each nested level two cells further in.
-
-**eBraille** produces a `.ebrl` file conforming to [eBraille
+**eBraille** produces a `.ebrl` file targeting [eBraille
 1.0](https://daisy.github.io/ebraille/published/1.0/). Content is Unicode
 braille that reflows to the line length of the display it is read on, with a
 navigation document, embedded images, and the metadata the standard requires.
-The export asks for the braille grade, an author, a copyright year, and whether
-the document is a complete transcription.
+The export requires an author, transcriber, copyright date, braille grade, and
+completeness declaration rather than inventing those facts. Ordinary embedded
+pictures are not declared to be tactile graphics.
 
 **Braille Ready Format** produces a `.brf` file of ASCII braille, wrapped and
 paginated to a fixed page. The export asks for the braille grade and the page
@@ -110,7 +108,7 @@ size; the default is the standard braille page of 40 cells by 25 lines.
 Two scripts in `Scripts/` help when working on braille output:
 
 ```sh
-# Check an eBraille file against the specification and read it back in English
+# Run local structural checks and read the braille back in English
 python3 Scripts/validate-ebraille.py FILE.ebrl
 
 # Show the cell layout of each block
@@ -121,7 +119,9 @@ Scripts/open-ebraille.sh FILE.ebrl
 ```
 
 The validation and preview scripts need liblouis installed locally
-(`brew install liblouis`).
+(`brew install liblouis`). The validator checks the package rules implemented
+by the script; it does not replace testing in an independent eBraille reading
+system or review by a qualified braille transcriber.
 
 ## Supported Markdown
 
@@ -145,9 +145,11 @@ JavaScript is not used in rendered documents.
 
 - iOS or iPadOS 17.6 or later
 - Xcode with support for the project's iOS deployment target
-- No Swift package dependencies. liblouis is vendored in `Vendor/liblouis` as a
-  prebuilt XCFramework and is used under the LGPL v2.1 or later; its licence and
-  source location are recorded in the app under Settings > Acknowledgements
+- ZIPFoundation is resolved as a Swift package dependency. liblouis is vendored
+  in `Vendor/liblouis` as a prebuilt XCFramework under the LGPL v2.1 or later;
+  its licence and source location are recorded in the app under Settings >
+  Acknowledgements. Anyone distributing a statically linked build should review
+  the LGPL relinking and source-delivery obligations for that distribution.
 
 ## Building
 

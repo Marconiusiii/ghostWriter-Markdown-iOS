@@ -22,16 +22,24 @@ struct EBrailleWriterTests {
     /// translation. Braille here is a marker, not real UEB: what matters is
     /// that translated text reaches the output and print text does not.
     private struct StubTranslator: BrailleTranslator {
-        func translate(_ text: String, grade: BrailleGrade) async throws -> String {
+        func translate(
+            _ input: BrailleTranslationInput,
+            grade: BrailleGrade
+        ) async throws -> String {
             // A recognisable braille pattern per input character.
-            String(repeating: "\u{2801}", count: max(text.count, 1))
+            String(repeating: "\u{2801}", count: max(input.text.count, 1))
         }
     }
 
     private func makePackage(
         title: String = "Test Document",
         markdown: String,
-        metadata: EBrailleMetadata = EBrailleMetadata(creator: "A Writer", grade: .grade2)
+        metadata: EBrailleMetadata = EBrailleMetadata(
+            creator: "A Writer",
+            transcriber: "Test Transcriber",
+            grade: .grade2,
+            copyrightYear: "2026"
+        )
     ) async throws -> [String: String] {
         let data = try await EBrailleWriter.write(
             title: title,
@@ -85,25 +93,26 @@ struct EBrailleWriterTests {
     @Test func brailleSystemMatchesTheChosenGrade() async throws {
         let grade1 = try await makePackage(
             markdown: "Text.",
-            metadata: EBrailleMetadata(creator: "A Writer", grade: .grade1)
+            metadata: EBrailleMetadata(creator: "A Writer", transcriber: "Test Transcriber", grade: .grade1, copyrightYear: "2026")
         )
         let grade2 = try await makePackage(
             markdown: "Text.",
-            metadata: EBrailleMetadata(creator: "A Writer", grade: .grade2)
+            metadata: EBrailleMetadata(creator: "A Writer", transcriber: "Test Transcriber", grade: .grade2, copyrightYear: "2026")
         )
 
         #expect(try #require(grade1["package.opf"]).contains("ueb grade1"))
         #expect(try #require(grade2["package.opf"]).contains("ueb grade2"))
     }
 
-    @Test func producerIsFixedRegardlessOfCreator() async throws {
+    @Test func producerNamesTheResponsibleTranscriber() async throws {
         let entries = try await makePackage(
             markdown: "Text.",
-            metadata: EBrailleMetadata(creator: "Someone Else", grade: .grade2)
+            metadata: EBrailleMetadata(creator: "Someone Else", transcriber: "Braille Services", grade: .grade2, copyrightYear: "2026")
         )
         let package = try #require(entries["package.opf"])
 
-        #expect(package.contains("<meta property=\"a11y:producer\">ghostWriter Markdown</meta>"))
+        #expect(package.contains("<meta property=\"a11y:producer\">Braille Services</meta>"))
+        #expect(!package.contains("<meta property=\"a11y:producer\">ghostWriter Markdown</meta>"))
     }
 
     @Test func languageCarriesTheBrailleScriptSubtag() async throws {
@@ -142,6 +151,7 @@ struct EBrailleWriterTests {
         // its own. With the stub every translated string is braille, so the
         // check is that list items contain more than their text alone.
         #expect(content.contains("<li>"))
+        #expect(content.contains("<li>\u{2801}\u{2801}\u{2800}"))
         #expect(content.contains("list-style-type: none") == false)
         let css = try #require(entries["style.css"])
         #expect(css.contains("list-style-type: none"))
@@ -175,58 +185,66 @@ struct EBrailleWriterTests {
         #expect(nav.contains("content.xhtml#heading-"))
     }
 
-    @Test func emptyCreatorDoesNotClaimTheSoftwareWroteTheWork() async throws {
+    @Test func navigationIncludesDeepHeadingsAndAccountsForInsertedTitle() async throws {
         let entries = try await makePackage(
-            markdown: "Text.",
-            metadata: EBrailleMetadata(creator: "   ", grade: .grade2)
+            title: "Book title",
+            markdown: "# Chapter\n\n#### Detail"
         )
-        let package = try #require(entries["package.opf"])
+        let nav = try #require(entries["index.html"])
+        let content = try #require(entries["content.xhtml"])
 
-        // dc:creator is required, so an empty field cannot simply be omitted —
-        // but it names the author of the original work, so falling back to the
-        // software would assert that ghostWriter wrote the book.
-        #expect(package.contains("<dc:creator>Unknown</dc:creator>"))
-        #expect(!package.contains("<dc:creator>ghostWriter Markdown</dc:creator>"))
+        #expect(content.contains("id=\"heading-1\""))
+        #expect(content.contains("id=\"heading-2\""))
+        #expect(content.contains("id=\"heading-3\""))
+        #expect(nav.contains("content.xhtml#heading-2"))
+        #expect(nav.contains("content.xhtml#heading-3"))
     }
 
-    @Test func transcriberAndSoftwareAreBothNamedAsProducers() async throws {
+    @Test func taskListStatesAreWrittenAsBrailleText() async throws {
+        let entries = try await makePackage(markdown: "- [x] Done\n- [ ] Waiting")
+        let content = try #require(entries["content.xhtml"])
+
+        #expect(!content.contains("Completed:"))
+        #expect(!content.contains("Not completed:"))
+        #expect(content.components(separatedBy: "<li>").count - 1 == 2)
+    }
+
+    @Test func missingCreatorIsRejectedInsteadOfInvented() async {
+        await #expect(throws: EBrailleExportError.self) {
+            _ = try await makePackage(
+                markdown: "Text.",
+                metadata: EBrailleMetadata(creator: "   ", transcriber: "Test Transcriber", grade: .grade2, copyrightYear: "2026")
+            )
+        }
+    }
+
+    @Test func transcriberIsTheOnlyNamedProducer() async throws {
         let entries = try await makePackage(
             markdown: "Text.",
             metadata: EBrailleMetadata(
                 creator: "A Writer",
                 transcriber: "Braille Services Ltd",
-                grade: .grade2
+                grade: .grade2,
+                copyrightYear: "2026"
             )
         )
         let package = try #require(entries["package.opf"])
 
-        // a11y:producer allows one or more values, so the transcriber and the
-        // software are recorded separately rather than merged.
         #expect(package.contains(
             "<meta property=\"a11y:producer\">Braille Services Ltd</meta>"
         ))
-        #expect(package.contains(
-            "<meta property=\"a11y:producer\">ghostWriter Markdown</meta>"
-        ))
+        #expect(!package.contains("ghostWriter Markdown"))
         // The transcriber is not the author of the work being transcribed.
         #expect(package.contains("<dc:creator>A Writer</dc:creator>"))
     }
 
-    @Test func softwareIsTheOnlyProducerWhenNoTranscriberIsNamed() async throws {
-        let entries = try await makePackage(
-            markdown: "Text.",
-            metadata: EBrailleMetadata(creator: "A Writer", grade: .grade2)
-        )
-        let package = try #require(entries["package.opf"])
-
-        // Exactly one producer element, naming the software.
-        let producerCount = package.components(
-            separatedBy: "<meta property=\"a11y:producer\">"
-        ).count - 1
-        #expect(producerCount == 1)
-        #expect(package.contains(
-            "<meta property=\"a11y:producer\">ghostWriter Markdown</meta>"
-        ))
+    @Test func missingTranscriberIsRejectedInsteadOfNamingTheSoftware() async {
+        await #expect(throws: EBrailleExportError.self) {
+            _ = try await makePackage(
+                markdown: "Text.",
+                metadata: EBrailleMetadata(creator: "A Writer", grade: .grade2, copyrightYear: "2026")
+            )
+        }
     }
 
     @Test func recommendedPropertiesAreWrittenWhenSupplied() async throws {
@@ -234,7 +252,9 @@ struct EBrailleWriterTests {
             markdown: "Text.",
             metadata: EBrailleMetadata(
                 creator: "A Writer",
+                transcriber: "Test Transcriber",
                 grade: .grade2,
+                copyrightYear: "2026",
                 source: "urn:isbn:9780000000001",
                 publisher: "A Braille Press",
                 rights: "Copyright the author. Transcribed under licence.",
@@ -259,7 +279,9 @@ struct EBrailleWriterTests {
             markdown: "Text.",
             metadata: EBrailleMetadata(
                 creator: "A Writer",
+                transcriber: "Test Transcriber",
                 grade: .grade2,
+                copyrightYear: "2026",
                 source: "   ",
                 publisher: ""
             )
@@ -279,6 +301,7 @@ struct EBrailleWriterTests {
             markdown: "Text.",
             metadata: EBrailleMetadata(
                 creator: "A Writer",
+                transcriber: "Test Transcriber",
                 grade: .grade2,
                 copyrightYear: "2026/04/17"
             )

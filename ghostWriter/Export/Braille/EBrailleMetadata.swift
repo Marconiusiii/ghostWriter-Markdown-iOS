@@ -23,34 +23,10 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
     /// Written to `dc:format`. The standard requires this exact string.
     static let formatIdentifier = "eBraille 1.0"
 
-    /// The formatting standard the exported layout follows.
-    ///
-    /// Braille layout is national: cell positions for headings, paragraphs,
-    /// and lists differ between BANA, UKAAF, and the Australian Braille
-    /// Authority, even when all three transcribe into the same UEB code. The
-    /// stylesheet implements BANA *Braille Formats* (2016), so the file says
-    /// so — a reader or agency can then tell which conventions to expect
-    /// rather than inferring them from the layout.
-    static let formatStandard = "BANA Braille Formats 2016"
-
     /// Six-dot braille throughout. Eight-dot is used for computer braille
     /// codes, which is not what a markdown document translates into, so this
     /// is fixed rather than offered as a choice that would only mislead.
     static let cellType = "6"
-
-    /// The software, named in `a11y:producer` alongside whoever transcribed
-    /// the file. ghostWriter did produce the braille, so it belongs there —
-    /// but it is not the only producer, and it is never the author.
-    static let producerSoftware = "ghostWriter Markdown"
-
-    /// Stands in for `dc:creator` when the author is genuinely unknown.
-    ///
-    /// `dc:creator` is REQUIRED and must name the author of the *original
-    /// work*. Naming the software there would assert that ghostWriter wrote
-    /// the book, which is false for every transcription of someone else's
-    /// text. When the writer leaves it blank the honest answer is that the
-    /// author is not recorded, so the file says exactly that.
-    static let unknownCreator = "Unknown"
 
     // MARK: - Required by the standard
 
@@ -128,36 +104,17 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
 
     // MARK: - Values as written to the file
 
-    /// `dc:creator` is required, so a blank field cannot simply be dropped.
-    /// It falls back to a plain statement that the author is unknown rather
-    /// than to the software's name.
     var effectiveCreator: String {
-        let trimmed = creator.trimmed
-        return trimmed.isEmpty ? Self.unknownCreator : trimmed
+        creator.trimmed
     }
 
-    /// Every `a11y:producer` to write. The property allows one or more, so the
-    /// transcriber and the software are listed separately rather than being
-    /// concatenated into a single misleading name.
     var effectiveProducers: [String] {
         let transcriber = transcriber.trimmed
-        guard !transcriber.isEmpty else { return [Self.producerSoftware] }
-        guard transcriber.caseInsensitiveCompare(Self.producerSoftware) != .orderedSame else {
-            return [Self.producerSoftware]
-        }
-        return [transcriber, Self.producerSoftware]
+        return transcriber.isEmpty ? [] : [transcriber]
     }
 
-    /// A spec-conformant `dcterms:dateCopyrighted`.
-    ///
-    /// The value MUST be `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`. Anything the
-    /// writer types that is not one of those would make the file
-    /// non-conforming, so it is normalised where that can be done without
-    /// inventing information, and replaced with the current year where it
-    /// cannot.
-    var effectiveCopyrightYear: String {
+    var effectiveCopyrightYear: String? {
         Self.normalizedCopyrightDate(copyrightYear)
-            ?? String(Calendar.current.component(.year, from: Date()))
     }
 
     /// Returns `date` in one of the three permitted ISO 8601 forms, or `nil`
@@ -218,17 +175,22 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
         return "\(yearText)-\(monthText)-\(String(format: "%02d", day))"
     }
 
-    /// Whether what the writer has typed so far can be written to the file as
-    /// it stands. Drives the warning in the export sheet: blank is fine, since
-    /// it falls back to the current year, but a half-typed date is not.
-    var hasUsableCopyrightYear: Bool {
-        copyrightYear.trimmed.isEmpty
-            || Self.normalizedCopyrightDate(copyrightYear) != nil
+    var validationMessage: String? {
+        if effectiveCreator.isEmpty {
+            return "Enter the author or enter Unknown when the author is not known."
+        }
+        if effectiveProducers.isEmpty {
+            return "Enter the person or organization responsible for the braille transcription."
+        }
+        if effectiveCopyrightYear == nil {
+            return "Enter a copyright date as a year, year and month, or full date."
+        }
+        return nil
     }
 }
 
 private extension String {
-    var trimmed: String {
+    nonisolated var trimmed: String {
         trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

@@ -25,7 +25,14 @@ struct BRFOptionsView: View {
     @State private var grade: BrailleGrade
     @State private var cellsPerLine: Int
     @State private var linesPerPage: Int
+    @AccessibilityFocusState private var accessibilityFocus: AccessibilityTarget?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private enum AccessibilityTarget: Hashable {
+        case grade
+        case cellsPerLine
+        case linesPerPage
+    }
 
     /// Widths and depths real braille hardware uses.
     private static let cellChoices = [20, 24, 27, 30, 32, 34, 38, 40, 42]
@@ -47,7 +54,7 @@ struct BRFOptionsView: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("Braille Grade") {
+                    LabeledContent("Braille grade") {
                         Picker(selection: $grade) {
                             ForEach(BrailleGrade.allCases) { grade in
                                 Text(grade.displayName).tag(grade)
@@ -56,11 +63,13 @@ struct BRFOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
+                        .accessibilityFocused($accessibilityFocus, equals: .grade)
+                        .onChange(of: grade) { _, _ in restoreFocus(to: .grade) }
                     }
                 }
 
                 Section {
-                    LabeledContent("Cells Per Line") {
+                    LabeledContent("Cells per line") {
                         Picker(selection: $cellsPerLine) {
                             ForEach(Self.cellChoices, id: \.self) { value in
                                 Text("\(value)").tag(value)
@@ -69,9 +78,13 @@ struct BRFOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
+                        .accessibilityFocused($accessibilityFocus, equals: .cellsPerLine)
+                        .onChange(of: cellsPerLine) { _, _ in
+                            restoreFocus(to: .cellsPerLine)
+                        }
                     }
 
-                    LabeledContent("Lines Per Page") {
+                    LabeledContent("Lines per page") {
                         Picker(selection: $linesPerPage) {
                             ForEach(Self.lineChoices, id: \.self) { value in
                                 Text("\(value)").tag(value)
@@ -80,13 +93,17 @@ struct BRFOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
+                        .accessibilityFocused($accessibilityFocus, equals: .linesPerPage)
+                        .onChange(of: linesPerPage) { _, _ in
+                            restoreFocus(to: .linesPerPage)
+                        }
                     }
                 } footer: {
                     Text("Match these to your braille display or embosser. The standard braille page is 40 cells by 25 lines.")
                 }
 
                 Section {
-                    Button("Export and Share…", action: export)
+                    Button("Export and share…", action: export)
                     Button("Cancel", role: .cancel, action: onCancel)
                 }
             }
@@ -110,6 +127,16 @@ struct BRFOptionsView: View {
                 )
             )
         )
+    }
+
+    private func restoreFocus(to target: AccessibilityTarget) {
+        accessibilityFocus = nil
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(200))
+            accessibilityFocus = target
+            try? await Task.sleep(for: .milliseconds(350))
+            accessibilityFocus = target
+        }
     }
 }
 

@@ -27,7 +27,7 @@ struct EBrailleEndToEndTests {
         let data = try await EBrailleWriter.write(
             title: "The Quick Report",
             markdown: markdown,
-            metadata: EBrailleMetadata(creator: "Marco", grade: .grade2),
+            metadata: EBrailleMetadata(creator: "Marco", transcriber: "Marco", grade: .grade2, copyrightYear: "2026"),
             translator: LiblouisBridge.shared
         )
 
@@ -57,7 +57,7 @@ struct EBrailleEndToEndTests {
             let data = try await EBrailleWriter.write(
                 title: "Doc",
                 markdown: markdown,
-                metadata: EBrailleMetadata(creator: "Marco", grade: grade),
+                metadata: EBrailleMetadata(creator: "Marco", transcriber: "Marco", grade: grade, copyrightYear: "2026"),
                 translator: LiblouisBridge.shared
             )
             let archive = try Archive(data: data, accessMode: .read)

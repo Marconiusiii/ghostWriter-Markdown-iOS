@@ -17,14 +17,15 @@ https://github.com/liblouis/liblouis
 
 ## Licensing
 
-The library and all bundled tables are LGPL 2.1 or later. Each table file
-carries its own licence header; all nine were checked individually.
+The liblouis library is LGPL 2.1 or later. The bundled table files retain their
+upstream copyright and licence notices; check those notices when changing the
+table set.
 
 liblouis also ships command line tools under GPL 3. Those are **not** built and
 **not** shipped. `build-liblouis.sh` builds only `liblouis/` and `gnulib/`,
-never `tools/`. Keeping that boundary is what allows ghostWriter to remain
-under its own licence — building the tools into the binary would place the
-whole app under GPL 3.
+never `tools/`. Distributors must still meet the LGPL obligations that apply to
+the statically linked library, including any required source and relinking
+materials. This file is technical provenance, not legal advice.
 
 Attribution and the full licence text are surfaced in the app's licence screen
 alongside ZIPFoundation.

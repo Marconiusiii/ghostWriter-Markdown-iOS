@@ -22,6 +22,49 @@ import Foundation
 /// which may nest further.
 nonisolated struct ExportDocument: Equatable, Sendable {
     var blocks: [ExportBlock] = []
+
+    /// Every heading in render order, including headings nested in quotes or
+    /// list items. The identifier is shared by the content and navigation
+    /// writers so their links cannot drift when a title heading is inserted.
+    func headings(startingAt firstIdentifier: Int = 1) -> [ExportHeading] {
+        var headings: [ExportHeading] = []
+        collectHeadings(in: blocks, into: &headings)
+        return headings.enumerated().map { offset, heading in
+            ExportHeading(
+                level: heading.level,
+                content: heading.content,
+                identifier: "heading-\(firstIdentifier + offset)"
+            )
+        }
+    }
+
+    private func collectHeadings(
+        in blocks: [ExportBlock],
+        into headings: inout [ExportHeading]
+    ) {
+        for block in blocks {
+            switch block {
+            case .heading(let level, let content):
+                let text = content.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { continue }
+                headings.append(ExportHeading(level: level, content: content, identifier: ""))
+            case .list(let list):
+                for item in list.items {
+                    collectHeadings(in: item.children, into: &headings)
+                }
+            case .blockQuote(let children):
+                collectHeadings(in: children, into: &headings)
+            case .paragraph, .table, .codeBlock, .thematicBreak:
+                continue
+            }
+        }
+    }
+}
+
+nonisolated struct ExportHeading: Equatable, Sendable {
+    var level: Int
+    var content: [ExportInline]
+    var identifier: String
 }
 
 nonisolated indirect enum ExportBlock: Equatable, Sendable {
@@ -123,7 +166,7 @@ extension ExportInline {
     /// The plain text of an inline span, ignoring all formatting. Used for
     /// table column measurement, PDF alt text, and anywhere a bare string is
     /// needed.
-    var plainText: String {
+    nonisolated var plainText: String {
         switch self {
         case .text(let value):
             return value
@@ -145,11 +188,11 @@ extension ExportInline {
 }
 
 extension Array where Element == ExportInline {
-    var plainText: String {
+    nonisolated var plainText: String {
         map(\.plainText).joined()
     }
 
-    var isEffectivelyEmpty: Bool {
+    nonisolated var isEffectivelyEmpty: Bool {
         plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }

@@ -81,6 +81,22 @@ struct BrailleTranslationTests {
         #expect(braille.count > text.count / 2)
     }
 
+    @Test func emphasisTypeformsProduceBrailleIndicators() async throws {
+        let text = "important"
+        let plain = try await translator.translate(text, grade: .grade2)
+        let bold = try await translator.translate(
+            BrailleTranslationInput(
+                text: text,
+                typeforms: Array(repeating: .bold, count: text.utf16.count)
+            ),
+            grade: .grade2
+        )
+
+        #expect(isUnicodeBraille(bold))
+        #expect(bold != plain)
+        #expect(bold.count > plain.count)
+    }
+
     @Test func gradeMetadataNamesMatchTheStandard() {
         // These strings are written into the publication's a11y:brailleSystem
         // metadata, so they are part of the file format rather than UI wording.

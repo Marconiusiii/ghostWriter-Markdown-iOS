@@ -15,6 +15,7 @@ import subprocess
 import sys
 import zipfile
 from xml.etree import ElementTree as ET
+from urllib.parse import unquote, urlsplit
 
 OPF = "{http://www.idpf.org/2007/opf}"
 DC = "{http://purl.org/dc/elements/1.1/}"
@@ -114,7 +115,8 @@ def check_metadata(archive, opf):
     root = tree.getroot()
 
     for tag in ("identifier", "title", "creator", "language", "format"):
-        if root.find(f".//{DC}{tag}") is None:
+        element = root.find(f".//{DC}{tag}")
+        if element is None or not (element.text or "").strip():
             fail(f"dc:{tag} is missing from the package metadata")
     fmt = root.find(f".//{DC}format")
     if fmt is not None and fmt.text != "eBraille 1.0":
@@ -198,7 +200,9 @@ def check_metadata(archive, opf):
         for m in root.findall(f".//{OPF}meta")
         if m.get("property") == "a11y:producer"
     ]
-    if producers:
+    if any(not producer for producer in producers):
+        fail("a11y:producer must not be empty")
+    elif producers:
         ok(f"a11y:producer names {', '.join(repr(p) for p in producers)}")
 
     # dc:creator must name the author of the work, not the software that made
@@ -347,6 +351,47 @@ def check_entry_page(archive, opf, manifest):
     else:
         ok("entry page is kept out of the spine")
 
+    try:
+        navigation = ET.fromstring(page)
+    except ET.ParseError as error:
+        fail(f"index.html is not well-formed XML: {error}")
+        return
+
+    targets = []
+    for anchor in navigation.findall(".//{*}nav//{*}a"):
+        href = (anchor.get("href") or "").strip()
+        if href:
+            targets.append(href)
+    if not targets:
+        fail("the table of contents has no links")
+        return
+
+    parsed_documents = {}
+    problem_count = len(problems)
+    for href in targets:
+        parts = urlsplit(href)
+        if parts.scheme or parts.netloc:
+            fail(f"table of contents link {href!r} points outside the publication")
+            continue
+        path = unquote(parts.path) or "index.html"
+        if path not in manifest or path not in names:
+            fail(f"table of contents link {href!r} targets an unmanifested document")
+            continue
+        if not parts.fragment:
+            continue
+        if path not in parsed_documents:
+            with archive.open(path) as handle:
+                parsed_documents[path] = ET.parse(handle).getroot()
+        ids = {
+            element.get("id")
+            for element in parsed_documents[path].iter()
+            if element.get("id")
+        }
+        if unquote(parts.fragment) not in ids:
+            fail(f"table of contents link {href!r} targets a missing identifier")
+    if len(problems) == problem_count:
+        ok(f"checked {len(targets)} table of contents link target(s)")
+
 
 def check_forbidden(archive, opf, manifest):
     """Features eBraille forbids (sections 3.4, 5.6, 6.2.3, 6.3, 7)."""
@@ -446,10 +491,11 @@ def check_forbidden(archive, opf, manifest):
 def check_graphics(archive, opf, manifest):
     """Validate images and the tactile graphics declaration.
 
-    The a11y:tactileGraphics property must list the formats actually present,
-    ordered most-used to least-used, or say "none". A file that claims
-    graphics it does not have — or has graphics it does not declare — misleads
-    a reader deciding whether it is usable on their display.
+    An ordinary embedded picture is not necessarily a tactile graphic. The
+    package has no machine-readable flag that lets this script determine which
+    images were prepared for tactile use, so `none` is valid even when ordinary
+    images are present. A non-none declaration can still be checked against the
+    media types available in the manifest.
     """
     with archive.open(opf) as handle:
         root = ET.parse(handle).getroot()
@@ -481,33 +527,23 @@ def check_graphics(archive, opf, manifest):
         fail("a11y:tactileGraphics is missing")
         return
 
-    if not counts:
-        if declared != "none":
-            fail(f"a11y:tactileGraphics says {declared!r} but the file has no images")
-        else:
-            ok("a11y:tactileGraphics correctly declares none")
+    if declared == "none":
+        ok("a11y:tactileGraphics declares that no tactile graphics are present")
         return
 
-    # Expected order: most used first, ties broken by a stable format order.
-    rank = {"JPG": 0, "PNG": 1, "SVG": 2, "PDF": 3}
-    expected = ", ".join(
-        sorted(counts, key=lambda f: (-counts[f], rank.get(f, 99)))
-    )
+    if not counts:
+        fail(f"a11y:tactileGraphics says {declared!r} but the file has no images")
+        return
+
     listed = [part.strip() for part in declared.split(",") if part.strip()]
 
-    if set(listed) != set(counts):
+    if not set(listed).issubset(set(counts)):
         fail(
-            f"a11y:tactileGraphics lists {declared!r} but the images present "
-            f"are {', '.join(sorted(counts))}"
-        )
-    elif declared != expected:
-        fail(
-            f"a11y:tactileGraphics is {declared!r}; the spec orders formats "
-            f"most-used first, which here is {expected!r}"
+            f"a11y:tactileGraphics lists {declared!r}, but matching image "
+            f"formats are not all present in the manifest"
         )
     else:
-        summary = ", ".join(f"{f}x{counts[f]}" for f in listed)
-        ok(f"a11y:tactileGraphics correctly declares {declared} ({summary})")
+        ok(f"a11y:tactileGraphics uses manifest-supported formats: {declared}")
 
 
 def check_image_alt(archive, manifest, table, show):

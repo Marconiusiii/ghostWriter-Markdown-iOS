@@ -22,12 +22,11 @@
 //  whoever produced the braille; collapsing them into one "Author" box meant
 //  every transcription of someone else's book named the wrong person.
 //
-//  Answers are remembered in settings, so a second export is a matter of
-//  confirming rather than retyping. The fields edit local state rather than
-//  settings directly: binding a text field straight to AppSettings wrote to
-//  UserDefaults and republished the whole settings object on every keystroke,
-//  which redrew every view observing any setting — including the editor behind
-//  this sheet — and made typing lag. Settings are written once, on export.
+//  Document-specific facts remain local to this sheet so they cannot leak into
+//  a later document. Only reusable choices — the braille grade and transcriber
+//  name — are written to settings when an export succeeds. Keeping text fields
+//  off AppSettings also avoids republishing the settings object on every
+//  keystroke and redrawing the editor behind this sheet.
 //
 //  The actions sit at the end of the form rather than in the toolbar, so they
 //  come last in reading order — after the choices they act on, which is where
@@ -68,7 +67,12 @@ struct EBrailleOptionsView: View {
     @State private var descriptionText: String
     @State private var educationLevel: String
     @FocusState private var focusedField: Field?
+    @AccessibilityFocusState private var accessibilityFocus: AccessibilityTarget?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private enum AccessibilityTarget: Hashable {
+        case grade
+    }
 
     /// Text in a field lines up with the row it sits in: trailing beside its
     /// label, leading when stacked beneath it.
@@ -91,15 +95,11 @@ struct EBrailleOptionsView: View {
     /// What the copyright date will actually become in the file.
     ///
     /// The spec allows only `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`, so a typed
-    /// value that is not one of those gets corrected on the way out. Saying so
-    /// here means the correction is visible before the file is written rather
-    /// than discovered afterwards by a validator.
     private var copyrightNote: String? {
         let trimmed = copyrightYear.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         guard let normalized = EBrailleMetadata.normalizedCopyrightDate(trimmed) else {
-            let year = String(Calendar.current.component(.year, from: Date()))
-            return "That is not a date the standard allows, so the file will record \(year). Use a year, a year and month, or a full date."
+            return "Enter a year, a year and month, or a full date."
         }
         guard normalized != trimmed else { return nil }
         return "The file will record this as \(normalized)."
@@ -115,18 +115,16 @@ struct EBrailleOptionsView: View {
         self.onCancel = onCancel
         self.onExport = onExport
         _grade = State(initialValue: settings.eBrailleGrade)
-        _creator = State(initialValue: settings.eBrailleCreator)
+        _creator = State(initialValue: "")
         _transcriber = State(initialValue: settings.eBrailleTranscriber)
-        _copyrightYear = State(initialValue: settings.eBrailleCopyrightYear)
-        _isCompleteTranscription = State(
-            initialValue: settings.eBrailleCompleteTranscription
-        )
-        _source = State(initialValue: settings.eBrailleSource)
-        _publisher = State(initialValue: settings.eBraillePublisher)
-        _rights = State(initialValue: settings.eBrailleRights)
-        _subject = State(initialValue: settings.eBrailleSubject)
-        _descriptionText = State(initialValue: settings.eBrailleDescription)
-        _educationLevel = State(initialValue: settings.eBrailleEducationLevel)
+        _copyrightYear = State(initialValue: "")
+        _isCompleteTranscription = State(initialValue: true)
+        _source = State(initialValue: "")
+        _publisher = State(initialValue: "")
+        _rights = State(initialValue: "")
+        _subject = State(initialValue: "")
+        _descriptionText = State(initialValue: "")
+        _educationLevel = State(initialValue: "")
     }
 
     var body: some View {
@@ -152,7 +150,7 @@ struct EBrailleOptionsView: View {
                     // value truncating — and "(contracted)" versus
                     // "(uncontracted)" is the entire distinction being made,
                     // so it is the one word that must not be cut off.
-                    LabeledContent("Braille Grade") {
+                    LabeledContent("Braille grade") {
                         Picker(selection: $grade) {
                             ForEach(BrailleGrade.allCases) { grade in
                                 Text(grade.displayName).tag(grade)
@@ -161,6 +159,10 @@ struct EBrailleOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
+                        .accessibilityFocused($accessibilityFocus, equals: .grade)
+                        .onChange(of: grade) { _, _ in
+                            restoreGradeFocusAfterSelection()
+                        }
                     }
                 }
 
@@ -173,7 +175,7 @@ struct EBrailleOptionsView: View {
                             .multilineTextAlignment(fieldAlignment)
                     }
                 } footer: {
-                    Text("Who wrote the original work. Left empty, the file records the author as Unknown.")
+                    Text("Who wrote the original work. If the author is not known, enter Unknown.")
                 }
 
                 Section {
@@ -185,11 +187,11 @@ struct EBrailleOptionsView: View {
                             .multilineTextAlignment(fieldAlignment)
                     }
                 } footer: {
-                    Text("You or your agency, if you are transcribing someone else's work. ghostWriter Markdown is always recorded alongside this as the producing software.")
+                    Text("You or the organization responsible for the braille transcription.")
                 }
 
                 Section {
-                    LabeledContent("Copyright Date") {
+                    LabeledContent("Copyright date") {
                         TextField("", text: $copyrightYear)
                             .focused($focusedField, equals: .copyrightYear)
                             .keyboardType(.numbersAndPunctuation)
@@ -203,7 +205,7 @@ struct EBrailleOptionsView: View {
                     if let copyrightNote {
                         Text(copyrightNote)
                     } else {
-                        Text("A year, a year and month, or a full date — such as 2026, 2026-04, or 2026-04-17. Left empty, the file records the current year.")
+                        Text("Required. Enter a year, a year and month, or a full date, such as 2026, 2026-04, or 2026-04-17.")
                     }
                 }
 
@@ -211,7 +213,7 @@ struct EBrailleOptionsView: View {
                     // A switch is a fixed width no matter the type size, so at
                     // accessibility sizes it leaves the label a sliver of the
                     // row. The style below gives the label the full width.
-                    LabeledContent("Complete Transcription") {
+                    LabeledContent("Complete transcription") {
                         Toggle(isOn: $isCompleteTranscription) {
                             EmptyView()
                         }
@@ -221,7 +223,7 @@ struct EBrailleOptionsView: View {
                 }
 
                 Section {
-                    LabeledContent("Source Work") {
+                    LabeledContent("Source work") {
                         TextField("", text: $source)
                             .focused($focusedField, equals: .source)
                             .autocorrectionDisabled()
@@ -254,24 +256,29 @@ struct EBrailleOptionsView: View {
                             .multilineTextAlignment(fieldAlignment)
                     }
 
-                    LabeledContent("Education Level") {
+                    LabeledContent("Education level") {
                         TextField("", text: $educationLevel)
                             .focused($focusedField, equals: .educationLevel)
                             .multilineTextAlignment(fieldAlignment)
                     }
                 } header: {
-                    Text("Recommended Details")
+                    Text("Recommended details")
                 } footer: {
                     Text("The standard recommends these. Any you leave empty are left out of the file. Source Work identifies the book or document being transcribed, and Education Level records the grade or year the material was produced for.")
                 }
 
                 Section {
-                    Button("Export and Share…", action: export)
+                    Button("Export and share…", action: export)
+                        .disabled(metadata.validationMessage != nil)
                     Button("Cancel", role: .cancel, action: onCancel)
+                } footer: {
+                    if let message = metadata.validationMessage {
+                        Text(message)
+                    }
                 }
             }
             .labeledContentStyle(ReflowingLabeledContentStyle())
-            .navigationTitle("eBraille Export")
+            .navigationTitle("eBraille export")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -288,31 +295,33 @@ struct EBrailleOptionsView: View {
         focusedField = nil
 
         settings.eBrailleGrade = grade
-        settings.eBrailleCreator = creator
         settings.eBrailleTranscriber = transcriber
-        settings.eBrailleCopyrightYear = copyrightYear
-        settings.eBrailleCompleteTranscription = isCompleteTranscription
-        settings.eBrailleSource = source
-        settings.eBraillePublisher = publisher
-        settings.eBrailleRights = rights
-        settings.eBrailleSubject = subject
-        settings.eBrailleDescription = descriptionText
-        settings.eBrailleEducationLevel = educationLevel
+        onExport(metadata)
+    }
 
-        onExport(
-            EBrailleMetadata(
-                creator: creator,
-                transcriber: transcriber,
-                grade: grade,
-                copyrightYear: copyrightYear,
-                isCompleteTranscription: isCompleteTranscription,
-                source: source,
-                publisher: publisher,
-                rights: rights,
-                subject: subject,
-                descriptionText: descriptionText,
-                educationLevel: educationLevel
-            )
+    private var metadata: EBrailleMetadata {
+        EBrailleMetadata(
+            creator: creator,
+            transcriber: transcriber,
+            grade: grade,
+            copyrightYear: copyrightYear,
+            isCompleteTranscription: isCompleteTranscription,
+            source: source,
+            publisher: publisher,
+            rights: rights,
+            subject: subject,
+            descriptionText: descriptionText,
+            educationLevel: educationLevel
         )
+    }
+
+    private func restoreGradeFocusAfterSelection() {
+        accessibilityFocus = nil
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(200))
+            accessibilityFocus = .grade
+            try? await Task.sleep(for: .milliseconds(350))
+            accessibilityFocus = .grade
+        }
     }
 }

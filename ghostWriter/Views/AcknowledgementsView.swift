@@ -8,7 +8,7 @@ struct AcknowledgementsView: View {
             List {
                 Section("ZIPFoundation") {
                     Link(
-                        "Project Website",
+                        "Project website",
                         destination: URL(string: "https://github.com/weichsel/ZIPFoundation")!
                     )
                     Text(license(named: "ZIPFoundation", fallback: zipFoundationFallback))
@@ -16,16 +16,12 @@ struct AcknowledgementsView: View {
                 }
 
                 Section("liblouis") {
-                    Text("Braille translation for eBraille export. Version 3.38.0, used unmodified.")
+                    Text("Braille translation for eBraille and Braille Ready Format export. Version 3.38.0, built from the upstream release source for iOS.")
                     Link(
-                        "Project Website",
+                        "Project website",
                         destination: URL(string: "https://github.com/liblouis/liblouis")!
                     )
-                    // The LGPL requires that the library's source be available
-                    // to anyone who receives the app. liblouis is a public
-                    // project, so naming the version and linking upstream is
-                    // what satisfies that.
-                    Text("liblouis is free software licensed under the GNU Lesser General Public License, version 2.1 or later. It is used here without modification, and its complete source is available from the project website above.")
+                    Text("liblouis is free software licensed under the GNU Lesser General Public License, version 2.1 or later. The project website provides the corresponding upstream source. Distribution of an app that statically links this library may require additional materials or permissions; this acknowledgement is not a claim that every distribution obligation is satisfied.")
                         .textSelection(.enabled)
                     Text(license(named: "liblouis", fallback: liblouisFallback))
                         .textSelection(.enabled)

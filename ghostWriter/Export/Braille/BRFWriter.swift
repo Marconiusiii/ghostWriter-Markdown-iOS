@@ -16,16 +16,12 @@
 //  preference. That is why the line width and page length are settings rather
 //  than constants.
 //
-//  Layout follows BANA Braille Formats 2016, the same standard the eBraille
-//  stylesheet implements, so a document exported both ways reads the same.
-//
 
 import Foundation
 
 nonisolated enum BRFWriter {
 
-    /// Page geometry. The defaults are the BANA standard for a braille page:
-    /// 40 cells across, 25 lines down.
+    /// Page geometry. The defaults use the common 40-cell by 25-line page.
     struct PageSetup: Equatable, Sendable {
         var cellsPerLine: Int = 40
         var linesPerPage: Int = 25
@@ -45,15 +41,21 @@ nonisolated enum BRFWriter {
 
         var lines: [String] = []
 
-        // The title is a centered heading, as BANA specifies for the start of
-        // a work.
+        // The title is set apart as a centered heading.
         if !trimmedTitle.isEmpty {
             let braille = try await translator.translate(trimmedTitle, grade: grade)
             lines += centered(asciiBraille(braille), width: pageSetup.cellsPerLine)
             lines.append("")
         }
 
-        for block in document.blocks {
+        for (index, block) in document.blocks.enumerated() {
+            if index == 0,
+               !trimmedTitle.isEmpty,
+               case .heading(_, let content) = block,
+               content.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
+                .caseInsensitiveCompare(trimmedTitle) == .orderedSame {
+                continue
+            }
             lines += try await render(
                 block: block,
                 grade: grade,
@@ -80,12 +82,10 @@ nonisolated enum BRFWriter {
 
         switch block {
         case .heading(let level, let content):
-            let text = asciiBraille(
-                try await translate(content.plainText, grade: grade, translator: translator)
-            )
+            let text = try await translate(content, grade: grade, translator: translator)
             guard !text.isEmpty else { return [] }
 
-            // BANA's heading hierarchy: centered, then cell 5, then cell 7.
+            // Use a consistent three-tier heading hierarchy.
             var out: [String] = [""]
             switch level {
             case 1:
@@ -99,9 +99,7 @@ nonisolated enum BRFWriter {
             return out
 
         case .paragraph(let content):
-            let text = asciiBraille(
-                try await translate(content.plainText, grade: grade, translator: translator)
-            )
+            let text = try await translate(content, grade: grade, translator: translator)
             guard !text.isEmpty else { return [] }
             // 3-1: first line in cell 3, runover in cell 1.
             return wrapped(text, width: width, start: 2, runover: 0)
@@ -113,11 +111,19 @@ nonisolated enum BRFWriter {
                 let markerBraille = asciiBraille(
                     try await translate(marker, grade: grade, translator: translator)
                 )
-                let body = asciiBraille(
-                    try await translate(
-                        item.content.plainText, grade: grade, translator: translator
-                    )
+                var parts: [String] = []
+                if let state = item.taskState {
+                    parts.append(asciiBraille(
+                        try await translator.translate(state.spokenPrefix, grade: grade)
+                    ))
+                }
+                let itemText = try await translate(
+                    item.content,
+                    grade: grade,
+                    translator: translator
                 )
+                if !itemText.isEmpty { parts.append(itemText) }
+                let body = parts.joined(separator: " ")
                 // 1-3 at the top level, each nested level two cells further.
                 let start = listDepth * 2
                 let runover = start + 2
@@ -159,7 +165,10 @@ nonisolated enum BRFWriter {
 
         case .codeBlock(_, let code):
             let text = asciiBraille(
-                try await translate(code, grade: grade, translator: translator)
+                try await translator.translate(
+                    EBrailleWriter.TranslationTable.styledInput(code, adding: .noContract),
+                    grade: grade
+                )
             )
             guard !text.isEmpty else { return [] }
             var out: [String] = [""]
@@ -171,21 +180,26 @@ nonisolated enum BRFWriter {
             return out
 
         case .thematicBreak:
-            // A full line of dot-2-5 cells is BANA's separation line.
+            // A full line of dot-2-5 cells marks a thematic separation.
             return ["", String(repeating: "3", count: min(width, 40)), ""]
 
         case .table(let table):
             // Tables become a labelled list: a braille reader on a 40-cell
-            // display cannot follow columns, and BANA's own guidance is to
-            // linearize when a table will not fit.
+            // display cannot reliably follow wide visual columns.
             var out: [String] = [""]
-            let headers = try await withTranslated(
-                table.headers.map(\.plainText), grade: grade, translator: translator
-            )
-            for row in table.rows {
-                let cells = try await withTranslated(
-                    row.map(\.plainText), grade: grade, translator: translator
+            var headers: [String] = []
+            for header in table.headers {
+                headers.append(
+                    asciiBraille(try await translate(header, grade: grade, translator: translator))
                 )
+            }
+            for row in table.rows {
+                var cells: [String] = []
+                for cell in row {
+                    cells.append(
+                        asciiBraille(try await translate(cell, grade: grade, translator: translator))
+                    )
+                }
                 for (index, cell) in cells.enumerated() {
                     let label = index < headers.count ? headers[index] : ""
                     let line = label.isEmpty ? cell : "\(label): \(cell)"
@@ -195,20 +209,6 @@ nonisolated enum BRFWriter {
             }
             return out
         }
-    }
-
-    private static func withTranslated(
-        _ strings: [String],
-        grade: BrailleGrade,
-        translator: BrailleTranslator
-    ) async throws -> [String] {
-        var out: [String] = []
-        for string in strings {
-            out.append(
-                asciiBraille(try await translate(string, grade: grade, translator: translator))
-            )
-        }
-        return out
     }
 
     private static func translate(
@@ -222,11 +222,34 @@ nonisolated enum BRFWriter {
         return try await translator.translate(text, grade: grade)
     }
 
+    private static func translate(
+        _ spans: [ExportInline],
+        grade: BrailleGrade,
+        translator: BrailleTranslator
+    ) async throws -> String {
+        var result = ""
+        for unit in EBrailleWriter.TranslationTable.inlineUnits(spans) {
+            switch unit {
+            case .text(let input), .link(_, let input):
+                result += asciiBraille(try await translator.translate(input, grade: grade))
+            case .image(let image):
+                if let alternative = image.alternativeText {
+                    result += asciiBraille(
+                        try await translator.translate(alternative, grade: grade)
+                    )
+                }
+            case .lineBreak:
+                result += "\n"
+            }
+        }
+        return result
+    }
+
     // MARK: - Layout
 
     /// Wraps text to the page width at a start cell and a runover cell.
     ///
-    /// Cells are zero-based here and one-based in BANA's notation, so 3-1 is
+    /// Cells are zero-based here and one-based in braille layout notation, so 3-1 is
     /// `start: 2, runover: 0`.
     static func wrapped(
         _ text: String,
@@ -234,32 +257,73 @@ nonisolated enum BRFWriter {
         start: Int,
         runover: Int
     ) -> [String] {
+        if text.contains("\n") {
+            var lines: [String] = []
+            for (index, segment) in text.split(
+                separator: "\n",
+                omittingEmptySubsequences: false
+            ).enumerated() {
+                if segment.isEmpty {
+                    lines.append("")
+                } else {
+                    lines += wrapped(
+                        String(segment),
+                        width: width,
+                        start: index == 0 ? start : runover,
+                        runover: runover
+                    )
+                }
+            }
+            return lines
+        }
+
         let words = text.split(separator: " ", omittingEmptySubsequences: true)
             .map(String.init)
         guard !words.isEmpty else { return [] }
 
+        let safeWidth = max(width, 1)
+        let firstMargin = min(max(start, 0), safeWidth - 1)
+        let continuationMargin = min(max(runover, 0), safeWidth - 1)
         var lines: [String] = []
-        var current = String(repeating: " ", count: start)
+        var current = String(repeating: " ", count: firstMargin)
         var isEmptyLine = true
-        var margin = start
 
         for word in words {
-            let candidate = isEmptyLine ? word : " " + word
-            if current.count + candidate.count <= width || isEmptyLine {
-                current += candidate
-                isEmptyLine = false
-            } else {
-                lines.append(current)
-                margin = runover
-                current = String(repeating: " ", count: margin) + word
+            var remainder = word
+            while !remainder.isEmpty {
+                let separator = isEmptyLine ? "" : " "
+                let available = safeWidth - current.count - separator.count
+                if available <= 0 {
+                    lines.append(current)
+                    current = String(repeating: " ", count: continuationMargin)
+                    isEmptyLine = true
+                    continue
+                }
+
+                if remainder.count <= available {
+                    current += separator + remainder
+                    remainder = ""
+                    isEmptyLine = false
+                } else if !isEmptyLine {
+                    lines.append(current)
+                    current = String(repeating: " ", count: continuationMargin)
+                    isEmptyLine = true
+                } else {
+                    let split = remainder.index(remainder.startIndex, offsetBy: available)
+                    current += String(remainder[..<split])
+                    lines.append(current)
+                    remainder = String(remainder[split...])
+                    current = String(repeating: " ", count: continuationMargin)
+                    isEmptyLine = true
+                }
             }
         }
         if !isEmptyLine { lines.append(current) }
         return lines
     }
 
-    /// Centers a line, leaving at least three blank cells either side as BANA
-    /// requires. Text too long to center is wrapped at the margin instead.
+    /// Centers a line when at least three blank cells fit on either side. Text
+    /// too long to center is wrapped at the margin instead.
     static func centered(_ text: String, width: Int) -> [String] {
         guard text.count + 6 <= width else {
             return wrapped(text, width: width, start: 0, runover: 0)

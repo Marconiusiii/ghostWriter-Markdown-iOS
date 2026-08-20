@@ -2,9 +2,8 @@
 //  EBrailleSettingsTests.swift
 //  ghostWriterTests
 //
-//  The eBraille options are remembered between exports, so that producing a
-//  second file is a matter of confirming rather than retyping four answers.
-//  These cover the persistence and the defaults.
+//  Reusable braille preferences are remembered. Metadata about one work is
+//  deliberately kept out of global settings.
 //
 
 import Foundation
@@ -18,36 +17,22 @@ struct EBrailleSettingsTests {
         return suite
     }
 
-    @Test func optionsAreRememberedAcrossSessions() {
+    @Test func reusableOptionsAreRememberedAcrossSessions() {
         let defaults = makeDefaults()
 
         let first = AppSettings(defaults: defaults)
-        first.eBrailleCreator = "Marco Salsiccia"
         first.eBrailleTranscriber = "Braille Services Ltd"
-        first.eBrailleCopyrightYear = "2026"
         first.eBrailleGrade = .grade1
-        first.eBrailleCompleteTranscription = false
-        first.eBrailleSource = "urn:isbn:9780000000001"
-        first.eBraillePublisher = "A Braille Press"
-        first.eBrailleRights = "Transcribed under licence."
-        first.eBrailleSubject = "Geography"
-        first.eBrailleDescription = "A short report."
-        first.eBrailleEducationLevel = "Year 4"
+        first.brfCellsPerLine = 32
+        first.brfLinesPerPage = 24
 
         // A fresh instance stands in for the next launch.
         let second = AppSettings(defaults: defaults)
 
-        #expect(second.eBrailleCreator == "Marco Salsiccia")
         #expect(second.eBrailleTranscriber == "Braille Services Ltd")
-        #expect(second.eBrailleCopyrightYear == "2026")
         #expect(second.eBrailleGrade == .grade1)
-        #expect(second.eBrailleCompleteTranscription == false)
-        #expect(second.eBrailleSource == "urn:isbn:9780000000001")
-        #expect(second.eBraillePublisher == "A Braille Press")
-        #expect(second.eBrailleRights == "Transcribed under licence.")
-        #expect(second.eBrailleSubject == "Geography")
-        #expect(second.eBrailleDescription == "A short report.")
-        #expect(second.eBrailleEducationLevel == "Year 4")
+        #expect(second.brfCellsPerLine == 32)
+        #expect(second.brfLinesPerPage == 24)
     }
 
     @Test func gradeTwoIsTheDefault() {
@@ -55,21 +40,15 @@ struct EBrailleSettingsTests {
 
         // Contracted braille is what most braille readers prefer.
         #expect(settings.eBrailleGrade == .grade2)
-        #expect(settings.eBrailleCompleteTranscription == true)
-        #expect(settings.eBrailleCreator.isEmpty)
     }
 
-    @Test func emptyOptionsStillProduceValidMetadata() {
+    @Test func requiredMetadataIsNeverInvented() {
         let metadata = EBrailleMetadata(creator: "", grade: .grade2, copyrightYear: "")
 
-        // Both fields are required by the standard, so neither can be left out
-        // of the file when the writer skips them. The creator names the author
-        // of the work, so it must not fall back to the software's name.
-        #expect(metadata.effectiveCreator == EBrailleMetadata.unknownCreator)
-        #expect(metadata.effectiveCreator != EBrailleMetadata.producerSoftware)
-        #expect(!metadata.effectiveCopyrightYear.isEmpty)
-        #expect(metadata.effectiveCopyrightYear.count == 4)
-        #expect(metadata.effectiveProducers == [EBrailleMetadata.producerSoftware])
+        #expect(metadata.effectiveCreator.isEmpty)
+        #expect(metadata.effectiveCopyrightYear == nil)
+        #expect(metadata.effectiveProducers.isEmpty)
+        #expect(metadata.validationMessage != nil)
     }
 
     @Test func copyrightDatesAreNormalisedToTheThreeAllowedForms() {
@@ -101,24 +80,17 @@ struct EBrailleSettingsTests {
         #expect(EBrailleMetadata.normalizedCopyrightDate("") == nil)
     }
 
-    @Test func unusableCopyrightDateFallsBackToTheCurrentYear() {
+    @Test func unusableCopyrightDateIsRejectedInsteadOfReplaced() {
         let metadata = EBrailleMetadata(copyrightYear: "202")
-        let thisYear = String(Calendar.current.component(.year, from: Date()))
 
-        // A half-typed date would make the file non-conforming, so it is
-        // replaced rather than written through.
-        #expect(metadata.effectiveCopyrightYear == thisYear)
-        #expect(!metadata.hasUsableCopyrightYear)
-        #expect(EBrailleMetadata(copyrightYear: "").hasUsableCopyrightYear)
-        #expect(EBrailleMetadata(copyrightYear: "2026-04").hasUsableCopyrightYear)
+        #expect(metadata.effectiveCopyrightYear == nil)
+        #expect(metadata.validationMessage != nil)
     }
 
-    @Test func namingTheSoftwareAsTranscriberDoesNotDuplicateTheProducer() {
+    @Test func transcriberIsRecordedExactlyAsEntered() {
         let metadata = EBrailleMetadata(transcriber: "ghostWriter Markdown")
 
-        // a11y:producer may repeat, but listing the same name twice says
-        // nothing and reads as a mistake.
-        #expect(metadata.effectiveProducers == [EBrailleMetadata.producerSoftware])
+        #expect(metadata.effectiveProducers == ["ghostWriter Markdown"])
     }
 
     @Test func brfPageSetupDefaultsToTheStandardBraillePage() {

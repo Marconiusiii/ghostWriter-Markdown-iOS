@@ -58,7 +58,8 @@ actor LiblouisBridge: BrailleTranslator {
         tablePathConfigured = true
     }
 
-    func translate(_ text: String, grade: BrailleGrade) throws -> String {
+    func translate(_ translation: BrailleTranslationInput, grade: BrailleGrade) throws -> String {
+        let text = translation.text
         guard !text.isEmpty else { return "" }
         try configureTablePathIfNeeded()
 
@@ -67,6 +68,9 @@ actor LiblouisBridge: BrailleTranslator {
         // characters over without converting between encodings.
         var input = Array(text.utf16)
         var inputLength = Int32(input.count)
+        guard translation.typeforms.isEmpty || translation.typeforms.count == input.count else {
+            throw BrailleTranslationError.invalidTypeforms
+        }
 
         // Braille is not always shorter than print. Grade 1 in particular grows:
         // every capital letter and every number gains an indicator cell, so a
@@ -78,18 +82,23 @@ actor LiblouisBridge: BrailleTranslator {
             var output = [UInt16](repeating: 0, count: capacity)
             var outputLength = Int32(capacity)
             inputLength = Int32(input.count)
+            var typeforms = translation.typeforms.isEmpty
+                ? nil
+                : translation.typeforms.map { formtype($0.rawValue) }
 
             let result = grade.tableName.withCString { table in
-                lou_translateString(
-                    table,
-                    &input,
-                    &inputLength,
-                    &output,
-                    &outputLength,
-                    nil,
-                    nil,
-                    Self.unicodeBrailleMode
-                )
+                if typeforms == nil {
+                    return lou_translateString(
+                        table, &input, &inputLength, &output, &outputLength,
+                        nil, nil, Self.unicodeBrailleMode
+                    )
+                }
+                return typeforms!.withUnsafeMutableBufferPointer { forms in
+                    lou_translateString(
+                        table, &input, &inputLength, &output, &outputLength,
+                        forms.baseAddress, nil, Self.unicodeBrailleMode
+                    )
+                }
             }
 
             guard result != 0 else {
@@ -113,12 +122,15 @@ actor LiblouisBridge: BrailleTranslator {
 
 nonisolated enum BrailleTranslationError: LocalizedError, Equatable, Sendable {
     case tablesMissing
+    case invalidTypeforms
     case translationFailed(grade: BrailleGrade)
 
     var errorDescription: String? {
         switch self {
         case .tablesMissing:
             return "The braille translation tables could not be found."
+        case .invalidTypeforms:
+            return "The braille emphasis information did not match the text."
         case .translationFailed(let grade):
             return "The document could not be translated into \(grade.systemName)."
         }

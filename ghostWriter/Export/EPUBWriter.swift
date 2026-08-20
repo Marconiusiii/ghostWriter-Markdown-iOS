@@ -40,19 +40,20 @@ nonisolated enum EPUBWriter {
 
         entries["META-INF/container.xml"] = Data(containerXML.utf8)
 
-        let images = collectEmbeddedImages(document, sourceDirectory: sourceDirectory)
+        let imageResources = collectImageResources(document, sourceDirectory: sourceDirectory)
 
         entries["OEBPS/content.opf"] = Data(packageDocument(
             title: bookTitle,
             identifier: identifier,
             language: language,
-            images: images
+            images: imageResources.images
         ).utf8)
 
         entries["OEBPS/nav.xhtml"] = Data(navigationDocument(
             title: bookTitle,
             language: language,
-            document: document
+            document: document,
+            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle)
         ).utf8)
 
         entries["OEBPS/style.css"] = Data(stylesheet.utf8)
@@ -61,10 +62,11 @@ nonisolated enum EPUBWriter {
             title: bookTitle,
             language: language,
             document: document,
-            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle)
+            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle),
+            imageResources: imageResources
         ).utf8)
 
-        for image in images {
+        for image in imageResources.images {
             entries["OEBPS/\(image.href)"] = image.data
         }
 
@@ -159,26 +161,17 @@ nonisolated enum EPUBWriter {
     private static func navigationDocument(
         title: String,
         language: String,
-        document: ExportDocument
+        document: ExportDocument,
+        includeTitleHeading: Bool
     ) -> String {
-        var items: [String] = []
-        var counter = 0
-
-        for block in document.blocks {
-            guard case .heading(let level, let content) = block, level <= 3 else { continue }
-            let text = content.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { continue }
-            counter += 1
-            items.append(
-                "<li><a href=\"content.xhtml#heading-\(counter)\">\(escape(text))</a></li>"
-            )
-        }
+        let headings = document.headings(startingAt: includeTitleHeading ? 2 : 1)
+        let items = navigationList(headings)
 
         // A table of contents with no entries is invalid, so a document without
         // headings gets a single entry pointing at its start.
-        if items.isEmpty {
-            items.append("<li><a href=\"content.xhtml\">\(escape(title))</a></li>")
-        }
+        let contents = items.isEmpty
+            ? "<ol>\n<li><a href=\"content.xhtml\">\(escape(title))</a></li>\n</ol>"
+            : items
 
         return """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -191,13 +184,51 @@ nonisolated enum EPUBWriter {
         <body>
         <nav epub:type="toc" id="toc" role="doc-toc">
         <h1>Contents</h1>
-        <ol>
-        \(items.joined(separator: "\n"))
-        </ol>
+        \(contents)
         </nav>
         </body>
         </html>
         """
+    }
+
+    private final class NavigationNode {
+        let heading: ExportHeading
+        var children: [NavigationNode] = []
+
+        init(_ heading: ExportHeading) {
+            self.heading = heading
+        }
+    }
+
+    private static func navigationList(_ headings: [ExportHeading]) -> String {
+        var roots: [NavigationNode] = []
+        var stack: [NavigationNode] = []
+
+        for heading in headings {
+            while let last = stack.last, last.heading.level >= heading.level {
+                stack.removeLast()
+            }
+            let node = NavigationNode(heading)
+            if let parent = stack.last {
+                parent.children.append(node)
+            } else {
+                roots.append(node)
+            }
+            stack.append(node)
+        }
+
+        func render(_ nodes: [NavigationNode]) -> String {
+            guard !nodes.isEmpty else { return "" }
+            let items = nodes.map { node in
+                let text = node.heading.content.plainText
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let children = render(node.children)
+                return "<li><a href=\"content.xhtml#\(node.heading.identifier)\">\(escape(text))</a>\(children)</li>"
+            }.joined(separator: "\n")
+            return "<ol>\n\(items)\n</ol>"
+        }
+
+        return render(roots)
     }
 
     // MARK: - Content
@@ -206,9 +237,10 @@ nonisolated enum EPUBWriter {
         title: String,
         language: String,
         document: ExportDocument,
-        includeTitleHeading: Bool
+        includeTitleHeading: Bool,
+        imageResources: ImageResources
     ) -> String {
-        var builder = ContentBuilder()
+        var builder = ContentBuilder(imageResources: imageResources)
         var body = ""
 
         if includeTitleHeading {
@@ -240,6 +272,7 @@ nonisolated enum EPUBWriter {
     /// something a browser silently repairs.
     private struct ContentBuilder {
         var headingCounter = 0
+        let imageResources: ImageResources
 
         mutating func render(_ blocks: [ExportBlock]) -> String {
             var output = ""
@@ -363,7 +396,12 @@ nonisolated enum EPUBWriter {
                 case .code(let value):
                     output += "<code>" + escape(value) + "</code>"
                 case .link(let destination, let content):
-                    output += "<a href=\"\(escape(destination))\">" + inline(content) + "</a>"
+                    let label = inline(content)
+                    if let href = EPUBWriter.safeLinkHref(destination) {
+                        output += "<a href=\"\(escape(href))\">" + label + "</a>"
+                    } else {
+                        output += label
+                    }
                 case .image(let image):
                     output += renderImage(image)
                 case .lineBreak:
@@ -375,13 +413,11 @@ nonisolated enum EPUBWriter {
         }
 
         func renderImage(_ image: ExportImage) -> String {
-            let href = EPUBWriter.imageHref(for: image.source)
-            // A decorative image gets empty alt and is hidden from the
-            // accessibility tree, so it is passed over rather than announced as
-            // an unlabelled graphic. Anything else carries its description.
-            if image.isDecorative {
-                return "<img src=\"\(escape(href))\" alt=\"\" role=\"presentation\"/>"
+            guard let href = imageResources.hrefBySource[image.source] else {
+                guard !image.isDecorative else { return "" }
+                return "<span class=\"image-description\">Image: \(escape(image.alternativeText ?? ""))</span>"
             }
+            if image.isDecorative { return "<img src=\"\(escape(href))\" alt=\"\"/>" }
             return "<img src=\"\(escape(href))\" alt=\"\(escape(image.alternativeText ?? ""))\"/>"
         }
     }
@@ -395,18 +431,22 @@ nonisolated enum EPUBWriter {
         let data: Data
     }
 
-    /// Path an image is stored under inside the package. Local references keep
-    /// their file name so the markup stays readable; remote ones are left
-    /// pointing outward.
-    static func imageHref(for source: String) -> String {
-        let decoded = source.removingPercentEncoding ?? source
-        let lowercased = decoded.lowercased()
-        if lowercased.hasPrefix("http://") || lowercased.hasPrefix("https://") {
-            return source
-        }
-        return "images/" + sanitizedFileName(decoded)
+    nonisolated struct ImageResources {
+        let images: [EmbeddedImage]
+        let hrefBySource: [String: String]
     }
 
+    static func safeLinkHref(_ destination: String) -> String? {
+        let trimmed = destination.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(),
+              ["https", "http", "mailto", "tel", "sms"].contains(scheme)
+        else { return nil }
+        return trimmed
+    }
+
+    /// Keeps the readable portion of an asset name while removing characters
+    /// that are unsafe in a package path.
     private static func sanitizedFileName(_ path: String) -> String {
         let name = URL(fileURLWithPath: path).lastPathComponent
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
@@ -416,42 +456,45 @@ nonisolated enum EPUBWriter {
     /// Gathers the local images a document refers to, so they can be embedded.
     /// An EPUB that links to files on the device would be empty on any other
     /// machine, so the bytes have to travel with the book.
-    static func collectEmbeddedImages(
+    static func collectImageResources(
         _ document: ExportDocument,
         sourceDirectory: URL?
-    ) -> [EmbeddedImage] {
+    ) -> ImageResources {
         var sources: [String] = []
         collectImageSources(document.blocks, into: &sources)
 
         var images: [EmbeddedImage] = []
-        var seen = Set<String>()
+        var hrefBySource: [String: String] = [:]
+        let root = sourceDirectory?.standardizedFileURL.resolvingSymlinksInPath()
 
         for source in sources {
-            let href = imageHref(for: source)
-            guard href.hasPrefix("images/"), !seen.contains(href) else { continue }
+            guard hrefBySource[source] == nil, let root else { continue }
 
             let decoded = source.removingPercentEncoding ?? source
-            let url: URL
-            if let absolute = URL(string: decoded), absolute.isFileURL {
-                url = absolute
-            } else if let sourceDirectory {
-                url = sourceDirectory.appendingPathComponent(decoded).standardizedFileURL
-            } else {
-                continue
-            }
+            guard !decoded.hasPrefix("/"), URL(string: decoded)?.scheme == nil else { continue }
+            let relativeComponents = decoded.split(separator: "/", omittingEmptySubsequences: true)
+            guard let assetDirectory = relativeComponents.first,
+                  assetDirectory.hasPrefix(".ghostwriter-assets-") else { continue }
 
-            guard let data = try? Data(contentsOf: url) else { continue }
+            let url = root.appendingPathComponent(decoded).standardizedFileURL
+                .resolvingSymlinksInPath()
+            let rootPrefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
+            guard url.path.hasPrefix(rootPrefix),
+                  let mediaType = mediaType(for: url.pathExtension.lowercased()),
+                  let data = try? Data(contentsOf: url),
+                  !data.isEmpty else { continue }
 
-            seen.insert(href)
+            let href = "images/image-\(images.count + 1)-\(sanitizedFileName(decoded))"
+            hrefBySource[source] = href
             images.append(EmbeddedImage(
                 id: "img-\(images.count + 1)",
                 href: href,
-                mediaType: mediaType(for: url.pathExtension.lowercased()),
+                mediaType: mediaType,
                 data: data
             ))
         }
 
-        return images
+        return ImageResources(images: images, hrefBySource: hrefBySource)
     }
 
     private static func collectImageSources(
@@ -504,13 +547,13 @@ nonisolated enum EPUBWriter {
         }
     }
 
-    private static func mediaType(for pathExtension: String) -> String {
+    private static func mediaType(for pathExtension: String) -> String? {
         switch pathExtension {
         case "jpg", "jpeg": return "image/jpeg"
         case "gif": return "image/gif"
-        case "svg": return "image/svg+xml"
         case "webp": return "image/webp"
-        default: return "image/png"
+        case "png": return "image/png"
+        default: return nil
         }
     }
 
