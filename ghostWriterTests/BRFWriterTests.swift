@@ -204,4 +204,51 @@ struct BRFWriterTests {
             _ = try BRFWriter.asciiBraille("A")
         }
     }
+
+    @Test func everySixDotCellUsesStandardBrailleASCII() throws {
+        var unicodeBraille = ""
+        for value in 0..<64 {
+            unicodeBraille.unicodeScalars.append(UnicodeScalar(0x2800 + value)!)
+        }
+
+        let expected = " A1B'K2L@CIF/MSP\"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)="
+        #expect(try BRFWriter.asciiBraille(unicodeBraille) == expected)
+    }
+
+    @Test func gradeTwoUsesExpectedUEBContractionsInBRF() async throws {
+        let unicodeBraille = try await LiblouisBridge.shared.translate(
+            "words how show Markdown",
+            grade: .grade2
+        )
+
+        #expect(try BRFWriter.asciiBraille(unicodeBraille) == "^WS H[ %[ ,M>KD[N")
+    }
+
+    @Test func owAndWordsCellsUseStandardBRFCharacters() async throws {
+        let ow = try await LiblouisBridge.shared.translate("ow", grade: .grade2)
+        let words = try await LiblouisBridge.shared.translate("words", grade: .grade2)
+
+        #expect(try BRFWriter.asciiBraille(ow) == "[")
+        #expect(try BRFWriter.asciiBraille(words) == "^WS")
+    }
+
+    @Test func welcomeDocumentUsesOnlyStandardBRFAndExpectedContractions() async throws {
+        let markdown = try WelcomeDocument.bundledMarkdown()
+        let data = try await BRFWriter.write(
+            markdown: markdown,
+            title: WelcomeDocument.name,
+            grade: .grade2,
+            pageSetup: .standard,
+            translator: LiblouisBridge.shared
+        )
+        let allowed = Set(
+            " A1B'K2L@CIF/MSP\"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)="
+                .utf8
+        ).union([10, 12, 13])
+        let brf = String(decoding: data, as: UTF8.self)
+
+        #expect(data.allSatisfy { allowed.contains($0) })
+        #expect(brf.contains("^WS"))
+        #expect(brf.contains("H["))
+    }
 }

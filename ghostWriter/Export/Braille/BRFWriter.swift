@@ -469,7 +469,7 @@ nonisolated enum BRFWriter {
     /// nonsense: the first attempt at this had two cells wrong, which reads as
     /// valid braille and is silently the wrong word.
     private static let asciiTable = Array(
-        " a1b'k2l`cif/msp\"e3h9o6r~djg>ntq,*5<-u8v.%{$+x!&;:4|0z7(_?w}#y)="
+        " A1B'K2L@CIF/MSP\"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)="
     )
 
     /// Converts Unicode braille patterns to the ASCII braille BRF requires.

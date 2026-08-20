@@ -16,11 +16,17 @@ import subprocess
 import sys
 
 
+BRAILLE_ASCII = frozenset(
+    b" A1B'K2L@CIF/MSP\"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)="
+)
+
+
 def back_translate(data, table):
+    normalized = data.replace(b"\r\n", b"\n").replace(b"\x0c", b"\n")
     try:
         result = subprocess.run(
-            ["lou_translate", "-b", f"en-us-brf.dis,{table}"],
-            input=data.decode("ascii"),
+            ["lou_translate", "-b", "-d", "en-us-brf.dis", table],
+            input=normalized.decode("ascii"),
             capture_output=True,
             text=True,
             check=True,
@@ -47,11 +53,18 @@ def main():
     with open(args.file, "rb") as handle:
         data = handle.read()
 
-    invalid = sorted({byte for byte in data if byte not in {10, 12, 13} and not 32 <= byte <= 126})
+    invalid = sorted({
+        byte for byte in data
+        if byte not in {10, 12, 13} and byte not in BRAILLE_ASCII
+    })
     if invalid:
-        problems.append(f"bytes outside printable BRF ASCII: {invalid}")
+        characters = ", ".join(
+            f"{chr(byte)!r} (0x{byte:02X})" if 32 <= byte <= 126 else f"0x{byte:02X}"
+            for byte in invalid
+        )
+        problems.append(f"bytes outside six-dot Braille ASCII: {characters}")
     else:
-        notes.append("all content uses printable BRF ASCII plus CRLF and form feed")
+        notes.append("all content uses six-dot Braille ASCII plus CRLF and form feed")
 
     if re.search(b"(?<!\r)\n|\r(?!\n)", data):
         problems.append("line endings contain lone CR or LF; BRF records must use CRLF")
