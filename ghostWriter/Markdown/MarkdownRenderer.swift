@@ -224,12 +224,37 @@ nonisolated enum MarkdownRenderer {
                 source = safeRemoteImageSource(image.source)
             }
 
+            if image.isTactile {
+                return renderTactileGraphic(image, source: source)
+            }
             guard let source else { return imageFallback(image) }
             let alt = MarkdownRenderer.escape(image.alternativeText ?? "")
             let title = image.title.map {
                 " title=\"\(MarkdownRenderer.escape($0))\""
             } ?? ""
             return "<img src=\"\(MarkdownRenderer.escape(source))\" alt=\"\(alt)\"\(title)>"
+        }
+
+        private func renderTactileGraphic(
+            _ image: ExportImage,
+            source: String?
+        ) -> String {
+            let description = image.alternativeText?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let caption = description.isEmpty
+                ? "Tactile graphic"
+                : "Tactile graphic: \(description)"
+            let escapedCaption = MarkdownRenderer.escape(caption)
+
+            guard let source else {
+                return "<span class=\"image-fallback\">\(escapedCaption)</span>"
+            }
+            let title = image.title.map {
+                " title=\"\(MarkdownRenderer.escape($0))\""
+            } ?? ""
+            return "<figure class=\"tactile-graphic\">"
+                + "<img src=\"\(MarkdownRenderer.escape(source))\" alt=\"\"\(title)>"
+                + "<figcaption>\(escapedCaption)</figcaption></figure>"
         }
 
         private func safeRemoteImageSource(_ source: String) -> String? {

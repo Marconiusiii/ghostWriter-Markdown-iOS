@@ -220,7 +220,9 @@ struct ShareItemBuilderTests {
         )
 
         #expect(html.contains("src=\"data:image/png;base64,"))
-        #expect(html.contains("alt=\"Tactile map\" title=\"tactile\""))
+        #expect(html.contains("alt=\"\" title=\"tactile\""))
+        #expect(html.contains("<figcaption>Tactile graphic: Tactile map</figcaption>"))
+        #expect(html.components(separatedBy: "Tactile map").count == 2)
         #expect(html.contains("alt=\"\""))
         #expect(!html.contains(".ghostwriter-assets-test/map.png"))
     }
@@ -258,7 +260,8 @@ struct ShareItemBuilderTests {
         )
 
         #expect(html.contains("src=\"data:image/svg+xml;base64,"))
-        #expect(html.contains("alt=\"A cute owl\" title=\"tactile\""))
+        #expect(html.contains("alt=\"\" title=\"tactile\""))
+        #expect(html.contains("<figcaption>Tactile graphic: A cute owl</figcaption>"))
         #expect(!html.contains("image-fallback"))
     }
 
@@ -278,7 +281,7 @@ struct ShareItemBuilderTests {
             sourceDirectory: root
         )
 
-        #expect(html.contains("<span class=\"image-fallback\">Image: Unsafe diagram</span>"))
+        #expect(html.contains("<span class=\"image-fallback\">Tactile graphic: Unsafe diagram</span>"))
         #expect(!html.contains("data:image/svg+xml"))
     }
 

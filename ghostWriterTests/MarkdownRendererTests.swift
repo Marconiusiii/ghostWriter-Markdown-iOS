@@ -57,6 +57,18 @@ struct MarkdownRendererTests {
         )
     }
 
+    @Test func tactileGraphicDescriptionRemainsReadableBesideRemoteImage() {
+        let html = MarkdownRenderer.html(
+            from: "![A cute owl](https://marconius.com/svg/imageFiles/hooty.svg \"tactile\")"
+        )
+
+        #expect(html.contains("<figure class=\"tactile-graphic\">"))
+        #expect(html.contains("src=\"https://marconius.com/svg/imageFiles/hooty.svg\""))
+        #expect(html.contains("alt=\"\" title=\"tactile\""))
+        #expect(html.contains("<figcaption>Tactile graphic: A cute owl</figcaption>"))
+        #expect(html.components(separatedBy: "A cute owl").count == 2)
+    }
+
     @Test func rendersTaskStatesWithoutPlatformCheckboxControls() {
         let html = MarkdownRenderer.html(
             from: "- [ ] Draft document\n- [x] Share document"

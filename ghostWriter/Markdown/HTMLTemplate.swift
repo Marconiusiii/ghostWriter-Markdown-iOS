@@ -181,6 +181,13 @@ enum HTMLTemplate {
 
         img { max-width: 100%; height: auto; }
 
+        figure.tactile-graphic { margin: 1.5em 0; }
+        figure.tactile-graphic figcaption {
+          margin-top: 0.4em;
+          color: var(--muted);
+          font-style: italic;
+        }
+
         .table-scroll {
           max-width: 100%;
           overflow-x: auto;
@@ -260,6 +267,8 @@ enum HTMLTemplate {
     }
     h1, h2, h3, h4, h5, h6 { line-height: 1.25; }
     img { max-width: 100%; height: auto; }
+    figure.tactile-graphic { margin: 1.5rem 0; }
+    figure.tactile-graphic figcaption { margin-top: 0.4rem; font-style: italic; }
     pre { padding: 1rem; overflow-x: auto; background: rgba(127,127,127,0.12); border-radius: 0.5rem; }
     code { font-family: ui-monospace, Menlo, monospace; }
     blockquote { margin-inline: 0; padding-left: 1rem; border-left: 0.25rem solid currentColor; }

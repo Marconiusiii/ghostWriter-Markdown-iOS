@@ -81,10 +81,6 @@ struct HTMLWebView: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = UIColor(named: "PageBackground") ?? .systemBackground
 
-        // The web view is the document, so it should not be summarised as one
-        // opaque element.
-        webView.accessibilityLabel = "Rendered document"
-
         return webView
     }
 
