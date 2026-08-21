@@ -13,8 +13,6 @@
 //
 
 import Foundation
-import ImageIO
-import UniformTypeIdentifiers
 
 nonisolated enum EPUBWriter {
 
@@ -492,6 +490,12 @@ nonisolated enum EPUBWriter {
         return trimmed
     }
 
+    /// Compatibility entry point for the eBraille packager. The validation
+    /// itself is shared by every exporter in ExportImageResource.
+    static func hasValidImageSignature(_ data: Data, mediaType: String) -> Bool {
+        ExportImageResource.hasValidImageData(data, mediaType: mediaType)
+    }
+
     /// Keeps the readable portion of an asset name while removing characters
     /// that are unsafe in a package path.
     private static func sanitizedFileName(_ path: String) -> String {
@@ -512,34 +516,21 @@ nonisolated enum EPUBWriter {
 
         var images: [EmbeddedImage] = []
         var hrefBySource: [String: String] = [:]
-        let root = sourceDirectory?.standardizedFileURL.resolvingSymlinksInPath()
-
         for source in sources {
-            guard hrefBySource[source] == nil, let root else { continue }
+            guard hrefBySource[source] == nil,
+                  let resource = ExportImageResource.resolveManagedAsset(
+                    source: source,
+                    sourceDirectory: sourceDirectory
+                  ) else { continue }
 
-            let decoded = source.removingPercentEncoding ?? source
-            guard !decoded.hasPrefix("/"), URL(string: decoded)?.scheme == nil else { continue }
-            let relativeComponents = decoded.split(separator: "/", omittingEmptySubsequences: true)
-            guard let assetDirectory = relativeComponents.first,
-                  assetDirectory.hasPrefix(".ghostwriter-assets-") else { continue }
-
-            let url = root.appendingPathComponent(decoded).standardizedFileURL
-                .resolvingSymlinksInPath()
-            let rootPrefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
-            guard url.path.hasPrefix(rootPrefix),
-                  let mediaType = mediaType(for: url.pathExtension.lowercased()),
-                  let data = try? Data(contentsOf: url),
-                  !data.isEmpty,
-                  hasValidImageSignature(data, mediaType: mediaType) else { continue }
-
-            let href = "images/image-\(images.count + 1)-\(sanitizedFileName(decoded))"
+            let href = "images/image-\(images.count + 1)-\(sanitizedFileName(resource.fileName))"
             hrefBySource[source] = href
             images.append(EmbeddedImage(
                 id: "img-\(images.count + 1)",
                 source: source,
                 href: href,
-                mediaType: mediaType,
-                data: data
+                mediaType: resource.mediaType,
+                data: resource.data
             ))
         }
 
@@ -641,55 +632,6 @@ nonisolated enum EPUBWriter {
         }
     }
 
-    private static func mediaType(for pathExtension: String) -> String? {
-        switch pathExtension {
-        case "jpg", "jpeg": return "image/jpeg"
-        case "png": return "image/png"
-        case "svg": return "image/svg+xml"
-        default: return nil
-        }
-    }
-
-    /// SVG is executable XML, not merely a collection of drawing commands.
-    /// Publications are shared outside the app, so only self-contained,
-    /// script-free graphics are safe to package.
-    static func isSafeSVG(_ data: Data) -> Bool {
-        let validator = SafeSVGValidator()
-        let parser = XMLParser(data: data)
-        parser.shouldProcessNamespaces = true
-        parser.shouldResolveExternalEntities = false
-        parser.delegate = validator
-        return parser.parse() && validator.isSafe && validator.sawSVGRoot
-    }
-
-    static func hasValidImageSignature(_ data: Data, mediaType: String) -> Bool {
-        switch mediaType {
-        case "image/jpeg":
-            return isDecodableRaster(data, expectedType: .jpeg)
-        case "image/png":
-            return isDecodableRaster(data, expectedType: .png)
-        case "image/svg+xml":
-            return isSafeSVG(data)
-        default:
-            return false
-        }
-    }
-
-    private static func isDecodableRaster(
-        _ data: Data,
-        expectedType: UTType
-    ) -> Bool {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              CGImageSourceGetCount(source) > 0,
-              let identifier = CGImageSourceGetType(source) as String?,
-              let actualType = UTType(identifier),
-              actualType.conforms(to: expectedType),
-              CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else {
-            return false
-        }
-        return true
-    }
-
     // MARK: - Escaping
 
     /// XML escaping. Stricter than the HTML export's: an unescaped ampersand is
@@ -708,72 +650,5 @@ nonisolated enum EPUBWriter {
             }
         }
         return escaped
-    }
-}
-
-private final class SafeSVGValidator: NSObject, XMLParserDelegate {
-    private static let forbiddenElements: Set<String> = [
-        "script", "foreignobject", "iframe", "object", "embed", "audio",
-        "video", "form", "input", "button", "animate", "animatemotion",
-        "animatetransform", "set"
-    ]
-
-    private(set) var isSafe = true
-    private(set) var sawSVGRoot = false
-    private var insideStyle = false
-
-    func parser(
-        _ parser: XMLParser,
-        didStartElement elementName: String,
-        namespaceURI: String?,
-        qualifiedName qName: String?,
-        attributes attributeDict: [String: String]
-    ) {
-        let name = elementName.lowercased()
-        if !sawSVGRoot { sawSVGRoot = name == "svg" }
-        if Self.forbiddenElements.contains(name) { isSafe = false }
-        insideStyle = insideStyle || name == "style"
-
-        for (rawName, rawValue) in attributeDict {
-            let attribute = rawName.lowercased()
-            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
-            if attribute.hasPrefix("on") { isSafe = false }
-            if attribute == "style", containsExternalCSS(value) { isSafe = false }
-            if attribute == "href" || attribute == "xlink:href" || attribute == "src" {
-                guard value.isEmpty || value.hasPrefix("#") else {
-                    isSafe = false
-                    continue
-                }
-            }
-        }
-    }
-
-    func parser(
-        _ parser: XMLParser,
-        didEndElement elementName: String,
-        namespaceURI: String?,
-        qualifiedName qName: String?
-    ) {
-        if elementName.caseInsensitiveCompare("style") == .orderedSame {
-            insideStyle = false
-        }
-    }
-
-    func parser(_ parser: XMLParser, foundCharacters string: String) {
-        if insideStyle, containsExternalCSS(string.lowercased()) { isSafe = false }
-    }
-
-    func parser(
-        _ parser: XMLParser,
-        foundExternalEntityDeclarationWithName name: String,
-        publicID: String?,
-        systemID: String?
-    ) {
-        isSafe = false
-    }
-
-    private func containsExternalCSS(_ value: String) -> Bool {
-        value.contains("url(") || value.contains("@import")
     }
 }

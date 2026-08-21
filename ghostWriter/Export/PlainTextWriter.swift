@@ -49,7 +49,8 @@ nonisolated enum PlainTextWriter {
         _ document: ExportDocument,
         matching title: String
     ) -> Bool {
-        guard case .heading(_, let content)? = document.blocks.first else { return false }
+        guard case .heading(let level, let content)? = document.blocks.first,
+              level == 1 else { return false }
         return content.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
             .caseInsensitiveCompare(title) == .orderedSame
     }
@@ -97,7 +98,8 @@ nonisolated enum PlainTextWriter {
                 // Quoted text is marked with the email convention, which reads
                 // naturally and survives copy and paste.
                 let inner = render(children, indent: "")
-                output += inner.map { line in
+                let quoted = inner.reversed().drop { $0.isEmpty }.reversed()
+                output += quoted.map { line in
                     line.isEmpty ? indent + ">" : indent + "> " + line
                 }
                 output.append("")
@@ -177,7 +179,10 @@ nonisolated enum PlainTextWriter {
 
         func line(_ cells: [String]) -> String {
             let padded = cells.enumerated().map { column, cell in
-                cell.padding(toLength: max(cell.count, widths[column]), withPad: " ", startingAt: 0)
+                cell + String(
+                    repeating: " ",
+                    count: max(0, widths[column] - cell.count)
+                )
             }
             return indent + padded.joined(separator: "  ").trimmingCharacters(in: .whitespaces)
         }

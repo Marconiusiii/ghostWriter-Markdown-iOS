@@ -5,6 +5,7 @@
 //  Focused regression coverage for semantic and safety-critical renderer output.
 //
 
+import Foundation
 import Testing
 @testable import ghostWriter
 
@@ -12,12 +13,12 @@ struct MarkdownRendererTests {
 
     @Test func rendersTwoTrailingSpacesAsAHardBreak() {
         let html = MarkdownRenderer.html(from: "First line  \nSecond line")
-        #expect(html == "<p>First line<br> Second line</p>")
+        #expect(html == "<p>First line<br>Second line</p>")
     }
 
     @Test func rendersBackslashAsAHardBreak() {
         let html = MarkdownRenderer.html(from: "First line\\\nSecond line")
-        #expect(html == "<p>First line<br> Second line</p>")
+        #expect(html == "<p>First line<br>Second line</p>")
     }
 
     @Test func escapesRawHTMLRatherThanExecutingIt() {
@@ -65,6 +66,7 @@ struct MarkdownRendererTests {
         #expect(html.contains("<span class=\"task-status\">Completed:</span>"))
         #expect(html.contains("class=\"task-indicator completed\""))
         #expect(!html.contains("<input"))
+        #expect(!html.contains("aria-"))
     }
 
     @Test func keepsMarkdownInsideCodeLiteral() {
@@ -96,5 +98,47 @@ struct MarkdownRendererTests {
     @Test func intrawordUnderscoresRemainLiteral() {
         let html = MarkdownRenderer.html(from: "snake_case_name")
         #expect(html == "<p>snake_case_name</p>")
+    }
+
+    @Test func escapedMarkdownPunctuationRemainsLiteral() {
+        let html = MarkdownRenderer.html(from: #"\*literal asterisks\* and \[brackets\]"#)
+
+        #expect(html == "<p>*literal asterisks* and [brackets]</p>")
+    }
+
+    @Test func unsafeLinkSchemesBecomeOrdinaryText() {
+        let html = MarkdownRenderer.html(
+            from: "[Unsafe](javascript:location='https://example.com') and [Safe](https://example.com)"
+        )
+
+        #expect(!html.contains("javascript:"))
+        #expect(html.contains("Unsafe"))
+        #expect(html.contains("<a href=\"https://example.com\">Safe</a>"))
+    }
+
+    @Test func complexReferenceLinkUsesTheSharedInlineParser() {
+        let html = MarkdownRenderer.html(
+            from: "[A [nested] label][destination]\n\n[destination]: https://example.com"
+        )
+
+        #expect(html.contains("<a href=\"https://example.com\">A [nested] label</a>"))
+    }
+
+    @Test func titleIsAVisibleLevelOneHeadingUnlessTheDocumentAlreadyStartsWithIt() {
+        let inserted = MarkdownRenderer.html(from: "## Notes\n\nBody", title: "Notes")
+        let retained = MarkdownRenderer.html(from: "# Notes\n\nBody", title: "Notes")
+
+        #expect(inserted.hasPrefix("<h1>Notes</h1><h2>Notes</h2>"))
+        #expect(retained.components(separatedBy: "<h1>Notes</h1>").count == 2)
+    }
+
+    @Test func orderedAndNestedListsRetainTheirStructure() {
+        let html = MarkdownRenderer.html(
+            from: "3. Third\n  - Nested\n4. Fourth"
+        )
+
+        #expect(html.contains("<ol start=\"3\">"))
+        #expect(html.contains("<li>Third<ul><li>Nested</li></ul></li>"))
+        #expect(html.contains("<li>Fourth</li>"))
     }
 }

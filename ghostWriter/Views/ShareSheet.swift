@@ -249,7 +249,8 @@ nonisolated enum EditorShareFileWriter {
             let contents = ShareItemBuilder.contents(
                 title: title,
                 markdown: markdown,
-                format: .html
+                format: .html,
+                sourceDirectory: sourceDirectory
             )
             try contents.write(to: url, atomically: true, encoding: .utf8)
             return url
@@ -354,8 +355,18 @@ enum ShareItemBuilder {
     /// Writes the document in the requested format to a temporary file. Errors
     /// are thrown so the presenting view can explain what failed rather than
     /// making the Share action appear unresponsive.
-    static func makeFile(title: String, markdown: String, format: Format) throws -> URL {
-        let contents = contents(title: title, markdown: markdown, format: format)
+    static func makeFile(
+        title: String,
+        markdown: String,
+        format: Format,
+        sourceDirectory: URL? = nil
+    ) throws -> URL {
+        let contents = contents(
+            title: title,
+            markdown: markdown,
+            format: format,
+            sourceDirectory: sourceDirectory
+        )
 
         let safeName = DocumentStore.sanitize(title)
         let url = FileManager.default.temporaryDirectory
@@ -369,7 +380,12 @@ enum ShareItemBuilder {
     /// Produces the exact bytes represented by each share format. Keeping this
     /// separate from presentation lets ShareLink generate its file only when the
     /// system actually begins a transfer.
-    static func contents(title: String, markdown: String, format: Format) -> String {
+    static func contents(
+        title: String,
+        markdown: String,
+        format: Format,
+        sourceDirectory: URL? = nil
+    ) -> String {
         switch format {
         case .markdown:
             return markdown
@@ -378,7 +394,12 @@ enum ShareItemBuilder {
         case .html:
             return HTMLTemplate.exportDocument(
                 title: title,
-                body: MarkdownRenderer.html(from: markdown)
+                body: MarkdownRenderer.html(
+                    from: markdown,
+                    title: title,
+                    sourceDirectory: sourceDirectory,
+                    embedLocalImages: true
+                )
             )
         }
     }

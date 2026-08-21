@@ -72,7 +72,7 @@ Documents are shared through File Actions > Share.
 | --- | --- | --- |
 | Markdown | `.md` | The original syntax, unchanged |
 | Plain Text | `.txt` | Markdown syntax removed |
-| HTML | `.html` | Complete standalone document |
+| HTML | `.html` | Complete standalone document with managed local images embedded |
 | Word Document | `.docx` | Word heading styles, lists, and tables |
 | PDF | `.pdf` | Tagged PDF, US Letter, one-inch margins |
 | EPUB | `.epub` | Reflowable ebook with a table of contents |
@@ -80,10 +80,10 @@ Documents are shared through File Actions > Share.
 | Braille Ready Format | `.brf` | Fixed-page braille for displays and embossers |
 
 Headings, lists, links, tables, quotes, and code retain their document
-structure in formats that can express it. EPUB and eBraille package images from
-the app-managed asset directory created by Word import. Unsafe, external,
-missing, or unsupported image references fall back to readable alternative
-text instead of becoming broken package references.
+structure in formats that can express it. HTML embeds images from the app-managed
+asset directory in the standalone file. EPUB and eBraille package those images
+inside their publications. Unsafe, missing, or unsupported local image references
+fall back to readable alternative text instead of becoming broken references.
 
 ### Braille exports
 

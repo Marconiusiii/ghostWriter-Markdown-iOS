@@ -80,7 +80,9 @@ An image uses similar syntax with an exclamation mark at the beginning:
 
 The description inside the square brackets is alternative text. Describe what matters in the image so someone who cannot see it receives the same useful information.
 
-Images in Markdown refer to files on the web. Rendering an external image may contact the server that hosts it.
+To mark an attached SVG, PNG, or JPG as a tactile graphic, add the exact title tactile: `![Tactile map](map.svg "tactile")`
+
+An image address can refer to an attached file or a file on the web. Rendering an external image may contact the server that hosts it.
 
 ## Quote Someone
 

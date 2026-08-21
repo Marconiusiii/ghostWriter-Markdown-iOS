@@ -29,6 +29,7 @@ struct WelcomeExperienceTests {
         #expect(markdown.contains("## Organize with Headings"))
         #expect(markdown.contains("## Make Lists"))
         #expect(markdown.contains("## Create Links and Images"))
+        #expect(markdown.contains(#"![Tactile map](map.svg "tactile")"#))
         #expect(markdown.contains("## Build a Table"))
         #expect(markdown.contains("## Your Documents and iCloud"))
     }

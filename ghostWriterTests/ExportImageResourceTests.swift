@@ -6,26 +6,41 @@ import ZIPFoundation
 struct ExportImageResourceTests {
     @Test func safeSelfContainedSVGIsAccepted() {
         let svg = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"5\" cy=\"5\" r=\"4\"/></svg>".utf8)
+        let internalClipPath = Data("""
+        <svg xmlns="http://www.w3.org/2000/svg">
+          <defs><clipPath id="bodyClip"><circle cx="5" cy="5" r="4"/></clipPath></defs>
+          <path clip-path="url(#bodyClip)" style="fill:url('#bodyClip')" d="M0 0h10v10z"/>
+        </svg>
+        """.utf8)
 
-        #expect(EPUBWriter.isSafeSVG(svg))
+        #expect(ExportImageResource.isSafeSVG(svg))
+        #expect(ExportImageResource.isSafeSVG(internalClipPath))
     }
 
     @Test func activeOrExternalSVGContentIsRejected() {
         let script = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><script>bad()</script></svg>".utf8)
         let external = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><image href=\"https://example.com/a.png\"/></svg>".utf8)
+        let externalCSS = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><path style=\"fill:url(https://example.com/fill.svg)\"/></svg>".utf8)
+        let importedCSS = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><style>@import 'https://example.com/style.css';</style></svg>".utf8)
+        let escapedExternalCSS = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"><path style=\"fill:u\\\\72l(https://example.com/fill.svg)\"/></svg>".utf8)
+        let nestedRoot = Data("<wrapper><svg xmlns=\"http://www.w3.org/2000/svg\"/></wrapper>".utf8)
 
-        #expect(!EPUBWriter.isSafeSVG(script))
-        #expect(!EPUBWriter.isSafeSVG(external))
+        #expect(!ExportImageResource.isSafeSVG(script))
+        #expect(!ExportImageResource.isSafeSVG(external))
+        #expect(!ExportImageResource.isSafeSVG(externalCSS))
+        #expect(!ExportImageResource.isSafeSVG(importedCSS))
+        #expect(!ExportImageResource.isSafeSVG(escapedExternalCSS))
+        #expect(!ExportImageResource.isSafeSVG(nestedRoot))
     }
 
     @Test func rasterSignaturesMustMatchTheirDeclaredFormat() {
         let png = tinyPNG
         let truncatedJPEG = Data([0xFF, 0xD8, 0xFF, 0xE0])
 
-        #expect(EPUBWriter.hasValidImageSignature(png, mediaType: "image/png"))
-        #expect(!EPUBWriter.hasValidImageSignature(png, mediaType: "image/jpeg"))
-        #expect(!EPUBWriter.hasValidImageSignature(truncatedJPEG, mediaType: "image/jpeg"))
-        #expect(!EPUBWriter.hasValidImageSignature(Data([1, 2, 3]), mediaType: "image/png"))
+        #expect(ExportImageResource.hasValidImageData(png, mediaType: "image/png"))
+        #expect(!ExportImageResource.hasValidImageData(png, mediaType: "image/jpeg"))
+        #expect(!ExportImageResource.hasValidImageData(truncatedJPEG, mediaType: "image/jpeg"))
+        #expect(!ExportImageResource.hasValidImageData(Data([1, 2, 3]), mediaType: "image/png"))
     }
 
     @Test func onlyDocumentManagedAssetsArePackaged() throws {

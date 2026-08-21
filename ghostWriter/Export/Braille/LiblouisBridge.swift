@@ -87,17 +87,33 @@ actor LiblouisBridge: BrailleTranslator {
                 : translation.typeforms.map { formtype($0.rawValue) }
 
             let result = grade.tableName.withCString { table in
-                if typeforms == nil {
-                    return lou_translateString(
-                        table, &input, &inputLength, &output, &outputLength,
-                        nil, nil, Self.unicodeBrailleMode
-                    )
-                }
-                return typeforms!.withUnsafeMutableBufferPointer { forms in
-                    lou_translateString(
-                        table, &input, &inputLength, &output, &outputLength,
-                        forms.baseAddress, nil, Self.unicodeBrailleMode
-                    )
+                input.withUnsafeMutableBufferPointer { inputBuffer in
+                    output.withUnsafeMutableBufferPointer { outputBuffer in
+                        if typeforms == nil {
+                            return lou_translateString(
+                                table,
+                                inputBuffer.baseAddress,
+                                &inputLength,
+                                outputBuffer.baseAddress,
+                                &outputLength,
+                                nil,
+                                nil,
+                                Self.unicodeBrailleMode
+                            )
+                        }
+                        return typeforms!.withUnsafeMutableBufferPointer { forms in
+                            lou_translateString(
+                                table,
+                                inputBuffer.baseAddress,
+                                &inputLength,
+                                outputBuffer.baseAddress,
+                                &outputLength,
+                                forms.baseAddress,
+                                nil,
+                                Self.unicodeBrailleMode
+                            )
+                        }
+                    }
                 }
             }
 

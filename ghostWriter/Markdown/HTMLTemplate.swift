@@ -181,14 +181,15 @@ enum HTMLTemplate {
 
         img { max-width: 100%; height: auto; }
 
-        /* Tables scroll inside their own container so the page body never
-           scrolls sideways, which is disorienting when zoomed in. */
+        .table-scroll {
+          max-width: 100%;
+          overflow-x: auto;
+        }
+
         table {
           width: 100%;
           border-collapse: collapse;
           margin: 0 0 1em;
-          display: block;
-          overflow-x: auto;
         }
 
         th, td {
@@ -198,6 +199,10 @@ enum HTMLTemplate {
         }
 
         th { background: var(--accent-soft); }
+        .align-leading { text-align: left; }
+        .align-center { text-align: center; }
+        .align-trailing { text-align: right; }
+        .image-fallback { font-style: italic; }
 
         ul.contains-task-list { list-style: none; padding-left: 1.2em; }
         li.task-list-item { margin-left: -1.2em; }
@@ -258,8 +263,13 @@ enum HTMLTemplate {
     pre { padding: 1rem; overflow-x: auto; background: rgba(127,127,127,0.12); border-radius: 0.5rem; }
     code { font-family: ui-monospace, Menlo, monospace; }
     blockquote { margin-inline: 0; padding-left: 1rem; border-left: 0.25rem solid currentColor; }
+    .table-scroll { max-width: 100%; overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 0.5rem 0.7rem; border: 1px solid currentColor; text-align: left; }
+    .align-leading { text-align: left; }
+    .align-center { text-align: center; }
+    .align-trailing { text-align: right; }
+    .image-fallback { font-style: italic; }
     ul.contains-task-list { list-style: none; padding-left: 1.2em; }
     li.task-list-item { margin-left: -1.2em; }
     .task-indicator {

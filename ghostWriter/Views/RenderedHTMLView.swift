@@ -43,7 +43,12 @@ struct RenderedHTMLView: View {
     private var html: String {
         HTMLTemplate.document(
             title: title,
-            body: MarkdownRenderer.html(from: markdown),
+            body: MarkdownRenderer.html(
+                from: markdown,
+                title: title,
+                sourceDirectory: documentURL?.deletingLastPathComponent(),
+                embedLocalImages: true
+            ),
             baseFontPointSize: baseFontPointSize
         )
     }
