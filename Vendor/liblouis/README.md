@@ -1,7 +1,7 @@
 # liblouis
 
-Braille translation for ghostWriter's eBraille export. Grade 1 and grade 2
-Unified English Braille.
+Braille translation for ghostWriter's eBraille and BRF exports. The app ships
+grade 1 and grade 2 Unified English Braille and Spanish braille tables.
 
 ## Version
 
@@ -11,7 +11,7 @@ https://github.com/liblouis/liblouis
 ## What is here
 
 - `liblouis.xcframework` — static library, arm64 device and arm64 simulator
-- `tables/` — the nine UEB tables grade 1 and grade 2 resolve to
+- `tables/` — the English and Spanish tables and their shared dependencies
 - `LICENSE-LGPL-2.1.txt` — the licence the library and tables are under
 - `build-liblouis.sh` — regenerates everything above
 

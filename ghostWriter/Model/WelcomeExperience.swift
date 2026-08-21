@@ -31,7 +31,7 @@ enum WelcomeDocumentError: LocalizedError {
     case missingResource
 
     var errorDescription: String? {
-        "The bundled Welcome document could not be found."
+        String(localized: "The bundled Welcome document could not be found.")
     }
 }
 

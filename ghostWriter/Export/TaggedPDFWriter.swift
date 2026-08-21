@@ -44,7 +44,8 @@ nonisolated enum TaggedPDFWriter {
     static func write(
         title: String,
         markdown: String,
-        sourceDirectory: URL? = nil
+        sourceDirectory: URL? = nil,
+        documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) throws -> Data {
         let document = MarkdownDocumentParser.parse(markdown)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -121,7 +122,7 @@ nonisolated enum TaggedPDFWriter {
         // CGPDFContext writes no language attribute, and a tagged PDF without
         // one fails an accessibility audit, so it is added to the finished file.
         return PDFLanguageTag.adding(
-            language: documentLanguage(),
+            language: documentLanguage,
             to: completedStructure
         )
     }
@@ -142,14 +143,6 @@ nonisolated enum TaggedPDFWriter {
         return [
             kCGPDFContextMediaBox: NSValue(cgRect: box)
         ] as CFDictionary
-    }
-
-    /// The language tag written into the structure tree. Taken from the
-    /// device's current locale so a writer working in another language does not
-    /// get a document declared as English.
-    private static func documentLanguage() -> String {
-        Locale.preferredLanguages.first
-            ?? Locale.current.identifier.replacingOccurrences(of: "_", with: "-")
     }
 
     // MARK: - Render state
@@ -1090,7 +1083,7 @@ nonisolated enum PDFExportError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .couldNotCreateDocument:
-            return "The PDF could not be created."
+            return String(localized: "The PDF could not be created.")
         }
     }
 }

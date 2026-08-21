@@ -55,7 +55,8 @@ nonisolated enum WordprocessingMLWriter {
     static func write(
         title: String,
         document: WordDocumentModel,
-        sourceDirectory: URL? = nil
+        sourceDirectory: URL? = nil,
+        documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) throws -> Data {
         let numberingKeys = collectNumberingKeys(document.blocks)
         let numberingIDs = Dictionary(
@@ -83,11 +84,11 @@ nonisolated enum WordprocessingMLWriter {
         var entries: [String: Data] = [
             "[Content_Types].xml": data(contentTypesXML(images: context.images)),
             "_rels/.rels": data(packageRelationshipsXML),
-            "docProps/core.xml": data(corePropertiesXML(title: title)),
+            "docProps/core.xml": data(corePropertiesXML(title: title, language: documentLanguage)),
             "docProps/app.xml": data(appPropertiesXML),
             "word/document.xml": data(documentXML),
             "word/_rels/document.xml.rels": data(documentRelationships),
-            "word/styles.xml": data(stylesXML(language: documentLanguage())),
+            "word/styles.xml": data(stylesXML(language: documentLanguage)),
             "word/numbering.xml": data(numberingXML(keys: numberingKeys))
         ]
         for image in context.images {
@@ -369,8 +370,8 @@ nonisolated enum WordprocessingMLWriter {
     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>
     """
 
-    private static func corePropertiesXML(title: String) -> String {
-        xmlHeader + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><dc:title>\(xmlText(title))</dc:title><dc:creator>ghostWriter</dc:creator><dc:language>\(xmlText(documentLanguage()))</dc:language><cp:lastModifiedBy>ghostWriter</cp:lastModifiedBy></cp:coreProperties>"
+    private static func corePropertiesXML(title: String, language: String) -> String {
+        xmlHeader + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><dc:title>\(xmlText(title))</dc:title><dc:creator>ghostWriter</dc:creator><dc:language>\(xmlText(language))</dc:language><cp:lastModifiedBy>ghostWriter</cp:lastModifiedBy></cp:coreProperties>"
     }
 
     private static let appPropertiesXML = xmlHeader + """
@@ -381,11 +382,6 @@ nonisolated enum WordprocessingMLWriter {
         xmlHeader + """
         <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="22"/><w:lang w:val="\(xmlAttribute(language))"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="3"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading5"><w:name w:val="heading 5"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="4"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading6"><w:name w:val="heading 6"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="5"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:pPr><w:ind w:left="720"/></w:pPr></w:style><w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/><w:basedOn w:val="Normal"/><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/></w:rPr></w:style><w:style w:type="character" w:styleId="CodeChar"><w:name w:val="Code Character"/><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/></w:rPr></w:style><w:style w:type="table" w:styleId="TableGrid"><w:name w:val="Table Grid"/><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4" w:color="auto"/><w:left w:val="single" w:sz="4" w:color="auto"/><w:bottom w:val="single" w:sz="4" w:color="auto"/><w:right w:val="single" w:sz="4" w:color="auto"/><w:insideH w:val="single" w:sz="4" w:color="auto"/><w:insideV w:val="single" w:sz="4" w:color="auto"/></w:tblBorders></w:tblPr></w:style></w:styles>
         """
-    }
-
-    private static func documentLanguage() -> String {
-        Locale.preferredLanguages.first
-            ?? Locale.current.identifier.replacingOccurrences(of: "_", with: "-")
     }
 
     private static func data(_ string: String) -> Data { Data(string.utf8) }

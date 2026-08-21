@@ -422,7 +422,7 @@ final class MarkdownEditorTextView: UITextView {
         count: Int
     ) -> String {
         let title = destination.title.isEmpty ? "Empty heading" : destination.title
-        return "Heading \(position + 1) of \(count), \(title), heading level \(destination.level)."
+        return String(localized: "Heading \(position + 1) of \(count), \(title), heading level \(destination.level).")
     }
 
     private func postHeadingPosition(

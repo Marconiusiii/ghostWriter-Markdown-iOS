@@ -18,10 +18,10 @@ enum DocumentSortField: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .name: return "Name"
-        case .created: return "Date Created"
-        case .modified: return "Date Modified"
-        case .lastOpened: return "Last Opened"
+        case .name: return String(localized: "Name")
+        case .created: return String(localized: "Date Created")
+        case .modified: return String(localized: "Date Modified")
+        case .lastOpened: return String(localized: "Last Opened")
         }
     }
 }
@@ -36,10 +36,10 @@ enum SortDirection: String, CaseIterable, Identifiable {
     /// when spoken aloud but "oldest first" is immediately clear.
     func label(for field: DocumentSortField) -> String {
         switch (field, self) {
-        case (.name, .ascending): return "A to Z"
-        case (.name, .descending): return "Z to A"
-        case (_, .ascending): return "Oldest first"
-        case (_, .descending): return "Newest first"
+        case (.name, .ascending): return String(localized: "A to Z")
+        case (.name, .descending): return String(localized: "Z to A")
+        case (_, .ascending): return String(localized: "Oldest first")
+        case (_, .descending): return String(localized: "Newest first")
         }
     }
 }

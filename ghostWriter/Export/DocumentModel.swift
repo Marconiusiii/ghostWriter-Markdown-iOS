@@ -107,6 +107,16 @@ nonisolated struct ExportListItem: Equatable, Sendable {
             case .notCompleted: return "Not completed:"
             }
         }
+
+        func spokenPrefix(for language: String) -> String {
+            guard DocumentLanguage.baseLanguage(of: language) == "es" else {
+                return spokenPrefix
+            }
+            switch self {
+            case .completed: return "Completado:"
+            case .notCompleted: return "No completado:"
+            }
+        }
     }
 }
 

@@ -85,6 +85,18 @@ struct DocumentLibraryMetadataStoreTests {
         #expect(restored.lastOpened(url) == date)
     }
 
+    @Test func documentLanguagePersistsAndNormalizes() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let url = URL(fileURLWithPath: "/tmp/Spanish.md")
+        let store = makeStore(testDefaults.defaults)
+
+        store.setDocumentLanguage(" es_mx ", for: url)
+
+        let restored = makeStore(testDefaults.defaults)
+        #expect(restored.documentLanguage(for: url) == "es-MX")
+    }
+
     @Test func mostRecentlyOpenedDocumentIgnoresMissingHistory() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }
@@ -129,6 +141,7 @@ struct DocumentLibraryMetadataStoreTests {
         let store = makeStore(testDefaults.defaults)
         store.togglePin(for: oldURL)
         store.recordOpened(oldURL, at: date)
+        store.setDocumentLanguage("es", for: oldURL)
 
         store.migrateMetadata(from: oldURL, to: newURL)
 
@@ -136,6 +149,7 @@ struct DocumentLibraryMetadataStoreTests {
         #expect(store.lastOpened(oldURL) == nil)
         #expect(store.isPinned(newURL))
         #expect(store.lastOpened(newURL) == date)
+        #expect(store.documentLanguage(for: newURL) == "es")
     }
 
     @Test func permanentDeletionRemovesAllMetadata() {
@@ -145,11 +159,13 @@ struct DocumentLibraryMetadataStoreTests {
         let store = makeStore(testDefaults.defaults)
         store.togglePin(for: url)
         store.recordOpened(url)
+        store.setDocumentLanguage("es", for: url)
 
         store.removeMetadata(for: url)
 
         #expect(!store.isPinned(url))
         #expect(store.lastOpened(url) == nil)
+        #expect(store.documentLanguage(for: url).isEmpty)
     }
 
     @Test func metadataFollowsTheDocumentFromLocalStorageToICloud() {
@@ -196,7 +212,8 @@ struct DocumentLibraryMetadataStoreTests {
         DocumentLibraryMetadataStore(
             defaults: defaults,
             pinnedStorageKey: "testPins",
-            lastOpenedStorageKey: "testLastOpened"
+            lastOpenedStorageKey: "testLastOpened",
+            languageStorageKey: "testDocumentLanguages"
         )
     }
 

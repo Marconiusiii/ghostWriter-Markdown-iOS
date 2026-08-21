@@ -4,7 +4,8 @@ nonisolated enum MarkdownToWordConverter {
     static func convert(
         title: String,
         markdown: String,
-        sourceDirectory: URL? = nil
+        sourceDirectory: URL? = nil,
+        documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) throws -> Data {
         var document = document(from: markdown)
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -17,7 +18,8 @@ nonisolated enum MarkdownToWordConverter {
         return try WordprocessingMLWriter.write(
             title: title,
             document: document,
-            sourceDirectory: sourceDirectory
+            sourceDirectory: sourceDirectory,
+            documentLanguage: documentLanguage
         )
     }
 

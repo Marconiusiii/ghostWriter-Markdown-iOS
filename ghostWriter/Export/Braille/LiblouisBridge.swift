@@ -79,7 +79,10 @@ actor LiblouisBridge: BrailleTranslator {
         var capacity = max(input.count * 4, 128)
 
         for _ in 0..<4 {
-            var output = [UInt16](repeating: 0, count: capacity)
+            // liblouis may place a trailing wide-character terminator after
+            // the reported output. Keep one extra element outside the length
+            // passed to C so a full buffer cannot write past Swift's storage.
+            var output = [UInt16](repeating: 0, count: capacity + 1)
             var outputLength = Int32(capacity)
             inputLength = Int32(input.count)
             var typeforms = translation.typeforms.isEmpty
@@ -121,6 +124,10 @@ actor LiblouisBridge: BrailleTranslator {
                 throw BrailleTranslationError.translationFailed(grade: grade)
             }
 
+            guard outputLength >= 0, outputLength <= Int32(capacity) else {
+                throw BrailleTranslationError.translationFailed(grade: grade)
+            }
+
             // liblouis reports how much of the input it consumed. A short read
             // means the output buffer filled up, so the translation is a
             // truncated fragment rather than a failure it reports as one.
@@ -158,13 +165,13 @@ nonisolated enum BrailleTranslationError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .tablesMissing:
-            return "The braille translation tables could not be found."
+            return String(localized: "The braille translation tables could not be found.")
         case .invalidTypeforms:
-            return "The braille emphasis information did not match the text."
+            return String(localized: "The braille emphasis information did not match the text.")
         case .invalidOutput:
-            return "The braille translator produced characters that are not valid six-dot braille."
+            return String(localized: "The braille translator produced characters that are not valid six-dot braille.")
         case .translationFailed(let grade):
-            return "The document could not be translated into \(grade.systemName)."
+            return String(localized: "The document could not be translated into \(grade.systemName).")
         }
     }
 }

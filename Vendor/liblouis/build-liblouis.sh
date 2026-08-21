@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# Rebuilds liblouis.xcframework and refreshes the bundled UEB tables.
+# Rebuilds liblouis.xcframework and refreshes the bundled English and Spanish
+# braille tables.
 #
 # Only the LGPL library (liblouis/) and its gnulib support are built. The
 # tools/ directory is GPL 3 and is deliberately never built, so that no GPL
@@ -64,11 +65,12 @@ xcodebuild -create-xcframework \
 
 # Tables must come from the same release as the library: the table language
 # changes between versions, and older tables fail to compile.
-echo "Copying UEB tables..."
+echo "Copying English and Spanish braille tables..."
 mkdir -p "$HERE/tables"
 for t in en-ueb-g1.ctb en-ueb-g2.ctb en-ueb-chardefs.uti en-ueb-math.ctb \
          braille-patterns.cti latinLetterDef6Dots.uti latinUppercaseComp6.uti \
-         spaces.uti text_nabcc.dis; do
+         spaces.uti text_nabcc.dis es-g1.ctb es-g2.ctb es-chardefs.cti \
+         litdigits6Dots.uti digits6Dots.uti; do
   cp "$SRC/tables/$t" "$HERE/tables/"
 done
 

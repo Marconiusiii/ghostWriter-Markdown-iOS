@@ -1,0 +1,560 @@
+﻿Stable ID	Area or source	Usage	English source	Spanish draft	Translator correction	Review status	Translator notes	Protected placeholders
+GW-0001	LibraryView.swift	Visible interface	%@ and everything inside it will move to Recently Deleted.	%@ y todo su contenido se moverán a Eliminados recientemente.		Needs review		%@
+GW-0002	DocumentStore.swift	Visible interface	%@ is not yet available on this device.	%@ todavía no está disponible en este dispositivo.		Needs review		%@
+GW-0003	RecentlyDeletedView.swift	Visible interface	%@ will be permanently deleted. This cannot be undone.	%@ se eliminará permanentemente. Esta acción no se puede deshacer.		Needs review		%@
+GW-0004	LibraryView.swift	Visible interface	%@ will move to Recently Deleted, where it can be restored or deleted permanently.	%@ se moverá a Eliminados recientemente, donde se podrá restaurar o eliminar permanentemente.		Needs review		%@
+GW-0005	RecentlyDeletedView.swift	Visible interface	%@, deleted %@	%@, eliminado %@		Needs review		%@, %@
+GW-0006	FolderRow.swift	Visible interface	%@, folder, %lld %@	%@, carpeta, %lld %@		Needs review		%@, %lld, %@
+GW-0007	OutlineView.swift	Visible interface	%@, heading level %lld	%@, encabezado de nivel %lld		Needs review		%@, %lld
+GW-0008	DocumentStore.swift	Visible interface	%@: The text file must use UTF-8 encoding.	%@: El archivo de texto debe usar la codificación UTF-8.		Needs review		%@
+GW-0009	BRFOptionsView.swift	Visible interface	%lld	%lld		Needs review		%lld
+GW-0010	FolderRow.swift	Visible interface	%lld %@	%lld %@		Needs review		%lld, %@
+GW-0011	TableInsertionView.swift	Visible interface	%lld columns	%lld columnas		Needs review		%lld
+GW-0012	RecentlyDeletedView.swift	Visible interface	%lld deleted items	%lld elementos eliminados		Needs review		%lld
+GW-0013	LibraryView.swift	Visible interface	%lld items	%lld elementos		Needs review		%lld
+GW-0014	TableInsertionView.swift	Visible interface	%lld rows	%lld filas		Needs review		%lld
+GW-0015	TableInsertionView.swift	Visible interface	1 column	1 columna		Needs review		
+GW-0016	RecentlyDeletedView.swift	Visible interface	1 deleted item	1 elemento eliminado		Needs review		
+GW-0017	LibraryView.swift	Visible interface	1 item	1 elemento		Needs review		
+GW-0018	AppSettings.swift	Visible interface	2 Spaces	2 espacios		Needs review		
+GW-0019	AppSettings.swift	Visible interface	4 Spaces	4 espacios		Needs review		
+GW-0020	DocumentStore.swift	Visible interface	A folder cannot be moved inside itself.	Una carpeta no se puede mover dentro de sí misma.		Needs review		
+GW-0021	SortOrder.swift	Visible interface	A to Z	De la A a la Z		Needs review		
+GW-0022	WhyGhostWriterView.swift	Visible interface	A word misspelled here and there, some transposed or switched. They'd go back up into their code and find the errors and go fix them. Hitting render again would cause even more spooky mayhem to happen. New words appearing, words getting duplicated, even little ghost emojis popping up here and there. Each render caused even more chaos!	Alguna palabra aparecía mal escrita, con letras transpuestas o cambiadas. Volvían al código, encontraban los errores y los corregían. Al volver a renderizar, ocurrían cosas aún más inquietantes: aparecían palabras nuevas, otras se duplicaban e incluso surgían pequeños emojis de fantasmas. ¡Cada renderizado provocaba todavía más caos!		Needs review		
+GW-0023	SettingsView.swift	Visible interface	About	Acerca de		Needs review		
+GW-0024	AcknowledgementsView.swift	Visible interface	Acknowledgements	Agradecimientos		Needs review		
+GW-0025	EBrailleWriter.swift	Visible interface	Add a description to the tactile graphic %@ before exporting.	Añade una descripción al gráfico táctil %@ antes de exportar.		Needs review		%@
+GW-0026	OutlineView.swift	Visible interface	Add a heading by starting a line with a number sign, like # Introduction.	Añade un encabezado comenzando una línea con una almohadilla, como # Introducción.		Needs review		
+GW-0027	MarkdownInsertionView.swift	Visible interface	Address	Dirección		Needs review		
+GW-0028	AppSettings.swift	Visible interface	Announces Light feedback and completed Markdown structures as you type.	Anuncia los avisos del nivel Ligero y las estructuras Markdown completadas mientras escribes.		Needs review		
+GW-0029	AppSettings.swift	Visible interface	Announces list changes, indentation levels, and Insert actions.	Anuncia los cambios de lista, los niveles de sangría y las acciones de Insertar.		Needs review		
+GW-0030	SettingsView.swift	Visible interface	App Launch	Inicio de la app		Needs review		
+GW-0031	SettingsView.swift	Visible interface	Appearance	Apariencia		Needs review		
+GW-0032	WhyGhostWriterView.swift	Visible interface	As victims...er...users practiced their markdown, they'd press the render button to check out how the HTML structure was being formed. Yet every time they went to inspect the rendered output, things would be off.	Mientras las víctimas... ejem... las personas usuarias practicaban Markdown, pulsaban el botón Renderizar para comprobar cómo se formaba la estructura HTML. Sin embargo, cada vez que examinaban el resultado renderizado, algo no estaba bien.		Needs review		
+GW-0033	NewDocumentCreationMode.swift	Visible interface	Ask for a Title	Pedir un título		Needs review		
+GW-0034	SettingsView.swift	Visible interface	Ask for a Title opens the naming screen. Use Today’s Date creates and opens the document immediately. You can rename it later from File Actions.	Pedir un título abre la pantalla para asignar un nombre. Usar la fecha de hoy crea y abre el documento inmediatamente. Puedes renombrarlo más tarde desde Acciones de archivo.		Needs review		
+GW-0035	MarkdownInsertionView.swift	Visible interface	Attach and insert	Adjuntar e insertar		Needs review		
+GW-0036	MarkdownInsertionView.swift	Visible interface	Attaching…	Adjuntando…		Needs review		
+GW-0037	EBrailleMetadataSettingsView.swift	Visible interface	Author	Autor		Needs review		
+GW-0038	DocumentLanguage.swift	Visible interface	Automatic (device language)	Automático (idioma del dispositivo)		Needs review		
+GW-0039	SettingsView.swift	Visible interface	Automatic Lists	Listas automáticas		Needs review		
+GW-0040	AcknowledgementsView.swift	Visible interface	Back	Atrás		Needs review		
+GW-0041	LibraryView.swift	Visible interface	Back to %@	Volver a %@		Needs review		%@
+GW-0042	LineStructure.swift	Visible interface	Blank line	Línea en blanco		Needs review		
+GW-0043	MarkdownInsertion.swift	Visible interface	Block quote applied.	Cita en bloque aplicada.		Needs review		
+GW-0044	MarkdownInsertion.swift	Visible interface	Bold applied.	Negrita aplicada.		Needs review		
+GW-0045	BRFOptionsView.swift	Visible interface	Braille code	Código braille		Needs review		
+GW-0046	BRFOptionsView.swift	Visible interface	Braille Ready Format	Formato Braille Ready		Needs review		
+GW-0047	AcknowledgementsView.swift	Visible interface	Braille translation for eBraille and Braille Ready Format export. Version 3.38.0, built from the upstream release source for iOS.	Traducción braille para exportaciones eBraille y Braille Ready Format. Versión 3.38.0, compilada para iOS a partir del código fuente de la versión original.		Needs review		
+GW-0048	MarkdownInsertionView.swift	Visible interface	Briefly identify the tactile graphic and the information it presents. This description is used when the graphic cannot be displayed.	Identifica brevemente el gráfico táctil y la información que presenta. Esta descripción se usa cuando el gráfico no se puede mostrar.		Needs review		
+GW-0049	MarkdownInsertion.swift	Visible interface	Bulleted list created.	Lista con viñetas creada.		Needs review		
+GW-0050	BRFOptionsView.swift	Visible interface	Cancel	Cancelar		Needs review		
+GW-0051	BRFOptionsView.swift	Visible interface	Cells per line	Celdas por línea		Needs review		
+GW-0052	ICloudMigrationView.swift	Visible interface	Change Document Storage	Cambiar almacenamiento de documentos		Needs review		
+GW-0053	SettingsView.swift	Visible interface	Character Count	Número de caracteres		Needs review		
+GW-0054	DocumentStorage.swift	Visible interface	Checking iCloud Drive.	Comprobando iCloud Drive.		Needs review		
+GW-0055	MarkdownInsertionView.swift	Visible interface	Choose an SVG, PNG, or JPG file that was prepared for tactile presentation.	Elige un archivo SVG, PNG o JPG preparado para su presentación táctil.		Needs review		
+GW-0056	MarkdownInsertionView.swift	Visible interface	Choose another file…	Elegir otro archivo…		Needs review		
+GW-0057	MarkdownInsertionView.swift	Visible interface	Choose file…	Elegir archivo…		Needs review		
+GW-0058	LibraryView.swift	Visible interface	Clear Search	Borrar búsqueda		Needs review		
+GW-0059	LibraryView.swift	Visible interface	Clears the search and shows all items	Borra la búsqueda y muestra todos los elementos		Needs review		
+GW-0060	ShareSheet.swift	Visible interface	Close	Cerrar		Needs review		
+GW-0061	EditorView.swift	Visible interface	Close Without Saving	Cerrar sin guardar		Needs review		
+GW-0062	LineStructure.swift	Visible interface	Code	Código		Needs review		
+GW-0063	MarkdownInsertion.swift	Visible interface	Code block created.	Bloque de código creado.		Needs review		
+GW-0064	LineStructure.swift	Visible interface	Code fence	Delimitador de código		Needs review		
+GW-0065	TableInsertionView.swift	Visible interface	Columns	Columnas		Needs review		
+GW-0066	EBrailleMetadataSettingsView.swift	Visible interface	Complete document	Documento completo		Needs review		
+GW-0067	WelcomeView.swift	Visible interface	Continue to Library	Continuar a la biblioteca		Needs review		
+GW-0068	SettingsView.swift	Visible interface	Continues bullets and numbering when you press return	Continúa las viñetas y la numeración al pulsar Retorno		Needs review		
+GW-0069	LibraryView.swift	Visible interface	Copies Markdown, plain-text, or Word documents into ghostWriter	Copia documentos Markdown, de texto sin formato o de Word en ghostWriter		Needs review		
+GW-0070	SettingsView.swift	Visible interface	Copy Email Address	Copiar dirección de correo		Needs review		
+GW-0071	EBrailleMetadataSettingsView.swift	Visible interface	Copyright date	Fecha de copyright		Needs review		
+GW-0072	DocumentStore.swift	Visible interface	Could not %@ %@. %@	No se pudo %@ %@. %@		Needs review		%@, %@, %@
+GW-0073	MarkdownInsertionView.swift	Visible interface	Could Not Attach Tactile Graphic	No se pudo adjuntar el gráfico táctil		Needs review		
+GW-0074	ICloudMigrationView.swift	Visible interface	Could Not Change Storage	No se pudo cambiar el almacenamiento		Needs review		
+GW-0075	DocumentStore.swift	Visible interface	Could not check %@ for changes. %@	No se pudo comprobar si %@ tenía cambios. %@		Needs review		%@, %@
+GW-0076	DocumentStore.swift	Visible interface	Could not create a document because the selected document storage is unavailable.	No se pudo crear un documento porque el almacenamiento de documentos seleccionado no está disponible.		Needs review		
+GW-0077	DocumentStore.swift	Visible interface	Could not create a folder outside the document library.	No se pudo crear una carpeta fuera de la biblioteca de documentos.		Needs review		
+GW-0078	DocumentStore.swift	Visible interface	Could not create a new document because iCloud placement was not started.	No se pudo crear un documento nuevo porque no se inició su ubicación en iCloud.		Needs review		
+GW-0079	DocumentStore.swift	Visible interface	Could not create a new document in iCloud. %@	No se pudo crear un documento nuevo en iCloud. %@		Needs review		%@
+GW-0080	DocumentStore.swift	Visible interface	Could not create a new document. %@	No se pudo crear un documento nuevo. %@		Needs review		%@
+GW-0081	DocumentStore.swift	Visible interface	Could not create the folder. %@	No se pudo crear la carpeta. %@		Needs review		%@
+GW-0082	DocumentStore.swift	Visible interface	Could not delete %@. %@	No se pudo eliminar %@. %@		Needs review		%@, %@
+GW-0083	DocumentStore.swift	Visible interface	Could not download the images for %@. %@	No se pudieron descargar las imágenes de %@. %@		Needs review		%@, %@
+GW-0084	DocumentStore.swift	Visible interface	Could not duplicate %@ because iCloud placement was not started.	No se pudo duplicar %@ porque no se inició su ubicación en iCloud.		Needs review		%@
+GW-0085	DocumentStore.swift	Visible interface	Could not duplicate %@ in iCloud. %@	No se pudo duplicar %@ en iCloud. %@		Needs review		%@, %@
+GW-0086	DocumentStore.swift	Visible interface	Could not duplicate %@. %@	No se pudo duplicar %@. %@		Needs review		%@, %@
+GW-0087	DocumentStore.swift	Visible interface	Could not import %@. %@	No se pudo importar %@. %@		Needs review		%@, %@
+GW-0088	DocumentStore.swift	Visible interface	Could not import documents because iCloud placement was not started.	No se pudieron importar documentos porque no se inició su ubicación en iCloud.		Needs review		
+GW-0089	LibraryView.swift	Visible interface	Could not import the selected files. %@	No se pudieron importar los archivos seleccionados. %@		Needs review		%@
+GW-0090	DocumentStore.swift	Visible interface	Could not move %@ outside the document library.	No se pudo mover %@ fuera de la biblioteca de documentos.		Needs review		%@
+GW-0091	DocumentStore.swift	Visible interface	Could not move %@. %@	No se pudo mover %@. %@		Needs review		%@, %@
+GW-0092	DocumentStore.swift	Visible interface	Could not open %@. The original file was not changed. %@	No se pudo abrir %@. El archivo original no se modificó. %@		Needs review		%@, %@
+GW-0093	DocumentStore.swift	Visible interface	Could not open the destination folder. %@	No se pudo abrir la carpeta de destino. %@		Needs review		%@
+GW-0094	DocumentStore.swift	Visible interface	Could not open the ghostWriter folder. %@	No se pudo abrir la carpeta ghostWriter. %@		Needs review		%@
+GW-0095	DocumentStore.swift	Visible interface	Could not permanently delete %@. %@	No se pudo eliminar %@ permanentemente. %@		Needs review		%@, %@
+GW-0096	LibraryView.swift	Visible interface	Could not prepare %@ for sharing. %@	No se pudo preparar %@ para compartirlo. %@		Needs review		%@, %@
+GW-0097	DocumentStore.swift	Visible interface	Could not refresh deleted folders. %@	No se pudieron actualizar las carpetas eliminadas. %@		Needs review		%@
+GW-0098	DocumentStore.swift	Visible interface	Could not refresh Recently Deleted. %@	No se pudo actualizar Eliminados recientemente. %@		Needs review		%@
+GW-0099	DocumentStore.swift	Visible interface	Could not refresh the document library. %@	No se pudo actualizar la biblioteca de documentos. %@		Needs review		%@
+GW-0100	DocumentStore.swift	Visible interface	Could not refresh the folder library. %@	No se pudo actualizar la biblioteca de carpetas. %@		Needs review		%@
+GW-0101	DocumentStore.swift	Visible interface	Could not rename to %@. %@	No se pudo cambiar el nombre a %@. %@		Needs review		%@, %@
+GW-0102	DocumentStore.swift	Visible interface	Could not restore %@. %@	No se pudo restaurar %@. %@		Needs review		%@, %@
+GW-0103	DocumentStore.swift	Visible interface	Could not save because the selected document storage is unavailable.	No se pudo guardar porque el almacenamiento de documentos seleccionado no está disponible.		Needs review		
+GW-0104	DocumentStore.swift	Visible interface	Could not save. %@	No se pudo guardar. %@		Needs review		%@
+GW-0105	NewDocumentView.swift	Visible interface	Create	Crear		Needs review		
+GW-0106	EBrailleOptionsView.swift	Visible interface	Creates a reflowable braille document using the eBraille 1.0 format.	Crea un documento braille adaptable con el formato eBraille 1.0.		Needs review		
+GW-0107	ICloudMigrationView.swift	Visible interface	Current	Actual		Needs review		
+GW-0108	SettingsView.swift	Visible interface	Current Line and Column	Línea y columna actuales		Needs review		
+GW-0109	BRFOptionsView.swift	Visible interface	Custom display layout	Diseño de pantalla personalizado		Needs review		
+GW-0110	SettingsView.swift	Visible interface	Customize Status Bar	Personalizar barra de estado		Needs review		
+GW-0111	AppSettings.swift	Visible interface	Dark	Oscuro		Needs review		
+GW-0112	SortOrder.swift	Visible interface	Date Created	Fecha de creación		Needs review		
+GW-0113	SortOrder.swift	Visible interface	Date Modified	Fecha de modificación		Needs review		
+GW-0114	LibraryView.swift	Visible interface	Delete	Eliminar		Needs review		
+GW-0115	RecentlyDeletedView.swift	Visible interface	Delete %@ Permanently	Eliminar %@ permanentemente		Needs review		%@
+GW-0116	LibraryView.swift	Visible interface	Delete Document?	¿Eliminar el documento?		Needs review		
+GW-0117	LibraryView.swift	Visible interface	Delete Folder?	¿Eliminar la carpeta?		Needs review		
+GW-0118	RecentlyDeletedView.swift	Visible interface	Delete Permanently	Eliminar permanentemente		Needs review		
+GW-0119	RecentlyDeletedView.swift	Visible interface	Delete Permanently?	¿Eliminar permanentemente?		Needs review		
+GW-0120	LibraryView.swift	Visible interface	Deleted	Eliminado		Needs review		
+GW-0121	LibraryView.swift	Visible interface	Deleted, %@	Eliminado, %@		Needs review		%@
+GW-0122	EBrailleMetadataSettingsView.swift	Visible interface	Description	Descripción		Needs review		
+GW-0123	DocumentLanguageView.swift	Visible interface	Dismiss	Ocultar		Needs review		
+GW-0124	DocumentLanguageView.swift	Visible interface	Dismiss keyboard	Ocultar teclado		Needs review		
+GW-0125	RecentlyDeletedView.swift	Visible interface	Document	Documento		Needs review		
+GW-0126	EditorView.swift	Visible interface	Document Changed in Files	Documento modificado en Archivos		Needs review		
+GW-0127	DocumentLanguageView.swift	Visible interface	Document language	Idioma del documento		Needs review		
+GW-0128	EditorView.swift	Visible interface	Document Language…	Idioma del documento…		Needs review		
+GW-0129	EditorView.swift	Visible interface	Document Removed in Files	Documento eliminado en Archivos		Needs review		
+GW-0130	SettingsView.swift	Visible interface	Document Storage	Almacenamiento de documentos		Needs review		
+GW-0131	ICloudMigrationView.swift	Visible interface	Document storage changed, but ghostWriter could not remove every old local copy.	El almacenamiento de documentos cambió, pero ghostWriter no pudo eliminar todas las copias locales anteriores.		Needs review		
+GW-0132	EditorView.swift	Visible interface	Documents	Documentos		Needs review		
+GW-0133	RecentlyDeletedView.swift	Visible interface	Documents and folders moved here can be restored until they are deleted permanently.	Los documentos y carpetas que se muevan aquí se pueden restaurar hasta que se eliminen permanentemente.		Needs review		
+GW-0134	WelcomeView.swift	Visible interface	Documents are stored On This Device by default. You can choose optional iCloud Drive syncing later in Settings.	De forma predeterminada, los documentos se almacenan En este dispositivo. Puedes activar más tarde la sincronización opcional con iCloud Drive en Ajustes.		Needs review		
+GW-0135	DocumentStorage.swift	Visible interface	Documents are stored only on this device.	Los documentos se almacenan únicamente en este dispositivo.		Needs review		
+GW-0136	DocumentStorage.swift	Visible interface	Documents sync with iCloud Drive.	Los documentos se sincronizan con iCloud Drive.		Needs review		
+GW-0137	MarkdownReferenceView.swift	Visible interface	Done	Listo		Needs review		
+GW-0138	DocumentAvailability.swift	Visible interface	Download failed	Error de descarga		Needs review		
+GW-0139	DocumentAvailability.swift	Visible interface	Downloading	Descargando		Needs review		
+GW-0140	DocumentAvailability.swift	Visible interface	Downloading, %lld percent	Descargando, %lld por ciento		Needs review		%lld
+GW-0141	EditorView.swift	Visible interface	Duplicate	Duplicar		Needs review		
+GW-0142	EditorView.swift	Visible interface	eBraille	eBraille		Needs review		
+GW-0143	EBrailleOptionsView.swift	Visible interface	eBraille export	Exportación eBraille		Needs review		
+GW-0144	EBrailleMetadataSettingsView.swift	Visible interface	eBraille metadata	Metadatos de eBraille		Needs review		
+GW-0145	SettingsView.swift	Visible interface	Edit defaults	Editar valores predeterminados		Needs review		
+GW-0146	SettingsView.swift	Visible interface	Editing	Edición		Needs review		
+GW-0147	SettingsView.swift	Visible interface	Editor Font	Fuente del editor		Needs review		
+GW-0148	SettingsView.swift	Visible interface	Editor Status	Estado del editor		Needs review		
+GW-0149	EBrailleMetadataSettingsView.swift	Visible interface	Education level	Nivel educativo		Needs review		
+GW-0150	RecentlyDeletedView.swift	Visible interface	Empty	Vacío		Needs review		
+GW-0151	RecentlyDeletedView.swift	Visible interface	Empty Recently Deleted	Vaciar Eliminados recientemente		Needs review		
+GW-0152	RecentlyDeletedView.swift	Visible interface	Empty Recently Deleted?	¿Vaciar Eliminados recientemente?		Needs review		
+GW-0153	SettingsView.swift	Visible interface	Enables ghostWriter commands for a hardware keyboard	Activa los comandos de ghostWriter para un teclado físico		Needs review		
+GW-0154	EBrailleMetadata.swift	Visible interface	Enter a copyright date as a year, year and month, or full date.	Introduce la fecha de copyright como año, año y mes o fecha completa.		Needs review		
+GW-0155	LineNavigation.swift	Visible interface	Enter a Line Number	Introducir un número de línea		Needs review		
+GW-0156	EditorView.swift	Visible interface	Enter a line number from 1 through %lld.	Introduce un número de línea entre 1 y %lld.		Needs review		%lld
+GW-0157	EditorView.swift	Visible interface	Enter a new name for this document.	Introduce un nombre nuevo para este documento.		Needs review		
+GW-0158	LibraryView.swift	Visible interface	Enter a new name for this folder.	Introduce un nombre nuevo para esta carpeta.		Needs review		
+GW-0159	LineNavigation.swift	Visible interface	Enter a whole number from 1 through %lld.	Introduce un número entero entre 1 y %lld.		Needs review		%lld
+GW-0160	EBrailleMetadataSettingsView.swift	Visible interface	Enter a year, a year and month, or a full date.	Introduce un año, un año y un mes o una fecha completa.		Needs review		
+GW-0161	MarkdownInsertionView.swift	Visible interface	Enter alternative text and the full image address, such as https://example.com/photo.jpg. Leave alternative text empty only when the image is decorative.	Introduce el texto alternativo y la dirección completa de la imagen, como https://example.com/photo.jpg. Deja vacío el texto alternativo solo si la imagen es decorativa.		Needs review		
+GW-0162	EBrailleMetadata.swift	Visible interface	Enter the author or enter Unknown when the author is not known.	Introduce el autor o escribe Desconocido si no se conoce.		Needs review		
+GW-0163	MarkdownInsertionView.swift	Visible interface	Enter the link text and full address, such as https://example.com.	Introduce el texto del enlace y la dirección completa, como https://example.com.		Needs review		
+GW-0164	EBrailleMetadata.swift	Visible interface	Enter the person or organization producing this braille edition.	Introduce la persona u organización que produce esta edición braille.		Needs review		
+GW-0165	EditorView.swift	Visible interface	EPUB	EPUB		Needs review		
+GW-0166	DocumentLanguageView.swift	Visible interface	es-MX	es-MX		Needs review		
+GW-0167	WhyGhostWriterView.swift	Visible interface	Eventually I actually turned it into a real markdown editor and education system that I used for students to utilize during a Markdown class I taught, and left the spookiness as a setting that could be turned on in the settings.	Con el tiempo lo convertí en un verdadero editor de Markdown y en un sistema educativo que utilicé con estudiantes durante una clase de Markdown. Dejé los sucesos inquietantes como una opción que se podía activar en los ajustes.		Needs review		
+GW-0168	RecentlyDeletedView.swift	Visible interface	Every item in Recently Deleted will be permanently deleted. This cannot be undone.	Todos los elementos de Eliminados recientemente se borrarán permanentemente. Esta acción no se puede deshacer.		Needs review		
+GW-0169	WelcomeView.swift	Visible interface	Explore Welcome Document	Explorar el documento de bienvenida		Needs review		
+GW-0170	BRFOptionsView.swift	Visible interface	Export and share…	Exportar y compartir…		Needs review		
+GW-0171	MarkdownInsertionView.swift	Visible interface	File	Archivo		Needs review		
+GW-0172	EditorView.swift	Visible interface	File actions	Acciones de archivo		Needs review		
+GW-0173	EditorView.swift	Visible interface	File Actions	Acciones de archivo		Needs review		
+GW-0174	SettingsView.swift	Visible interface	Files	Archivos		Needs review		
+GW-0175	SettingsView.swift	Visible interface	Fills in new eBraille exports. You can edit these values before sharing.	Rellena las nuevas exportaciones eBraille. Puedes editar estos valores antes de compartir.		Needs review		
+GW-0176	EditorView.swift	Visible interface	Find and Replace	Buscar y reemplazar		Needs review		
+GW-0177	RecentlyDeletedView.swift	Visible interface	Folder	Carpeta		Needs review		
+GW-0178	AppSettings.swift	Visible interface	Follow System	Seguir el sistema		Needs review		
+GW-0179	AppSettings.swift	Visible interface	Full	Completa		Needs review		
+GW-0180	DocumentMigration.swift	Visible interface	ghostWriter could not verify %@ after copying it.	ghostWriter no pudo verificar %@ después de copiarlo.		Needs review		%@
+GW-0181	EditorView.swift	Visible interface	ghostWriter Error	Error de ghostWriter		Needs review		
+GW-0182	WelcomeView.swift	Visible interface	ghostWriter includes a Welcome document in your Library. Open it to read, edit, and render examples of the Markdown supported by the app.	ghostWriter incluye un documento de bienvenida en tu biblioteca. Ábrelo para leer, editar y renderizar ejemplos del Markdown compatible con la app.		Needs review		
+GW-0183	LibraryView.swift	Visible interface	ghostWriter Markdown	ghostWriter Markdown		Needs review		
+GW-0184	WelcomeView.swift	Visible interface	ghostWriter Markdown is an accessible plain-text editor for notes, articles, lists, and more.	ghostWriter Markdown es un editor accesible de texto sin formato para notas, artículos, listas y mucho más.		Needs review		
+GW-0185	ICloudMigrationView.swift	Visible interface	ghostWriter will move your complete library from iCloud Drive onto this device. After verification, those documents will no longer sync through iCloud.	ghostWriter moverá toda tu biblioteca de iCloud Drive a este dispositivo. Después de verificarla, esos documentos dejarán de sincronizarse mediante iCloud.		Needs review		
+GW-0186	ICloudMigrationView.swift	Visible interface	ghostWriter will move your complete library to iCloud Drive. Documents, renames, edits, and deletions will then sync to your other devices using the same iCloud account. iCloud syncing is not an independent backup.	ghostWriter moverá toda tu biblioteca a iCloud Drive. Los documentos, los cambios de nombre, las ediciones y las eliminaciones se sincronizarán con tus otros dispositivos que usen la misma cuenta de iCloud. La sincronización con iCloud no es una copia de seguridad independiente.		Needs review		
+GW-0187	MarkdownTextView.swift	Visible interface	Heading %lld of %lld, %@, heading level %lld.	Encabezado %lld de %lld, %@, nivel de encabezado %lld.		Needs review		%lld, %lld, %@, %lld
+GW-0188	SettingsView.swift	Visible interface	Heading Level	Nivel del encabezado		Needs review		
+GW-0189	LineStructure.swift	Visible interface	Heading level %lld	Encabezado de nivel %lld		Needs review		%lld
+GW-0190	MarkdownInsertion.swift	Visible interface	Heading level %lld applied.	Encabezado de nivel %lld aplicado.		Needs review		%lld
+GW-0191	MarkdownTypingAnnouncement.swift	Spoken or accessibility	Heading level %lld.	Encabezado de nivel %lld.		Needs review		%lld
+GW-0192	SettingsView.swift	Visible interface	Heading Swipe Navigation	Navegación por encabezados con gestos		Needs review		
+GW-0193	HelpView.swift	Visible interface	Help	Ayuda		Needs review		
+GW-0194	LineStructure.swift	Visible interface	Horizontal rule	Línea horizontal		Needs review		
+GW-0195	MarkdownInsertion.swift	Visible interface	Horizontal rule inserted.	Línea horizontal insertada.		Needs review		
+GW-0196	EditorView.swift	Visible interface	HTML	HTML		Needs review		
+GW-0197	WhyGhostWriterView.swift	Visible interface	I originally built the web version of ghostWriter as a fun little prank. It started off as an innocent markdown editor; a simple text area, a rendered output section below it, code references, just a nice, unsuspecting experience.	Originalmente creé la versión web de ghostWriter como una pequeña broma. Comenzó como un inocente editor de Markdown: un área de texto sencilla, una sección con el resultado renderizado, referencias de código y una experiencia agradable que no despertaba sospechas.		Needs review		
+GW-0198	WhyGhostWriterView.swift	Visible interface	I've left out the ghosts for now in this iOS version, but who knows, they may haunt it in the future!	Por ahora he dejado fuera a los fantasmas de esta versión para iOS, pero quién sabe: ¡puede que la acechen en el futuro!		Needs review		
+GW-0199	DocumentStorage.swift	Visible interface	iCloud Drive	iCloud Drive		Needs review		
+GW-0200	MarkdownInsertion.swift	Visible interface	Image created.	Imagen creada.		Needs review		
+GW-0201	LibraryView.swift	Visible interface	Import	Importar		Needs review		
+GW-0202	LibraryView.swift	Visible interface	Import document	Importar documento		Needs review		
+GW-0203	SettingsView.swift	Visible interface	Indentation	Sangría		Needs review		
+GW-0204	MarkdownInsertion.swift	Visible interface	Inline code applied.	Código en línea aplicado.		Needs review		
+GW-0205	MarkdownInsertionView.swift	Visible interface	Insert	Insertar		Needs review		
+GW-0206	InsertActionsView.swift	Visible interface	Insert Actions	Acciones de inserción		Needs review		
+GW-0207	MarkdownInsertionView.swift	Visible interface	Insert Image	Insertar imagen		Needs review		
+GW-0208	MarkdownInsertionView.swift	Visible interface	Insert Link	Insertar enlace		Needs review		
+GW-0209	TableInsertionView.swift	Visible interface	Insert Table	Insertar tabla		Needs review		
+GW-0210	EditorView.swift	Visible interface	Insert…	Insertar…		Needs review		
+GW-0211	MarkdownInsertion.swift	Visible interface	Italics applied.	Cursiva aplicada.		Needs review		
+GW-0212	EditorView.swift	Visible interface	Jump	Ir		Needs review		
+GW-0213	EditorView.swift	Visible interface	Jump to Line	Ir a la línea		Needs review		
+GW-0214	EditorView.swift	Visible interface	Jump to Line…	Ir a la línea…		Needs review		
+GW-0215	SettingsView.swift	Visible interface	Keyboard Shortcuts	Atajos de teclado		Needs review		
+GW-0216	DocumentLanguageView.swift	Visible interface	Language tag	Etiqueta de idioma		Needs review		
+GW-0217	SortOrder.swift	Visible interface	Last Opened	Última apertura		Needs review		
+GW-0218	BRFOptionsView.swift	Visible interface	Layout	Diseño		Needs review		
+GW-0219	OutlineView.swift	Visible interface	Level %lld	Nivel %lld		Needs review		%lld
+GW-0220	AcknowledgementsView.swift	Visible interface	liblouis	liblouis		Needs review		
+GW-0221	AcknowledgementsView.swift	Visible interface	liblouis is free software licensed under the GNU Lesser General Public License, version 2.1 or later. The project website provides the corresponding upstream source. Distribution of an app that statically links this library may require additional materials or permissions; this acknowledgement is not a claim that every distribution obligation is satisfied.	liblouis es software libre con licencia GNU Lesser General Public License, versión 2.1 o posterior. El sitio web del proyecto proporciona el código fuente original correspondiente. La distribución de una app que enlace estáticamente esta biblioteca puede requerir materiales o permisos adicionales; este agradecimiento no afirma que se hayan cumplido todas las obligaciones de distribución.		Needs review		
+GW-0222	AppSettings.swift	Visible interface	Light	Claro		Needs review		
+GW-0223	LineNavigation.swift	Visible interface	Line %lld does not exist. This document has %lld lines.	La línea %lld no existe. Este documento tiene %lld líneas.		Needs review		%lld, %lld
+GW-0224	SettingsView.swift	Visible interface	Line Count	Número de líneas		Needs review		
+GW-0225	LineNavigation.swift	Visible interface	Line Does Not Exist	La línea no existe		Needs review		
+GW-0226	EditorView.swift	Visible interface	Line number	Número de línea		Needs review		
+GW-0227	BRFOptionsView.swift	Visible interface	Lines per page	Líneas por página		Needs review		
+GW-0228	MarkdownInsertion.swift	Visible interface	Link created.	Enlace creado.		Needs review		
+GW-0229	SettingsView.swift	Visible interface	Mail Is Not Available	Mail no está disponible		Needs review		
+GW-0230	SettingsView.swift	Visible interface	Mail is not configured on this device. You can copy the feedback address and use it in another mail app.	Mail no está configurado en este dispositivo. Puedes copiar la dirección de contacto y usarla en otra app de correo.		Needs review		
+GW-0231	EditorView.swift	Visible interface	Markdown	Markdown		Needs review		
+GW-0232	EditorView.swift	Visible interface	Markdown Reference	Referencia de Markdown		Needs review		
+GW-0233	WelcomeView.swift	Visible interface	Markdown uses simple punctuation to create headings, lists, links, emphasis, tables, and other document structure. You can use Insert when you do not want to type the syntax yourself.	Markdown utiliza signos de puntuación sencillos para crear encabezados, listas, enlaces, énfasis, tablas y otras estructuras del documento. Puedes usar Insertar cuando no quieras escribir la sintaxis.		Needs review		
+GW-0234	BRFOptionsView.swift	Visible interface	Match these dimensions to the intended braille display.	Ajusta estas dimensiones a la línea braille prevista.		Needs review		
+GW-0235	AppSettings.swift	Visible interface	Monospaced	Monoespaciada		Needs review		
+GW-0236	LibraryView.swift	Visible interface	Move	Mover		Needs review		
+GW-0237	MoveLibraryItemView.swift	Visible interface	Move %@	Mover %@		Needs review		%@
+GW-0238	ICloudMigrationView.swift	Visible interface	Move to iCloud	Mover a iCloud		Needs review		
+GW-0239	ICloudMigrationView.swift	Visible interface	Move to This Device	Mover a este dispositivo		Needs review		
+GW-0240	SettingsView.swift	Visible interface	Moves between headings with three-finger horizontal swipes in the editor.	Permite desplazarse entre encabezados con gestos horizontales de tres dedos en el editor.		Needs review		
+GW-0241	OutlineView.swift	Visible interface	Moves the cursor to this heading	Mueve el cursor a este encabezado		Needs review		
+GW-0242	ICloudMigrationView.swift	Visible interface	Moving and verifying documents	Moviendo y verificando documentos		Needs review		
+GW-0243	EditorView.swift	Visible interface	Name	Nombre		Needs review		
+GW-0244	ICloudMigrationView.swift	Visible interface	New	Nuevo		Needs review		
+GW-0245	LibraryView.swift	Visible interface	New document	Nuevo documento		Needs review		
+GW-0246	NewDocumentView.swift	Visible interface	New Document	Nuevo documento		Needs review		
+GW-0247	SettingsView.swift	Visible interface	New Documents	Nuevos documentos		Needs review		
+GW-0248	EBrailleMetadataSettingsView.swift	Visible interface	New exports will use %@.	Las exportaciones nuevas usarán %@.		Needs review		%@
+GW-0249	LibraryView.swift	Visible interface	New Folder	Nueva carpeta		Needs review		
+GW-0250	SortOrder.swift	Visible interface	Newest first	Más recientes primero		Needs review		
+GW-0251	OutlineView.swift	Visible interface	No Headings	Sin encabezados		Needs review		
+GW-0252	LibraryView.swift	Visible interface	No items match %@.	Ningún elemento coincide con %@.		Needs review		%@
+GW-0253	AppSettings.swift	Spoken or accessibility	No Markdown editing announcements.	Sin anuncios de edición de Markdown.		Needs review		
+GW-0254	MarkdownInsertion.swift	Visible interface	Numbered list created.	Lista numerada creada.		Needs review		
+GW-0255	AppSettings.swift	Visible interface	Off	Desactivada		Needs review		
+GW-0256	EditorView.swift	Visible interface	OK	Aceptar		Needs review		
+GW-0257	SortOrder.swift	Visible interface	Oldest first	Más antiguos primero		Needs review		
+GW-0258	DocumentStorage.swift	Visible interface	On This Device	En este dispositivo		Needs review		
+GW-0259	AppLaunchBehavior.swift	Visible interface	Open Last Document	Abrir el último documento		Needs review		
+GW-0260	SettingsView.swift	Visible interface	Opens an in-app email with app and system information included	Abre un correo dentro de la app con información de la app y del sistema		Needs review		
+GW-0261	SettingsView.swift	Visible interface	Opens in external browser	Abre en el navegador externo		Needs review		
+GW-0262	EditorView.swift	Visible interface	Opens list of insertable Markdown elements	Abre la lista de elementos Markdown que se pueden insertar		Needs review		
+GW-0263	SettingsView.swift	Visible interface	Opens software acknowledgements and licenses	Abre los agradecimientos y las licencias del software		Needs review		
+GW-0264	SettingsView.swift	Visible interface	Opens the lore of ghostWriter	Abre la historia de ghostWriter		Needs review		
+GW-0265	DocumentLanguageView.swift	Visible interface	Other language tag…	Otra etiqueta de idioma…		Needs review		
+GW-0266	EditorView.swift	Visible interface	Outline	Esquema		Needs review		
+GW-0267	LineStructure.swift	Visible interface	Paragraph	Párrafo		Needs review		
+GW-0268	WordDocumentModel.swift	Visible interface	Password-protected Word documents cannot be imported.	No se pueden importar documentos de Word protegidos con contraseña.		Needs review		
+GW-0269	EditorView.swift	Visible interface	PDF	PDF		Needs review		
+GW-0270	LibraryView.swift	Visible interface	Pin	Fijar		Needs review		
+GW-0271	DocumentRow.swift	Visible interface	Pinned	Fijado		Needs review		
+GW-0272	EditorView.swift	Visible interface	Plain Text	Texto sin formato		Needs review		
+GW-0273	SettingsView.swift	Visible interface	Plays a tone when a document is rendered	Reproduce un tono cuando se renderiza un documento		Needs review		
+GW-0274	EBrailleMetadataSettingsView.swift	Visible interface	Preferred braille code	Código braille preferido		Needs review		
+GW-0275	ShareSheet.swift	Visible interface	Preparing %@…	Preparando %@…		Needs review		%@
+GW-0276	WelcomeView.swift	Visible interface	Preparing Welcome document	Preparando el documento de bienvenida		Needs review		
+GW-0277	EBrailleMetadataSettingsView.swift	Visible interface	Produced by	Producido por		Needs review		
+GW-0278	AcknowledgementsView.swift	Visible interface	Project website	Sitio web del proyecto		Needs review		
+GW-0279	EBrailleMetadataSettingsView.swift	Visible interface	Publisher	Editorial		Needs review		
+GW-0280	RecentlyDeletedView.swift	Visible interface	Recently Deleted	Eliminados recientemente		Needs review		
+GW-0281	EBrailleOptionsView.swift	Visible interface	Recommended details	Detalles recomendados		Needs review		
+GW-0282	EditorView.swift	Visible interface	Reload External Version	Cargar la versión externa		Needs review		
+GW-0283	EditorView.swift	Visible interface	Rename	Renombrar		Needs review		
+GW-0284	EditorView.swift	Visible interface	Rename Document	Renombrar documento		Needs review		
+GW-0285	LibraryView.swift	Visible interface	Rename Folder	Renombrar carpeta		Needs review		
+GW-0286	EditorView.swift	Visible interface	Render	Renderizar		Needs review		
+GW-0287	SettingsView.swift	Visible interface	Render Sound	Sonido al renderizar		Needs review		
+GW-0288	RenderedHTMLView.swift	Visible interface	Rendered	Renderizado		Needs review		
+GW-0289	EBrailleOptionsView.swift	Visible interface	Required. Enter a year, a year and month, or a full date, such as 2026, 2026-04, or 2026-04-17.	Obligatorio. Introduce un año, un año y un mes o una fecha completa, como 2026, 2026-04 o 2026-04-17.		Needs review		
+GW-0290	RecentlyDeletedView.swift	Visible interface	Restore	Restaurar		Needs review		
+GW-0291	RecentlyDeletedView.swift	Visible interface	Restores this item	Restaura este elemento		Needs review		
+GW-0292	LibraryView.swift	Visible interface	Retry Download	Reintentar descarga		Needs review		
+GW-0293	EBrailleMetadataSettingsView.swift	Visible interface	Rights	Derechos		Needs review		
+GW-0294	AppSettings.swift	Visible interface	Rounded	Redondeada		Needs review		
+GW-0295	TableInsertionView.swift	Visible interface	Rows	Filas		Needs review		
+GW-0296	SettingsView.swift	Visible interface	Sample Status	Estado de muestra		Needs review		
+GW-0297	DocumentLanguageView.swift	Visible interface	Save	Guardar		Needs review		
+GW-0298	EditorView.swift	Visible interface	Save as New Document	Guardar como documento nuevo		Needs review		
+GW-0299	EditorView.swift	Visible interface	Save Mine as a Copy	Guardar mi versión como copia		Needs review		
+GW-0300	EditorView.swift	Visible interface	Save Now	Guardar ahora		Needs review		
+GW-0301	LibraryView.swift	Visible interface	Search	Buscar		Needs review		
+GW-0302	SettingsView.swift	Visible interface	Selected Character Count	Número de caracteres seleccionados		Needs review		
+GW-0303	SettingsView.swift	Visible interface	Selected Word Count	Número de palabras seleccionadas		Needs review		
+GW-0304	SettingsView.swift	Visible interface	Send Feedback	Enviar comentarios		Needs review		
+GW-0305	AppSettings.swift	Visible interface	Serif	Serif		Needs review		
+GW-0306	LibraryView.swift	Visible interface	Settings	Ajustes		Needs review		
+GW-0307	EditorView.swift	Visible interface	Share	Compartir		Needs review		
+GW-0308	ShareSheet.swift	Visible interface	Share Failed	Error al compartir		Needs review		
+GW-0309	AppLaunchBehavior.swift	Visible interface	Show Library	Mostrar biblioteca		Needs review		
+GW-0310	EditorView.swift	Visible interface	Shows a list of document headings	Muestra una lista de los encabezados del documento		Needs review		
+GW-0311	SettingsView.swift	Visible interface	Shows selected document information after the editor	Muestra información seleccionada del documento después del editor		Needs review		
+GW-0312	EditorView.swift	Visible interface	Shows this document as formatted HTML	Muestra este documento como HTML con formato		Needs review		
+GW-0313	LibraryView.swift	Visible interface	Sort	Ordenar		Needs review		
+GW-0314	LibraryView.swift	Visible interface	Sort By	Ordenar por		Needs review		
+GW-0315	LibraryView.swift	Visible interface	Sort Order	Orden		Needs review		
+GW-0316	SettingsView.swift	Visible interface	Sound	Sonido		Needs review		
+GW-0317	EBrailleMetadataSettingsView.swift	Visible interface	Source work	Obra de origen		Needs review		
+GW-0318	BrailleTranslator.swift	Visible interface	Spanish braille, grade 1 (uncontracted)	Braille español, grado 1 (sin contracciones)		Needs review		
+GW-0319	BrailleTranslator.swift	Visible interface	Spanish braille, grade 2 (contracted)	Braille español, grado 2 (contraído)		Needs review		
+GW-0320	BRFOptionsView.swift	Visible interface	Standard BRF page (40 by 25)	Página BRF estándar (40 por 25)		Needs review		
+GW-0321	BRFOptionsView.swift	Visible interface	Standard BRF uses 40 cells by 25 lines. Choose a custom layout only when preparing the file for a particular display size.	El formato BRF estándar usa 40 celdas por 25 líneas. Elige un diseño personalizado solo al preparar el archivo para un tamaño de línea braille concreto.		Needs review		
+GW-0322	AppLaunchBehavior.swift	Visible interface	Start a New Document	Iniciar un documento nuevo		Needs review		
+GW-0323	SettingsView.swift	Visible interface	Start a New Document follows your New Documents setting. Open Last Document returns to the most recently opened file when it is still available.	Iniciar un documento nuevo sigue el ajuste Nuevos documentos. Abrir el último documento vuelve al archivo abierto más recientemente si todavía está disponible.		Needs review		
+GW-0324	EditorView.swift	Visible interface	Status Bar	Barra de estado		Needs review		
+GW-0325	SettingsView.swift	Visible interface	Status Information	Información de estado		Needs review		
+GW-0326	MarkdownInsertion.swift	Visible interface	Strikethrough applied.	Tachado aplicado.		Needs review		
+GW-0327	EBrailleMetadataSettingsView.swift	Visible interface	Subject	Tema		Needs review		
+GW-0328	LibraryView.swift	Visible interface	Sync	Sincronización		Needs review		
+GW-0329	AppSettings.swift	Visible interface	System	Sistema		Needs review		
+GW-0330	MarkdownInsertion.swift	Visible interface	Table created, %lld columns and %lld rows.	Tabla creada, con %lld columnas y %lld filas.		Needs review		%lld, %lld
+GW-0331	LineStructure.swift	Visible interface	Table divider	Separador de tabla		Needs review		
+GW-0332	LineStructure.swift	Visible interface	Table row	Fila de tabla		Needs review		
+GW-0333	AppSettings.swift	Visible interface	Tabs	Tabulaciones		Needs review		
+GW-0334	MarkdownInsertionView.swift	Visible interface	Tactile Graphic	Gráfico táctil		Needs review		
+GW-0335	MarkdownInsertion.swift	Visible interface	Tactile graphic attached.	Gráfico táctil adjuntado.		Needs review		
+GW-0336	EBrailleOptionsView.swift	Visible interface	Taken from your document. Rename the document to change it.	Se obtiene del documento. Renombra el documento para cambiarlo.		Needs review		
+GW-0337	LibraryView.swift	Visible interface	Tap New to start writing in markdown.	Pulsa Nuevo para empezar a escribir en Markdown.		Needs review		
+GW-0338	MarkdownInsertion.swift	Visible interface	Task list created.	Lista de tareas creada.		Needs review		
+GW-0339	NewDocumentView.swift	Visible interface	The .md filename extension is added automatically.	La extensión de archivo .md se añade automáticamente.		Needs review		
+GW-0340	LiblouisBridge.swift	Visible interface	The braille emphasis information did not match the text.	La información de énfasis braille no coincidía con el texto.		Needs review		
+GW-0341	LiblouisBridge.swift	Visible interface	The braille translation tables could not be found.	No se encontraron las tablas de traducción braille.		Needs review		
+GW-0342	LiblouisBridge.swift	Visible interface	The braille translator produced characters that are not valid six-dot braille.	El traductor braille produjo caracteres que no son braille válido de seis puntos.		Needs review		
+GW-0343	WelcomeExperience.swift	Visible interface	The bundled Welcome document could not be found.	No se encontró el documento de bienvenida incluido.		Needs review		
+GW-0344	LiblouisBridge.swift	Visible interface	The document could not be translated into %@.	No se pudo traducir el documento a %@.		Needs review		%@
+GW-0345	DocumentStore.swift	Visible interface	The document was deleted, but an associated image folder could not be removed.	El documento se eliminó, pero no se pudo borrar una carpeta de imágenes asociada.		Needs review		
+GW-0346	EPUBPackage.swift	Visible interface	The EPUB could not be created.	No se pudo crear el EPUB.		Needs review		
+GW-0347	EBrailleOptionsView.swift	Visible interface	The file will record this as %@.	El archivo lo registrará como %@.		Needs review		%@
+GW-0348	TaggedPDFWriter.swift	Visible interface	The PDF could not be created.	No se pudo crear el PDF.		Needs review		
+GW-0349	EBrailleOptionsView.swift	Visible interface	The person or organization creating and sharing this braille edition.	La persona u organización que crea y comparte esta edición braille.		Needs review		
+GW-0350	SettingsView.swift	Visible interface	The render sound follows your device's silent switch.	El sonido de renderizado respeta el interruptor de silencio del dispositivo.		Needs review		
+GW-0351	WordDocumentModel.swift	Visible interface	The selected file is not a valid Word document.	El archivo seleccionado no es un documento de Word válido.		Needs review		
+GW-0352	DocumentMigration.swift	Visible interface	The source and destination libraries are the same.	Las bibliotecas de origen y destino son la misma.		Needs review		
+GW-0353	EBrailleOptionsView.swift	Visible interface	The standard recommends these. Any you leave empty are left out of the file. Source Work identifies an original publication when this document comes from one. Publisher identifies who publishes this eBraille edition.	El estándar recomienda estos datos. Los campos que dejes vacíos no se incluirán en el archivo. Obra de origen identifica una publicación original cuando el documento procede de ella. Editorial identifica quién publica esta edición eBraille.		Needs review		
+GW-0354	SettingsView.swift	Visible interface	The status bar is one focus stop beneath the editor and does not interrupt typing.	La barra de estado es una única parada de foco debajo del editor y no interrumpe la escritura.		Needs review		
+GW-0355	EBrailleWriter.swift	Visible interface	The tactile graphic %@ could not be found or read. Attach it again before exporting.	No se pudo encontrar o leer el gráfico táctil %@. Vuelve a adjuntarlo antes de exportar.		Needs review		%@
+GW-0356	EBrailleWriter.swift	Visible interface	The tactile graphic %@ is not a valid SVG, PNG, or JPG file. Attach it again before exporting.	El gráfico táctil %@ no es un archivo SVG, PNG o JPG válido. Vuelve a adjuntarlo antes de exportar.		Needs review		%@
+GW-0357	EBrailleWriter.swift	Visible interface	The tactile graphic %@ is not an SVG, PNG, or JPG file.	El gráfico táctil %@ no es un archivo SVG, PNG o JPG.		Needs review		%@
+GW-0358	EBrailleWriter.swift	Visible interface	The tactile SVG %@ contains active or external content and cannot be shared safely.	El SVG táctil %@ contiene contenido activo o externo y no se puede compartir de forma segura.		Needs review		%@
+GW-0359	BRFWriter.swift	Visible interface	The translation contains a character that cannot be represented in BRF (Unicode %@).	La traducción contiene un carácter que no se puede representar en BRF (Unicode %@).		Needs review		%@
+GW-0360	BRFWriter.swift	Visible interface	The translation contains eight-dot braille, which cannot be represented safely in BRF.	La traducción contiene braille de ocho puntos, que no se puede representar de forma segura en BRF.		Needs review		
+GW-0361	WelcomeView.swift	Visible interface	The Welcome document could not be prepared right now. You can continue to the Library, and ghostWriter will try again on a later launch.	No se pudo preparar ahora el documento de bienvenida. Puedes continuar a la biblioteca y ghostWriter lo volverá a intentar la próxima vez que se abra.		Needs review		
+GW-0362	WordDocumentModel.swift	Visible interface	The Word document contains unreadable %@.	El documento de Word contiene %@ ilegible.		Needs review		%@
+GW-0363	WordDocumentModel.swift	Visible interface	The Word document could not be created.	No se pudo crear el documento de Word.		Needs review		
+GW-0364	WordDocumentModel.swift	Visible interface	The Word document does not contain readable document content.	El documento de Word no contiene texto legible.		Needs review		
+GW-0365	WordDocumentModel.swift	Visible interface	The Word document is too large to import safely.	El documento de Word es demasiado grande para importarlo de forma segura.		Needs review		
+GW-0366	SettingsView.swift	Visible interface	Theme	Tema		Needs review		
+GW-0367	EditorView.swift	Visible interface	This document changed outside ghostWriter. Save your current work as a copy or reload the external version.	Este documento cambió fuera de ghostWriter. Guarda el trabajo actual como una copia o vuelve a cargar la versión externa.		Needs review		
+GW-0368	EditorView.swift	Visible interface	This document was removed outside ghostWriter. Save your current work as a new document or close without saving.	Este documento se eliminó fuera de ghostWriter. Guarda el trabajo actual como un documento nuevo o cierra sin guardar.		Needs review		
+GW-0369	DocumentLanguageView.swift	Visible interface	This setting describes the document, not the app interface. It is added to exports that support language metadata. Enter a BCP 47 tag, such as es-MX, for a language or regional form not listed.	Este ajuste describe el documento, no la interfaz de la app. Se añade a las exportaciones que admiten metadatos de idioma. Introduce una etiqueta BCP 47, como es-MX, para un idioma o una variante regional que no aparezca en la lista.		Needs review		
+GW-0370	EBrailleOptionsView.swift	Visible interface	Title	Título		Needs review		
+GW-0371	EditorView.swift	Visible interface	Try Again	Intentar de nuevo		Needs review		
+GW-0372	EBrailleOptionsView.swift	Visible interface	Turn this off if the document is only part of a larger work, such as a single chapter.	Desactiva esta opción si el documento solo forma parte de una obra mayor, como un único capítulo.		Needs review		
+GW-0373	BrailleTranslator.swift	Visible interface	Unified English Braille, grade 1 (uncontracted)	Braille inglés unificado, grado 1 (sin contracciones)		Needs review		
+GW-0374	BrailleTranslator.swift	Visible interface	Unified English Braille, grade 2 (contracted)	Braille inglés unificado, grado 2 (contraído)		Needs review		
+GW-0375	LibraryView.swift	Visible interface	Unpin	Desfijar		Needs review		
+GW-0376	DocumentStore.swift	Visible interface	Untitled	Sin título		Needs review		
+GW-0377	DocumentAvailability.swift	Visible interface	Updating from iCloud	Actualizando desde iCloud		Needs review		
+GW-0378	DocumentAvailability.swift	Visible interface	Upload failed. %@	Error de subida. %@		Needs review		%@
+GW-0379	DocumentAvailability.swift	Visible interface	Uploading to iCloud	Subiendo a iCloud		Needs review		
+GW-0380	DocumentAvailability.swift	Visible interface	Uploading to iCloud, %lld percent	Subiendo a iCloud, %lld por ciento		Needs review		%lld
+GW-0381	NewDocumentCreationMode.swift	Visible interface	Use Today’s Date	Usar la fecha de hoy		Needs review		
+GW-0382	EBrailleMetadataSettingsView.swift	Visible interface	Used as the copyright date in new exports.	Se usa como fecha de copyright en las exportaciones nuevas.		Needs review		
+GW-0383	SettingsView.swift	Visible interface	Verbosity	Nivel de detalle		Needs review		
+GW-0384	SettingsView.swift	Visible interface	Version	Versión		Needs review		
+GW-0385	SettingsView.swift	Spoken or accessibility	VoiceOver Settings	Ajustes de VoiceOver		Needs review		
+GW-0386	DocumentAvailability.swift	Visible interface	Waiting for iCloud	Esperando a iCloud		Needs review		
+GW-0387	DocumentAvailability.swift	Visible interface	Waiting to Upload	Esperando para subir		Needs review		
+GW-0388	WelcomeView.swift	Visible interface	Welcome to ghostWriter Markdown	Te damos la bienvenida a ghostWriter Markdown		Needs review		
+GW-0389	SettingsView.swift	Visible interface	When App Opens	Al abrir la app		Needs review		
+GW-0390	SettingsView.swift	Visible interface	When Starting a New Document	Al iniciar un documento nuevo		Needs review		
+GW-0391	EBrailleOptionsView.swift	Visible interface	Who wrote the original work. If the author is not known, enter Unknown.	Quién escribió la obra original. Si no se conoce el autor, introduce Desconocido.		Needs review		
+GW-0392	SettingsView.swift	Visible interface	Why ghostWriter?	¿Por qué ghostWriter?		Needs review		
+GW-0393	SettingsView.swift	Visible interface	Word Count	Número de palabras		Needs review		
+GW-0394	EditorView.swift	Visible interface	Word Document	Documento de Word		Needs review		
+GW-0395	LibraryView.swift	Visible interface	Word Import	Importación de Word		Needs review		
+GW-0396	SettingsView.swift	Visible interface	Your documents are stored in the ghostWriter folder, which you can open in the Files app.	Tus documentos se almacenan en la carpeta ghostWriter, que puedes abrir en la app Archivos.		Needs review		
+GW-0397	LibraryView.swift	Visible interface	Your selected document library is unavailable. Open Settings to check iCloud Drive or choose On This Device.	La biblioteca de documentos seleccionada no está disponible. Abre Ajustes para comprobar iCloud Drive o elige En este dispositivo.		Needs review		
+GW-0398	SortOrder.swift	Visible interface	Z to A	De la Z a la A		Needs review		
+GW-0399	AcknowledgementsView.swift	Visible interface	ZIPFoundation	ZIPFoundation		Needs review		
+WELCOME-0001	Welcome document	Markdown source line	# Welcome to ghostWriter Markdown	# Te damos la bienvenida a ghostWriter Markdown		Needs review		
+WELCOME-0002	Welcome document	Markdown source line				Needs review		
+WELCOME-0003	Welcome document	Markdown source line	ghostWriter Markdown is a plain-text writing app for creating notes, articles, lists, documentation, and anything else you want to express with words.	ghostWriter Markdown es una aplicación de escritura en texto sin formato para crear notas, artículos, listas, documentación y cualquier otra cosa que quieras expresar con palabras.		Needs review		
+WELCOME-0004	Welcome document	Markdown source line				Needs review		
+WELCOME-0005	Welcome document	Markdown source line	Markdown adds structure using a few ordinary punctuation marks. Your documents remain readable as plain text, and you can render them whenever you want to see the finished formatting.	Markdown añade estructura mediante unos cuantos signos de puntuación comunes. Tus documentos siguen siendo legibles como texto sin formato y puedes renderizarlos cuando quieras ver el formato final.		Needs review		
+WELCOME-0006	Welcome document	Markdown source line				Needs review		
+WELCOME-0007	Welcome document	Markdown source line	This document is yours. Read it, edit it, or duplicate it before experimenting.	Este documento es tuyo. Léelo, edítalo o duplícalo antes de experimentar.		Needs review		
+WELCOME-0008	Welcome document	Markdown source line				Needs review		
+WELCOME-0009	Welcome document	Markdown source line	## Markdown in a Minute	## Markdown en un minuto		Needs review		
+WELCOME-0010	Welcome document	Markdown source line				Needs review		
+WELCOME-0011	Welcome document	Markdown source line	A Markdown document is still just text. Characters such as number signs, asterisks, and brackets tell an app how parts of that text should be presented.	Un documento Markdown sigue siendo solo texto. Los caracteres como almohadillas, asteriscos y corchetes indican a una aplicación cómo debe presentar algunas partes del texto.		Needs review		
+WELCOME-0012	Welcome document	Markdown source line				Needs review		
+WELCOME-0013	Welcome document	Markdown source line	For example, a number sign followed by a space creates a heading. A dash followed by a space creates a list item.	Por ejemplo, una almohadilla seguida de un espacio crea un encabezado. Un guion seguido de un espacio crea un elemento de lista.		Needs review		
+WELCOME-0014	Welcome document	Markdown source line				Needs review		
+WELCOME-0015	Welcome document	Markdown source line	You do not need to memorize everything. Insert in the editor can add common Markdown elements for you, and Markdown Reference in File Actions contains a quick syntax guide.	No necesitas memorizarlo todo. Insertar, en el editor, puede añadir por ti elementos comunes de Markdown, y Referencia de Markdown, en Acciones de archivo, contiene una guía rápida de sintaxis.		Needs review		
+WELCOME-0016	Welcome document	Markdown source line				Needs review		
+WELCOME-0017	Welcome document	Markdown source line	## Organize with Headings	## Organiza el contenido con encabezados		Needs review		
+WELCOME-0018	Welcome document	Markdown source line				Needs review		
+WELCOME-0019	Welcome document	Markdown source line	Headings divide a document into meaningful sections. They also make longer documents easier to navigate with Outline and a screen reader's heading navigation.	Los encabezados dividen un documento en secciones con significado. También facilitan la navegación por documentos largos mediante Esquema y la navegación por encabezados de un lector de pantalla.		Needs review		
+WELCOME-0020	Welcome document	Markdown source line				Needs review		
+WELCOME-0021	Welcome document	Markdown source line	Use one number sign for the main heading:	Usa una almohadilla para el encabezado principal:		Needs review		
+WELCOME-0022	Welcome document	Markdown source line				Needs review		
+WELCOME-0023	Welcome document	Markdown source line	# Main Heading	# Encabezado principal		Needs review		
+WELCOME-0024	Welcome document	Markdown source line				Needs review		
+WELCOME-0025	Welcome document	Markdown source line	Use two number signs for a section:	Usa dos almohadillas para una sección:		Needs review		
+WELCOME-0026	Welcome document	Markdown source line				Needs review		
+WELCOME-0027	Welcome document	Markdown source line	## Section Heading	## Encabezado de sección		Needs review		
+WELCOME-0028	Welcome document	Markdown source line				Needs review		
+WELCOME-0029	Welcome document	Markdown source line	Add more number signs for deeper subsections. Markdown supports six heading levels.	Añade más almohadillas para subsecciones más profundas. Markdown admite seis niveles de encabezado.		Needs review		
+WELCOME-0030	Welcome document	Markdown source line				Needs review		
+WELCOME-0031	Welcome document	Markdown source line	Try to use heading levels in order instead of choosing them for their visual size.	Procura usar los niveles de encabezado en orden, en vez de elegirlos por su tamaño visual.		Needs review		
+WELCOME-0032	Welcome document	Markdown source line				Needs review		
+WELCOME-0033	Welcome document	Markdown source line	## Make Lists	## Crea listas		Needs review		
+WELCOME-0034	Welcome document	Markdown source line				Needs review		
+WELCOME-0035	Welcome document	Markdown source line	Use dashes or asterisks for a bulleted list:	Usa guiones o asteriscos para crear una lista con viñetas:		Needs review		
+WELCOME-0036	Welcome document	Markdown source line				Needs review		
+WELCOME-0037	Welcome document	Markdown source line	- First idea	- Primera idea		Needs review		
+WELCOME-0038	Welcome document	Markdown source line	- Second idea	- Segunda idea		Needs review		
+WELCOME-0039	Welcome document	Markdown source line	- Third idea	- Tercera idea		Needs review		
+WELCOME-0040	Welcome document	Markdown source line				Needs review		
+WELCOME-0041	Welcome document	Markdown source line	Use numbers for a sequence:	Usa números para indicar una secuencia:		Needs review		
+WELCOME-0042	Welcome document	Markdown source line				Needs review		
+WELCOME-0043	Welcome document	Markdown source line	1. Draft the document	1. Redacta el documento		Needs review		
+WELCOME-0044	Welcome document	Markdown source line	2. Review the text	2. Revisa el texto		Needs review		
+WELCOME-0045	Welcome document	Markdown source line	3. Share the finished file	3. Comparte el archivo final		Needs review		
+WELCOME-0046	Welcome document	Markdown source line				Needs review		
+WELCOME-0047	Welcome document	Markdown source line	When Automatic Lists is enabled, pressing Return continues the current list. Press Return on an empty list item to end the list.	Cuando Listas automáticas está activado, al pulsar Retorno continúa la lista actual. Pulsa Retorno en un elemento de lista vacío para terminar la lista.		Needs review		
+WELCOME-0048	Welcome document	Markdown source line				Needs review		
+WELCOME-0049	Welcome document	Markdown source line	You can also create a task list:	También puedes crear una lista de tareas:		Needs review		
+WELCOME-0050	Welcome document	Markdown source line				Needs review		
+WELCOME-0051	Welcome document	Markdown source line	- [x] Learn the basics	- [x] Aprende los conceptos básicos		Needs review		
+WELCOME-0052	Welcome document	Markdown source line	- [ ] Write something interesting	- [ ] Escribe algo interesante		Needs review		
+WELCOME-0053	Welcome document	Markdown source line	- [ ] Render the finished document	- [ ] Renderiza el documento final		Needs review		
+WELCOME-0054	Welcome document	Markdown source line				Needs review		
+WELCOME-0055	Welcome document	Markdown source line	## Add Emphasis	## Añade énfasis		Needs review		
+WELCOME-0056	Welcome document	Markdown source line				Needs review		
+WELCOME-0057	Welcome document	Markdown source line	Wrap text in single asterisks for emphasis:	Rodea el texto con un solo asterisco para darle énfasis:		Needs review		
+WELCOME-0058	Welcome document	Markdown source line				Needs review		
+WELCOME-0059	Welcome document	Markdown source line	*This text is italicized when rendered.*	*Este texto aparece en cursiva al renderizarse.*		Needs review		
+WELCOME-0060	Welcome document	Markdown source line				Needs review		
+WELCOME-0061	Welcome document	Markdown source line	Use two asterisks for strong emphasis:	Usa dos asteriscos para darle énfasis fuerte:		Needs review		
+WELCOME-0062	Welcome document	Markdown source line				Needs review		
+WELCOME-0063	Welcome document	Markdown source line	**This text is bold when rendered.**	**Este texto aparece en negrita al renderizarse.**		Needs review		
+WELCOME-0064	Welcome document	Markdown source line				Needs review		
+WELCOME-0065	Welcome document	Markdown source line	Use two tildes on each side to mark something as removed or no longer applicable:	Usa dos virgulillas a cada lado para marcar algo como eliminado o que ya no se aplica:		Needs review		
+WELCOME-0066	Welcome document	Markdown source line				Needs review		
+WELCOME-0067	Welcome document	Markdown source line	~~This plan has changed.~~	~~Este plan ha cambiado.~~		Needs review		
+WELCOME-0068	Welcome document	Markdown source line				Needs review		
+WELCOME-0069	Welcome document	Markdown source line	Use emphasis when it adds meaning. A clear sentence is usually more helpful than decorating every important word.	Usa el énfasis cuando aporte significado. Una frase clara suele ser más útil que decorar cada palabra importante.		Needs review		
+WELCOME-0070	Welcome document	Markdown source line				Needs review		
+WELCOME-0071	Welcome document	Markdown source line	## Create Links and Images	## Crea enlaces e imágenes		Needs review		
+WELCOME-0072	Welcome document	Markdown source line				Needs review		
+WELCOME-0073	Welcome document	Markdown source line	Put the visible link text in square brackets and the address in parentheses:	Escribe el texto visible del enlace entre corchetes y la dirección entre paréntesis:		Needs review		
+WELCOME-0074	Welcome document	Markdown source line				Needs review		
+WELCOME-0075	Welcome document	Markdown source line	[Visit the ghostWriter website](https://marconius.com/fun/ghostWriter/)	[Visita el sitio web de ghostWriter](https://marconius.com/fun/ghostWriter/)		Needs review		
+WELCOME-0076	Welcome document	Markdown source line				Needs review		
+WELCOME-0077	Welcome document	Markdown source line	An image uses similar syntax with an exclamation mark at the beginning:	Una imagen utiliza una sintaxis parecida, con un signo de exclamación al principio:		Needs review		
+WELCOME-0078	Welcome document	Markdown source line				Needs review		
+WELCOME-0079	Welcome document	Markdown source line	`![A useful description of the image](https://example.com/image.jpg)`	`![Una descripción útil de la imagen](https://example.com/image.jpg)`		Needs review		
+WELCOME-0080	Welcome document	Markdown source line				Needs review		
+WELCOME-0081	Welcome document	Markdown source line	The description inside the square brackets is alternative text. Describe what matters in the image so someone who cannot see it receives the same useful information.	La descripción entre corchetes es el texto alternativo. Describe lo importante de la imagen para que una persona que no pueda verla reciba la misma información útil.		Needs review		
+WELCOME-0082	Welcome document	Markdown source line				Needs review		
+WELCOME-0083	Welcome document	Markdown source line	To mark an attached SVG, PNG, or JPG as a tactile graphic, add the exact title tactile: `![Tactile map](map.svg "tactile")`	Para marcar un archivo SVG, PNG o JPG adjunto como gráfico táctil, añade el título exacto tactile: `![Mapa táctil](map.svg "tactile")`		Needs review		
+WELCOME-0084	Welcome document	Markdown source line				Needs review		
+WELCOME-0085	Welcome document	Markdown source line	An image address can refer to an attached file or a file on the web. Rendering an external image may contact the server that hosts it.	La dirección de una imagen puede apuntar a un archivo adjunto o a un archivo de internet. Renderizar una imagen externa puede ponerse en contacto con el servidor que la aloja.		Needs review		
+WELCOME-0086	Welcome document	Markdown source line				Needs review		
+WELCOME-0087	Welcome document	Markdown source line	## Quote Someone	## Cita a alguien		Needs review		
+WELCOME-0088	Welcome document	Markdown source line				Needs review		
+WELCOME-0089	Welcome document	Markdown source line	Begin a line with a greater-than sign to create a block quote:	Empieza una línea con el signo mayor que para crear una cita en bloque:		Needs review		
+WELCOME-0090	Welcome document	Markdown source line				Needs review		
+WELCOME-0091	Welcome document	Markdown source line	> Good writing begins with something worth saying.	> La buena escritura comienza con algo que vale la pena decir.		Needs review		
+WELCOME-0092	Welcome document	Markdown source line				Needs review		
+WELCOME-0093	Welcome document	Markdown source line	Quotes can contain multiple lines and other Markdown elements.	Las citas pueden contener varias líneas y otros elementos de Markdown.		Needs review		
+WELCOME-0094	Welcome document	Markdown source line				Needs review		
+WELCOME-0095	Welcome document	Markdown source line	## Separate Ideas	## Separa ideas		Needs review		
+WELCOME-0096	Welcome document	Markdown source line				Needs review		
+WELCOME-0097	Welcome document	Markdown source line	Three dashes on a line by themselves create a horizontal rule:	Tres guiones solos en una línea crean una regla horizontal:		Needs review		
+WELCOME-0098	Welcome document	Markdown source line				Needs review		
+WELCOME-0099	Welcome document	Markdown source line	---	---		Needs review		
+WELCOME-0100	Welcome document	Markdown source line				Needs review		
+WELCOME-0101	Welcome document	Markdown source line	A horizontal rule marks a change of subject or a meaningful break between sections.	Una regla horizontal marca un cambio de tema o una separación significativa entre secciones.		Needs review		
+WELCOME-0102	Welcome document	Markdown source line				Needs review		
+WELCOME-0103	Welcome document	Markdown source line	## Show Code or Literal Text	## Muestra código o texto literal		Needs review		
+WELCOME-0104	Welcome document	Markdown source line				Needs review		
+WELCOME-0105	Welcome document	Markdown source line	Use a backtick around a short piece of code or text that should be treated literally, such as `Command-S`.	Usa una comilla invertida alrededor de un fragmento corto de código o texto que deba tratarse de forma literal, como `Comando-S`.		Needs review		
+WELCOME-0106	Welcome document	Markdown source line				Needs review		
+WELCOME-0107	Welcome document	Markdown source line	Use three backticks before and after a longer code sample:	Usa tres comillas invertidas antes y después de un ejemplo de código más largo:		Needs review		
+WELCOME-0108	Welcome document	Markdown source line				Needs review		
+WELCOME-0109	Welcome document	Markdown source line	```swift	```swift		Needs review		
+WELCOME-0110	Welcome document	Markdown source line	let appName = "ghostWriter Markdown"	let appName = "ghostWriter Markdown"		Needs review		
+WELCOME-0111	Welcome document	Markdown source line	print(appName)	print(appName)		Needs review		
+WELCOME-0112	Welcome document	Markdown source line	```	```		Needs review		
+WELCOME-0113	Welcome document	Markdown source line				Needs review		
+WELCOME-0114	Welcome document	Markdown source line	You can optionally put a language name after the opening backticks.	Puedes añadir de forma opcional el nombre de un lenguaje después de las comillas invertidas iniciales.		Needs review		
+WELCOME-0115	Welcome document	Markdown source line				Needs review		
+WELCOME-0116	Welcome document	Markdown source line	## Build a Table	## Crea una tabla		Needs review		
+WELCOME-0117	Welcome document	Markdown source line				Needs review		
+WELCOME-0118	Welcome document	Markdown source line	Use pipes between cells and a row of dashes beneath the column headings:	Usa barras verticales entre las celdas y una fila de guiones debajo de los encabezados de columna:		Needs review		
+WELCOME-0119	Welcome document	Markdown source line				Needs review		
+WELCOME-0120	Welcome document	Markdown source line	| Feature | What It Does |	| Función | Qué hace |		Needs review		
+WELCOME-0121	Welcome document	Markdown source line	| --- | --- |	| --- | --- |		Needs review		
+WELCOME-0122	Welcome document	Markdown source line	| Insert | Adds Markdown elements |	| Insertar | Añade elementos de Markdown |		Needs review		
+WELCOME-0123	Welcome document	Markdown source line	| Outline | Lists document headings |	| Esquema | Enumera los encabezados del documento |		Needs review		
+WELCOME-0124	Welcome document	Markdown source line	| Render | Shows formatted output |	| Renderizar | Muestra el resultado con formato |		Needs review		
+WELCOME-0125	Welcome document	Markdown source line	| File Actions | Opens document commands |	| Acciones de archivo | Abre los comandos del documento |		Needs review		
+WELCOME-0126	Welcome document	Markdown source line				Needs review		
+WELCOME-0127	Welcome document	Markdown source line	Meaningful column headings help everyone understand a table, including people navigating it with a screen reader.	Los encabezados de columna con significado ayudan a todo el mundo a entender una tabla, incluidas las personas que navegan por ella con un lector de pantalla.		Needs review		
+WELCOME-0128	Welcome document	Markdown source line				Needs review		
+WELCOME-0129	Welcome document	Markdown source line	Insert can build this structure for you. Choose the number of columns and rows, and then replace the generated column names and empty cells with your own content.	Insertar puede crear esta estructura por ti. Elige el número de columnas y filas y, después, sustituye los nombres de columna generados y las celdas vacías por tu propio contenido.		Needs review		
+WELCOME-0130	Welcome document	Markdown source line				Needs review		
+WELCOME-0131	Welcome document	Markdown source line	## Use the Editor	## Usa el editor		Needs review		
+WELCOME-0132	Welcome document	Markdown source line				Needs review		
+WELCOME-0133	Welcome document	Markdown source line	The editor keeps the Markdown punctuation visible so you always control the source text.	El editor mantiene visible la puntuación de Markdown para que siempre controles el texto de origen.		Needs review		
+WELCOME-0134	Welcome document	Markdown source line				Needs review		
+WELCOME-0135	Welcome document	Markdown source line	- Insert adds headings, links, lists, tables, quotes, code, and other elements.	- Insertar añade encabezados, enlaces, listas, tablas, citas, código y otros elementos.		Needs review		
+WELCOME-0136	Welcome document	Markdown source line	- Outline lists your headings and lets you jump directly to one.	- Esquema enumera tus encabezados y te permite ir directamente a uno.		Needs review		
+WELCOME-0137	Welcome document	Markdown source line	- Render opens the formatted version of your document.	- Renderizar abre la versión con formato del documento.		Needs review		
+WELCOME-0138	Welcome document	Markdown source line	- File Actions provides saving, sharing, renaming, navigation, and the Markdown Reference.	- Acciones de archivo ofrece opciones para guardar, compartir, cambiar el nombre, navegar y consultar la Referencia de Markdown.		Needs review		
+WELCOME-0139	Welcome document	Markdown source line				Needs review		
+WELCOME-0140	Welcome document	Markdown source line	ghostWriter saves automatically after you pause typing and when the app moves into the background. Save Now requests an immediate save.	ghostWriter guarda automáticamente después de que dejes de escribir durante un momento y cuando la aplicación pasa a segundo plano. Guardar ahora solicita que se guarde de inmediato.		Needs review		
+WELCOME-0141	Welcome document	Markdown source line				Needs review		
+WELCOME-0142	Welcome document	Markdown source line	## Your Documents and iCloud	## Tus documentos e iCloud		Needs review		
+WELCOME-0143	Welcome document	Markdown source line				Needs review		
+WELCOME-0144	Welcome document	Markdown source line	Documents are stored On This Device unless you choose iCloud Drive in Settings.	Los documentos se guardan en En este dispositivo, a menos que elijas iCloud Drive en Ajustes.		Needs review		
+WELCOME-0145	Welcome document	Markdown source line				Needs review		
+WELCOME-0146	Welcome document	Markdown source line	When iCloud Drive is enabled, the files remain ordinary Markdown documents inside the ghostWriter Markdown folder. You can open and edit them from another compatible app or device.	Cuando iCloud Drive está activado, los archivos siguen siendo documentos Markdown normales dentro de la carpeta ghostWriter Markdown. Puedes abrirlos y editarlos desde otra aplicación o dispositivo compatible.		Needs review		
+WELCOME-0147	Welcome document	Markdown source line				Needs review		
+WELCOME-0148	Welcome document	Markdown source line	## Try It Yourself	## Pruébalo		Needs review		
+WELCOME-0149	Welcome document	Markdown source line				Needs review		
+WELCOME-0150	Welcome document	Markdown source line	Here are a few ideas for exploring this document:	Aquí tienes algunas ideas para explorar este documento:		Needs review		
+WELCOME-0151	Welcome document	Markdown source line				Needs review		
+WELCOME-0152	Welcome document	Markdown source line	- [ ] Change a sentence	- [ ] Cambia una frase		Needs review		
+WELCOME-0153	Welcome document	Markdown source line	- [ ] Add a new section	- [ ] Añade una sección nueva		Needs review		
+WELCOME-0154	Welcome document	Markdown source line	- [ ] Insert a link	- [ ] Inserta un enlace		Needs review		
+WELCOME-0155	Welcome document	Markdown source line	- [ ] Open Outline	- [ ] Abre Esquema		Needs review		
+WELCOME-0156	Welcome document	Markdown source line	- [ ] Render the document	- [ ] Renderiza el documento		Needs review		
+WELCOME-0157	Welcome document	Markdown source line	- [ ] Duplicate it from File Actions	- [ ] Duplícalo desde Acciones de archivo		Needs review		
+WELCOME-0158	Welcome document	Markdown source line				Needs review		
+WELCOME-0159	Welcome document	Markdown source line	You now know enough Markdown to begin writing. The rest can wait until you need it.	Ya sabes suficiente Markdown para empezar a escribir. El resto puede esperar hasta que lo necesites.		Needs review		
+WELCOME-0160	Welcome document	Markdown source line				Needs review		

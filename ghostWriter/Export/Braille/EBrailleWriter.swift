@@ -34,7 +34,8 @@ nonisolated enum EBrailleWriter {
         markdown: String,
         metadata: EBrailleMetadata,
         translator: BrailleTranslator,
-        sourceDirectory: URL? = nil
+        sourceDirectory: URL? = nil,
+        documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) async throws -> Data {
         if let message = metadata.validationMessage {
             throw EBrailleExportError.invalidMetadata(message)
@@ -49,10 +50,10 @@ nonisolated enum EBrailleWriter {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let bookTitle = trimmedTitle.isEmpty ? "Document" : trimmedTitle
 
-        // The UEB table establishes English braille. Device region is not
-        // evidence about the document or its intended audience, so do not add
-        // a regional claim that the author never made.
-        let language = BrailleLanguageTag.brailleTag(from: metadata.grade.languageTag)
+        let language = BrailleLanguageTag.brailleTag(
+            from: metadata.grade.languageTag,
+            regionFrom: documentLanguage
+        )
         let identifier = "urn:uuid:\(UUID().uuidString.lowercased())"
 
         // Every piece of readable text is translated up front. Doing it here,
@@ -64,6 +65,7 @@ nonisolated enum EBrailleWriter {
             from: document,
             title: bookTitle,
             grade: metadata.grade,
+            language: metadata.grade.languageTag,
             translator: translator
         )
 
@@ -171,11 +173,12 @@ nonisolated enum EBrailleWriter {
             from document: ExportDocument,
             title: String,
             grade: BrailleGrade,
+            language: String,
             translator: BrailleTranslator
         ) async throws {
             var inputs = Set<BrailleTranslationInput>()
             inputs.insert(BrailleTranslationInput(text: title))
-            Self.collect(document.blocks, into: &inputs)
+            Self.collect(document.blocks, language: language, into: &inputs)
 
             for input in inputs {
                 // Translate the string as it stands, not a trimmed copy.
@@ -204,6 +207,7 @@ nonisolated enum EBrailleWriter {
 
         private static func collect(
             _ blocks: [ExportBlock],
+            language: String,
             into inputs: inout Set<BrailleTranslationInput>
         ) {
             for block in blocks {
@@ -219,10 +223,10 @@ nonisolated enum EBrailleWriter {
                             inputs.insert(BrailleTranslationInput(text: "\(list.start + offset)."))
                         }
                         if let state = item.taskState {
-                            inputs.insert(BrailleTranslationInput(text: state.spokenPrefix))
+                            inputs.insert(BrailleTranslationInput(text: state.spokenPrefix(for: language)))
                         }
                         collect(inline: item.content, into: &inputs)
-                        collect(item.children, into: &inputs)
+                        collect(item.children, language: language, into: &inputs)
                     }
                 case .table(let table):
                     for cell in table.headers { collect(inline: cell, into: &inputs) }
@@ -230,7 +234,7 @@ nonisolated enum EBrailleWriter {
                         for cell in row { collect(inline: cell, into: &inputs) }
                     }
                 case .blockQuote(let children):
-                    collect(children, into: &inputs)
+                    collect(children, language: language, into: &inputs)
                 case .codeBlock(_, let code):
                     inputs.insert(styledInput(code, adding: .noContract))
                 case .thematicBreak:
@@ -468,7 +472,7 @@ nonisolated enum EBrailleWriter {
         <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id" xml:lang="\(escape(language))" prefix="a11y: http://www.idpf.org/epub/vocab/package/a11y/# dcterms: http://purl.org/dc/terms/">
         <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
         <dc:identifier id="pub-id">\(escape(identifier))</dc:identifier>
-        <dc:title xml:lang="en">\(escape(title))</dc:title>
+        <dc:title xml:lang="\(escape(language))">\(escape(title))</dc:title>
         <dc:creator>\(escape(metadata.effectiveCreator))</dc:creator>
         <dc:language>\(escape(language))</dc:language>
         <dc:format>\(EBrailleMetadata.formatIdentifier)</dc:format>
@@ -486,7 +490,7 @@ nonisolated enum EBrailleWriter {
         <meta property="schema:accessibilityFeature">structuralNavigation</meta>
         <meta property="schema:accessibilityFeature">tableOfContents</meta>
         <meta property="schema:accessibilityHazard">none</meta>
-        <meta property="schema:accessibilitySummary">Unified English Braille document with semantic headings, lists, links, and table markup, generated from Markdown.</meta>
+        <meta property="schema:accessibilitySummary">\(escape(accessibilitySummary(for: metadata.grade)))</meta>
         </metadata>
         <manifest>
         <item id="nav" href="index.html" media-type="application/xhtml+xml" properties="nav"/>
@@ -499,6 +503,13 @@ nonisolated enum EBrailleWriter {
         </spine>
         </package>
         """
+    }
+
+    private static func accessibilitySummary(for grade: BrailleGrade) -> String {
+        if grade.languageTag == "es" {
+            return "Documento en braille español con encabezados semánticos, listas, enlaces y marcado de tablas, generado a partir de Markdown."
+        }
+        return "Unified English Braille document with semantic headings, lists, links, and table markup, generated from Markdown."
     }
 
     private static func navigationDocument(
@@ -580,7 +591,8 @@ nonisolated enum EBrailleWriter {
     ) -> String {
         var builder = ContentBuilder(
             translations: translations,
-            imageResources: imageResources
+            imageResources: imageResources,
+            language: documentLanguageForBrailleTag(language)
         )
         var body = ""
 
@@ -618,6 +630,7 @@ nonisolated enum EBrailleWriter {
     private struct ContentBuilder {
         let translations: TranslationTable
         let imageResources: EPUBWriter.ImageResources
+        let language: String
         var headingCounter = 0
 
         mutating func render(_ blocks: [ExportBlock]) -> String {
@@ -687,7 +700,7 @@ nonisolated enum EBrailleWriter {
                 output += Self.brailleSpace
 
                 if let state = item.taskState {
-                    output += escape(translations(state.spokenPrefix)) + Self.brailleSpace
+                    output += escape(translations(state.spokenPrefix(for: language))) + Self.brailleSpace
                 }
                 output += inline(item.content)
                 if !item.children.isEmpty {
@@ -797,6 +810,10 @@ nonisolated enum EBrailleWriter {
         }
     }
 
+    private static func documentLanguageForBrailleTag(_ tag: String) -> String {
+        tag.split(separator: "-").first.map(String.init) ?? "en"
+    }
+
     private static func escape(_ text: String) -> String {
         EPUBWriter.escape(text)
     }
@@ -814,15 +831,15 @@ nonisolated enum EBrailleExportError: LocalizedError, Equatable, Sendable {
         switch self {
         case .invalidMetadata(let message): return message
         case .tactileGraphicNeedsDescription(let source):
-            return "Add a description to the tactile graphic \(source) before exporting."
+            return String(localized: "Add a description to the tactile graphic \(source) before exporting.")
         case .missingTactileGraphic(let source):
-            return "The tactile graphic \(source) could not be found or read. Attach it again before exporting."
+            return String(localized: "The tactile graphic \(source) could not be found or read. Attach it again before exporting.")
         case .unsupportedTactileGraphic(let source):
-            return "The tactile graphic \(source) is not an SVG, PNG, or JPG file."
+            return String(localized: "The tactile graphic \(source) is not an SVG, PNG, or JPG file.")
         case .invalidTactileGraphic(let source):
-            return "The tactile graphic \(source) is not a valid SVG, PNG, or JPG file. Attach it again before exporting."
+            return String(localized: "The tactile graphic \(source) is not a valid SVG, PNG, or JPG file. Attach it again before exporting.")
         case .unsafeTactileSVG(let source):
-            return "The tactile SVG \(source) contains active or external content and cannot be shared safely."
+            return String(localized: "The tactile SVG \(source) contains active or external content and cannot be shared safely.")
         }
     }
 }

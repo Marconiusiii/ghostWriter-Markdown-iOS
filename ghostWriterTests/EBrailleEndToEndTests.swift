@@ -89,4 +89,37 @@ struct EBrailleEndToEndTests {
 
         #expect(grade2Cells < grade1Cells)
     }
+
+    @Test func spanishBrailleCarriesSpanishMetadataAndNoPrintText() async throws {
+        let data = try await EBrailleWriter.write(
+            title: "Canción del niño",
+            markdown: "# Canción del niño\n\n¿Dónde está el corazón?",
+            metadata: EBrailleMetadata(
+                creator: "María",
+                transcriber: "María",
+                grade: .spanishGrade1,
+                copyrightYear: "2026"
+            ),
+            translator: LiblouisBridge.shared,
+            documentLanguage: "es-MX"
+        )
+
+        let archive = try Archive(data: data, accessMode: .read)
+        var package = ""
+        var content = ""
+        for entry in archive where ["package.opf", "content.xhtml"].contains(entry.path) {
+            var bytes = Data()
+            _ = try archive.extract(entry) { bytes.append($0) }
+            if entry.path == "package.opf" {
+                package = String(decoding: bytes, as: UTF8.self)
+            } else {
+                content = String(decoding: bytes, as: UTF8.self)
+            }
+        }
+
+        #expect(package.contains("<dc:language>es-Brai-MX</dc:language>"))
+        #expect(package.contains("<meta property=\"a11y:brailleSystem\">Spanish grade1</meta>"))
+        #expect(!content.contains("corazón"))
+        #expect(content.unicodeScalars.contains { (0x2800...0x28FF).contains($0.value) })
+    }
 }

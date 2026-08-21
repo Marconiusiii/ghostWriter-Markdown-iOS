@@ -34,37 +34,37 @@ enum MarkdownInsertionCommand: Equatable {
     var confirmation: String {
         switch self {
         case .heading(let level):
-            return "Heading level \(min(max(1, level), 6)) applied."
+            return String(localized: "Heading level \(min(max(1, level), 6)) applied.")
         case .link:
-            return "Link created."
+            return String(localized: "Link created.")
         case .image:
-            return "Image created."
+            return String(localized: "Image created.")
         case .tactileGraphic:
-            return "Tactile graphic attached."
+            return String(localized: "Tactile graphic attached.")
         case .bold:
-            return "Bold applied."
+            return String(localized: "Bold applied.")
         case .italic:
-            return "Italics applied."
+            return String(localized: "Italics applied.")
         case .strikethrough:
-            return "Strikethrough applied."
+            return String(localized: "Strikethrough applied.")
         case .inlineCode:
-            return "Inline code applied."
+            return String(localized: "Inline code applied.")
         case .codeBlock:
-            return "Code block created."
+            return String(localized: "Code block created.")
         case .bulletedList:
-            return "Bulleted list created."
+            return String(localized: "Bulleted list created.")
         case .numberedList:
-            return "Numbered list created."
+            return String(localized: "Numbered list created.")
         case .taskList:
-            return "Task list created."
+            return String(localized: "Task list created.")
         case .table(let columns, let rows):
             let safeColumns = min(max(1, columns), 12)
             let safeRows = min(max(2, rows), 20)
-            return "Table created, \(safeColumns) columns and \(safeRows) rows."
+            return String(localized: "Table created, \(safeColumns) columns and \(safeRows) rows.")
         case .blockQuote:
-            return "Block quote applied."
+            return String(localized: "Block quote applied.")
         case .horizontalRule:
-            return "Horizontal rule inserted."
+            return String(localized: "Horizontal rule inserted.")
         }
     }
 }

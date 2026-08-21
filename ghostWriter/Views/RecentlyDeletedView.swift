@@ -209,7 +209,9 @@ struct RecentlyDeletedView: View {
 
     private var countDescription: String {
         let count = deletedItems.count
-        return "\(count) \(count == 1 ? "deleted item" : "deleted items")"
+        return count == 1
+            ? String(localized: "1 deleted item")
+            : String(localized: "\(count) deleted items")
     }
 
     private func restore(_ item: DeletedLibraryItem) {

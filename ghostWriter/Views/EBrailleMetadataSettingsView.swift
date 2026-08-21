@@ -38,15 +38,15 @@ struct EBrailleMetadataSettingsView: View {
             in: .whitespacesAndNewlines
         )
         guard !entered.isEmpty else {
-            return "Enter a year, a year and month, or a full date."
+            return String(localized: "Enter a year, a year and month, or a full date.")
         }
         guard let normalized = EBrailleMetadata.normalizedCopyrightDate(entered) else {
-            return "Enter a year, a year and month, or a full date."
+            return String(localized: "Enter a year, a year and month, or a full date.")
         }
         guard normalized != entered else {
-            return "Used as the copyright date in new exports."
+            return String(localized: "Used as the copyright date in new exports.")
         }
-        return "New exports will use \(normalized)."
+        return String(localized: "New exports will use \(normalized).")
     }
 
     var body: some View {
@@ -54,7 +54,7 @@ struct EBrailleMetadataSettingsView: View {
 
         Form {
             Section {
-                LabeledContent("Braille grade") {
+                LabeledContent("Preferred braille code") {
                     Picker(selection: $settings.eBrailleGrade) {
                         ForEach(BrailleGrade.allCases) { grade in
                             Text(grade.displayName).tag(grade)

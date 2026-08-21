@@ -26,9 +26,9 @@ nonisolated enum DocumentMigrationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .sameLocation:
-            return "The source and destination libraries are the same."
+            return String(localized: "The source and destination libraries are the same.")
         case .couldNotVerify(let fileName):
-            return "ghostWriter could not verify \(fileName) after copying it."
+            return String(localized: "ghostWriter could not verify \(fileName) after copying it.")
         }
     }
 }

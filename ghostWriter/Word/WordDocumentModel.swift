@@ -81,17 +81,17 @@ nonisolated enum WordConversionError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .invalidPackage:
-            return "The selected file is not a valid Word document."
+            return String(localized: "The selected file is not a valid Word document.")
         case .missingDocument:
-            return "The Word document does not contain readable document content."
+            return String(localized: "The Word document does not contain readable document content.")
         case .oversizedDocument:
-            return "The Word document is too large to import safely."
+            return String(localized: "The Word document is too large to import safely.")
         case .unsupportedEncryptedDocument:
-            return "Password-protected Word documents cannot be imported."
+            return String(localized: "Password-protected Word documents cannot be imported.")
         case .invalidXML(let part):
-            return "The Word document contains unreadable \(part)."
+            return String(localized: "The Word document contains unreadable \(part).")
         case .couldNotCreateDocument:
-            return "The Word document could not be created."
+            return String(localized: "The Word document could not be created.")
         }
     }
 }

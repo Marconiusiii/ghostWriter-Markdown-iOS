@@ -42,8 +42,8 @@ struct BRFOptionsView: View {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .standard: return "Standard BRF page (40 by 25)"
-            case .custom: return "Custom display layout"
+            case .standard: return String(localized: "Standard BRF page (40 by 25)")
+            case .custom: return String(localized: "Custom display layout")
             }
         }
     }
@@ -54,12 +54,16 @@ struct BRFOptionsView: View {
 
     init(
         settings: AppSettings,
+        documentLanguage: String,
         onCancel: @escaping () -> Void,
         onExport: @escaping (BRFExportOptions) -> Void
     ) {
         self.onCancel = onCancel
         self.onExport = onExport
-        _grade = State(initialValue: settings.eBrailleGrade)
+        _grade = State(initialValue: BrailleGrade.suggested(
+            for: documentLanguage,
+            englishDefault: settings.eBrailleGrade
+        ))
         _layout = State(
             initialValue: settings.brfCellsPerLine == 40
                 && settings.brfLinesPerPage == 25 ? .standard : .custom
@@ -72,7 +76,7 @@ struct BRFOptionsView: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("Braille grade") {
+                    LabeledContent("Braille code") {
                         Picker(selection: $grade) {
                             ForEach(BrailleGrade.allCases) { grade in
                                 Text(grade.displayName).tag(grade)

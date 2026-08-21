@@ -34,7 +34,8 @@ nonisolated enum BRFWriter {
         title: String,
         grade: BrailleGrade,
         pageSetup: PageSetup = .standard,
-        translator: BrailleTranslator
+        translator: BrailleTranslator,
+        documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) async throws -> Data {
         let document = MarkdownDocumentParser.parse(markdown)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -134,7 +135,10 @@ nonisolated enum BRFWriter {
                 var parts: [String] = []
                 if let state = item.taskState {
                     parts.append(try asciiBraille(
-                        try await translator.translate(state.spokenPrefix, grade: grade)
+                        try await translator.translate(
+                            state.spokenPrefix(for: grade.languageTag),
+                            grade: grade
+                        )
                     ))
                 }
                 let itemText = try await translate(
@@ -225,7 +229,12 @@ nonisolated enum BRFWriter {
             )
             for (rowIndex, row) in table.rows.enumerated() {
                 let rowHeading = try asciiBraille(
-                    try await translator.translate("Row \(rowIndex + 1)", grade: grade)
+                    try await translator.translate(
+                        grade.languageTag == "es"
+                            ? "Fila \(rowIndex + 1)"
+                            : "Row \(rowIndex + 1)",
+                        grade: grade
+                    )
                 )
                 out += wrapped(rowHeading, width: width, start: 0, runover: 2)
                 var cells: [String] = []
@@ -266,7 +275,12 @@ nonisolated enum BRFWriter {
                 result += try asciiBraille(try await translator.translate(input, grade: grade))
             case .image(let image):
                 if let alternative = image.alternativeText {
-                    let prefix = image.isTactile ? "Tactile graphic: " : "Image: "
+                    let prefix: String
+                    if grade.languageTag == "es" {
+                        prefix = image.isTactile ? "Gráfico táctil: " : "Imagen: "
+                    } else {
+                        prefix = image.isTactile ? "Tactile graphic: " : "Image: "
+                    }
                     let description = try asciiBraille(
                         try await translator.translate(prefix + alternative, grade: grade)
                     )
@@ -515,9 +529,9 @@ nonisolated enum BRFExportError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .eightDotBrailleNotRepresentable:
-            return "The translation contains eight-dot braille, which cannot be represented safely in BRF."
+            return String(localized: "The translation contains eight-dot braille, which cannot be represented safely in BRF.")
         case .unexpectedCharacter(let value):
-            return "The translation contains a character that cannot be represented in BRF (Unicode \(String(value, radix: 16).uppercased()))."
+            return String(localized: "The translation contains a character that cannot be represented in BRF (Unicode \(String(value, radix: 16).uppercased())).")
         }
     }
 }

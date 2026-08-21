@@ -16,8 +16,8 @@ enum MarkdownInsertionKind: String, Identifiable {
 
     var title: String {
         switch self {
-        case .link: return "Insert Link"
-        case .image: return "Insert Image"
+        case .link: return String(localized: "Insert Link")
+        case .image: return String(localized: "Insert Image")
         }
     }
 }
@@ -231,9 +231,9 @@ struct MarkdownInsertionView: View {
     private var instructions: String {
         switch kind {
         case .link:
-            return "Enter the link text and full address, such as https://example.com."
+            return String(localized: "Enter the link text and full address, such as https://example.com.")
         case .image:
-            return "Enter alternative text and the full image address, such as https://example.com/photo.jpg. Leave alternative text empty only when the image is decorative."
+            return String(localized: "Enter alternative text and the full image address, such as https://example.com/photo.jpg. Leave alternative text empty only when the image is decorative.")
         }
     }
 

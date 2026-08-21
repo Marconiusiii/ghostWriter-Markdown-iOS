@@ -47,6 +47,7 @@ import SwiftUI
 
 struct EBrailleOptionsView: View {
     let documentTitle: String
+    let documentLanguage: String
     let onCancel: () -> Void
     let onExport: (EBrailleMetadata) -> Void
 
@@ -94,23 +95,28 @@ struct EBrailleOptionsView: View {
         let trimmed = copyrightYear.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         guard let normalized = EBrailleMetadata.normalizedCopyrightDate(trimmed) else {
-            return "Enter a year, a year and month, or a full date."
+            return String(localized: "Enter a year, a year and month, or a full date.")
         }
         guard normalized != trimmed else { return nil }
-        return "The file will record this as \(normalized)."
+        return String(localized: "The file will record this as \(normalized).")
     }
 
     init(
         settings: AppSettings,
         documentTitle: String,
+        documentLanguage: String,
         onCancel: @escaping () -> Void,
         onExport: @escaping (EBrailleMetadata) -> Void
     ) {
         self.documentTitle = documentTitle
+        self.documentLanguage = documentLanguage
         self.onCancel = onCancel
         self.onExport = onExport
         let defaults = settings.eBrailleMetadataDefaults
-        _grade = State(initialValue: defaults.grade)
+        _grade = State(initialValue: BrailleGrade.suggested(
+            for: documentLanguage,
+            englishDefault: defaults.grade
+        ))
         _creator = State(initialValue: defaults.creator)
         _transcriber = State(initialValue: defaults.transcriber)
         _copyrightYear = State(initialValue: defaults.copyrightYear)
@@ -129,7 +135,7 @@ struct EBrailleOptionsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("Creates a reflowable Unified English Braille document using the eBraille 1.0 format.")
+                    Text("Creates a reflowable braille document using the eBraille 1.0 format.")
                 }
 
                 // The title is not editable here — it comes from the document
@@ -148,7 +154,7 @@ struct EBrailleOptionsView: View {
                     // value truncating — and "(contracted)" versus
                     // "(uncontracted)" is the entire distinction being made,
                     // so it is the one word that must not be cut off.
-                    LabeledContent("Braille grade") {
+                    LabeledContent("Braille code") {
                         Picker(selection: $grade) {
                             ForEach(BrailleGrade.allCases) { grade in
                                 Text(grade.displayName).tag(grade)

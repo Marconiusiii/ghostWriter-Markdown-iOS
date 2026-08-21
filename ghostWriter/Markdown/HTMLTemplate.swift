@@ -22,6 +22,7 @@ enum HTMLTemplate {
     ///     the trait environment so the web view matches the rest of the app.
     static func document(
         title: String,
+        language: String = DocumentLanguage.resolvedTag(""),
         body: String,
         baseFontPointSize: CGFloat
     ) -> String {
@@ -31,7 +32,7 @@ enum HTMLTemplate {
 
         return """
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="\(MarkdownRenderer.escape(language))">
         <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -51,14 +52,18 @@ enum HTMLTemplate {
 
     /// A standalone document for export or sharing. Font sizing is left to the
     /// receiving application rather than pinned to this device's settings.
-    static func exportDocument(title: String, body: String) -> String {
+    static func exportDocument(
+        title: String,
+        language: String = DocumentLanguage.resolvedTag(""),
+        body: String
+    ) -> String {
         let content = body.isEmpty
             ? "<p class=\"empty-state\">This document is empty.</p>"
             : body
 
         return """
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="\(MarkdownRenderer.escape(language))">
         <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">

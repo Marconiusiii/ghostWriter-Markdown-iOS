@@ -963,7 +963,7 @@ struct LibraryView: View {
     }
 
     private var parentFolderName: String {
-        guard let currentFolderURL else { return "Documents" }
+        guard let currentFolderURL else { return String(localized: "Documents") }
         let parent = currentFolderURL.deletingLastPathComponent()
         return parent.standardizedFileURL == store.directory.standardizedFileURL
             ? "Documents"
@@ -978,7 +978,9 @@ struct LibraryView: View {
 
     private var recentlyDeletedCountDescription: String {
         let count = store.recentlyDeletedItems.count
-        return "\(count) \(count == 1 ? "item" : "items")"
+        return count == 1
+            ? String(localized: "1 item")
+            : String(localized: "\(count) items")
     }
 
     // MARK: - Actions
@@ -1316,7 +1318,7 @@ struct LibraryView: View {
             focusAfterPresentation = .document(document.url)
             showingShare = true
         } catch {
-            store.lastError = "Could not prepare \(document.displayName) for sharing. \(error.localizedDescription)"
+            store.lastError = String(localized: "Could not prepare \(document.displayName) for sharing. \(error.localizedDescription)")
         }
     }
 
@@ -1492,7 +1494,7 @@ struct LibraryView: View {
                 restoreFocus(to: .importDocument)
             } else {
                 focusAfterError = .importDocument
-                store.lastError = "Could not import the selected files. \(error.localizedDescription)"
+                store.lastError = String(localized: "Could not import the selected files. \(error.localizedDescription)")
             }
         }
     }

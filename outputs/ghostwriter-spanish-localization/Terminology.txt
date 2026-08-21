@@ -1,0 +1,18 @@
+ghostWriter terminology for Spanish review
+
+ghostWriter: ghostWriter. Product name; do not translate.
+Markdown: Markdown. Technology name; do not translate.
+Render: Renderizar. Use consistently for the app action.
+File Actions: Acciones de archivo. Name of the editor menu.
+Document language: Idioma del documento. Describes exported content, not the app interface.
+Braille code: Código braille. Includes language and contraction level.
+Unified English Braille: Braille inglés unificado.
+Spanish braille: Braille español.
+Grade 1: Grado 1. Uncontracted braille.
+Grade 2: Grado 2. Contracted braille.
+eBraille: eBraille. Format name; do not translate.
+Braille Ready Format: Formato Braille Ready. BRF format name.
+Recently Deleted: Eliminados recientemente.
+VoiceOver: VoiceOver. Apple product name; do not translate.
+
+The translator may replace a preferred term. Record that decision in the workbook so it can be applied consistently throughout the app.

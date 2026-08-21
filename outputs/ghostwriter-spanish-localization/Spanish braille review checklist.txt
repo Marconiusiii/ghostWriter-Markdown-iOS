@@ -1,0 +1,22 @@
+Spanish braille output review
+
+This review is separate from the interface translation review and should be completed by someone qualified to read Spanish braille.
+
+Review both Spanish braille choices:
+
+1. Spanish braille, grade 1 (uncontracted).
+2. Spanish braille, grade 2 (contracted).
+
+Use representative Spanish documents containing:
+
+- Accented vowels, including á, é, í, ó, and ú.
+- Ü and ñ in upper- and lowercase words.
+- Opening and closing question marks and exclamation marks.
+- Numbers, decimals, dates, and punctuation next to numbers.
+- Uppercase words, abbreviations, and mixed letters and numbers.
+- Headings, paragraphs, emphasis, lists, task lists, links, and tables.
+- Page wrapping and page breaks in BRF.
+
+For eBraille, also confirm that the title, document language, headings, navigation, task states, links, tables, and any tactile-graphic descriptions are meaningful in Spanish.
+
+Record the selected braille code, the source sentence, the observed braille, the expected braille, and a short explanation for every issue.

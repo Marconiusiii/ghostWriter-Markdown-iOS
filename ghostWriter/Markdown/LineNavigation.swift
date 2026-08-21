@@ -15,18 +15,18 @@ enum LineNavigationError: Error, Equatable {
     var title: String {
         switch self {
         case .invalidEntry:
-            return "Enter a Line Number"
+            return String(localized: "Enter a Line Number")
         case .lineDoesNotExist:
-            return "Line Does Not Exist"
+            return String(localized: "Line Does Not Exist")
         }
     }
 
     var message: String {
         switch self {
         case .invalidEntry(let lineCount):
-            return "Enter a whole number from 1 through \(lineCount)."
+            return String(localized: "Enter a whole number from 1 through \(lineCount).")
         case .lineDoesNotExist(let requested, let lineCount):
-            return "Line \(requested) does not exist. This document has \(lineCount) \(lineCount == 1 ? "line" : "lines")."
+            return String(localized: "Line \(requested) does not exist. This document has \(lineCount) lines.")
         }
     }
 }

@@ -36,9 +36,9 @@ nonisolated struct LineStructure: Sendable {
     var spokenDescription: String {
         switch kind {
         case .blank:
-            return "Blank line"
+            return String(localized: "Blank line")
         case .heading(let level):
-            return "Heading level \(level)"
+            return String(localized: "Heading level \(level)")
         case .unorderedItem(let depth):
             return depth > 0 ? "Bullet, level \(depth + 1)" : "Bullet"
         case .orderedItem(let number, let depth):
@@ -46,17 +46,17 @@ nonisolated struct LineStructure: Sendable {
         case .blockquote(let depth):
             return depth > 1 ? "Quote, level \(depth)" : "Quote"
         case .codeFence:
-            return "Code fence"
+            return String(localized: "Code fence")
         case .codeContent:
-            return "Code"
+            return String(localized: "Code")
         case .tableRow:
-            return "Table row"
+            return String(localized: "Table row")
         case .tableDivider:
-            return "Table divider"
+            return String(localized: "Table divider")
         case .horizontalRule:
-            return "Horizontal rule"
+            return String(localized: "Horizontal rule")
         case .paragraph:
-            return "Paragraph"
+            return String(localized: "Paragraph")
         }
     }
 }

@@ -65,11 +65,14 @@ nonisolated enum BrailleLanguageTag {
               let baseLanguage = baseParts.first,
               let otherLanguage = otherParts.first,
               baseLanguage == otherLanguage,
-              otherParts.count > 2 else {
+              otherParts.count > 1 else {
             return base
         }
 
-        return ([baseLanguage, brailleScript] + otherParts.dropFirst(2))
+        let regionOrVariants = otherParts.dropFirst().filter { part in
+            !(part.count == 4 && part.allSatisfy(\.isLetter))
+        }
+        return ([baseLanguage, brailleScript] + regionOrVariants)
             .joined(separator: "-")
     }
 

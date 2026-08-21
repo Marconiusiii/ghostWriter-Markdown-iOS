@@ -1,0 +1,23 @@
+ghostWriter Spanish translation review
+
+You do not need Xcode or any developer tools.
+
+Choose one review format:
+
+1. Recommended: Open ghostWriter-Spanish-review.xlsx in Excel, Numbers, LibreOffice, or another spreadsheet app that supports XLSX files.
+2. Alternative: Open ghostWriter-Spanish-review.tsv in a spreadsheet app or a plain-text editor that preserves tabs and UTF-8 text.
+
+For each translation:
+
+1. Read the English source and Spanish draft.
+2. If the draft is correct, set Review status to Approved.
+3. If it needs a change, enter the complete replacement in Translator correction and set Review status to Changed.
+4. If the context is unclear, set Review status to Question and explain what you need in Translator notes.
+5. Do not edit Stable ID, English source, Markdown syntax, or Protected placeholders.
+6. Keep placeholders such as %@ and %lld exactly as written. They are replaced with names, counts, or other values while the app is running.
+7. Review accessibility and spoken text for clarity when heard without visual context.
+8. Review the Welcome document as Markdown source. Preserve number signs, list markers, brackets, links, backticks, table bars, and the exact title "tactile".
+
+Return either the completed XLSX file or the completed TSV file. If you use the TSV file, keep it tab-separated and encoded as UTF-8.
+
+The language review does not include checking Spanish braille cells. That requires a separate review by someone qualified to read Spanish braille.

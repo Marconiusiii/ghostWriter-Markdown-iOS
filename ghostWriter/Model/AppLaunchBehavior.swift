@@ -17,11 +17,11 @@ enum AppLaunchBehavior: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .showLibrary:
-            return "Show Library"
+            return String(localized: "Show Library")
         case .startNewDocument:
-            return "Start a New Document"
+            return String(localized: "Start a New Document")
         case .openLastDocument:
-            return "Open Last Document"
+            return String(localized: "Open Last Document")
         }
     }
 }

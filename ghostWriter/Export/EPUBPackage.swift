@@ -77,7 +77,7 @@ nonisolated enum EPUBExportError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .couldNotCreateDocument:
-            return "The EPUB could not be created."
+            return String(localized: "The EPUB could not be created.")
         }
     }
 }

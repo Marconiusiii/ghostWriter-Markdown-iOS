@@ -16,9 +16,9 @@ enum NewDocumentCreationMode: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .askForTitle:
-            return "Ask for a Title"
+            return String(localized: "Ask for a Title")
         case .useTodaysDate:
-            return "Use Today’s Date"
+            return String(localized: "Use Today’s Date")
         }
     }
 }

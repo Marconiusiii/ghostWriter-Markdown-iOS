@@ -172,13 +172,13 @@ nonisolated struct EBrailleMetadata: Equatable, Sendable {
 
     var validationMessage: String? {
         if effectiveCreator.isEmpty {
-            return "Enter the author or enter Unknown when the author is not known."
+            return String(localized: "Enter the author or enter Unknown when the author is not known.")
         }
         if effectiveProducers.isEmpty {
-            return "Enter the person or organization producing this braille edition."
+            return String(localized: "Enter the person or organization producing this braille edition.")
         }
         if effectiveCopyrightYear == nil {
-            return "Enter a copyright date as a year, year and month, or full date."
+            return String(localized: "Enter a copyright date as a year, year and month, or full date.")
         }
         return nil
     }

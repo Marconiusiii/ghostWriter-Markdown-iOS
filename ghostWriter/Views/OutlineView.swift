@@ -70,7 +70,7 @@ struct OutlineView: View {
                 .contentShape(Rectangle())
             }
             // One clear label rather than two fragments read in sequence.
-            .accessibilityLabel("\(entry.spokenLabel), heading level \(entry.level)")
+            .accessibilityLabel(String(localized: "\(entry.spokenLabel), heading level \(entry.level)"))
             .accessibilityHint("Moves the cursor to this heading")
             .accessibilityAddTraits(.isHeader)
         }

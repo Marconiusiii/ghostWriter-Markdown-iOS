@@ -22,6 +22,8 @@ import Foundation
 nonisolated enum BrailleGrade: String, CaseIterable, Identifiable, Sendable {
     case grade1 = "en-ueb-g1.ctb"
     case grade2 = "en-ueb-g2.ctb"
+    case spanishGrade1 = "es-g1.ctb"
+    case spanishGrade2 = "es-g2.ctb"
 
     var id: String { rawValue }
 
@@ -43,6 +45,8 @@ nonisolated enum BrailleGrade: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .grade1: return "ueb grade1"
         case .grade2: return "ueb grade2"
+        case .spanishGrade1: return "Spanish grade1"
+        case .spanishGrade2: return "Spanish grade2"
         }
     }
 
@@ -51,14 +55,27 @@ nonisolated enum BrailleGrade: String, CaseIterable, Identifiable, Sendable {
     /// UEB is English. The document language must agree with the table that
     /// produced the braille, or the file claims a language its contents are
     /// not in.
-    var languageTag: String { "en" }
+    var languageTag: String {
+        switch self {
+        case .grade1, .grade2: return "en"
+        case .spanishGrade1, .spanishGrade2: return "es"
+        }
+    }
 
     /// Wording for the export sheet's grade picker.
     var displayName: String {
         switch self {
-        case .grade1: return "Grade 1 (uncontracted)"
-        case .grade2: return "Grade 2 (contracted)"
+        case .grade1: return String(localized: "Unified English Braille, grade 1 (uncontracted)")
+        case .grade2: return String(localized: "Unified English Braille, grade 2 (contracted)")
+        case .spanishGrade1: return String(localized: "Spanish braille, grade 1 (uncontracted)")
+        case .spanishGrade2: return String(localized: "Spanish braille, grade 2 (contracted)")
         }
+    }
+
+    static func suggested(for documentLanguage: String, englishDefault: BrailleGrade) -> BrailleGrade {
+        DocumentLanguage.baseLanguage(of: documentLanguage) == "es"
+            ? .spanishGrade1
+            : (englishDefault.languageTag == "en" ? englishDefault : .grade2)
     }
 }
 

@@ -81,6 +81,7 @@ struct EditorShareView: View {
     let fileName: String
     let markdown: String
     let sourceDirectory: URL?
+    let documentLanguage: String
     let onClose: () -> Void
 
     @Environment(AppSettings.self) private var settings
@@ -124,6 +125,7 @@ struct EditorShareView: View {
                 EBrailleOptionsView(
                     settings: settings,
                     documentTitle: title,
+                    documentLanguage: documentLanguage,
                     onCancel: onClose,
                     onExport: { metadata in
                         eBrailleMetadata = metadata
@@ -132,6 +134,7 @@ struct EditorShareView: View {
             } else if format == .brf, brfOptions == nil {
                 BRFOptionsView(
                     settings: settings,
+                    documentLanguage: documentLanguage,
                     onCancel: onClose,
                     onExport: { options in
                         brfOptions = options
@@ -173,6 +176,7 @@ struct EditorShareView: View {
         let fileName = fileName
         let markdown = markdown
         let sourceDirectory = sourceDirectory
+        let documentLanguage = documentLanguage
         let metadata = eBrailleMetadata
         let brf = brfOptions
 
@@ -185,6 +189,7 @@ struct EditorShareView: View {
                         fileName: fileName,
                         markdown: markdown,
                         sourceDirectory: sourceDirectory,
+                        documentLanguage: documentLanguage,
                         eBrailleMetadata: metadata,
                         brfOptions: brf
                     )
@@ -212,6 +217,7 @@ nonisolated enum EditorShareFileWriter {
         fileName: String,
         markdown: String,
         sourceDirectory: URL?,
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
         eBrailleMetadata: EBrailleMetadata? = nil,
         brfOptions: BRFExportOptions? = nil
     ) async throws -> URL {
@@ -250,7 +256,8 @@ nonisolated enum EditorShareFileWriter {
                 title: title,
                 markdown: markdown,
                 format: .html,
-                sourceDirectory: sourceDirectory
+                sourceDirectory: sourceDirectory,
+                documentLanguage: documentLanguage
             )
             try contents.write(to: url, atomically: true, encoding: .utf8)
             return url
@@ -260,7 +267,8 @@ nonisolated enum EditorShareFileWriter {
             let data = try MarkdownToWordConverter.convert(
                 title: title,
                 markdown: markdown,
-                sourceDirectory: sourceDirectory
+                sourceDirectory: sourceDirectory,
+                documentLanguage: documentLanguage
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -270,7 +278,8 @@ nonisolated enum EditorShareFileWriter {
             let data = try TaggedPDFWriter.write(
                 title: title,
                 markdown: markdown,
-                sourceDirectory: sourceDirectory
+                sourceDirectory: sourceDirectory,
+                documentLanguage: documentLanguage
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -280,7 +289,8 @@ nonisolated enum EditorShareFileWriter {
             let data = try EPUBWriter.write(
                 title: title,
                 markdown: markdown,
-                sourceDirectory: sourceDirectory
+                sourceDirectory: sourceDirectory,
+                documentLanguage: documentLanguage
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -298,7 +308,8 @@ nonisolated enum EditorShareFileWriter {
                 markdown: markdown,
                 metadata: eBrailleMetadata,
                 translator: LiblouisBridge.shared,
-                sourceDirectory: sourceDirectory
+                sourceDirectory: sourceDirectory,
+                documentLanguage: documentLanguage
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -315,7 +326,8 @@ nonisolated enum EditorShareFileWriter {
                 title: title,
                 grade: brfOptions.grade,
                 pageSetup: brfOptions.pageSetup,
-                translator: LiblouisBridge.shared
+                translator: LiblouisBridge.shared,
+                documentLanguage: documentLanguage
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -328,7 +340,7 @@ nonisolated enum EditorShareFileWriter {
 /// properly named document with the right type.
 enum ShareItemBuilder {
 
-    enum Format: String, CaseIterable, Identifiable {
+    nonisolated enum Format: String, CaseIterable, Identifiable {
         case markdown
         case plainText
         case html
@@ -337,9 +349,9 @@ enum ShareItemBuilder {
 
         var label: String {
             switch self {
-            case .markdown: return "Markdown"
-            case .plainText: return "Plain Text"
-            case .html: return "HTML"
+            case .markdown: return String(localized: "Markdown")
+            case .plainText: return String(localized: "Plain Text")
+            case .html: return String(localized: "HTML")
             }
         }
 
@@ -359,13 +371,15 @@ enum ShareItemBuilder {
         title: String,
         markdown: String,
         format: Format,
-        sourceDirectory: URL? = nil
+        sourceDirectory: URL? = nil,
+        documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) throws -> URL {
         let contents = contents(
             title: title,
             markdown: markdown,
             format: format,
-            sourceDirectory: sourceDirectory
+            sourceDirectory: sourceDirectory,
+            documentLanguage: documentLanguage
         )
 
         let safeName = DocumentStore.sanitize(title)
@@ -380,11 +394,12 @@ enum ShareItemBuilder {
     /// Produces the exact bytes represented by each share format. Keeping this
     /// separate from presentation lets ShareLink generate its file only when the
     /// system actually begins a transfer.
-    static func contents(
+    nonisolated static func contents(
         title: String,
         markdown: String,
         format: Format,
-        sourceDirectory: URL? = nil
+        sourceDirectory: URL? = nil,
+        documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) -> String {
         switch format {
         case .markdown:
@@ -394,6 +409,7 @@ enum ShareItemBuilder {
         case .html:
             return HTMLTemplate.exportDocument(
                 title: title,
+                language: documentLanguage,
                 body: MarkdownRenderer.html(
                     from: markdown,
                     title: title,

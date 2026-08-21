@@ -112,5 +112,32 @@ struct BrailleTranslationTests {
         #expect(BrailleGrade.grade2.systemName == "ueb grade2")
         #expect(BrailleGrade.grade1.tableName == "en-ueb-g1.ctb")
         #expect(BrailleGrade.grade2.tableName == "en-ueb-g2.ctb")
+        #expect(BrailleGrade.spanishGrade1.systemName == "Spanish grade1")
+        #expect(BrailleGrade.spanishGrade2.systemName == "Spanish grade2")
+        #expect(BrailleGrade.spanishGrade1.tableName == "es-g1.ctb")
+        #expect(BrailleGrade.spanishGrade2.tableName == "es-g2.ctb")
+    }
+
+    @Test func spanishGrade1HandlesAccentsAndInvertedPunctuation() async throws {
+        let braille = try await translator.translate(
+            "¡El niño preguntó: ¿qué canción?",
+            grade: .spanishGrade1
+        )
+
+        #expect(isUnicodeBraille(braille))
+        #expect(!braille.isEmpty)
+        #expect(braille.contains("\u{2816}"))
+        #expect(braille.contains("\u{2822}"))
+    }
+
+    @Test func spanishGrade2ContractsSpanishText() async throws {
+        let text = "que de la el los las del"
+        let grade1 = try await translator.translate(text, grade: .spanishGrade1)
+        let grade2 = try await translator.translate(text, grade: .spanishGrade2)
+
+        #expect(isUnicodeBraille(grade1))
+        #expect(isUnicodeBraille(grade2))
+        #expect(grade2 != grade1)
+        #expect(grade2.count < grade1.count)
     }
 }

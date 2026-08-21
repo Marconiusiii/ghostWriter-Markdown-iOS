@@ -252,7 +252,7 @@ final class DocumentStore {
             try fileAccess.createDirectory(at: directory)
             try fileAccess.createDirectory(at: recentlyDeletedDirectory)
         } catch {
-            lastError = "Could not open the ghostWriter folder. \(error.localizedDescription)"
+            lastError = String(localized: "Could not open the ghostWriter folder. \(error.localizedDescription)")
         }
     }
 
@@ -275,7 +275,7 @@ final class DocumentStore {
             // Keep the last successfully loaded library visible. Replacing it
             // with an empty array would falsely tell the user that their files
             // had disappeared.
-            lastError = "Could not refresh the document library. \(error.localizedDescription)"
+            lastError = String(localized: "Could not refresh the document library. \(error.localizedDescription)")
         }
 
         do {
@@ -284,7 +284,7 @@ final class DocumentStore {
                 folders = refreshedFolders
             }
         } catch {
-            lastError = "Could not refresh the folder library. \(error.localizedDescription)"
+            lastError = String(localized: "Could not refresh the folder library. \(error.localizedDescription)")
         }
 
         do {
@@ -295,7 +295,7 @@ final class DocumentStore {
                 recentlyDeletedDocuments = refreshedDeletedDocuments
             }
         } catch {
-            lastError = "Could not refresh Recently Deleted. \(error.localizedDescription)"
+            lastError = String(localized: "Could not refresh Recently Deleted. \(error.localizedDescription)")
         }
 
 
@@ -306,7 +306,7 @@ final class DocumentStore {
             )
             recentlyDeletedFolders = urls.compactMap(LibraryFolder.init(fileURL:))
         } catch {
-            lastError = "Could not refresh deleted folders. \(error.localizedDescription)"
+            lastError = String(localized: "Could not refresh deleted folders. \(error.localizedDescription)")
         }
     }
 
@@ -712,8 +712,7 @@ final class DocumentStore {
     func text(for document: Document, reportFailure: Bool = true) throws -> String {
         guard document.availability.isAvailable else {
             if reportFailure {
-                lastError =
-                    "\(document.displayName) is not yet available on this device."
+                lastError = String(localized: "\(document.displayName) is not yet available on this device.")
             }
             throw CocoaError(.fileReadNoSuchFile)
         }
@@ -727,7 +726,7 @@ final class DocumentStore {
             return text
         } catch {
             if reportFailure {
-                lastError = "Could not open \(document.displayName). The original file was not changed. \(error.localizedDescription)"
+                lastError = String(localized: "Could not open \(document.displayName). The original file was not changed. \(error.localizedDescription)")
             }
             throw error
         }
@@ -741,8 +740,7 @@ final class DocumentStore {
     ) async throws -> String {
         guard document.availability.isAvailable else {
             if reportFailure {
-                lastError =
-                    "\(document.displayName) is not yet available on this device."
+                lastError = String(localized: "\(document.displayName) is not yet available on this device.")
             }
             throw CocoaError(.fileReadNoSuchFile)
         }
@@ -770,7 +768,7 @@ final class DocumentStore {
                 )
             } catch {
                 if reportFailure {
-                    lastError = "Could not download the images for \(document.displayName). \(error.localizedDescription)"
+                    lastError = String(localized: "Could not download the images for \(document.displayName). \(error.localizedDescription)")
                 }
                 throw error
             }
@@ -778,7 +776,7 @@ final class DocumentStore {
             return text
         case .failure(let message):
             if reportFailure {
-                lastError = "Could not open \(document.displayName). The original file was not changed. \(message)"
+                lastError = String(localized: "Could not open \(document.displayName). The original file was not changed. \(message)")
             }
             throw CocoaError(.fileReadUnknown)
         }
@@ -905,7 +903,7 @@ final class DocumentStore {
                 ? .unchanged
                 : .changed(currentContents)
         } catch {
-            lastError = "Could not check \(url.deletingPathExtension().lastPathComponent) for changes. \(error.localizedDescription)"
+            lastError = String(localized: "Could not check \(url.deletingPathExtension().lastPathComponent) for changes. \(error.localizedDescription)")
             return .unreadable
         }
     }
@@ -927,7 +925,7 @@ final class DocumentStore {
         case .missing:
             return .missing
         case .failed(let message):
-            lastError = "Could not check \(url.deletingPathExtension().lastPathComponent) for changes. \(message)"
+            lastError = String(localized: "Could not check \(url.deletingPathExtension().lastPathComponent) for changes. \(message)")
             return .unreadable
         }
     }
@@ -961,7 +959,7 @@ final class DocumentStore {
         ifUnchangedFrom expectedContents: String
     ) async -> GuardedSaveResult {
         guard storageAvailable else {
-            lastError = "Could not save because the selected document storage is unavailable."
+            lastError = String(localized: "Could not save because the selected document storage is unavailable.")
             return .failed
         }
 
@@ -977,7 +975,7 @@ final class DocumentStore {
         case .missing:
             return .missing
         case .failed(let message):
-            lastError = "Could not save. \(message)"
+            lastError = String(localized: "Could not save. \(message)")
             return .failed
         }
     }
@@ -989,7 +987,7 @@ final class DocumentStore {
     @discardableResult
     func save(text: String, to url: URL) -> Bool {
         guard storageAvailable else {
-            lastError = "Could not save because the selected document storage is unavailable."
+            lastError = String(localized: "Could not save because the selected document storage is unavailable.")
             return false
         }
         do {
@@ -1000,7 +998,7 @@ final class DocumentStore {
             // on foreground instead.
             return true
         } catch {
-            lastError = "Could not save. \(error.localizedDescription)"
+            lastError = String(localized: "Could not save. \(error.localizedDescription)")
             return false
         }
     }
@@ -1009,8 +1007,7 @@ final class DocumentStore {
     /// collide with an existing file. Returns the URL it settled on.
     func createDocument(named preferredName: String = "Untitled", contents: String = "") -> URL? {
         guard !usesICloudStorage else {
-            lastError =
-                "Could not create a new document because iCloud placement was not started."
+            lastError = String(localized: "Could not create a new document because iCloud placement was not started.")
             return nil
         }
         return createLocalDocument(
@@ -1025,7 +1022,7 @@ final class DocumentStore {
         in destinationDirectory: URL? = nil
     ) -> URL? {
         guard storageAvailable else {
-            lastError = "Could not create a document because the selected document storage is unavailable."
+            lastError = String(localized: "Could not create a document because the selected document storage is unavailable.")
             return nil
         }
         createDirectoryIfNeeded()
@@ -1033,7 +1030,7 @@ final class DocumentStore {
         do {
             try fileAccess.createDirectory(at: targetDirectory)
         } catch {
-            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            lastError = String(localized: "Could not open the destination folder. \(error.localizedDescription)")
             return nil
         }
         let url = availableURL(
@@ -1045,7 +1042,7 @@ final class DocumentStore {
             try fileAccess.write(contents, to: url)
             return url
         } catch {
-            lastError = "Could not create a new document. \(error.localizedDescription)"
+            lastError = String(localized: "Could not create a new document. \(error.localizedDescription)")
             return nil
         }
     }
@@ -1065,8 +1062,7 @@ final class DocumentStore {
             )
         }
         guard storageAvailable else {
-            lastError =
-                "Could not create a document because the selected document storage is unavailable."
+            lastError = String(localized: "Could not create a document because the selected document storage is unavailable.")
             return nil
         }
 
@@ -1075,7 +1071,7 @@ final class DocumentStore {
         do {
             try fileAccess.createDirectory(at: targetDirectory)
         } catch {
-            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            lastError = String(localized: "Could not open the destination folder. \(error.localizedDescription)")
             return nil
         }
         let url = availableURL(
@@ -1087,8 +1083,7 @@ final class DocumentStore {
             refresh()
             return url
         } catch {
-            lastError =
-                "Could not create a new document in iCloud. \(error.localizedDescription)"
+            lastError = String(localized: "Could not create a new document in iCloud. \(error.localizedDescription)")
             return nil
         }
     }
@@ -1114,7 +1109,7 @@ final class DocumentStore {
             refresh()
             return destination
         } catch {
-            lastError = "Could not delete \(document.displayName). \(error.localizedDescription)"
+            lastError = String(localized: "Could not delete \(document.displayName). \(error.localizedDescription)")
             return nil
         }
     }
@@ -1136,7 +1131,7 @@ final class DocumentStore {
             refresh()
             return destination
         } catch {
-            lastError = "Could not restore \(document.displayName). \(error.localizedDescription)"
+            lastError = String(localized: "Could not restore \(document.displayName). \(error.localizedDescription)")
             return nil
         }
     }
@@ -1161,11 +1156,11 @@ final class DocumentStore {
             suppressSnapshot(at: document.url)
             refresh()
             if assetCleanupFailed {
-                lastError = "The document was deleted, but an associated image folder could not be removed."
+                lastError = String(localized: "The document was deleted, but an associated image folder could not be removed.")
             }
             return true
         } catch {
-            lastError = "Could not permanently delete \(document.displayName). \(error.localizedDescription)"
+            lastError = String(localized: "Could not permanently delete \(document.displayName). \(error.localizedDescription)")
             return false
         }
     }
@@ -1173,7 +1168,7 @@ final class DocumentStore {
     @discardableResult
     func createFolder(named preferredName: String, in parent: URL) -> LibraryFolder? {
         guard isLibraryDirectory(parent) else {
-            lastError = "Could not create a folder outside the document library."
+            lastError = String(localized: "Could not create a folder outside the document library.")
             return nil
         }
         let destination = availableFolderURL(for: preferredName, in: parent)
@@ -1182,7 +1177,7 @@ final class DocumentStore {
             refresh()
             return LibraryFolder(fileURL: destination) ?? LibraryFolder(url: destination)
         } catch {
-            lastError = "Could not create the folder. \(error.localizedDescription)"
+            lastError = String(localized: "Could not create the folder. \(error.localizedDescription)")
             return nil
         }
     }
@@ -1203,7 +1198,7 @@ final class DocumentStore {
     @discardableResult
     func move(_ item: LibraryItem, to destinationDirectory: URL) -> URL? {
         guard isLibraryDirectory(destinationDirectory) else {
-            lastError = "Could not move \(item.displayName) outside the document library."
+            lastError = String(localized: "Could not move \(item.displayName) outside the document library.")
             return nil
         }
         switch item {
@@ -1218,14 +1213,14 @@ final class DocumentStore {
                 refresh()
                 return destination
             } catch {
-                lastError = "Could not move \(document.displayName). \(error.localizedDescription)"
+                lastError = String(localized: "Could not move \(document.displayName). \(error.localizedDescription)")
                 return nil
             }
         case .folder(let folder):
             guard destinationDirectory.standardizedFileURL
                     != folder.url.standardizedFileURL,
                   !Self.isDescendant(destinationDirectory, of: folder.url) else {
-                lastError = "A folder cannot be moved inside itself."
+                lastError = String(localized: "A folder cannot be moved inside itself.")
                 return nil
             }
             let destination = availableFolderURL(
@@ -1249,7 +1244,7 @@ final class DocumentStore {
             refresh()
             return destination
         } catch {
-            lastError = "Could not delete \(folder.displayName). \(error.localizedDescription)"
+            lastError = String(localized: "Could not delete \(folder.displayName). \(error.localizedDescription)")
             return nil
         }
     }
@@ -1266,7 +1261,7 @@ final class DocumentStore {
             refresh()
             return destination
         } catch {
-            lastError = "Could not restore \(folder.displayName). \(error.localizedDescription)"
+            lastError = String(localized: "Could not restore \(folder.displayName). \(error.localizedDescription)")
             return nil
         }
     }
@@ -1280,7 +1275,7 @@ final class DocumentStore {
             refresh()
             return true
         } catch {
-            lastError = "Could not permanently delete \(folder.displayName). \(error.localizedDescription)"
+            lastError = String(localized: "Could not permanently delete \(folder.displayName). \(error.localizedDescription)")
             return false
         }
     }
@@ -1306,15 +1301,14 @@ final class DocumentStore {
             refresh()
             return destination
         } catch {
-            lastError = "Could not rename to \(trimmed). \(error.localizedDescription)"
+            lastError = String(localized: "Could not rename to \(trimmed). \(error.localizedDescription)")
             return nil
         }
     }
 
     func duplicate(_ document: Document) -> Document? {
         guard !usesICloudStorage else {
-            lastError =
-                "Could not duplicate \(document.displayName) because iCloud placement was not started."
+            lastError = String(localized: "Could not duplicate \(document.displayName) because iCloud placement was not started.")
             return nil
         }
         return duplicateLocally(document)
@@ -1340,7 +1334,7 @@ final class DocumentStore {
             refresh()
             return documents.first { $0.url == destination }
         } catch {
-            lastError = "Could not duplicate \(document.displayName). \(error.localizedDescription)"
+            lastError = String(localized: "Could not duplicate \(document.displayName). \(error.localizedDescription)")
             return nil
         }
     }
@@ -1364,8 +1358,7 @@ final class DocumentStore {
             refresh()
             return documents.first { $0.url == destination }
         } catch {
-            lastError =
-                "Could not duplicate \(document.displayName) in iCloud. \(error.localizedDescription)"
+            lastError = String(localized: "Could not duplicate \(document.displayName) in iCloud. \(error.localizedDescription)")
             return nil
         }
     }
@@ -1378,8 +1371,7 @@ final class DocumentStore {
         into destinationDirectory: URL? = nil
     ) -> DocumentImportResult {
         guard !usesICloudStorage else {
-            lastError =
-                "Could not import documents because iCloud placement was not started."
+            lastError = String(localized: "Could not import documents because iCloud placement was not started.")
             return DocumentImportResult(
                 imported: [],
                 failedFileNames: sourceURLs.map(\.lastPathComponent)
@@ -1400,7 +1392,7 @@ final class DocumentStore {
         do {
             try fileAccess.createDirectory(at: targetDirectory)
         } catch {
-            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            lastError = String(localized: "Could not open the destination folder. \(error.localizedDescription)")
             return DocumentImportResult(
                 imported: [],
                 failedFileNames: sourceURLs.map(\.lastPathComponent)
@@ -1466,7 +1458,7 @@ final class DocumentStore {
             let detail = failureDetails.isEmpty
                 ? "Import Markdown or plain-text files saved as UTF-8, or Word documents saved as .docx."
                 : failureDetails.joined(separator: " ")
-            lastError = "Could not import \(names). \(detail)"
+            lastError = String(localized: "Could not import \(names). \(detail)")
         }
 
         return DocumentImportResult(
@@ -1492,7 +1484,7 @@ final class DocumentStore {
         do {
             try fileAccess.createDirectory(at: targetDirectory)
         } catch {
-            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            lastError = String(localized: "Could not open the destination folder. \(error.localizedDescription)")
             return DocumentImportResult(
                 imported: [],
                 failedFileNames: sourceURLs.map(\.lastPathComponent)
@@ -1574,7 +1566,7 @@ final class DocumentStore {
             let detail = failureDetails.isEmpty
                 ? "Import Markdown or plain-text files saved as UTF-8, or Word documents saved as .docx."
                 : failureDetails.joined(separator: " ")
-            lastError = "Could not import \(names). \(detail)"
+            lastError = String(localized: "Could not import \(names). \(detail)")
         }
 
         return DocumentImportResult(
@@ -1597,7 +1589,7 @@ final class DocumentStore {
         do {
             try fileAccess.createDirectory(at: targetDirectory)
         } catch {
-            lastError = "Could not open the destination folder. \(error.localizedDescription)"
+            lastError = String(localized: "Could not open the destination folder. \(error.localizedDescription)")
             return DocumentImportResult(
                 imported: [],
                 failedFileNames: sourceURLs.map(\.lastPathComponent)
@@ -1653,7 +1645,7 @@ final class DocumentStore {
             let detail = failureDetails.isEmpty
                 ? "Import Markdown or plain-text files saved as UTF-8, or Word documents saved as .docx."
                 : failureDetails.joined(separator: " ")
-            lastError = "Could not import \(names). \(detail)"
+            lastError = String(localized: "Could not import \(names). \(detail)")
         }
         return DocumentImportResult(
             imported: imported,
@@ -1700,7 +1692,7 @@ final class DocumentStore {
         if sourceURL.pathExtension.lowercased() == "docx" {
             return "\(fileName): \(error.localizedDescription)"
         }
-        return "\(fileName): The text file must use UTF-8 encoding."
+        return String(localized: "\(fileName): The text file must use UTF-8 encoding.")
     }
 
     private nonisolated static func importedDocument(
@@ -1814,7 +1806,7 @@ final class DocumentStore {
             refresh()
             return destination
         } catch {
-            lastError = "Could not \(failureVerb) \(folder.displayName). \(error.localizedDescription)"
+            lastError = String(localized: "Could not \(failureVerb) \(folder.displayName). \(error.localizedDescription)")
             return nil
         }
     }
@@ -1899,7 +1891,7 @@ final class DocumentStore {
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
-        guard !cleaned.isEmpty else { return "Untitled" }
+        guard !cleaned.isEmpty else { return String(localized: "Untitled") }
 
         var safe = ""
         for character in cleaned {

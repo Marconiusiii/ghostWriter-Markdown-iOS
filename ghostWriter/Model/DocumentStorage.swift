@@ -19,9 +19,9 @@ enum DocumentStorageChoice: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .onDevice:
-            return "On This Device"
+            return String(localized: "On This Device")
         case .iCloud:
-            return "iCloud Drive"
+            return String(localized: "iCloud Drive")
         }
     }
 }
@@ -128,13 +128,13 @@ final class DocumentStorage {
     var statusDescription: String {
         switch selectedLocation {
         case .onDevice:
-            return "Documents are stored only on this device."
+            return String(localized: "Documents are stored only on this device.")
         case .iCloud:
             switch iCloudAvailability {
             case .notChecked, .checking:
-                return "Checking iCloud Drive."
+                return String(localized: "Checking iCloud Drive.")
             case .available:
-                return "Documents sync with iCloud Drive."
+                return String(localized: "Documents sync with iCloud Drive.")
             case .unavailable(let message):
                 return message
             }

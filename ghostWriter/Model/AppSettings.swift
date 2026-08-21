@@ -21,9 +21,9 @@ enum IndentUnit: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .tab: return "Tabs"
-        case .twoSpaces: return "2 Spaces"
-        case .fourSpaces: return "4 Spaces"
+        case .tab: return String(localized: "Tabs")
+        case .twoSpaces: return String(localized: "2 Spaces")
+        case .fourSpaces: return String(localized: "4 Spaces")
         }
     }
 
@@ -49,9 +49,9 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .system: return "Follow System"
-        case .light: return "Light"
-        case .dark: return "Dark"
+        case .system: return String(localized: "Follow System")
+        case .light: return String(localized: "Light")
+        case .dark: return String(localized: "Dark")
         }
     }
 
@@ -77,10 +77,10 @@ enum EditorFontDesign: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .monospaced: return "Monospaced"
-        case .system: return "System"
-        case .rounded: return "Rounded"
-        case .serif: return "Serif"
+        case .monospaced: return String(localized: "Monospaced")
+        case .system: return String(localized: "System")
+        case .rounded: return String(localized: "Rounded")
+        case .serif: return String(localized: "Serif")
         }
     }
 }
@@ -94,20 +94,20 @@ enum VoiceOverVerbosity: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .off: return "Off"
-        case .light: return "Light"
-        case .full: return "Full"
+        case .off: return String(localized: "Off")
+        case .light: return String(localized: "Light")
+        case .full: return String(localized: "Full")
         }
     }
 
     var description: String {
         switch self {
         case .off:
-            return "No Markdown editing announcements."
+            return String(localized: "No Markdown editing announcements.")
         case .light:
-            return "Announces list changes, indentation levels, and Insert actions."
+            return String(localized: "Announces list changes, indentation levels, and Insert actions.")
         case .full:
-            return "Announces Light feedback and completed Markdown structures as you type."
+            return String(localized: "Announces Light feedback and completed Markdown structures as you type.")
         }
     }
 

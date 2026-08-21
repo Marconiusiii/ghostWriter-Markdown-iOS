@@ -39,6 +39,7 @@ struct EditorView: View {
     @State private var showingReference = false
     @State private var showingRename = false
     @State private var showingJumpToLine = false
+    @State private var showingDocumentLanguage = false
     @State private var showingInsertActions = false
     @State private var sharingFormat: EditorShareFormat?
     @State private var insertionSelection = TextSelection(location: 0, length: 0)
@@ -96,14 +97,14 @@ struct EditorView: View {
 
         var label: String {
             switch self {
-            case .markdown: return "Markdown"
-            case .plainText: return "Plain Text"
-            case .html: return "HTML"
-            case .word: return "Word Document"
-            case .pdf: return "PDF"
-            case .epub: return "EPUB"
-            case .eBraille: return "eBraille"
-            case .brf: return "Braille Ready Format"
+            case .markdown: return String(localized: "Markdown")
+            case .plainText: return String(localized: "Plain Text")
+            case .html: return String(localized: "HTML")
+            case .word: return String(localized: "Word Document")
+            case .pdf: return String(localized: "PDF")
+            case .epub: return String(localized: "EPUB")
+            case .eBraille: return String(localized: "eBraille")
+            case .brf: return String(localized: "Braille Ready Format")
             }
         }
 
@@ -231,6 +232,20 @@ struct EditorView: View {
         }) {
             MarkdownReferenceView()
         }
+        .sheet(isPresented: $showingDocumentLanguage, onDismiss: {
+            restoreFocus(to: .fileActions)
+        }) {
+            DocumentLanguageView(
+                initialTag: currentDocumentLanguage,
+                onSave: { tag in
+                    if let url = fileURL ?? saveController.currentURL {
+                        libraryMetadata.setDocumentLanguage(tag, for: url)
+                    }
+                    showingDocumentLanguage = false
+                },
+                onCancel: { showingDocumentLanguage = false }
+            )
+        }
         // Presented here rather than by ShareLink so that dismissing — whether
         // by sharing, by Close, or by swiping down — returns focus to File
         // Actions, the control the writer opened this from.
@@ -243,6 +258,7 @@ struct EditorView: View {
                 fileName: shareFileName,
                 markdown: text,
                 sourceDirectory: fileURL?.deletingLastPathComponent(),
+                documentLanguage: resolvedDocumentLanguage,
                 onClose: { sharingFormat = nil }
             )
         }
@@ -480,6 +496,12 @@ struct EditorView: View {
                 Label("Jump to Line…", systemImage: "arrow.down.to.line")
             }
             .keyboardShortcut(shortcut("j", modifiers: .command))
+
+            Button {
+                present { showingDocumentLanguage = true }
+            } label: {
+                Label("Document Language…", systemImage: "character.book.closed")
+            }
 
             Divider()
 
@@ -1010,7 +1032,8 @@ struct EditorView: View {
         guard let url = fileURL,
               let document = Document(fileURL: url) else { return }
         Task {
-            if await store.duplicate(document) != nil {
+            if let duplicate = await store.duplicate(document) {
+                libraryMetadata.copyMetadata(from: url, to: duplicate.url)
                 announce("Duplicated.")
             }
         }
@@ -1037,6 +1060,17 @@ struct EditorView: View {
             try? await Task.sleep(for: .seconds(4))
             if statusMessage == message { statusMessage = "" }
         }
+    }
+
+    private var currentDocumentLanguage: String {
+        guard let url = fileURL ?? saveController.currentURL else {
+            return DocumentLanguage.automatic
+        }
+        return libraryMetadata.documentLanguage(for: url)
+    }
+
+    private var resolvedDocumentLanguage: String {
+        DocumentLanguage.resolvedTag(currentDocumentLanguage)
     }
 
     private func shortcut(
@@ -1092,18 +1126,18 @@ private enum ExternalConflict {
     var title: String {
         switch self {
         case .changed:
-            return "Document Changed in Files"
+            return String(localized: "Document Changed in Files")
         case .missing:
-            return "Document Removed in Files"
+            return String(localized: "Document Removed in Files")
         }
     }
 
     var message: String {
         switch self {
         case .changed:
-            return "This document changed outside ghostWriter. Save your current work as a copy or reload the external version."
+            return String(localized: "This document changed outside ghostWriter. Save your current work as a copy or reload the external version.")
         case .missing:
-            return "This document was removed outside ghostWriter. Save your current work as a new document or close without saving."
+            return String(localized: "This document was removed outside ghostWriter. Save your current work as a new document or close without saving.")
         }
     }
 }

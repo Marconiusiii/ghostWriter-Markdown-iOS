@@ -42,25 +42,25 @@ nonisolated enum DocumentAvailability: Equatable, Hashable, Sendable {
         case .available:
             return nil
         case .waitingToUpload:
-            return "Waiting to Upload"
+            return String(localized: "Waiting to Upload")
         case .uploading(let percent):
             if let percent {
-                return "Uploading to iCloud, \(percent) percent"
+                return String(localized: "Uploading to iCloud, \(percent) percent")
             }
-            return "Uploading to iCloud"
+            return String(localized: "Uploading to iCloud")
         case .uploadFailed(let message):
-            return "Upload failed. \(message)"
+            return String(localized: "Upload failed. \(message)")
         case .waitingForICloud:
-            return "Waiting for iCloud"
+            return String(localized: "Waiting for iCloud")
         case .downloading(let percent):
             if let percent {
-                return "Downloading, \(percent) percent"
+                return String(localized: "Downloading, \(percent) percent")
             }
-            return "Downloading"
+            return String(localized: "Downloading")
         case .updating:
-            return "Updating from iCloud"
+            return String(localized: "Updating from iCloud")
         case .failed:
-            return "Download failed"
+            return String(localized: "Download failed")
         }
     }
 

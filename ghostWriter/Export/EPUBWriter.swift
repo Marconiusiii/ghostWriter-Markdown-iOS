@@ -19,7 +19,8 @@ nonisolated enum EPUBWriter {
     static func write(
         title: String,
         markdown: String,
-        sourceDirectory: URL? = nil
+        sourceDirectory: URL? = nil,
+        documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) throws -> Data {
         let document = MarkdownDocumentParser.parse(markdown)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -29,7 +30,7 @@ nonisolated enum EPUBWriter {
         // export rather than stored, because two exports of an edited document
         // are genuinely different publications.
         let identifier = "urn:uuid:\(UUID().uuidString.lowercased())"
-        let language = documentLanguage()
+        let language = documentLanguage
 
         var entries: [String: Data] = [:]
 
@@ -72,11 +73,6 @@ nonisolated enum EPUBWriter {
         }
 
         return try EPUBPackage.create(entries: entries)
-    }
-
-    private static func documentLanguage() -> String {
-        Locale.preferredLanguages.first
-            ?? Locale.current.identifier.replacingOccurrences(of: "_", with: "-")
     }
 
     private static func startsWithMatchingHeading(

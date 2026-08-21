@@ -59,40 +59,40 @@ nonisolated enum MarkdownTypingAnnouncement {
             if linePrefix.firstMatch(
                 of: /\*\*(?!\s)([^*]+?)\*\*$/
             ) != nil {
-                return "Bold applied."
+                return String(localized: "Bold applied.")
             }
             if linePrefix.firstMatch(
                 of: /\*(?!\s)([^*]+?)\*$/
             ) != nil {
-                return "Italics applied."
+                return String(localized: "Italics applied.")
             }
         case "_":
             if linePrefix.firstMatch(
                 of: /__(?!\s)([^_]+?)__$/
             ) != nil {
-                return "Bold applied."
+                return String(localized: "Bold applied.")
             }
             if closesUnderscoreItalics(linePrefix) {
-                return "Italics applied."
+                return String(localized: "Italics applied.")
             }
         case "~":
             if linePrefix.firstMatch(of: /~~([^~]+?)~~$/) != nil {
-                return "Strikethrough applied."
+                return String(localized: "Strikethrough applied.")
             }
         case "`":
             if closesInlineCode(linePrefix) {
-                return "Inline code applied."
+                return String(localized: "Inline code applied.")
             }
         case ")":
             if linePrefix.firstMatch(
                 of: /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)$/
             ) != nil {
-                return "Image created."
+                return String(localized: "Image created.")
             }
             if linePrefix.firstMatch(
                 of: /\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)$/
             ) != nil {
-                return "Link created."
+                return String(localized: "Link created.")
             }
         default:
             break
@@ -107,7 +107,7 @@ nonisolated enum MarkdownTypingAnnouncement {
         let marker = trimmed.dropLast()
         guard (1...6).contains(marker.count),
               marker.allSatisfy({ $0 == "#" }) else { return nil }
-        return "Heading level \(marker.count)."
+        return String(localized: "Heading level \(marker.count).")
     }
 
     private enum CommittedBoundary {

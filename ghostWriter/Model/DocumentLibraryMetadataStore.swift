@@ -3,7 +3,7 @@
 //  ghostWriter
 //
 //  Library-only metadata that must never be written into a writer's Markdown
-//  file: pinned state and the last time a document entered the editor.
+//  file: pinned state, last-opened time, and export language.
 //
 
 import Foundation
@@ -27,18 +27,28 @@ final class DocumentLibraryMetadataStore {
         }
     }
 
+    private(set) var documentLanguageTags: [String: String] {
+        didSet {
+            defaults.set(documentLanguageTags, forKey: languageStorageKey)
+            libraryPresentationRevision &+= 1
+        }
+    }
+
     private let defaults: UserDefaults
     private let pinnedStorageKey: String
     private let lastOpenedStorageKey: String
+    private let languageStorageKey: String
 
     init(
         defaults: UserDefaults = .standard,
         pinnedStorageKey: String = "pinnedDocuments",
-        lastOpenedStorageKey: String = "documentLastOpened"
+        lastOpenedStorageKey: String = "documentLastOpened",
+        languageStorageKey: String = "documentLanguageTags"
     ) {
         self.defaults = defaults
         self.pinnedStorageKey = pinnedStorageKey
         self.lastOpenedStorageKey = lastOpenedStorageKey
+        self.languageStorageKey = languageStorageKey
         self.pinnedKeys = Set(
             defaults.stringArray(forKey: pinnedStorageKey) ?? []
         )
@@ -49,6 +59,7 @@ final class DocumentLibraryMetadataStore {
                     result[item.key] = number.doubleValue
                 }
             } ?? [:]
+        self.documentLanguageTags = defaults.dictionary(forKey: languageStorageKey) as? [String: String] ?? [:]
     }
 
     func useLibraryRoot(_ root: URL?) {
@@ -85,6 +96,34 @@ final class DocumentLibraryMetadataStore {
                 ?? lastOpenedTimestamps[legacyKey(for: url)]
         ).map {
             Date(timeIntervalSince1970: $0)
+        }
+    }
+
+    func documentLanguage(for url: URL) -> String {
+        documentLanguageTags[key(for: url)]
+            ?? documentLanguageTags[legacyKey(for: url)]
+            ?? DocumentLanguage.automatic
+    }
+
+    func setDocumentLanguage(_ tag: String, for url: URL) {
+        let documentKey = key(for: url)
+        documentLanguageTags.removeValue(forKey: legacyKey(for: url))
+        let normalized = DocumentLanguage.normalizedTag(tag)
+        if normalized.isEmpty {
+            documentLanguageTags.removeValue(forKey: documentKey)
+        } else {
+            documentLanguageTags[documentKey] = normalized
+        }
+    }
+
+    func copyMetadata(from sourceURL: URL, to destinationURL: URL) {
+        if isPinned(sourceURL) { pinnedKeys.insert(key(for: destinationURL)) }
+        if let opened = lastOpened(sourceURL) {
+            lastOpenedTimestamps[key(for: destinationURL)] = opened.timeIntervalSince1970
+        }
+        let language = documentLanguage(for: sourceURL)
+        if !language.isEmpty {
+            documentLanguageTags[key(for: destinationURL)] = language
         }
     }
 
@@ -137,6 +176,13 @@ final class DocumentLibraryMetadataStore {
                 lastOpenedTimestamps[newKey] ?? oldTimestamp
             )
         }
+
+
+        let stableLanguage = documentLanguageTags.removeValue(forKey: oldKey)
+        let legacyLanguage = documentLanguageTags.removeValue(forKey: oldLegacyKey)
+        if let language = stableLanguage ?? legacyLanguage {
+            documentLanguageTags[newKey] = language
+        }
     }
 
     func removeMetadata(for url: URL) {
@@ -145,6 +191,8 @@ final class DocumentLibraryMetadataStore {
         pinnedKeys.remove(legacyKey(for: url))
         lastOpenedTimestamps.removeValue(forKey: documentKey)
         lastOpenedTimestamps.removeValue(forKey: legacyKey(for: url))
+        documentLanguageTags.removeValue(forKey: documentKey)
+        documentLanguageTags.removeValue(forKey: legacyKey(for: url))
     }
 
     private func key(for url: URL) -> String {

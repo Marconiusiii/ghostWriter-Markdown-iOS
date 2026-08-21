@@ -76,18 +76,18 @@ struct ICloudMigrationView: View {
     private var explanation: String {
         switch destination {
         case .iCloud:
-            return "ghostWriter will move your complete library to iCloud Drive. Documents, renames, edits, and deletions will then sync to your other devices using the same iCloud account. iCloud syncing is not an independent backup."
+            return String(localized: "ghostWriter will move your complete library to iCloud Drive. Documents, renames, edits, and deletions will then sync to your other devices using the same iCloud account. iCloud syncing is not an independent backup.")
         case .onDevice:
-            return "ghostWriter will move your complete library from iCloud Drive onto this device. After verification, those documents will no longer sync through iCloud."
+            return String(localized: "ghostWriter will move your complete library from iCloud Drive onto this device. After verification, those documents will no longer sync through iCloud.")
         }
     }
 
     private var actionLabel: String {
         switch destination {
         case .iCloud:
-            return "Move to iCloud"
+            return String(localized: "Move to iCloud")
         case .onDevice:
-            return "Move to This Device"
+            return String(localized: "Move to This Device")
         }
     }
 
@@ -164,7 +164,7 @@ struct ICloudMigrationView: View {
                 libraryMetadata.useLibraryRoot(targetDirectory)
                 EditorPositionStore.shared.useLibraryRoot(targetDirectory)
                 if !result.cleanupFailures.isEmpty {
-                    store.lastError = "Document storage changed, but ghostWriter could not remove every old local copy."
+                    store.lastError = String(localized: "Document storage changed, but ghostWriter could not remove every old local copy.")
                 }
                 isMigrating = false
                 onCompletion()
