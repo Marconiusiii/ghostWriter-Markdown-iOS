@@ -104,11 +104,12 @@ private struct HelpTopic: Identifiable {
         HelpTopic(
             title: "Sharing and export formats",
             paragraphs: [
-                "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, Word Document, PDF, EPUB, eBraille, or Braille Ready Format.",
+                "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, Word Document, PowerPoint, PDF, EPUB, eBraille, or Braille Ready Format.",
                 "Markdown preserves the original syntax with a .md filename.",
                 "Plain Text removes the markdown syntax and leaves readable text with a .txt filename. Level 1 and level 2 headings are underlined, and deeper headings state their level. Lists keep their bullets and numbers, tables become aligned columns, and quoted text begins with a greater-than sign.",
                 "HTML creates a complete, rendered web document. Headings, lists, links, tables, quotes, code, and tasks retain their document structure. Attached images are included in the file, and images retain their descriptions. Text size follows the application the document is opened in.",
                 "Word Document converts markdown structure into a .docx file. Handling Word Documents describes what is preserved in each direction.",
+                "PowerPoint creates a widescreen .pptx presentation. A level 1 heading titles the presentation. Each level 2 heading begins and titles a slide. Level 3 headings, paragraphs, lists, links, and attached images become slide content. A horizontal rule made with three asterisks begins speaker notes until the next level 2 heading. Select a presentation theme before sharing.",
                 "PDF creates a tagged PDF with fixed pages. Headings, lists, tables, quotes, code, and images are marked as document structure, so a screen reader moves through the document by heading and reads a table cell by cell with its column headings. Pages are US Letter with one-inch margins. A table row stays whole on one page, and a heading stays with the text that follows it.",
                 "EPUB creates a reflowable ebook with a table of contents built from the document’s headings. Headings, lists, links, tables, quotes, code, tasks, and images retain their document structure.",
                 "eBraille creates a reflowable Unified English Braille document with a .ebrl filename. It includes a table of contents and retains headings, lists, links, tables, quotes, tasks, and images.",

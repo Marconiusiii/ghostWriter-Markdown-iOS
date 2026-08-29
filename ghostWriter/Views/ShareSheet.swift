@@ -90,14 +90,16 @@ struct EditorShareView: View {
     @State private var failureMessage: String?
 
     /// Set once the writer has confirmed the export options. Formats that need
-    /// none begin preparing immediately; the braille formats wait here, which
-    /// is why preparation is keyed on these rather than started in `task`.
+    /// none begin preparing immediately; PowerPoint and the braille formats
+    /// wait here, which is why preparation is keyed on these rather than
+    /// started in `task`.
     ///
     /// The two braille formats ask for different things: eBraille carries
     /// metadata a BRF file has nowhere to put, and BRF needs a page geometry
     /// eBraille leaves to the reading system.
     @State private var eBrailleMetadata: EBrailleMetadata?
     @State private var brfOptions: BRFExportOptions?
+    @State private var powerPointOptions: PowerPointExportOptions?
 
     var body: some View {
         Group {
@@ -140,6 +142,14 @@ struct EditorShareView: View {
                         brfOptions = options
                     }
                 )
+            } else if format == .powerPoint, powerPointOptions == nil {
+                PowerPointOptionsView(
+                    settings: settings,
+                    onCancel: onClose,
+                    onExport: { options in
+                        powerPointOptions = options
+                    }
+                )
             } else if let fileURL {
                 // UIActivityViewController supplies its own Close button, in
                 // the right place — after the document name and before the
@@ -160,6 +170,9 @@ struct EditorShareView: View {
         .task(id: brfOptions) {
             await prepareFile()
         }
+        .task(id: powerPointOptions) {
+            await prepareFile()
+        }
     }
 
     /// Conversion and file writing happen off the main thread. A large Word
@@ -170,6 +183,7 @@ struct EditorShareView: View {
         // Neither braille format can be written until its options are in.
         if format == .eBraille, eBrailleMetadata == nil { return }
         if format == .brf, brfOptions == nil { return }
+        if format == .powerPoint, powerPointOptions == nil { return }
 
         let format = format
         let title = title
@@ -179,6 +193,7 @@ struct EditorShareView: View {
         let documentLanguage = documentLanguage
         let metadata = eBrailleMetadata
         let brf = brfOptions
+        let powerPoint = powerPointOptions
 
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
             do {
@@ -191,7 +206,8 @@ struct EditorShareView: View {
                         sourceDirectory: sourceDirectory,
                         documentLanguage: documentLanguage,
                         eBrailleMetadata: metadata,
-                        brfOptions: brf
+                        brfOptions: brf,
+                        powerPointOptions: powerPoint
                     )
                 )
             } catch {
@@ -219,7 +235,8 @@ nonisolated enum EditorShareFileWriter {
         sourceDirectory: URL?,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
         eBrailleMetadata: EBrailleMetadata? = nil,
-        brfOptions: BRFExportOptions? = nil
+        brfOptions: BRFExportOptions? = nil,
+        powerPointOptions: PowerPointExportOptions? = nil
     ) async throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -267,6 +284,21 @@ nonisolated enum EditorShareFileWriter {
             let data = try MarkdownToWordConverter.convert(
                 title: title,
                 markdown: markdown,
+                sourceDirectory: sourceDirectory,
+                documentLanguage: documentLanguage
+            )
+            try data.write(to: url, options: .atomic)
+            return url
+        case .powerPoint:
+            guard let powerPointOptions else {
+                throw PowerPointExportError.couldNotCreateDocument
+            }
+            let url = directory.appendingPathComponent(safeName)
+                .appendingPathExtension("pptx")
+            let data = try PowerPointWriter.write(
+                title: title,
+                markdown: markdown,
+                theme: powerPointOptions.theme,
                 sourceDirectory: sourceDirectory,
                 documentLanguage: documentLanguage
             )

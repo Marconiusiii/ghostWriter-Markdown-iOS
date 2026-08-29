@@ -130,6 +130,22 @@ struct ShareItemBuilderTests {
         #expect(try Data(contentsOf: url) == Data(markdown.utf8))
     }
 
+    @Test func powerPointShareHasTheExpectedNameAndPackageType() async throws {
+        let url = try await EditorShareFileWriter.write(
+            format: .powerPoint,
+            title: "Accessible deck",
+            fileName: "Accessible deck",
+            markdown: "# Accessible deck\n\n## First slide\n\nBody.",
+            sourceDirectory: nil,
+            powerPointOptions: PowerPointExportOptions(theme: .warmPaper)
+        )
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        #expect(url.lastPathComponent == "Accessible deck.pptx")
+        #expect(UTType(filenameExtension: url.pathExtension)?.conforms(to: .data) == true)
+        #expect(try Data(contentsOf: url).starts(with: [0x50, 0x4B]))
+    }
+
     @Test func plainTextFormatStripsMarkdownSyntax() {
         // Plain text used to hand over the source verbatim, which meant hashes
         // and asterisks were read aloud as punctuation — the least readable

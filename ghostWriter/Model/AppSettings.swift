@@ -143,6 +143,15 @@ final class AppSettings {
         didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) }
     }
 
+    var powerPointTheme: PowerPointTheme {
+        didSet {
+            defaults.set(
+                powerPointTheme.rawValue,
+                forKey: Keys.powerPointTheme
+            )
+        }
+    }
+
     var editorFontDesign: EditorFontDesign {
         didSet { defaults.set(editorFontDesign.rawValue, forKey: Keys.editorFontDesign) }
     }
@@ -326,6 +335,8 @@ final class AppSettings {
             .flatMap(IndentUnit.init(rawValue:))) ?? .twoSpaces
         self.appearance = (defaults.string(forKey: Keys.appearance)
             .flatMap(AppearanceMode.init(rawValue:))) ?? .system
+        self.powerPointTheme = defaults.string(forKey: Keys.powerPointTheme)
+            .flatMap(PowerPointTheme.init(rawValue:)) ?? .warmPaper
         self.editorFontDesign = (defaults.string(forKey: Keys.editorFontDesign)
             .flatMap(EditorFontDesign.init(rawValue:))) ?? .monospaced
         self.statusBarEnabled = defaults.object(forKey: Keys.statusBarEnabled) as? Bool ?? true
@@ -386,6 +397,7 @@ final class AppSettings {
         static let newDocumentCreationMode = "newDocumentCreationMode"
         static let indentUnit = "indentUnit"
         static let appearance = "appearance"
+        static let powerPointTheme = "powerPointTheme"
         static let editorFontDesign = "editorFontDesign"
         static let statusBarEnabled = "statusBarEnabled"
         static let statusLineAndColumn = "statusShowsLineAndColumn"

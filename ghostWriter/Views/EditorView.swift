@@ -88,6 +88,7 @@ struct EditorView: View {
         case plainText
         case html
         case word
+        case powerPoint
         case pdf
         case epub
         case eBraille
@@ -101,6 +102,7 @@ struct EditorView: View {
             case .plainText: return String(localized: "Plain Text")
             case .html: return String(localized: "HTML")
             case .word: return String(localized: "Word Document")
+            case .powerPoint: return String(localized: "PowerPoint")
             case .pdf: return String(localized: "PDF")
             case .epub: return String(localized: "EPUB")
             case .eBraille: return String(localized: "eBraille")
