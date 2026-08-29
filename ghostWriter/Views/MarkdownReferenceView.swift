@@ -117,7 +117,7 @@ struct ReferenceSection: Identifiable {
         ),
         ReferenceSection(
             title: "Links and images",
-            explanation: "Square brackets hold link text or an image description, and parentheses hold the address. An image with a description is ordinary. An image with empty brackets is decorative. Add the exact title tactile to mark an SVG, PNG, or JPG as a tactile graphic. Choose Tactile Graphic in Insert Actions to attach one.",
+            explanation: "Square brackets hold link text or an image description, and parentheses hold the address. An image with a description is ordinary. An image with empty brackets is decorative. Choose Image from Files or Image from Photo Library in Insert Actions to attach an ordinary image. Add the exact title tactile to mark an SVG, PNG, or JPG as a tactile graphic.",
             syntax: [
                 "[Marconius](https://marconius.com)",
                 "![Alt text](https://example.com/image.jpg)",

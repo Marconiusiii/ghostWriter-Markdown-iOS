@@ -2,9 +2,10 @@
 //  MarkdownInsertionView.swift
 //  ghostWriter
 //
-//  Native forms for guided Link and external Image insertion.
+//  Native forms for guided links and image insertion.
 //
 
+import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -18,6 +19,180 @@ enum MarkdownInsertionKind: String, Identifiable {
         switch self {
         case .link: return String(localized: "Insert Link")
         case .image: return String(localized: "Insert Image")
+        }
+    }
+}
+
+enum ImageAttachmentSource: Sendable {
+    case files
+    case photoLibrary
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .files: "Image from Files"
+        case .photoLibrary: "Image from Photo Library"
+        }
+    }
+}
+
+struct ImageAttachmentInsertionView: View {
+    let source: ImageAttachmentSource
+    let documentURL: URL
+    let onInsert: (String, String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var alternativeText = ""
+    @State private var isDecorative = false
+    @State private var selectedFile: URL?
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var showingFileImporter = false
+    @State private var isImporting = false
+    @State private var failureMessage: String?
+    @FocusState private var alternativeTextFocused: Bool
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Toggle("Decorative image", isOn: $isDecorative)
+                    LabeledContent("Alternative text") {
+                        TextField("", text: $alternativeText, axis: .vertical)
+                            .focused($alternativeTextFocused)
+                            .disabled(isDecorative)
+                    }
+                }
+
+                Section {
+                    sourcePicker
+                }
+
+                Section {
+                    Button(isImporting ? "Attaching…" : "Attach and insert") {
+                        attachAndInsert()
+                    }
+                    .disabled(!canInsert || isImporting)
+                }
+            }
+            .labeledContentStyle(ReflowingLabeledContentStyle())
+            .navigationTitle(source.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Dismiss") { alternativeTextFocused = false }
+                        .accessibilityLabel("Dismiss keyboard")
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.svg, .png, .jpeg],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls): selectedFile = urls.first
+            case .failure(let error): failureMessage = error.localizedDescription
+            }
+        }
+        .alert("Could Not Attach Image", isPresented: failureBinding) {
+            Button("OK") { failureMessage = nil }
+        } message: {
+            Text(failureMessage ?? "The selected image could not be attached.")
+        }
+        .onChange(of: isDecorative) { _, decorative in
+            if decorative { alternativeTextFocused = false }
+        }
+    }
+
+    @ViewBuilder
+    private var sourcePicker: some View {
+        switch source {
+        case .files:
+            LabeledContent("File", value: selectedFile?.lastPathComponent ?? "None selected")
+            Button(selectedFile == nil ? "Choose file…" : "Choose another file…") {
+                showingFileImporter = true
+            }
+        case .photoLibrary:
+            LabeledContent("Photo", value: selectedPhoto == nil ? "None selected" : "Selected")
+            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                Text(selectedPhoto == nil ? "Choose photo…" : "Choose another photo…")
+            }
+        }
+    }
+
+    private var trimmedAlternativeText: String {
+        alternativeText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var hasSelection: Bool {
+        switch source {
+        case .files: selectedFile != nil
+        case .photoLibrary: selectedPhoto != nil
+        }
+    }
+
+    private var canInsert: Bool {
+        hasSelection && (isDecorative || !trimmedAlternativeText.isEmpty)
+    }
+
+    private var failureBinding: Binding<Bool> {
+        Binding(
+            get: { failureMessage != nil },
+            set: { if !$0 { failureMessage = nil } }
+        )
+    }
+
+    private func attachAndInsert() {
+        guard canInsert else { return }
+        alternativeTextFocused = false
+        isImporting = true
+
+        Task {
+            do {
+                let relativePath = try await storeSelectedImage()
+                isImporting = false
+                onInsert(isDecorative ? "" : trimmedAlternativeText, relativePath)
+                dismiss()
+            } catch {
+                isImporting = false
+                failureMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func storeSelectedImage() async throws -> String {
+        switch source {
+        case .files:
+            guard let selectedFile else { throw CocoaError(.fileNoSuchFile) }
+            let accessed = selectedFile.startAccessingSecurityScopedResource()
+            defer {
+                if accessed { selectedFile.stopAccessingSecurityScopedResource() }
+            }
+            return try await Task.detached(priority: .userInitiated) {
+                let data = try Data(contentsOf: selectedFile)
+                return try DocumentAssets.importAsset(
+                    data: data,
+                    originalFileName: selectedFile.lastPathComponent,
+                    beside: documentURL
+                )
+            }.value
+
+        case .photoLibrary:
+            guard let selectedPhoto,
+                  let data = try await selectedPhoto.loadTransferable(type: Data.self) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            return try await Task.detached(priority: .userInitiated) {
+                let prepared = try DocumentAssets.preparePhotoAsset(data: data)
+                return try DocumentAssets.importAsset(
+                    data: prepared.data,
+                    originalFileName: prepared.fileName,
+                    beside: documentURL
+                )
+            }.value
         }
     }
 }

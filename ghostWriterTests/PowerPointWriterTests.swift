@@ -52,6 +52,7 @@ struct PowerPointWriterTests {
         let second = try text("ppt/slides/slide2.xml", in: package)
         let third = try text("ppt/slides/slide3.xml", in: package)
         let contentLayout = try text("ppt/slideLayouts/slideLayout2.xml", in: package)
+        let master = try text("ppt/slideMasters/slideMaster1.xml", in: package)
 
         #expect(presentation.components(separatedBy: "<p:sldId ").count - 1 == 3)
         #expect(first.contains("Presentation title"))
@@ -64,6 +65,11 @@ struct PowerPointWriterTests {
         #expect(second.contains("<p:ph type=\"body\""))
         #expect(contentLayout.contains("<p:ph type=\"title\" idx=\"0\""))
         #expect(contentLayout.contains("<p:ph type=\"body\" idx=\"1\""))
+        #expect(master.contains("<p:sldLayoutId id=\"2147483649\" r:id=\"rId1\"/>"))
+        #expect(master.contains("<p:sldLayoutId id=\"2147483650\" r:id=\"rId2\"/>"))
+        #expect(!first.contains("txBox=\"1\""))
+        #expect(!second.contains("txBox=\"1\""))
+        #expect(!third.contains("txBox=\"1\""))
     }
 
     @Test func thematicBreakMovesFollowingParagraphsIntoSpeakerNotes() throws {
@@ -93,6 +99,7 @@ struct PowerPointWriterTests {
         #expect(!slide.contains("First speaker note."))
         #expect(notes.contains("First speaker note."))
         #expect(notes.contains("Second speaker note."))
+        #expect(!notes.contains("txBox=\"1\""))
         #expect(relationships.contains("relationships/notesSlide"))
         #expect(relationships.contains("../notesSlides/notesSlide2.xml"))
         #expect(properties.contains("<Notes>1</Notes>"))
@@ -116,6 +123,8 @@ struct PowerPointWriterTests {
         #expect(slide.contains("lvl=\"1\""))
         #expect(slide.contains("<a:buAutoNum type=\"arabicPeriod\" startAt=\"4\"/>"))
         #expect(slide.contains("<a:buAutoNum type=\"arabicPeriod\" startAt=\"5\"/>"))
+        #expect(slide.contains("<p:ph type=\"body\" idx=\"1\""))
+        #expect(!slide.contains("txBox=\"1\""))
     }
 
     @Test func linksUseVisibleTextAndExternalRelationships() throws {
@@ -150,6 +159,30 @@ struct PowerPointWriterTests {
         #expect(slide.contains("descr=\"Process diagram\""))
         #expect(slide.contains("<adec:decorative val=\"1\"/>"))
         #expect(relationships.contains("../media/image1.png"))
+    }
+
+    @Test func unavailableImagesAreOmittedWithoutFailingTheExport() throws {
+        let package = try entries(
+            markdown: """
+            # Deck
+
+            ## Images
+
+            Text before ![Remote owl](https://example.com/owl.jpg) text after.
+
+            ![Missing owl](.ghostwriter-assets-missing/owl.png)
+            """,
+            sourceDirectory: FileManager.default.temporaryDirectory
+        )
+        let slide = try text("ppt/slides/slide2.xml", in: package)
+        let relationships = try text("ppt/slides/_rels/slide2.xml.rels", in: package)
+
+        #expect(slide.contains("Text before "))
+        #expect(slide.contains(" text after."))
+        #expect(slide.contains("cx=\"10728000\""))
+        #expect(!slide.contains("<p:pic>"))
+        #expect(!relationships.contains("relationships/image"))
+        #expect(!package.keys.contains { $0.hasPrefix("ppt/media/") })
     }
 
     @Test func selectedThemeAndLanguageAreWrittenIntoThePackage() throws {

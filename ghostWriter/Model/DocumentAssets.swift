@@ -1,7 +1,14 @@
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 nonisolated enum DocumentAssets {
     private static let directoryPrefix = ".ghostwriter-assets-"
+
+    struct PreparedPhoto: Equatable, Sendable {
+        let data: Data
+        let fileName: String
+    }
 
     static func newDirectoryName() -> String {
         directoryPrefix + UUID().uuidString.lowercased()
@@ -33,6 +40,55 @@ nonisolated enum DocumentAssets {
             }
             throw error
         }
+    }
+
+    /// Keeps photo-library images in formats supported by every structured
+    /// export. The native picker can return HEIC and other decodable formats,
+    /// so those are converted to JPEG before they enter the document bundle.
+    static func preparePhotoAsset(data: Data) throws -> PreparedPhoto {
+        guard !data.isEmpty,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0,
+              let identifier = CGImageSourceGetType(source) as String?,
+              let type = UTType(identifier),
+              CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+
+        if type.conforms(to: .png) {
+            return PreparedPhoto(data: data, fileName: "photo.png")
+        }
+        if type.conforms(to: .jpeg) {
+            return PreparedPhoto(data: data, fileName: "photo.jpg")
+        }
+
+        let converted = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            converted,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        var properties: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: 0.9
+        ]
+        if let sourceProperties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+            as? [CFString: Any],
+           let orientation = sourceProperties[kCGImagePropertyOrientation] {
+            properties[kCGImagePropertyOrientation] = orientation
+        }
+        CGImageDestinationAddImageFromSource(
+            destination,
+            source,
+            0,
+            properties as CFDictionary
+        )
+        guard CGImageDestinationFinalize(destination), !converted.isEmpty else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        return PreparedPhoto(data: converted as Data, fileName: "photo.jpg")
     }
 
     private static func safeFileName(_ original: String) -> String {

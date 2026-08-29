@@ -41,6 +41,20 @@ struct MarkdownInsertionTests {
         #expect(result.text == "Before ![](https://example.com/image.jpg) after")
     }
 
+    @Test func attachedOrdinaryImageUsesItsManagedRelativeReference() {
+        let result = MarkdownInsertion.image(
+            in: "",
+            selection: TextSelection(location: 0, length: 0),
+            alternativeText: "An owl perched on a branch",
+            address: ".ghostwriter-assets-123/owl.jpg"
+        )
+
+        #expect(
+            result.text == "![An owl perched on a branch](.ghostwriter-assets-123/owl.jpg)"
+        )
+        #expect(!result.text.contains("\"tactile\""))
+    }
+
     @Test func tactileGraphicUsesTheDocumentedMarkdownTitle() {
         let result = MarkdownInsertion.tactileGraphic(
             in: "",

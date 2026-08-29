@@ -24,7 +24,9 @@ struct InsertActionsView: View {
             List {
                 categoryButton("Headings…", category: .headings)
                 categoryButton("Link…", category: .link)
-                categoryButton("Image from Web…", category: .image)
+                categoryButton("Image from Files…", category: .fileImage)
+                categoryButton("Image from Photo Library…", category: .photoImage)
+                categoryButton("Image from Web…", category: .webImage)
                 categoryButton("Tactile Graphic…", category: .tactileGraphic)
                 categoryButton("Emphasis…", category: .emphasis)
                 categoryButton("Code…", category: .code)
@@ -77,7 +79,21 @@ struct InsertActionsView: View {
             MarkdownInsertionView(kind: .link, initialText: initialLinkText) {
                 choose(.link(label: $0, address: $1))
             }
-        case .image:
+        case .fileImage:
+            ImageAttachmentInsertionView(
+                source: .files,
+                documentURL: documentURL
+            ) {
+                choose(.image(alternativeText: $0, address: $1))
+            }
+        case .photoImage:
+            ImageAttachmentInsertionView(
+                source: .photoLibrary,
+                documentURL: documentURL
+            ) {
+                choose(.image(alternativeText: $0, address: $1))
+            }
+        case .webImage:
             MarkdownInsertionView(kind: .image, initialText: "") {
                 choose(.image(alternativeText: $0, address: $1))
             }
@@ -153,7 +169,9 @@ struct InsertActionsView: View {
 private enum InsertCategory: String, Identifiable, Hashable {
     case headings
     case link
-    case image
+    case fileImage
+    case photoImage
+    case webImage
     case tactileGraphic
     case emphasis
     case code

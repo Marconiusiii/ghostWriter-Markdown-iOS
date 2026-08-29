@@ -3,6 +3,26 @@ import Testing
 @testable import ghostWriter
 
 struct DocumentAssetsTests {
+    @Test func photoLibraryPNGIsKeptInASupportedFormat() throws {
+        let prepared = try DocumentAssets.preparePhotoAsset(data: tinyPNG)
+
+        #expect(prepared.data == tinyPNG)
+        #expect(prepared.fileName == "photo.png")
+    }
+
+    @Test func otherDecodablePhotoLibraryFormatsBecomeJPEG() throws {
+        let prepared = try DocumentAssets.preparePhotoAsset(data: tinyGIF)
+
+        #expect(prepared.fileName == "photo.jpg")
+        #expect(ExportImageResource.hasValidImageData(prepared.data, mediaType: "image/jpeg"))
+    }
+
+    @Test func unreadablePhotoLibraryDataIsRejected() {
+        #expect(throws: (any Error).self) {
+            try DocumentAssets.preparePhotoAsset(data: Data("not an image".utf8))
+        }
+    }
+
     @Test func importedTactileAssetUsesAManagedRelativeReference() throws {
         let root = temporaryDirectory()
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -90,5 +110,15 @@ struct DocumentAssetsTests {
             "ghostWriterDocumentAssets-\(UUID().uuidString)",
             isDirectory: true
         )
+    }
+
+    private var tinyPNG: Data {
+        Data(base64Encoded:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        ) ?? Data()
+    }
+
+    private var tinyGIF: Data {
+        Data(base64Encoded: "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==") ?? Data()
     }
 }

@@ -686,6 +686,17 @@
         }
       }
     },
+    "Code (%@):" : {
+      "comment" : "PowerPointWriter.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código (%@):"
+          }
+        }
+      }
+    },
     "Code block created." : {
       "comment" : "MarkdownInsertion.swift:53",
       "localizations" : {
@@ -2127,6 +2138,28 @@
         }
       }
     },
+    "High contrast dark" : {
+      "comment" : "PowerPointTheme.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alto contraste oscuro"
+          }
+        }
+      }
+    },
+    "High contrast light" : {
+      "comment" : "PowerPointTheme.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alto contraste claro"
+          }
+        }
+      }
+    },
     "Horizontal rule" : {
       "comment" : "LineStructure.swift:57",
       "localizations" : {
@@ -2578,6 +2611,17 @@
         }
       }
     },
+    "Midnight" : {
+      "comment" : "PowerPointTheme.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medianoche"
+          }
+        }
+      }
+    },
     "Monospaced" : {
       "comment" : "AppSettings.swift:80",
       "localizations" : {
@@ -2842,6 +2886,18 @@
         }
       }
     },
+    "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, Word Document, PowerPoint, PDF, EPUB, eBraille, or Braille Ready Format." : {
+      "comment" : "HelpView.swift",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre Acciones de archivo, elige Compartir y selecciona Markdown, Texto sin formato, HTML, Documento de Word, PowerPoint, PDF, EPUB, eBraille o Braille Ready Format."
+          }
+        }
+      }
+    },
     "Open Last Document" : {
       "comment" : "AppLaunchBehavior.swift:24",
       "localizations" : {
@@ -3007,6 +3063,40 @@
         }
       }
     },
+    "PowerPoint" : {
+      "comment" : "EditorView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPoint"
+          }
+        }
+      }
+    },
+    "PowerPoint creates a widescreen .pptx presentation. A level 1 heading titles the presentation. Each level 2 heading begins and titles a slide. Level 3 headings, paragraphs, lists, links, and attached images become slide content. A horizontal rule made with three asterisks begins speaker notes until the next level 2 heading. Select a presentation theme before sharing." : {
+      "comment" : "HelpView.swift",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPoint crea una presentación panorámica en formato .pptx. Un encabezado de nivel 1 titula la presentación. Cada encabezado de nivel 2 inicia y titula una diapositiva. Los encabezados de nivel 3, los párrafos, las listas, los enlaces y las imágenes adjuntas se convierten en contenido de la diapositiva. Una regla horizontal hecha con tres asteriscos inicia las notas del orador hasta el siguiente encabezado de nivel 2. Selecciona un tema de presentación antes de compartir."
+          }
+        }
+      }
+    },
+    "PowerPoint export" : {
+      "comment" : "PowerPointOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportación a PowerPoint"
+          }
+        }
+      }
+    },
     "Preferred braille code" : {
       "comment" : "EBrailleMetadataSettingsView.swift:57",
       "localizations" : {
@@ -3040,6 +3130,28 @@
         }
       }
     },
+    "Presentation" : {
+      "comment" : "PowerPointWriter.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presentación"
+          }
+        }
+      }
+    },
+    "Presentation theme" : {
+      "comment" : "PowerPointOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tema de presentación"
+          }
+        }
+      }
+    },
     "Produced by" : {
       "comment" : "EBrailleMetadataSettingsView.swift:82",
       "localizations" : {
@@ -3069,6 +3181,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Editorial"
+          }
+        }
+      }
+    },
+    "Quote: " : {
+      "comment" : "PowerPointWriter.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cita: "
           }
         }
       }
@@ -3821,6 +3944,17 @@
         }
       }
     },
+    "The image %@ could not be included in the PowerPoint presentation." : {
+      "comment" : "PowerPointWriter.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo incluir la imagen %@ en la presentación de PowerPoint."
+          }
+        }
+      }
+    },
     "The PDF could not be created." : {
       "comment" : "TaggedPDFWriter.swift:1086",
       "localizations" : {
@@ -3843,6 +3977,17 @@
         }
       }
     },
+    "The PowerPoint presentation could not be created." : {
+      "comment" : "PowerPointWriter.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo crear la presentación de PowerPoint."
+          }
+        }
+      }
+    },
     "The render sound follows your device's silent switch." : {
       "comment" : "SettingsView.swift:209",
       "localizations" : {
@@ -3861,6 +4006,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El archivo seleccionado no es un documento de Word válido."
+          }
+        }
+      }
+    },
+    "The slide “%@” contains more than four images. Add another level 2 heading." : {
+      "comment" : "PowerPointWriter.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La diapositiva «%@» contiene más de cuatro imágenes. Añade otro encabezado de nivel 2."
+          }
+        }
+      }
+    },
+    "The slide “%@” contains too much content. Add another level 2 heading." : {
+      "comment" : "PowerPointWriter.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La diapositiva «%@» contiene demasiado contenido. Añade otro encabezado de nivel 2."
           }
         }
       }
@@ -4261,6 +4428,17 @@
         }
       }
     },
+    "Warm paper" : {
+      "comment" : "PowerPointTheme.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Papel cálido"
+          }
+        }
+      }
+    },
     "Welcome to ghostWriter Markdown" : {
       "comment" : "WelcomeView.swift:20",
       "localizations" : {
@@ -4382,178 +4560,178 @@
         }
       }
     },
-    "Code (%@):" : {
-      "comment" : "PowerPointWriter.swift",
+    "Alternative text" : {
+      "comment" : "MarkdownInsertionView.swift:58",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Código (%@):"
+            "value" : "Texto alternativo"
           }
         }
       }
     },
-    "High contrast dark" : {
-      "comment" : "PowerPointTheme.swift",
+    "Choose another photo…" : {
+      "comment" : "MarkdownInsertionView.swift:121",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alto contraste oscuro"
+            "value" : "Elegir otra foto…"
           }
         }
       }
     },
-    "High contrast light" : {
-      "comment" : "PowerPointTheme.swift",
+    "Choose photo…" : {
+      "comment" : "MarkdownInsertionView.swift:121",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alto contraste claro"
+            "value" : "Elegir foto…"
           }
         }
       }
     },
-    "Midnight" : {
-      "comment" : "PowerPointTheme.swift",
+    "Could Not Attach Image" : {
+      "comment" : "MarkdownInsertionView.swift:100",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Medianoche"
+            "value" : "No se pudo adjuntar la imagen"
           }
         }
       }
     },
-    "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, Word Document, PowerPoint, PDF, EPUB, eBraille, or Braille Ready Format." : {
-      "comment" : "HelpView.swift",
+    "Decorative image" : {
+      "comment" : "MarkdownInsertionView.swift:57",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abre Acciones de archivo, elige Compartir y selecciona Markdown, Texto sin formato, HTML, Documento de Word, PowerPoint, PDF, EPUB, eBraille o Braille Ready Format."
+            "value" : "Imagen decorativa"
           }
         }
       }
     },
-    "PowerPoint" : {
-      "comment" : "EditorView.swift",
+    "Image from Files" : {
+      "comment" : "MarkdownInsertionView.swift:32",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPoint"
+            "value" : "Imagen desde Archivos"
           }
         }
       }
     },
-    "PowerPoint creates a widescreen .pptx presentation. A level 1 heading titles the presentation. Each level 2 heading begins and titles a slide. Level 3 headings, paragraphs, lists, links, and attached images become slide content. A horizontal rule made with three asterisks begins speaker notes until the next level 2 heading. Select a presentation theme before sharing." : {
-      "comment" : "HelpView.swift",
+    "Image from Files…" : {
+      "comment" : "InsertActionsView.swift:27",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PowerPoint crea una presentación panorámica en formato .pptx. Un encabezado de nivel 1 titula la presentación. Cada encabezado de nivel 2 inicia y titula una diapositiva. Los encabezados de nivel 3, los párrafos, las listas, los enlaces y las imágenes adjuntas se convierten en contenido de la diapositiva. Una regla horizontal hecha con tres asteriscos inicia las notas del orador hasta el siguiente encabezado de nivel 2. Selecciona un tema de presentación antes de compartir."
+            "value" : "Imagen desde Archivos…"
           }
         }
       }
     },
-    "PowerPoint export" : {
-      "comment" : "PowerPointOptionsView.swift",
+    "Image from Photo Library" : {
+      "comment" : "MarkdownInsertionView.swift:33",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Exportación a PowerPoint"
+            "value" : "Imagen desde la fototeca"
           }
         }
       }
     },
-    "Presentation" : {
-      "comment" : "PowerPointWriter.swift",
+    "Image from Photo Library…" : {
+      "comment" : "InsertActionsView.swift:28",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Presentación"
+            "value" : "Imagen desde la fototeca…"
           }
         }
       }
     },
-    "Presentation theme" : {
-      "comment" : "PowerPointOptionsView.swift",
+    "Photo" : {
+      "comment" : "MarkdownInsertionView.swift:119",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tema de presentación"
+            "value" : "Foto"
           }
         }
       }
     },
-    "Quote: " : {
-      "comment" : "PowerPointWriter.swift",
+    "Selected" : {
+      "comment" : "MarkdownInsertionView.swift:114",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cita: "
+            "value" : "Seleccionada"
           }
         }
       }
     },
-    "The image %@ could not be included in the PowerPoint presentation." : {
-      "comment" : "PowerPointWriter.swift",
+    "The selected image could not be attached." : {
+      "comment" : "MarkdownInsertionView.swift:103",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se pudo incluir la imagen %@ en la presentación de PowerPoint."
+            "value" : "La imagen seleccionada no se pudo adjuntar."
           }
         }
       }
     },
-    "The PowerPoint presentation could not be created." : {
-      "comment" : "PowerPointWriter.swift",
+    "Choose Insert Actions, then Image from Files or Image from Photo Library to attach an ordinary image. Enter alternative text or mark the image decorative. ghostWriter stores the image with the document and inserts its relative Markdown reference." : {
+      "comment" : "HelpView.swift:118",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se pudo crear la presentación de PowerPoint."
+            "value" : "Elige Acciones de inserción y, a continuación, Imagen desde Archivos o Imagen desde la fototeca para adjuntar una imagen ordinaria. Introduce texto alternativo o marca la imagen como decorativa. ghostWriter almacena la imagen con el documento e inserta su referencia relativa en Markdown."
           }
         }
       }
     },
-    "The slide “%@” contains more than four images. Add another level 2 heading." : {
-      "comment" : "PowerPointWriter.swift",
+    "Choose Tactile Graphic to attach an SVG, PNG, or JPG prepared for tactile presentation. A tactile graphic has a description and the Markdown title tactile." : {
+      "comment" : "HelpView.swift:122",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La diapositiva «%@» contiene más de cuatro imágenes. Añade otro encabezado de nivel 2."
+            "value" : "Elige Gráfico táctil para adjuntar un archivo SVG, PNG o JPG preparado para una presentación táctil. Un gráfico táctil tiene una descripción y el título tactile en Markdown."
           }
         }
       }
     },
-    "The slide “%@” contains too much content. Add another level 2 heading." : {
-      "comment" : "PowerPointWriter.swift",
+    "Image from Files attaches an SVG, PNG, or JPG selected with the system file picker. Image from Photo Library attaches a photo selected with the system photo picker. Enter alternative text or mark the image decorative." : {
+      "comment" : "HelpView.swift:175",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La diapositiva «%@» contiene demasiado contenido. Añade otro encabezado de nivel 2."
+            "value" : "Imagen desde Archivos adjunta un archivo SVG, PNG o JPG seleccionado con el selector de archivos del sistema. Imagen desde la fototeca adjunta una foto seleccionada con el selector de fotos del sistema. Introduce texto alternativo o marca la imagen como decorativa."
           }
         }
       }
     },
-    "Warm paper" : {
-      "comment" : "PowerPointTheme.swift",
+    "Square brackets hold link text or an image description, and parentheses hold the address. An image with a description is ordinary. An image with empty brackets is decorative. Choose Image from Files or Image from Photo Library in Insert Actions to attach an ordinary image. Add the exact title tactile to mark an SVG, PNG, or JPG as a tactile graphic." : {
+      "comment" : "MarkdownReferenceView.swift:120",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Papel cálido"
+            "value" : "Los corchetes contienen el texto del enlace o la descripción de una imagen, y los paréntesis contienen la dirección. Una imagen con descripción es ordinaria. Una imagen con corchetes vacíos es decorativa. Elige Imagen desde Archivos o Imagen desde la fototeca en Acciones de inserción para adjuntar una imagen ordinaria. Añade el título exacto tactile para marcar un archivo SVG, PNG o JPG como gráfico táctil."
           }
         }
       }

@@ -74,6 +74,14 @@ nonisolated enum PowerPointWriter {
         var mediaType: String
     }
 
+    private struct PreparedImage {
+        var image: ExportImage
+        var data: Data
+        var mediaType: String
+        var fileExtension: String
+        var ratio: Double
+    }
+
     private struct SlideContext {
         var relationships: [Relationship] = []
         var media: [MediaPart] = []
@@ -92,27 +100,13 @@ nonisolated enum PowerPointWriter {
         }
 
         mutating func addImage(
-            _ image: ExportImage,
-            sourceDirectory: URL?,
+            _ image: PreparedImage,
             mediaNumber: Int
-        ) throws -> (id: String, part: MediaPart, ratio: Double) {
-            guard let resolved = ExportImageResource.resolveManagedAsset(
-                source: image.source,
-                sourceDirectory: sourceDirectory
-            ) else {
-                throw PowerPointExportError.imageUnavailable(image.source)
-            }
-            let ext: String
-            switch resolved.mediaType {
-            case "image/jpeg": ext = "jpg"
-            case "image/png": ext = "png"
-            case "image/svg+xml": ext = "svg"
-            default: throw PowerPointExportError.imageUnavailable(image.source)
-            }
+        ) -> (id: String, part: MediaPart, ratio: Double) {
             let part = MediaPart(
-                fileName: "image\(mediaNumber).\(ext)",
-                data: resolved.data,
-                mediaType: resolved.mediaType
+                fileName: "image\(mediaNumber).\(image.fileExtension)",
+                data: image.data,
+                mediaType: image.mediaType
             )
             let id = "rId\(nextRelationship)"
             nextRelationship += 1
@@ -122,7 +116,7 @@ nonisolated enum PowerPointWriter {
                 target: "../media/\(part.fileName)"
             ))
             media.append(part)
-            return (id, part, imageRatio(data: resolved.data, mediaType: resolved.mediaType))
+            return (id, part, image.ratio)
         }
     }
 
@@ -161,7 +155,10 @@ nonisolated enum PowerPointWriter {
             let number = offset + 1
             let isTitleSlide = number == 1
             var context = SlideContext()
-            let images = collectImages(in: slide.content)
+            let images = prepareImages(
+                collectImages(in: slide.content),
+                sourceDirectory: sourceDirectory
+            )
             if images.count > 4 {
                 throw PowerPointExportError.tooManyImages(slide.title.plainText)
             }
@@ -173,13 +170,12 @@ nonisolated enum PowerPointWriter {
                 isTitleSlide: isTitleSlide
             )
 
-            let built = try slideXML(
+            let built = slideXML(
                 slide: slide,
                 paragraphs: paragraphs,
                 images: images,
                 number: number,
                 isTitleSlide: isTitleSlide,
-                sourceDirectory: sourceDirectory,
                 language: documentLanguage,
                 mediaNumber: &mediaNumber,
                 context: &context
@@ -470,6 +466,34 @@ nonisolated enum PowerPointWriter {
         return images
     }
 
+    private static func prepareImages(
+        _ images: [ExportImage],
+        sourceDirectory: URL?
+    ) -> [PreparedImage] {
+        images.compactMap { image in
+            guard let resolved = ExportImageResource.resolveManagedAsset(
+                source: image.source,
+                sourceDirectory: sourceDirectory
+            ) else {
+                return nil
+            }
+            let fileExtension: String
+            switch resolved.mediaType {
+            case "image/jpeg": fileExtension = "jpg"
+            case "image/png": fileExtension = "png"
+            case "image/svg+xml": fileExtension = "svg"
+            default: return nil
+            }
+            return PreparedImage(
+                image: image,
+                data: resolved.data,
+                mediaType: resolved.mediaType,
+                fileExtension: fileExtension,
+                ratio: imageRatio(data: resolved.data, mediaType: resolved.mediaType)
+            )
+        }
+    }
+
     private static func validateFit(
         title: String,
         paragraphs: [Paragraph],
@@ -496,14 +520,13 @@ nonisolated enum PowerPointWriter {
     private static func slideXML(
         slide: Slide,
         paragraphs: [Paragraph],
-        images: [ExportImage],
+        images: [PreparedImage],
         number: Int,
         isTitleSlide: Bool,
-        sourceDirectory: URL?,
         language: String,
         mediaNumber: inout Int,
         context: inout SlideContext
-    ) throws -> String {
+    ) -> String {
         let titlePosition = isTitleSlide
             ? (x: 914_400, y: 1_200_000, width: 10_363_200, height: 1_400_000)
             : (x: 548_640, y: 274_320, width: 11_094_720, height: 822_960)
@@ -539,9 +562,8 @@ nonisolated enum PowerPointWriter {
 
         if hasImages {
             for (index, image) in images.enumerated() {
-                let added = try context.addImage(
+                let added = context.addImage(
                     image,
-                    sourceDirectory: sourceDirectory,
                     mediaNumber: mediaNumber
                 )
                 mediaNumber += 1
@@ -552,7 +574,7 @@ nonisolated enum PowerPointWriter {
                     ratio: added.ratio
                 )
                 shapes += pictureXML(
-                    image: image,
+                    image: image.image,
                     relationshipID: added.id,
                     shapeID: 100 + index,
                     position: frame
@@ -602,7 +624,7 @@ nonisolated enum PowerPointWriter {
             drawingParagraphXML($0, language: language, context: &context)
         }.joined()
         return """
-        <p:sp><p:nvSpPr><p:cNvPr id="\(placeholderIndex + 2)" name="\(xmlAttribute(name))"/><p:cNvSpPr txBox="1"/><p:nvPr><p:ph type="\(placeholderType)" idx="\(placeholderIndex)"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"/><a:lstStyle/>\(paragraphXML)</p:txBody></p:sp>
+        <p:sp><p:nvSpPr><p:cNvPr id="\(placeholderIndex + 2)" name="\(xmlAttribute(name))"/><p:cNvSpPr/><p:nvPr><p:ph type="\(placeholderType)" idx="\(placeholderIndex)"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"/><a:lstStyle/>\(paragraphXML)</p:txBody></p:sp>
         """
     }
 
@@ -698,7 +720,7 @@ nonisolated enum PowerPointWriter {
             return "<a:p><a:r><a:rPr lang=\"\(xmlAttribute(language))\" sz=\"1200\"><a:latin typeface=\"Arial\"/></a:rPr><a:t>\(xmlText(text))</a:t></a:r><a:endParaRPr lang=\"\(xmlAttribute(language))\" sz=\"1200\"/></a:p>"
         }.joined()
         return xmlHeader + """
-        <p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree>\(groupShapeRoot)<p:sp><p:nvSpPr><p:cNvPr id="2" name="Notes body"/><p:cNvSpPr txBox="1"/><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>\(notes)</p:txBody></p:sp></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>
+        <p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree>\(groupShapeRoot)<p:sp><p:nvSpPr><p:cNvPr id="2" name="Notes body"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>\(notes)</p:txBody></p:sp></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>
         """
     }
 
@@ -762,7 +784,7 @@ nonisolated enum PowerPointWriter {
     }
 
     private static let slideMasterXML = xmlHeader + """
-    <p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="ghostWriter"><p:spTree>\(groupShapeRoot)</p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/><p:sldLayoutIdLst><p:sldLayoutId id="1" r:id="rId1"/><p:sldLayoutId id="2" r:id="rId2"/></p:sldLayoutIdLst><p:txStyles><p:titleStyle><a:lvl1pPr algn="l"><a:defRPr sz="4000" b="1"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:lvl1pPr></p:titleStyle><p:bodyStyle><a:lvl1pPr marL="457200" indent="-228600"><a:defRPr sz="2400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:lvl1pPr></p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr sz="2400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:defPPr></p:otherStyle></p:txStyles></p:sldMaster>
+    <p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="ghostWriter"><p:spTree>\(groupShapeRoot)</p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/><p:sldLayoutId id="2147483650" r:id="rId2"/></p:sldLayoutIdLst><p:txStyles><p:titleStyle><a:lvl1pPr algn="l"><a:defRPr sz="4000" b="1"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:lvl1pPr></p:titleStyle><p:bodyStyle><a:lvl1pPr marL="457200" indent="-228600"><a:defRPr sz="2400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:lvl1pPr></p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr sz="2400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:defPPr></p:otherStyle></p:txStyles></p:sldMaster>
     """
 
     private static let slideMasterRelationshipsXML = relationshipsXML([
@@ -913,7 +935,6 @@ nonisolated enum PowerPointExportError: LocalizedError, Equatable, Sendable {
     case couldNotCreateDocument
     case slideTooFull(String)
     case tooManyImages(String)
-    case imageUnavailable(String)
 
     var errorDescription: String? {
         switch self {
@@ -923,8 +944,6 @@ nonisolated enum PowerPointExportError: LocalizedError, Equatable, Sendable {
             return String(localized: "The slide “\(title)” contains too much content. Add another level 2 heading.")
         case .tooManyImages(let title):
             return String(localized: "The slide “\(title)” contains more than four images. Add another level 2 heading.")
-        case .imageUnavailable(let source):
-            return String(localized: "The image \(source) could not be included in the PowerPoint presentation.")
         }
     }
 }
