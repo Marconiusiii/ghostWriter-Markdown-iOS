@@ -21,7 +21,7 @@ nonisolated enum MarkdownRenderer {
         let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         if !trimmedTitle.isEmpty,
-           !startsWithLevelOneHeading(blocks, matching: trimmedTitle) {
+           !containsLevelOneHeading(blocks) {
             blocks.insert(.heading(level: 1, content: [.text(trimmedTitle)]), at: 0)
         }
 
@@ -36,14 +36,19 @@ nonisolated enum MarkdownRenderer {
         return output
     }
 
-    private static func startsWithLevelOneHeading(
-        _ blocks: [ExportBlock],
-        matching title: String
-    ) -> Bool {
-        guard case .heading(let level, let content)? = blocks.first,
-              level == 1 else { return false }
-        return content.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
-            .caseInsensitiveCompare(title) == .orderedSame
+    private static func containsLevelOneHeading(_ blocks: [ExportBlock]) -> Bool {
+        blocks.contains { block in
+            switch block {
+            case .heading(let level, _):
+                return level == 1
+            case .blockQuote(let children):
+                return containsLevelOneHeading(children)
+            case .list(let list):
+                return list.items.contains { containsLevelOneHeading($0.children) }
+            case .paragraph, .table, .codeBlock, .thematicBreak:
+                return false
+            }
+        }
     }
 
     static func escape(_ text: String) -> String {

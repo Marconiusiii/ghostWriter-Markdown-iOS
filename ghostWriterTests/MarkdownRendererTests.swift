@@ -136,12 +136,57 @@ struct MarkdownRendererTests {
         #expect(html.contains("<a href=\"https://example.com\">A [nested] label</a>"))
     }
 
-    @Test func titleIsAVisibleLevelOneHeadingUnlessTheDocumentAlreadyStartsWithIt() {
+    @Test func titleIsAVisibleLevelOneHeadingWhenNoAuthoredLevelOneHeadingExists() {
         let inserted = MarkdownRenderer.html(from: "## Notes\n\nBody", title: "Notes")
-        let retained = MarkdownRenderer.html(from: "# Notes\n\nBody", title: "Notes")
 
         #expect(inserted.hasPrefix("<h1>Notes</h1><h2>Notes</h2>"))
-        #expect(retained.components(separatedBy: "<h1>Notes</h1>").count == 2)
+    }
+
+    @Test func authoredLevelOneHeadingSuppressesTheDocumentTitleRegardlessOfWording() {
+        for title in ["Owls Sure Are Great!", "Owl Presentation"] {
+            let html = MarkdownRenderer.html(from: "# Owls Sure Are Great!\n\nBody", title: title)
+
+            #expect(html == "<h1>Owls Sure Are Great!</h1><p>Body</p>")
+        }
+    }
+
+    @Test func levelOneHeadingAfterAnIntroductionSuppressesTheDocumentTitle() {
+        let html = MarkdownRenderer.html(
+            from: "Introduction\n\n# Authored title\n\nBody",
+            title: "Document name"
+        )
+
+        #expect(html == "<p>Introduction</p><h1>Authored title</h1><p>Body</p>")
+    }
+
+    @Test func setextLevelOneHeadingSuppressesTheDocumentTitle() {
+        let html = MarkdownRenderer.html(from: "Authored title\n===\n\nBody", title: "Document name")
+
+        #expect(html == "<h1>Authored title</h1><p>Body</p>")
+    }
+
+    @Test func formattedLevelOneHeadingSuppressesTheDocumentTitle() {
+        let html = MarkdownRenderer.html(from: "# An **authored** title", title: "Document name")
+
+        #expect(html == "<h1>An <strong>authored</strong> title</h1>")
+    }
+
+    @Test func nestedLevelOneHeadingSuppressesTheDocumentTitle() {
+        for markdown in ["> # Authored title", "- Item\n\n  # Authored title"] {
+            let html = MarkdownRenderer.html(from: markdown, title: "Document name")
+
+            #expect(html.contains("<h1>Authored title</h1>"))
+            #expect(!html.contains("Document name"))
+        }
+    }
+
+    @Test func headingSyntaxInCodeDoesNotSuppressTheDocumentTitle() {
+        for markdown in ["```markdown\n# Example heading\n```", "~~~markdown\n# Example heading\n~~~", "`# Example heading`"] {
+            let html = MarkdownRenderer.html(from: markdown, title: "Document name")
+
+            #expect(html.hasPrefix("<h1>Document name</h1>"))
+            #expect(!html.contains("<h1>Example heading</h1>"))
+        }
     }
 
     @Test func orderedAndNestedListsRetainTheirStructure() {
