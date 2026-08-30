@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ZIPFoundation
 @testable import ghostWriter
 
 struct PowerPointImportTests {
@@ -258,16 +259,82 @@ struct PowerPointImportTests {
         #expect(try convert(data, options: options).markdown == "## Slide 1\n")
     }
 
-    @Test func sourceReadsAreBoundedBeforeZIPParsing() throws {
+    @Test func fileBackedImportMatchesMemoryAndRejectsFilesOver512MiB() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("PowerPointRead-\(UUID()).pptx")
         defer { try? FileManager.default.removeItem(at: url) }
         let bytes = try package([slide(shape("Text"))])
         try bytes.write(to: url)
-        #expect(try PowerPointImportPackage.fileData(at: url) == bytes)
+        let fromFile = try PowerPointToMarkdownConverter.importDocument(fileURL: url, assetDirectoryName: assets)
+        #expect(try fromFile == convert(bytes))
+        #expect(PowerPointImportPackage.maximumFileSize == 512 * 1024 * 1024)
         let handle = try FileHandle(forWritingTo: url)
         try handle.truncate(atOffset: UInt64(PowerPointImportPackage.maximumFileSize + 1))
         try handle.close()
-        #expect(throws: PowerPointImportError.self) { try PowerPointImportPackage.fileData(at: url) }
+        #expect(throws: PowerPointImportError.limitExceeded(.fileSize)) { try PowerPointImportPackage(url: url) }
+    }
+
+    @Test func fileLargerThan64MiBImportsWithoutReadingExcludedMedia() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("PowerPointLarge-\(UUID()).pptx")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try package([slide(shape("Large deck", type: "title") + picture())], extras: [
+            "ppt/slides/_rels/slide1.xml.rels": Data(relations([("image", "image", "../media/large.png", false)]).utf8)
+        ]).write(to: url)
+        do {
+            let archive = try Archive(url: url, accessMode: .update)
+            try archive.addEntry(with: "ppt/media/large.png", type: .file, uncompressedSize: Int64(70 * 1024 * 1024),
+                                 compressionMethod: .none) { _, count in Data(repeating: 0, count: count) }
+        }
+        #expect(try #require(url.resourceValues(forKeys: [.fileSizeKey]).fileSize) > 64 * 1024 * 1024)
+        var options = PowerPointImportOptions()
+        options.images = false
+        let package = try PowerPointImportPackage(url: url)
+        let result = try PowerPointDocumentReader(package: package, options: options, assetDirectory: assets).read()
+        #expect(result.slides.count == 1)
+        #expect(result.assets.isEmpty)
+        #expect(result.notices.isEmpty)
+        #expect(package.extractedImageBytes == 0)
+        #expect(package.extractedDocumentBytes < 10_000)
+    }
+
+    @Test func exhaustedImageAllowanceDoesNotConsumeDocumentAllowance() throws {
+        let imageBytes = Data(repeating: 65, count: 8 * 1024 * 1024)
+        var entries = ["text.xml": Data("<text>Keep the text</text>".utf8)]
+        for index in 0..<13 { entries["image\(index).png"] = imageBytes }
+        let package = try PowerPointImportPackage(data: PowerPointPackage.create(entries: entries))
+        for index in 0..<12 { _ = try package.data(at: "image\(index).png", isImage: true) }
+        #expect(package.extractedImageBytes == PowerPointImportPackage.maximumImageBytes)
+        #expect(package.extractedDocumentBytes == 0)
+        #expect(throws: PowerPointImportError.limitExceeded(.imageContent)) {
+            try package.data(at: "image12.png", isImage: true)
+        }
+        #expect(try package.xml(at: "text.xml").text == "Keep the text")
+        #expect(package.extractedDocumentBytes < 100)
+    }
+
+    @Test func oversizedImageIsReportedWithoutDiscardingLaterSlides() throws {
+        let data = try package([slide(picture()), slide(shape("Later text", type: "title"))], extras: [
+            "ppt/slides/_rels/slide1.xml.rels": Data(relations([("image", "image", "../media/large.png", false)]).utf8),
+            "ppt/media/large.png": Data(repeating: 0, count: 10 * 1024 * 1024 + 1)
+        ])
+        let result = try convert(data)
+        #expect(result.markdown.contains("Later text"))
+        #expect(result.markdown.contains("Image: An owl"))
+        #expect(result.assets.isEmpty)
+        #expect(result.notices.contains(PowerPointImportLimit.imageSize.description))
+        var options = PowerPointImportOptions()
+        options.images = false
+        let withoutImages = try convert(data, options: options)
+        #expect(withoutImages.notices.isEmpty)
+        #expect(withoutImages.markdown.contains("Later text"))
+    }
+
+    @Test func limitErrorsIdentifyTheActualThreshold() throws {
+        let data = try package(Array(repeating: slide(""), count: 501))
+        #expect(throws: PowerPointImportError.limitExceeded(.slides)) { try convert(data) }
+        let deeplyNested = Data((String(repeating: "<a>", count: 65) + String(repeating: "</a>", count: 65)).utf8)
+        #expect(throws: PowerPointImportError.limitExceeded(.xmlDepth)) { try PowerPointXMLNode.parse(deeplyNested) }
+        #expect(PowerPointImportError.limitExceeded(.fileSize).localizedDescription.contains("512 MiB"))
+        #expect(PowerPointImportError.limitExceeded(.documentContent).localizedDescription.contains("excluding images"))
     }
 }
 

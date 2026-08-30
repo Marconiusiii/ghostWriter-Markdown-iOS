@@ -4,40 +4,53 @@ import ZIPFoundation
 /// Reads selected package parts into bounded memory; never extracts ZIP paths
 /// onto disk and never follows an external relationship.
 nonisolated final class PowerPointImportPackage {
-    static let maximumFileSize = 64 * 1024 * 1024
+    static let maximumFileSize = 512 * 1024 * 1024
+    static let maximumDocumentBytes = 96 * 1024 * 1024
+    static let maximumImageBytes = 96 * 1024 * 1024
     private let archive: Archive
-    private var cache: [String: Data] = [:]
-    private var totalBytes = 0
+    private var documentCache: [String: Data] = [:]
+    private(set) var extractedDocumentBytes = 0
+    private(set) var extractedImageBytes = 0
 
-    /// Limits the source read itself, not just the ZIP after loading it.
-    /// The caller keeps security-scoped access and coordinates the file read.
-    static func fileData(at url: URL) throws -> Data {
+    /// File-backed reading keeps the ZIP on disk. The caller coordinates the
+    /// entire conversion and retains security-scoped access until it finishes.
+    convenience init(url: URL) throws {
+        try Task.checkCancellation()
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
-        var data = Data()
-        while true {
-            try Task.checkCancellation()
-            let chunk = try handle.read(upToCount: min(1024 * 1024, maximumFileSize + 1 - data.count)) ?? Data()
-            guard !chunk.isEmpty else { return data }
-            data.append(chunk)
-            guard data.count <= maximumFileSize else { throw PowerPointImportError.oversized }
+        guard try handle.seekToEnd() <= UInt64(Self.maximumFileSize) else {
+            throw PowerPointImportError.limitExceeded(.fileSize)
         }
+        try handle.seek(toOffset: 0)
+        try Self.checkEncryption(try handle.read(upToCount: 8) ?? Data())
+        let archive: Archive
+        do { archive = try Archive(url: url, accessMode: .read) }
+        catch { throw PowerPointImportError.invalidPackage }
+        try self.init(archive: archive)
     }
 
-    init(data: Data) throws {
-        guard data.count <= Self.maximumFileSize else { throw PowerPointImportError.oversized }
-        // Encrypted Office packages use an OLE compound container, not ZIP.
-        if data.starts(with: [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]) {
-            throw PowerPointImportError.encrypted
-        }
+    /// In-memory entry point remains available for generated fixtures.
+    convenience init(data: Data) throws {
+        guard data.count <= Self.maximumFileSize else { throw PowerPointImportError.limitExceeded(.fileSize) }
+        try Self.checkEncryption(data)
         let archive: Archive
         do { archive = try Archive(data: data, accessMode: .read) }
         catch { throw PowerPointImportError.invalidPackage }
+        try self.init(archive: archive)
+    }
+
+    private static func checkEncryption(_ data: Data) throws {
+        if data.starts(with: [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]) {
+            throw PowerPointImportError.encrypted
+        }
+    }
+
+    private init(archive: Archive) throws {
         self.archive = archive
         var paths: Set<String> = []
         for entry in archive {
             try Task.checkCancellation()
-            guard paths.count < 4096 else { throw PowerPointImportError.oversized }
+            guard paths.count < 4096 else { throw PowerPointImportError.limitExceeded(.packageEntries) }
             guard paths.insert(entry.path).inserted else { throw PowerPointImportError.invalidPackage }
         }
         if archive["EncryptedPackage"] != nil || archive["EncryptionInfo"] != nil {
@@ -45,25 +58,39 @@ nonisolated final class PowerPointImportPackage {
         }
     }
 
-    func data(at path: String, limit: Int = 8 * 1024 * 1024) throws -> Data {
+    /// Image bytes are not cached here: successful images are retained by the
+    /// reader, which deduplicates them. Images cannot exhaust the text budget.
+    func data(at path: String, limit: Int = 8 * 1024 * 1024, isImage: Bool = false) throws -> Data {
         try Task.checkCancellation()
-        if let cached = cache[path] {
-            guard cached.count <= limit else { throw PowerPointImportError.oversized }
+        let partLimit: PowerPointImportLimit = isImage ? .imageSize : .documentPart
+        if !isImage, let cached = documentCache[path] {
+            guard cached.count <= limit else { throw PowerPointImportError.limitExceeded(partLimit) }
             return cached
         }
         guard let entry = archive[path], entry.type == .file else { throw PowerPointImportError.invalidPackage }
-        guard entry.uncompressedSize <= limit,
-              totalBytes + Int(entry.uncompressedSize) <= 96 * 1024 * 1024 else {
-            throw PowerPointImportError.oversized
+        guard entry.uncompressedSize <= limit else { throw PowerPointImportError.limitExceeded(partLimit) }
+        let usedBytes = isImage ? extractedImageBytes : extractedDocumentBytes
+        let maximumBytes = isImage ? Self.maximumImageBytes : Self.maximumDocumentBytes
+        let totalLimit: PowerPointImportLimit = isImage ? .imageContent : .documentContent
+        guard usedBytes + Int(entry.uncompressedSize) <= maximumBytes else {
+            throw PowerPointImportError.limitExceeded(totalLimit)
         }
         var result = Data()
-        _ = try archive.extract(entry) { chunk in
+        let checksum = try archive.extract(entry) { chunk in
             try Task.checkCancellation()
-            guard result.count + chunk.count <= limit else { throw PowerPointImportError.oversized }
+            guard result.count + chunk.count <= limit else { throw PowerPointImportError.limitExceeded(partLimit) }
+            guard usedBytes + result.count + chunk.count <= maximumBytes else {
+                throw PowerPointImportError.limitExceeded(totalLimit)
+            }
             result.append(chunk)
         }
-        totalBytes += result.count
-        cache[path] = result
+        guard checksum == entry.checksum else { throw PowerPointImportError.invalidPackage }
+        if isImage {
+            extractedImageBytes += result.count
+        } else {
+            extractedDocumentBytes += result.count
+            documentCache[path] = result
+        }
         return result
     }
 
@@ -160,6 +187,7 @@ nonisolated final class PowerPointXMLNode {
         parser.delegate = delegate
         guard parser.parse(), !delegate.rejected, let root = delegate.root else {
             try Task.checkCancellation()
+            if let limit = delegate.limit { throw PowerPointImportError.limitExceeded(limit) }
             throw PowerPointImportError.invalidXML
         }
         return root
@@ -171,11 +199,14 @@ nonisolated final class PowerPointXMLNode {
         var count = 0
         var textBytes = 0
         var rejected = false
+        var limit: PowerPointImportLimit?
 
         func reject(_ parser: XMLParser) { rejected = true; parser.abortParsing() }
         func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName: String?, attributes: [String: String]) {
             count += 1
-            guard count <= 150_000, stack.count < 64, !Task.isCancelled else { reject(parser); return }
+            guard !Task.isCancelled else { reject(parser); return }
+            guard count <= 150_000 else { limit = .xmlElements; reject(parser); return }
+            guard stack.count < 64 else { limit = .xmlDepth; reject(parser); return }
             let node = PowerPointXMLNode(name: elementName.split(separator: ":").last.map(String.init) ?? elementName, attributes: attributes)
             if let parent = stack.last { parent.children.append(node) } else { root = node }
             stack.append(node)
@@ -185,7 +216,7 @@ nonisolated final class PowerPointXMLNode {
         }
         func parser(_ parser: XMLParser, foundCharacters string: String) {
             textBytes += string.utf8.count
-            guard textBytes <= 8 * 1024 * 1024 else { reject(parser); return }
+            guard textBytes <= 8 * 1024 * 1024 else { limit = .xmlText; reject(parser); return }
             stack.last?.text += string
         }
         func parser(_ parser: XMLParser, foundCDATA data: Data) {

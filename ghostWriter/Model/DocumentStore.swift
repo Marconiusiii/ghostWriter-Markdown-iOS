@@ -1422,9 +1422,6 @@ final class DocumentStore {
             }
 
             do {
-                let data = try sourceURL.pathExtension.lowercased() == "pptx"
-                    ? fileAccess.read(at: sourceURL) { try PowerPointImportPackage.fileData(at: $0) }
-                    : fileAccess.data(at: sourceURL)
                 let preferredName = sourceURL
                     .deletingPathExtension()
                     .lastPathComponent
@@ -1432,12 +1429,20 @@ final class DocumentStore {
                     for: preferredName,
                     in: targetDirectory
                 )
-                let imported = try Self.importedDocument(
-                    from: data,
-                    sourceURL: sourceURL,
-                    destinationURL: destination,
-                    powerPointOptions: powerPointOptions
-                )
+                let imported: MarkdownDocumentImport
+                if sourceURL.pathExtension.lowercased() == "pptx" {
+                    imported = try fileAccess.read(at: sourceURL) {
+                        try PowerPointToMarkdownConverter.importDocument(
+                            fileURL: $0, options: powerPointOptions,
+                            assetDirectoryName: DocumentAssets.newDirectoryName()
+                        )
+                    }
+                } else {
+                    imported = try Self.importedDocument(
+                        from: fileAccess.data(at: sourceURL), sourceURL: sourceURL,
+                        destinationURL: destination, powerPointOptions: powerPointOptions
+                    )
+                }
                 try DocumentAssets.write(
                     imported,
                     to: destination,
@@ -1522,7 +1527,6 @@ final class DocumentStore {
             }
 
             do {
-                let data = try await importSourceData(at: sourceURL)
                 let preferredName = sourceURL
                     .deletingPathExtension()
                     .lastPathComponent
@@ -1530,12 +1534,11 @@ final class DocumentStore {
                     for: preferredName,
                     in: targetDirectory
                 )
-                let imported = try await Self.importedDocumentAwayFromTyping(
-                    from: data,
-                    sourceURL: sourceURL,
-                    destinationURL: destination,
+                let imported = try await importSourceDocument(
+                    at: sourceURL, destinationURL: destination,
                     powerPointOptions: powerPointOptions
                 )
+                try Task.checkCancellation()
                 let assetDirectory = imported.assetDirectoryName.map {
                     DocumentAssets.directory(named: $0, beside: destination)
                 }
@@ -1626,15 +1629,13 @@ final class DocumentStore {
                 if hasScopedAccess { sourceURL.stopAccessingSecurityScopedResource() }
             }
             do {
-                let data = try await importSourceData(at: sourceURL)
                 let preferredName = sourceURL.deletingPathExtension().lastPathComponent
                 let destination = availableURL(for: preferredName, in: targetDirectory)
-                let imported = try await Self.importedDocumentAwayFromTyping(
-                    from: data,
-                    sourceURL: sourceURL,
-                    destinationURL: destination,
+                let imported = try await importSourceDocument(
+                    at: sourceURL, destinationURL: destination,
                     powerPointOptions: powerPointOptions
                 )
+                try Task.checkCancellation()
                 try DocumentAssets.write(
                     imported,
                     to: destination,
@@ -1671,13 +1672,24 @@ final class DocumentStore {
         )
     }
 
-    private func importSourceData(at url: URL) async throws -> Data {
+    private func importSourceDocument(
+        at url: URL,
+        destinationURL: URL,
+        powerPointOptions: PowerPointImportOptions
+    ) async throws -> MarkdownDocumentImport {
         guard url.pathExtension.lowercased() == "pptx" else {
-            return try fileAccess.data(at: url)
+            return try await Self.importedDocumentAwayFromTyping(
+                from: fileAccess.data(at: url), sourceURL: url,
+                destinationURL: destinationURL, powerPointOptions: powerPointOptions
+            )
         }
         let task = Task.detached(priority: .userInitiated) {
+            // The file-backed archive must not outlive this coordinated read.
             try CoordinatedFileAccess().read(at: url) {
-                try PowerPointImportPackage.fileData(at: $0)
+                try PowerPointToMarkdownConverter.importDocument(
+                    fileURL: $0, options: powerPointOptions,
+                    assetDirectoryName: DocumentAssets.newDirectoryName()
+                )
             }
         }
         return try await withTaskCancellationHandler {
@@ -1702,7 +1714,7 @@ final class DocumentStore {
         destinationURL: URL,
         powerPointOptions: PowerPointImportOptions
     ) async throws -> MarkdownDocumentImport {
-        if !["docx", "pptx"].contains(sourceURL.pathExtension.lowercased()) {
+        if sourceURL.pathExtension.lowercased() != "docx" {
             return try importedDocument(
                 from: data, sourceURL: sourceURL, destinationURL: destinationURL,
                 powerPointOptions: powerPointOptions
@@ -1738,12 +1750,6 @@ final class DocumentStore {
         destinationURL: URL,
         powerPointOptions: PowerPointImportOptions
     ) throws -> MarkdownDocumentImport {
-        if sourceURL.pathExtension.lowercased() == "pptx" {
-            return try PowerPointToMarkdownConverter.importDocument(
-                data: data, options: powerPointOptions,
-                assetDirectoryName: DocumentAssets.newDirectoryName()
-            )
-        }
         if sourceURL.pathExtension.lowercased() == "docx" {
             return try WordToMarkdownConverter.importDocument(
                 data: data,

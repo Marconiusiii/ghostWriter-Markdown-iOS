@@ -1,16 +1,36 @@
 import Foundation
 
 nonisolated enum PowerPointToMarkdownConverter {
+    /// The caller must keep file coordination and security-scoped access alive
+    /// for this entire synchronous conversion, normally on a background task.
+    static func importDocument(
+        fileURL: URL,
+        options: PowerPointImportOptions = PowerPointImportOptions(),
+        assetDirectoryName: String
+    ) throws -> MarkdownDocumentImport {
+        try importDocument(package: PowerPointImportPackage(url: fileURL), options: options,
+                           assetDirectoryName: assetDirectoryName)
+    }
+
     static func importDocument(
         data: Data,
         options: PowerPointImportOptions = PowerPointImportOptions(),
+        assetDirectoryName: String
+    ) throws -> MarkdownDocumentImport {
+        try importDocument(package: PowerPointImportPackage(data: data), options: options,
+                           assetDirectoryName: assetDirectoryName)
+    }
+
+    private static func importDocument(
+        package: PowerPointImportPackage,
+        options: PowerPointImportOptions,
         assetDirectoryName: String
     ) throws -> MarkdownDocumentImport {
         // The caller supplies a new managed attachment directory, never a ZIP path.
         guard assetDirectoryName.hasPrefix(".ghostwriter-assets-"),
               !assetDirectoryName.contains("/"), !assetDirectoryName.contains("\\"),
               !assetDirectoryName.contains("..") else { throw PowerPointImportError.invalidPackage }
-        let reader = try PowerPointDocumentReader(data: data, options: options, assetDirectory: assetDirectoryName)
+        let reader = PowerPointDocumentReader(package: package, options: options, assetDirectory: assetDirectoryName)
         let presentation = try reader.read()
         var sections: [String] = []
         for slide in presentation.slides {

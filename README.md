@@ -97,6 +97,10 @@ inline formatting, links, and hidden slides. Additional options control
 decorative images, slide numbers, dates, and headers/footers. Choices persist
 and apply to every presentation in a batch; Word and text import are unchanged.
 Conversion runs locally without opening PowerPoint or fetching external links.
+The options sheet appears before conversion. Turning Images off skips reading
+and extracting image data without modifying the source presentation. ZIP files
+are read directly from disk inside the coordinated import, not loaded whole
+into memory.
 
 Each slide becomes an H2 section. An explicit first title slide becomes H1,
 avoiding an extra title slide when re-exporting a ghostWriter presentation.
@@ -118,9 +122,13 @@ repair is inferred. Text/list styles are resolved from slide placeholders,
 layouts, and masters. Complex layouts may need editing after conversion.
 Charts, SmartArt, equations, audio/video, embedded objects, animations, themes,
 and exact slide appearance are not reconstructed. `.ppt` and encrypted files
-are rejected. Parsing limits include 64 MiB input, 4,096 package entries, 500
-slides, 8 MiB per XML part, 96 MiB of extracted parts, and 128 unique pictures
-of at most 10 MiB each. Raster images are limited to 40 million pixels.
+are rejected. Parsing limits include 512 MiB per input file, 4,096 package
+entries, 500 slides, and 8 MiB per XML part. Unpacked document content and images
+have separate 96 MiB allowances, so images cannot exhaust the allowance needed
+for slide text and notes. Up to 128 unique pictures of at most 10 MiB each are
+imported; raster images are limited to 40 million pixels. Image limits skip
+affected pictures while retaining available descriptions and reporting the
+specific limit. Other limit errors also identify the threshold reached.
 
 Documents and assets are placed using the shared import workflow, including
 safe name conflicts and iCloud placement. Source presentations remain intact.

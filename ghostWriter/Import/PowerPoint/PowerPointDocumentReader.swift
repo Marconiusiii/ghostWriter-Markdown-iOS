@@ -30,11 +30,16 @@ nonisolated final class PowerPointDocumentReader {
     private var mergedTables = 0
     private var linkedSlides = 0
     private var unavailableNotes = 0
+    private var encounteredLimits: [PowerPointImportLimit] = []
     private var defaultTextStyle: Node?
     private var textGroup = 0
 
-    init(data: Data, options: PowerPointImportOptions, assetDirectory: String) throws {
-        package = try PowerPointImportPackage(data: data)
+    convenience init(data: Data, options: PowerPointImportOptions, assetDirectory: String) throws {
+        self.init(package: try PowerPointImportPackage(data: data), options: options, assetDirectory: assetDirectory)
+    }
+
+    init(package: PowerPointImportPackage, options: PowerPointImportOptions, assetDirectory: String) {
+        self.package = package
         self.options = options
         self.assetDirectory = assetDirectory
     }
@@ -51,7 +56,7 @@ nonisolated final class PowerPointDocumentReader {
         defaultTextStyle = presentation.child("defaultTextStyle")
         let relationships = try package.relationships(for: presentationPath)
         let slides = slideList.children.filter { $0.name == "sldId" }
-        guard slides.count <= 500 else { throw PowerPointImportError.oversized }
+        guard slides.count <= 500 else { throw PowerPointImportError.limitExceeded(.slides) }
         for (index, item) in slides.enumerated() {
             try Task.checkCancellation()
             guard let id = item.relationshipID(), let relation = relationships[id], relation.isType("slide") else {
@@ -129,7 +134,10 @@ nonisolated final class PowerPointDocumentReader {
                                              inherited: [], master: nil, inNotes: true)
                     }
                 } catch is CancellationError { throw CancellationError() }
-                catch { unavailableNotes += 1 }
+                catch {
+                    unavailableNotes += 1
+                    recordLimit(error)
+                }
             }
             result.slides.append(PowerPointImportedSlide(
                 title: title,
@@ -144,7 +152,15 @@ nonisolated final class PowerPointDocumentReader {
         if mergedTables > 0 { result.notices.append(String(localized: "\(mergedTables) merged PowerPoint tables were imported as labeled text rows.")) }
         if linkedSlides > 0 { result.notices.append(String(localized: "\(linkedSlides) internal slide links were imported as plain text.")) }
         if unavailableNotes > 0 { result.notices.append(String(localized: "Speaker notes could not be read on \(unavailableNotes) slides.")) }
+        result.notices += encounteredLimits.map(\.description)
         return result
+    }
+
+    private func recordLimit(_ error: Error) {
+        if let error = error as? PowerPointImportError,
+           case .limitExceeded(let limit) = error, !encounteredLimits.contains(limit) {
+            encounteredLimits.append(limit)
+        }
     }
 
     private static let specialTypes: Set<String> = ["sldNum", "dt", "ftr", "hdr"]
@@ -336,17 +352,19 @@ nonisolated final class PowerPointDocumentReader {
             if let existing = extractedImages[imagePath] {
                 fileName = existing
             } else {
-                guard result.assets.count < 128 else { throw PowerPointImportError.oversized }
-                let bytes = try package.data(at: imagePath, limit: 10 * 1024 * 1024)
+                guard result.assets.count < 128 else { throw PowerPointImportError.limitExceeded(.imageCount) }
                 let ext = (imagePath as NSString).pathExtension.lowercased()
                 guard let mediaType = ExportImageResource.mediaType(for: ext) else { throw PowerPointImportError.invalidPackage }
+                let bytes = try package.data(at: imagePath, limit: 10 * 1024 * 1024, isImage: true)
                 if mediaType != "image/svg+xml" {
                     guard let source = CGImageSourceCreateWithData(bytes as CFData, nil),
                           let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
                           let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
                           let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
-                          width.doubleValue > 0, height.doubleValue > 0,
-                          width.doubleValue * height.doubleValue <= 40_000_000 else { throw PowerPointImportError.oversized }
+                          width.doubleValue > 0, height.doubleValue > 0 else { throw PowerPointImportError.invalidPackage }
+                    guard width.doubleValue * height.doubleValue <= 40_000_000 else {
+                        throw PowerPointImportError.limitExceeded(.imageDimensions)
+                    }
                 } else {
                     _ = try PowerPointXMLNode.parse(bytes)
                 }
@@ -365,6 +383,7 @@ nonisolated final class PowerPointDocumentReader {
         } catch is CancellationError { throw CancellationError() }
         catch {
             skippedImages += 1
+            recordLimit(error)
             return decorative ? [] : descriptionBlocks(shape, prefix: "Image")
         }
     }

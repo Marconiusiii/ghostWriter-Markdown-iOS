@@ -13,6 +13,7 @@ struct PowerPointImportOptionsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Text("Choose what to include and exclude from the import.")
                 Section("Include") {
                     Toggle("Slide text", isOn: $options.slideText)
                     Toggle("Tables", isOn: $options.tables)

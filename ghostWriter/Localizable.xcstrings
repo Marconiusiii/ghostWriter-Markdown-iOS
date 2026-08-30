@@ -1,120 +1,56 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%lld PowerPoint images could not be included. Available descriptions were kept." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "An image exceeds the 10 MiB limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "%lld PowerPoint objects were not converted. Available descriptions were kept." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "An image exceeds the limit of 40 million pixels." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "%lld internal slide links were imported as plain text." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "An internal XML part exceeds the limit of 150,000 elements." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "%lld merged PowerPoint tables were imported as labeled text rows." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "An internal XML part exceeds the limit of 64 nested elements." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "Additional options" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "An internal document part exceeds the 8 MiB limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "Copies Markdown, plain-text, Word, or PowerPoint documents into ghostWriter" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "Choose what to include and exclude from the import." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "Dates" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "The presentation exceeds the 512 MiB file-size limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "Decorative images" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "The presentation exceeds the import limit of 128 unique images." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "Document Import" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "The presentation exceeds the limit of 4,096 internal files and folders." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "Headers and footers" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "The presentation exceeds the limit of 500 slides, including hidden slides." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "Hidden slides" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "The text in an internal XML part exceeds the 8 MiB limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "Images" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "The unpacked document content exceeds the 96 MiB limit, excluding images." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
-    "Import as Markdown" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Importing documents…" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Include" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Links" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "No slides match the selected import options." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Password-protected PowerPoint presentations cannot be imported." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "PowerPoint Import" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Slide numbers" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Slide text" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Speaker notes" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Speaker notes could not be read on %lld slides." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Tables" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "Text formatting" : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "The PowerPoint presentation contains unreadable or unsafe content." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "The PowerPoint presentation is too large or complex to import safely." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "The documents were imported." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
-    },
-    "The selected file is not a valid PowerPoint presentation." : {
-      "comment" : "PowerPoint import options, progress, or conversion notice.",
+    "The unpacked images exceed the separate 96 MiB image limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
     "" : {
@@ -252,6 +188,10 @@
         }
       }
     },
+    "%lld internal slide links were imported as plain text." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "%lld items" : {
       "comment" : "LibraryView.swift:983",
       "localizations" : {
@@ -262,6 +202,18 @@
           }
         }
       }
+    },
+    "%lld merged PowerPoint tables were imported as labeled text rows." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "%lld PowerPoint images could not be included. Available descriptions were kept." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "%lld PowerPoint objects were not converted. Available descriptions were kept." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "%lld rows" : {
       "comment" : "TableInsertionView.swift:42",
@@ -405,6 +357,10 @@
           }
         }
       }
+    },
+    "Additional options" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "Address" : {
       "comment" : "MarkdownInsertionView.swift:190",
@@ -938,6 +894,7 @@
     },
     "Copies Markdown, plain-text, or Word documents into ghostWriter" : {
       "comment" : "LibraryView.swift:431",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -946,6 +903,10 @@
           }
         }
       }
+    },
+    "Copies Markdown, plain-text, Word, or PowerPoint documents into ghostWriter" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "Copy Email Address" : {
       "comment" : "SettingsView.swift:322",
@@ -1442,6 +1403,10 @@
         }
       }
     },
+    "Dates" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "Decorative image" : {
       "comment" : "MarkdownInsertionView.swift:57",
       "localizations" : {
@@ -1452,6 +1417,10 @@
           }
         }
       }
+    },
+    "Decorative images" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "Delete" : {
       "comment" : "LibraryView.swift:328",
@@ -1595,6 +1564,10 @@
           }
         }
       }
+    },
+    "Document Import" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "Document language" : {
       "comment" : "DocumentLanguageView.swift:93",
@@ -2256,6 +2229,10 @@
         }
       }
     },
+    "Headers and footers" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "Heading %lld of %lld, %@, heading level %lld." : {
       "comment" : "MarkdownTextView.swift:425",
       "localizations" : {
@@ -2332,6 +2309,10 @@
           }
         }
       }
+    },
+    "Hidden slides" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "High contrast dark" : {
       "comment" : "PowerPointTheme.swift",
@@ -2490,6 +2471,10 @@
         }
       }
     },
+    "Images" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "Import" : {
       "comment" : "LibraryView.swift:424",
       "localizations" : {
@@ -2501,6 +2486,10 @@
         }
       }
     },
+    "Import as Markdown" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "Import document" : {
       "comment" : "LibraryView.swift:430",
       "localizations" : {
@@ -2511,6 +2500,14 @@
           }
         }
       }
+    },
+    "Importing documents…" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Include" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "Indentation" : {
       "comment" : "SettingsView.swift:110",
@@ -2798,6 +2795,10 @@
         }
       }
     },
+    "Links" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "Mail Is Not Available" : {
       "comment" : "SettingsView.swift:321",
       "localizations" : {
@@ -3084,6 +3085,10 @@
         }
       }
     },
+    "No slides match the selected import options." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "Numbered list created." : {
       "comment" : "MarkdownInsertion.swift:57",
       "localizations" : {
@@ -3250,6 +3255,10 @@
         }
       }
     },
+    "Password-protected PowerPoint presentations cannot be imported." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "Password-protected Word documents cannot be imported." : {
       "comment" : "WordDocumentModel.swift:90",
       "localizations" : {
@@ -3360,6 +3369,10 @@
           }
         }
       }
+    },
+    "PowerPoint Import" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "Preferred braille code" : {
       "comment" : "EBrailleMetadataSettingsView.swift:57",
@@ -3835,6 +3848,14 @@
         }
       }
     },
+    "Slide numbers" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Slide text" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "Sort" : {
       "comment" : "LibraryView.swift:488",
       "localizations" : {
@@ -3911,6 +3932,14 @@
           }
         }
       }
+    },
+    "Speaker notes" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Speaker notes could not be read on %lld slides." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "Square brackets hold link text or an image description, and parentheses hold the address. An image with a description is ordinary. An image with empty brackets is decorative. Choose Image from Files or Image from Photo Library in Insert Actions to attach an ordinary image. Add the exact title tactile to mark an SVG, PNG, or JPG as a tactile graphic." : {
       "comment" : "MarkdownReferenceView.swift:120",
@@ -4067,6 +4096,10 @@
         }
       }
     },
+    "Tables" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "Tabs" : {
       "comment" : "AppSettings.swift:24",
       "localizations" : {
@@ -4132,6 +4165,10 @@
           }
         }
       }
+    },
+    "Text formatting" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "The .md filename extension is added automatically." : {
       "comment" : "NewDocumentView.swift:50",
@@ -4210,6 +4247,10 @@
         }
       }
     },
+    "The documents were imported." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "The EPUB could not be created." : {
       "comment" : "EPUBPackage.swift:80",
       "localizations" : {
@@ -4266,6 +4307,10 @@
         }
       }
     },
+    "The PowerPoint presentation contains unreadable or unsafe content." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "The PowerPoint presentation could not be created." : {
       "comment" : "PowerPointWriter.swift",
       "localizations" : {
@@ -4277,6 +4322,10 @@
         }
       }
     },
+    "The PowerPoint presentation is too large or complex to import safely." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "The render sound follows your device's silent switch." : {
       "comment" : "SettingsView.swift:209",
       "localizations" : {
@@ -4287,6 +4336,10 @@
           }
         }
       }
+    },
+    "The selected file is not a valid PowerPoint presentation." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
     },
     "The selected file is not a valid Word document." : {
       "comment" : "WordDocumentModel.swift:84",
@@ -4819,6 +4872,7 @@
     },
     "Word Import" : {
       "comment" : "LibraryView.swift:361",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
