@@ -38,17 +38,9 @@ nonisolated struct WordImage: Equatable, Sendable {
     var externalTarget: String? = nil
 }
 
-nonisolated struct WordMarkdownImport: Equatable, Sendable {
-    var markdown: String
-    var assets: [WordImportedAsset]
-    var imagesNeedingAlternativeText: Int
-    var assetDirectoryName: String?
-}
-
-nonisolated struct WordImportedAsset: Equatable, Sendable {
-    var fileName: String
-    var data: Data
-}
+// Keep existing Word callers source-compatible with the shared import result.
+typealias WordMarkdownImport = MarkdownDocumentImport
+typealias WordImportedAsset = MarkdownImportedAsset
 
 nonisolated struct WordListReference: Equatable, Sendable {
     enum Kind: Equatable, Sendable {

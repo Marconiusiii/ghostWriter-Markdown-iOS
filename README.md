@@ -89,6 +89,46 @@ inside their publications. In these HTML-based exports, unsafe, missing, or
 unsupported local image references fall back to readable alternative text
 instead of becoming broken references.
 
+### PowerPoint import
+
+Import accepts `.pptx` presentations alongside Markdown, text, and Word files.
+A native options sheet controls slide text, tables, images, speaker notes,
+inline formatting, links, and hidden slides. Additional options control
+decorative images, slide numbers, dates, and headers/footers. Choices persist
+and apply to every presentation in a batch; Word and text import are unchanged.
+Conversion runs locally without opening PowerPoint or fetching external links.
+
+Each slide becomes an H2 section. An explicit first title slide becomes H1,
+avoiding an extra title slide when re-exporting a ghostWriter presentation.
+Untitled slides retain their original slide number, repeated titles remain
+separate, and notes follow `***`. Body-text filtering does not remove titles,
+tables, pictures, or notes controlled by their own options.
+
+Native lists and supported inline formatting are retained. Ordinary tables
+become Markdown tables; merged tables become labeled text rows. Embedded PNG,
+JPEG, and safe SVG images use managed relative attachments with existing alt
+text. Unsupported or linked images retain available descriptions instead of
+being downloaded. Missing alt text and skipped content produce import notices.
+Internal slide links become plain text. Table-cell alignment and merged-cell
+geometry do not have preserved equivalents in this initial importer.
+
+Slides follow the presentation's slide list, not ZIP filenames. Objects follow
+stored shape-tree order, including groups; no visual-column or reading-order
+repair is inferred. Text/list styles are resolved from slide placeholders,
+layouts, and masters. Complex layouts may need editing after conversion.
+Charts, SmartArt, equations, audio/video, embedded objects, animations, themes,
+and exact slide appearance are not reconstructed. `.ppt` and encrypted files
+are rejected. Parsing limits include 64 MiB input, 4,096 package entries, 500
+slides, 8 MiB per XML part, 96 MiB of extracted parts, and 128 unique pictures
+of at most 10 MiB each. Raster images are limited to 40 million pixels.
+
+Documents and assets are placed using the shared import workflow, including
+safe name conflicts and iCloud placement. Source presentations remain intact.
+Malformed packages fail before placement, while successful files in a mixed
+batch remain available. Tests cover conversion options, package safety, Word
+compatibility, and PowerPoint export/import structure. Native file-picker and
+VoiceOver interaction still require device testing.
+
 ### PowerPoint presentations
 
 Choose File Actions > Share > PowerPoint, then select a theme. Warm paper,

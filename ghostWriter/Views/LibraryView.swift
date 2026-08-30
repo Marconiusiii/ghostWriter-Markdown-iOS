@@ -62,6 +62,12 @@ struct LibraryView: View {
     @State private var showingNewFolder = false
     @State private var focusAfterNewFolder: LibraryFocus?
     @State private var showingImporter = false
+    @State private var showingPowerPointImportOptions = false
+    @State private var pendingImportURLs: [URL] = []
+    @State private var pendingImportDestination: URL?
+    @State private var pendingImportOptions: PowerPointImportOptions?
+    @State private var pendingImportAccess: [URL] = []
+    @State private var isImporting = false
     @State private var importNotice: String?
     @State private var importNoticeFocus: LibraryFocus?
     @State private var currentFolderURL: URL?
@@ -137,6 +143,7 @@ struct LibraryView: View {
         NavigationStack {
             List {
                 header
+                if isImporting { ProgressView("Importing documents…") }
                 documentArea
                 list
             }
@@ -315,6 +322,12 @@ struct LibraryView: View {
         ) { result in
             handleImport(result)
         }
+        .sheet(isPresented: $showingPowerPointImportOptions, onDismiss: finishPowerPointImportOptions) {
+            PowerPointImportOptionsView(options: settings.powerPointImportOptions) { options in
+                settings.powerPointImportOptions = options
+                pendingImportOptions = options
+            }
+        }
         .alert("Rename Document", isPresented: renameBinding) {
             TextField("Name", text: $newName)
                 .autocorrectionDisabled()
@@ -358,10 +371,10 @@ struct LibraryView: View {
         } message: {
             Text(store.lastError ?? "An unknown error occurred.")
         }
-        .alert("Word Import", isPresented: importNoticeBinding) {
+        .alert("Document Import", isPresented: importNoticeBinding) {
             Button("OK") { dismissImportNotice() }
         } message: {
-            Text(importNotice ?? "The Word document was imported.")
+            Text(importNotice ?? "The documents were imported.")
         }
     }
 
@@ -428,7 +441,8 @@ struct LibraryView: View {
             .controlSize(.large)
             .disabled(!store.storageAvailable)
             .accessibilityLabel("Import document")
-            .accessibilityHint("Copies Markdown, plain-text, or Word documents into ghostWriter")
+            .disabled(isImporting)
+            .accessibilityHint("Copies Markdown, plain-text, Word, or PowerPoint documents into ghostWriter")
             .accessibilityFocused($focusedElement, equals: .importDocument)
             .keyboardShortcut(shortcut("o", modifiers: .command))
 
@@ -1450,7 +1464,7 @@ struct LibraryView: View {
     }
 
     private var importContentTypes: [UTType] {
-        ["md", "markdown", "mdown", "txt", "docx"].compactMap {
+        ["md", "markdown", "mdown", "txt", "docx", "pptx"].compactMap {
             UTType(filenameExtension: $0)
         }
     }
@@ -1467,26 +1481,16 @@ struct LibraryView: View {
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
-            Task {
-                let importResult = await store.importDocuments(
-                    from: urls,
-                    into: currentDirectory
-                )
-                let target = importResult.imported.first
-                    .map { LibraryFocus.document($0.url) }
-                    ?? .importDocument
-
-                if importResult.failedFileNames.isEmpty {
-                    focusAfterError = nil
-                    if importResult.notices.isEmpty {
-                        restoreFocus(to: target)
-                    } else {
-                        importNoticeFocus = target
-                        importNotice = importResult.notices.joined(separator: " ")
-                    }
-                } else {
-                    focusAfterError = target
-                }
+            guard !isImporting else { return }
+            if urls.contains(where: { $0.pathExtension.lowercased() == "pptx" }) {
+                pendingImportURLs = urls
+                pendingImportDestination = currentDirectory
+                pendingImportOptions = nil
+                // Retain picker access while the writer chooses import options.
+                pendingImportAccess = urls.filter { $0.startAccessingSecurityScopedResource() }
+                showingPowerPointImportOptions = true
+            } else {
+                performImport(urls, into: currentDirectory)
             }
         case .failure(let error):
             let nsError = error as NSError
@@ -1495,6 +1499,59 @@ struct LibraryView: View {
             } else {
                 focusAfterError = .importDocument
                 store.lastError = String(localized: "Could not import the selected files. \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func finishPowerPointImportOptions() {
+        let urls = pendingImportURLs
+        let destination = pendingImportDestination
+        let access = pendingImportAccess
+        let options = pendingImportOptions
+        pendingImportURLs = []
+        pendingImportDestination = nil
+        pendingImportAccess = []
+        pendingImportOptions = nil
+        guard let options else {
+            access.forEach { $0.stopAccessingSecurityScopedResource() }
+            restoreFocus(to: .importDocument)
+            return
+        }
+        performImport(urls, into: destination, options: options, scopedAccess: access)
+    }
+
+    private func performImport(
+        _ urls: [URL],
+        into destination: URL?,
+        options: PowerPointImportOptions = PowerPointImportOptions(),
+        scopedAccess: [URL] = []
+    ) {
+        isImporting = true
+        Task {
+            defer {
+                scopedAccess.forEach { $0.stopAccessingSecurityScopedResource() }
+                isImporting = false
+            }
+            let importResult = await store.importDocuments(
+                from: urls, into: destination, powerPointOptions: options
+            )
+            let target = importResult.imported.first
+                .map { LibraryFocus.document($0.url) }
+                ?? .importDocument
+            if importResult.failedFileNames.isEmpty {
+                focusAfterError = nil
+                if importResult.notices.isEmpty {
+                    restoreFocus(to: target)
+                } else {
+                    importNoticeFocus = target
+                    importNotice = importResult.notices.joined(separator: " ")
+                }
+            } else {
+                focusAfterError = target
+                // Keep successful-file conversion notices visible in partial batches.
+                if !importResult.notices.isEmpty, let failure = store.lastError {
+                    store.lastError = failure + " " + importResult.notices.joined(separator: " ")
+                }
             }
         }
     }

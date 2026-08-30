@@ -1,6 +1,122 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld PowerPoint images could not be included. Available descriptions were kept." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "%lld PowerPoint objects were not converted. Available descriptions were kept." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "%lld internal slide links were imported as plain text." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "%lld merged PowerPoint tables were imported as labeled text rows." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Additional options" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Copies Markdown, plain-text, Word, or PowerPoint documents into ghostWriter" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Dates" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Decorative images" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Document Import" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Headers and footers" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Hidden slides" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Images" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Import as Markdown" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Importing documents…" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Include" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Links" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "No slides match the selected import options." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Password-protected PowerPoint presentations cannot be imported." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "PowerPoint Import" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Slide numbers" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Slide text" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Speaker notes" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Speaker notes could not be read on %lld slides." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Tables" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "Text formatting" : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "The PowerPoint presentation contains unreadable or unsafe content." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "The PowerPoint presentation is too large or complex to import safely." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "The documents were imported." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "The selected file is not a valid PowerPoint presentation." : {
+      "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
     "" : {
 
     },

@@ -54,7 +54,7 @@ private struct HelpTopic: Identifiable {
             paragraphs: [
                 "New creates a named markdown file and opens it for editing.",
                 "New Folder creates a folder in your current location. Open a folder to see what is inside, and use Back to return to its parent folder.",
-                "Import copies one or more markdown, plain-text, or Word documents from Files into your current folder. Word documents are converted to markdown. Name conflicts receive a safe numbered name.",
+                "Import copies one or more markdown, plain-text, Word, or PowerPoint documents from Files into your current folder. Word and PowerPoint documents are converted to markdown. PowerPoint Import lets you choose which content to include. Name conflicts receive a safe numbered name.",
                 "Choose any document in the library to open it. Folders always appear before documents."
             ]
         ),
@@ -134,6 +134,19 @@ private struct HelpTopic: Identifiable {
                 "Task list items export as text beginning with Completed or Not completed, because Word has no checkbox equivalent in an ordinary paragraph. Horizontal rules are not exported, as markdown’s thematic break has no direct Word counterpart.",
                 "Word features with no markdown equivalent are not preserved in either direction. These include fonts, colours, text size, alignment, columns, headers and footers, page breaks, merged table cells, and embedded objects such as charts. A document exported to Word and imported again keeps its structure and text, but not any formatting applied inside Word afterwards.",
                 "Import copies Word documents from Files and converts them. File Actions > Share > Word Document exports the document you are editing."
+            ]
+        ),
+        HelpTopic(
+            title: "PowerPoint Import",
+            paragraphs: [
+                "Choose Import and select one or more .pptx presentations from Files. Choose the content to include, then activate Import as Markdown. Each presentation becomes a separate document in the current folder. The original files are unchanged.",
+                "Slide text, tables, images, speaker notes, text formatting, and links are included by default. Hidden slides are excluded. Additional options include decorative images, slide numbers, dates, and headers and footers. Your choices are remembered and apply to every presentation in the selected batch.",
+                "Turning off Slide text omits body paragraphs and lists but keeps slide headings. Turning off Text formatting keeps the words without emphasis. Turning off Links keeps the link text without its destination. Turning off Images omits pictures and their references. For notes-only import, turn off Slide text, Tables, and Images while leaving Speaker notes on.",
+                "Slide titles become level 2 headings. A first slide identified as a title slide becomes a level 1 heading instead. Untitled slides use Slide followed by their original slide number. Repeated titles remain separate sections. Speaker notes follow three asterisks on a line by themselves.",
+                "Bulleted and numbered lists retain their structure and nesting. Ordinary tables become markdown tables; tables with merged cells become labeled text rows. Text formatting includes bold, italic, underline, and strikethrough. Supported web and email links remain active. Internal slide links become plain text.",
+                "Embedded PNG, JPEG, and safe SVG pictures are saved with the markdown document using relative references. Existing alternative text is retained. Missing descriptions are reported after import. Unsupported or unavailable images keep their descriptions when available. Linked external images are not downloaded.",
+                "Slides follow presentation order. Objects follow their stored order, with grouped objects kept together. Visually arranged columns may need editing afterward. Fonts, colors, exact layout, animations, and transitions are not retained. Charts, SmartArt, equations, audio, video, and embedded objects are not converted into editable equivalents. Available descriptions are retained for unsupported objects.",
+                "Legacy .ppt files and password-protected presentations are not supported. Very large or unusually complex presentations are rejected before placement. Invalid presentations do not create a markdown document; other valid files in the batch can still import."
             ]
         ),
         HelpTopic(

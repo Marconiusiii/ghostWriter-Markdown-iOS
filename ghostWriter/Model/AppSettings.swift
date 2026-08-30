@@ -152,6 +152,14 @@ final class AppSettings {
         }
     }
 
+    var powerPointImportOptions: PowerPointImportOptions {
+        didSet {
+            if let data = try? JSONEncoder().encode(powerPointImportOptions) {
+                defaults.set(data, forKey: Keys.powerPointImportOptions)
+            }
+        }
+    }
+
     var editorFontDesign: EditorFontDesign {
         didSet { defaults.set(editorFontDesign.rawValue, forKey: Keys.editorFontDesign) }
     }
@@ -337,6 +345,9 @@ final class AppSettings {
             .flatMap(AppearanceMode.init(rawValue:))) ?? .system
         self.powerPointTheme = defaults.string(forKey: Keys.powerPointTheme)
             .flatMap(PowerPointTheme.init(rawValue:)) ?? .warmPaper
+        self.powerPointImportOptions = defaults.data(forKey: Keys.powerPointImportOptions)
+            .flatMap { try? JSONDecoder().decode(PowerPointImportOptions.self, from: $0) }
+            ?? PowerPointImportOptions()
         self.editorFontDesign = (defaults.string(forKey: Keys.editorFontDesign)
             .flatMap(EditorFontDesign.init(rawValue:))) ?? .monospaced
         self.statusBarEnabled = defaults.object(forKey: Keys.statusBarEnabled) as? Bool ?? true
@@ -398,6 +409,7 @@ final class AppSettings {
         static let indentUnit = "indentUnit"
         static let appearance = "appearance"
         static let powerPointTheme = "powerPointTheme"
+        static let powerPointImportOptions = "powerPointImportOptions"
         static let editorFontDesign = "editorFontDesign"
         static let statusBarEnabled = "statusBarEnabled"
         static let statusLineAndColumn = "statusShowsLineAndColumn"

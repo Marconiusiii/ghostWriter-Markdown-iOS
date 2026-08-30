@@ -113,7 +113,7 @@ nonisolated enum DocumentAssets {
     }
 
     static func write(
-        _ imported: WordMarkdownImport,
+        _ imported: MarkdownDocumentImport,
         to documentURL: URL,
         fileAccess: CoordinatedFileAccess
     ) throws {

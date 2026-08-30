@@ -1363,12 +1363,13 @@ final class DocumentStore {
         }
     }
 
-    /// Copies selected Markdown, text, or Word documents into the app's folder.
-    /// Word content is converted before placement, and every imported file is
+    /// Copies selected Markdown, text, Word, or PowerPoint documents into the app's folder.
+    /// Office content is converted before placement, and every imported file is
     /// validated before a destination document is created.
     func importDocuments(
         from sourceURLs: [URL],
-        into destinationDirectory: URL? = nil
+        into destinationDirectory: URL? = nil,
+        powerPointOptions: PowerPointImportOptions = PowerPointImportOptions()
     ) -> DocumentImportResult {
         guard !usesICloudStorage else {
             lastError = String(localized: "Could not import documents because iCloud placement was not started.")
@@ -1379,13 +1380,15 @@ final class DocumentStore {
         }
         return importDocumentsLocally(
             from: sourceURLs,
-            into: destinationDirectory
+            into: destinationDirectory,
+            powerPointOptions: powerPointOptions
         )
     }
 
     private func importDocumentsLocally(
         from sourceURLs: [URL],
-        into destinationDirectory: URL? = nil
+        into destinationDirectory: URL? = nil,
+        powerPointOptions: PowerPointImportOptions = PowerPointImportOptions()
     ) -> DocumentImportResult {
         createDirectoryIfNeeded()
         let targetDirectory = destinationDirectory ?? directory
@@ -1402,6 +1405,7 @@ final class DocumentStore {
         var failedNames: [String] = []
         var failureDetails: [String] = []
         var imagesNeedingAlternativeText = 0
+        var conversionNotices: [String] = []
 
         for sourceURL in sourceURLs {
             let fileName = sourceURL.lastPathComponent
@@ -1418,7 +1422,9 @@ final class DocumentStore {
             }
 
             do {
-                let data = try fileAccess.data(at: sourceURL)
+                let data = try sourceURL.pathExtension.lowercased() == "pptx"
+                    ? fileAccess.read(at: sourceURL) { try PowerPointImportPackage.fileData(at: $0) }
+                    : fileAccess.data(at: sourceURL)
                 let preferredName = sourceURL
                     .deletingPathExtension()
                     .lastPathComponent
@@ -1429,7 +1435,8 @@ final class DocumentStore {
                 let imported = try Self.importedDocument(
                     from: data,
                     sourceURL: sourceURL,
-                    destinationURL: destination
+                    destinationURL: destination,
+                    powerPointOptions: powerPointOptions
                 )
                 try DocumentAssets.write(
                     imported,
@@ -1437,6 +1444,7 @@ final class DocumentStore {
                     fileAccess: fileAccess
                 )
                 imagesNeedingAlternativeText += imported.imagesNeedingAlternativeText
+                conversionNotices += imported.notices.map { "\(fileName): \($0)" }
                 importedURLs.append(destination)
             } catch {
                 failedNames.append(fileName)
@@ -1456,7 +1464,7 @@ final class DocumentStore {
         if !failedNames.isEmpty {
             let names = failedNames.joined(separator: ", ")
             let detail = failureDetails.isEmpty
-                ? "Import Markdown or plain-text files saved as UTF-8, or Word documents saved as .docx."
+                ? "Import Markdown or plain-text files saved as UTF-8, Word documents saved as .docx, or PowerPoint presentations saved as .pptx."
                 : failureDetails.joined(separator: " ")
             lastError = String(localized: "Could not import \(names). \(detail)")
         }
@@ -1464,18 +1472,20 @@ final class DocumentStore {
         return DocumentImportResult(
             imported: imported,
             failedFileNames: failedNames,
-            notices: Self.imageImportNotices(count: imagesNeedingAlternativeText)
+            notices: Self.imageImportNotices(count: imagesNeedingAlternativeText) + conversionNotices
         )
     }
 
     func importDocuments(
         from sourceURLs: [URL],
-        into destinationDirectory: URL? = nil
+        into destinationDirectory: URL? = nil,
+        powerPointOptions: PowerPointImportOptions = PowerPointImportOptions()
     ) async -> DocumentImportResult {
         guard usesICloudStorage else {
             return await importDocumentsLocallyAwayFromTyping(
                 from: sourceURLs,
-                into: destinationDirectory
+                into: destinationDirectory,
+                powerPointOptions: powerPointOptions
             )
         }
 
@@ -1494,6 +1504,7 @@ final class DocumentStore {
         var failedNames: [String] = []
         var failureDetails: [String] = []
         var imagesNeedingAlternativeText = 0
+        var conversionNotices: [String] = []
 
         for sourceURL in sourceURLs {
             let fileName = sourceURL.lastPathComponent
@@ -1511,7 +1522,7 @@ final class DocumentStore {
             }
 
             do {
-                let data = try fileAccess.data(at: sourceURL)
+                let data = try await importSourceData(at: sourceURL)
                 let preferredName = sourceURL
                     .deletingPathExtension()
                     .lastPathComponent
@@ -1522,7 +1533,8 @@ final class DocumentStore {
                 let imported = try await Self.importedDocumentAwayFromTyping(
                     from: data,
                     sourceURL: sourceURL,
-                    destinationURL: destination
+                    destinationURL: destination,
+                    powerPointOptions: powerPointOptions
                 )
                 let assetDirectory = imported.assetDirectoryName.map {
                     DocumentAssets.directory(named: $0, beside: destination)
@@ -1545,6 +1557,7 @@ final class DocumentStore {
                     throw error
                 }
                 imagesNeedingAlternativeText += imported.imagesNeedingAlternativeText
+                conversionNotices += imported.notices.map { "\(fileName): \($0)" }
                 importedURLs.append(destination)
             } catch {
                 failedNames.append(fileName)
@@ -1564,7 +1577,7 @@ final class DocumentStore {
         if !failedNames.isEmpty {
             let names = failedNames.joined(separator: ", ")
             let detail = failureDetails.isEmpty
-                ? "Import Markdown or plain-text files saved as UTF-8, or Word documents saved as .docx."
+                ? "Import Markdown or plain-text files saved as UTF-8, Word documents saved as .docx, or PowerPoint presentations saved as .pptx."
                 : failureDetails.joined(separator: " ")
             lastError = String(localized: "Could not import \(names). \(detail)")
         }
@@ -1572,17 +1585,18 @@ final class DocumentStore {
         return DocumentImportResult(
             imported: imported,
             failedFileNames: failedNames,
-            notices: Self.imageImportNotices(count: imagesNeedingAlternativeText)
+            notices: Self.imageImportNotices(count: imagesNeedingAlternativeText) + conversionNotices
         )
     }
 
     private nonisolated static func isImportableDocument(_ url: URL) -> Bool {
-        Document.isMarkdown(url) || url.pathExtension.lowercased() == "docx"
+        Document.isMarkdown(url) || ["docx", "pptx"].contains(url.pathExtension.lowercased())
     }
 
     private func importDocumentsLocallyAwayFromTyping(
         from sourceURLs: [URL],
-        into destinationDirectory: URL?
+        into destinationDirectory: URL?,
+        powerPointOptions: PowerPointImportOptions
     ) async -> DocumentImportResult {
         createDirectoryIfNeeded()
         let targetDirectory = destinationDirectory ?? directory
@@ -1600,6 +1614,7 @@ final class DocumentStore {
         var failedNames: [String] = []
         var failureDetails: [String] = []
         var imagesNeedingAlternativeText = 0
+        var conversionNotices: [String] = []
         for sourceURL in sourceURLs {
             let fileName = sourceURL.lastPathComponent
             guard Self.isImportableDocument(sourceURL) else {
@@ -1611,13 +1626,14 @@ final class DocumentStore {
                 if hasScopedAccess { sourceURL.stopAccessingSecurityScopedResource() }
             }
             do {
-                let data = try fileAccess.data(at: sourceURL)
+                let data = try await importSourceData(at: sourceURL)
                 let preferredName = sourceURL.deletingPathExtension().lastPathComponent
                 let destination = availableURL(for: preferredName, in: targetDirectory)
                 let imported = try await Self.importedDocumentAwayFromTyping(
                     from: data,
                     sourceURL: sourceURL,
-                    destinationURL: destination
+                    destinationURL: destination,
+                    powerPointOptions: powerPointOptions
                 )
                 try DocumentAssets.write(
                     imported,
@@ -1625,6 +1641,7 @@ final class DocumentStore {
                     fileAccess: fileAccess
                 )
                 imagesNeedingAlternativeText += imported.imagesNeedingAlternativeText
+                conversionNotices += imported.notices.map { "\(fileName): \($0)" }
                 importedURLs.append(destination)
             } catch {
                 failedNames.append(fileName)
@@ -1643,15 +1660,31 @@ final class DocumentStore {
         if !failedNames.isEmpty {
             let names = failedNames.joined(separator: ", ")
             let detail = failureDetails.isEmpty
-                ? "Import Markdown or plain-text files saved as UTF-8, or Word documents saved as .docx."
+                ? "Import Markdown or plain-text files saved as UTF-8, Word documents saved as .docx, or PowerPoint presentations saved as .pptx."
                 : failureDetails.joined(separator: " ")
             lastError = String(localized: "Could not import \(names). \(detail)")
         }
         return DocumentImportResult(
             imported: imported,
             failedFileNames: failedNames,
-            notices: Self.imageImportNotices(count: imagesNeedingAlternativeText)
+            notices: Self.imageImportNotices(count: imagesNeedingAlternativeText) + conversionNotices
         )
+    }
+
+    private func importSourceData(at url: URL) async throws -> Data {
+        guard url.pathExtension.lowercased() == "pptx" else {
+            return try fileAccess.data(at: url)
+        }
+        let task = Task.detached(priority: .userInitiated) {
+            try CoordinatedFileAccess().read(at: url) {
+                try PowerPointImportPackage.fileData(at: $0)
+            }
+        }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     private nonisolated static func imageImportNotices(count: Int) -> [String] {
@@ -1666,22 +1699,26 @@ final class DocumentStore {
     private nonisolated static func importedDocumentAwayFromTyping(
         from data: Data,
         sourceURL: URL,
-        destinationURL: URL
-    ) async throws -> WordMarkdownImport {
-        if sourceURL.pathExtension.lowercased() != "docx" {
+        destinationURL: URL,
+        powerPointOptions: PowerPointImportOptions
+    ) async throws -> MarkdownDocumentImport {
+        if !["docx", "pptx"].contains(sourceURL.pathExtension.lowercased()) {
             return try importedDocument(
-                from: data,
-                sourceURL: sourceURL,
-                destinationURL: destinationURL
+                from: data, sourceURL: sourceURL, destinationURL: destinationURL,
+                powerPointOptions: powerPointOptions
             )
         }
-        return try await Task.detached(priority: .userInitiated) {
-            try WordToMarkdownConverter.importDocument(
-                data: data,
-                sourceDirectory: sourceURL.deletingLastPathComponent(),
-                assetDirectoryName: DocumentAssets.newDirectoryName()
+        let task = Task.detached(priority: .userInitiated) {
+            try importedDocument(
+                from: data, sourceURL: sourceURL, destinationURL: destinationURL,
+                powerPointOptions: powerPointOptions
             )
-        }.value
+        }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     private nonisolated static func importFailureDescription(
@@ -1689,7 +1726,7 @@ final class DocumentStore {
         sourceURL: URL,
         error: Error
     ) -> String {
-        if sourceURL.pathExtension.lowercased() == "docx" {
+        if ["docx", "pptx"].contains(sourceURL.pathExtension.lowercased()) {
             return "\(fileName): \(error.localizedDescription)"
         }
         return String(localized: "\(fileName): The text file must use UTF-8 encoding.")
@@ -1698,8 +1735,15 @@ final class DocumentStore {
     private nonisolated static func importedDocument(
         from data: Data,
         sourceURL: URL,
-        destinationURL: URL
-    ) throws -> WordMarkdownImport {
+        destinationURL: URL,
+        powerPointOptions: PowerPointImportOptions
+    ) throws -> MarkdownDocumentImport {
+        if sourceURL.pathExtension.lowercased() == "pptx" {
+            return try PowerPointToMarkdownConverter.importDocument(
+                data: data, options: powerPointOptions,
+                assetDirectoryName: DocumentAssets.newDirectoryName()
+            )
+        }
         if sourceURL.pathExtension.lowercased() == "docx" {
             return try WordToMarkdownConverter.importDocument(
                 data: data,
