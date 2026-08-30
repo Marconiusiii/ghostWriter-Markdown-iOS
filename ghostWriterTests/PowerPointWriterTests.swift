@@ -53,6 +53,7 @@ struct PowerPointWriterTests {
         let third = try text("ppt/slides/slide3.xml", in: package)
         let contentLayout = try text("ppt/slideLayouts/slideLayout2.xml", in: package)
         let master = try text("ppt/slideMasters/slideMaster1.xml", in: package)
+        let viewProperties = try text("ppt/viewProps.xml", in: package)
 
         #expect(presentation.components(separatedBy: "<p:sldId ").count - 1 == 3)
         #expect(first.contains("Presentation title"))
@@ -63,13 +64,28 @@ struct PowerPointWriterTests {
         #expect(third.contains("More body."))
         #expect(second.contains("<p:ph type=\"title\""))
         #expect(second.contains("<p:ph type=\"body\""))
-        #expect(contentLayout.contains("<p:ph type=\"title\" idx=\"0\""))
+        #expect(contentLayout.contains("<p:ph type=\"title\"/>"))
         #expect(contentLayout.contains("<p:ph type=\"body\" idx=\"1\""))
+        #expect(contentLayout.contains("<a:spLocks noGrp=\"1\"/>"))
+        #expect(contentLayout.contains("<a:endParaRPr lang=\"en-US\"/>"))
         #expect(master.contains("<p:sldLayoutId id=\"2147483649\" r:id=\"rId1\"/>"))
         #expect(master.contains("<p:sldLayoutId id=\"2147483650\" r:id=\"rId2\"/>"))
+        #expect(master.contains("<p:bg><p:bgRef idx=\"1001\""))
+        #expect(master.contains("<p:hf hdr=\"0\" ftr=\"0\" dt=\"0\" sldNum=\"0\"/>"))
+        #expect(presentation.contains("<a:lvl9pPr"))
+        #expect((try text("ppt/_rels/presentation.xml.rels", in: package)).contains("relationships/theme"))
+        #expect(viewProperties.contains("<p:restoredLeft"))
+        #expect(viewProperties.contains("<p:cSldViewPr"))
+        #expect(viewProperties.contains("<p:notesTextViewPr><p:cViewPr>"))
         #expect(!first.contains("txBox=\"1\""))
         #expect(!second.contains("txBox=\"1\""))
         #expect(!third.contains("txBox=\"1\""))
+        #expect(package["ppt/notesMasters/notesMaster1.xml"] == nil)
+        #expect(package["ppt/notesMasters/_rels/notesMaster1.xml.rels"] == nil)
+        #expect(package["ppt/theme/theme2.xml"] == nil)
+        #expect(!presentation.contains("<p:notesMasterIdLst>"))
+        #expect(!(try text("ppt/_rels/presentation.xml.rels", in: package)).contains("relationships/notesMaster"))
+        #expect(!(try text("[Content_Types].xml", in: package)).contains("notesMaster+xml"))
     }
 
     @Test func thematicBreakMovesFollowingParagraphsIntoSpeakerNotes() throws {
@@ -93,6 +109,10 @@ struct PowerPointWriterTests {
         let slide = try text("ppt/slides/slide2.xml", in: package)
         let notes = try text("ppt/notesSlides/notesSlide2.xml", in: package)
         let relationships = try text("ppt/slides/_rels/slide2.xml.rels", in: package)
+        let presentation = try text("ppt/presentation.xml", in: package)
+        let presentationRelationships = try text("ppt/_rels/presentation.xml.rels", in: package)
+        let notesMasterRelationships = try text("ppt/notesMasters/_rels/notesMaster1.xml.rels", in: package)
+        let contentTypes = try text("[Content_Types].xml", in: package)
         let properties = try text("docProps/app.xml", in: package)
 
         #expect(slide.contains("Visible paragraph."))
@@ -103,6 +123,16 @@ struct PowerPointWriterTests {
         #expect(relationships.contains("relationships/notesSlide"))
         #expect(relationships.contains("../notesSlides/notesSlide2.xml"))
         #expect(properties.contains("<Notes>1</Notes>"))
+        #expect(presentation.contains("<p:notesMasterIdLst>"))
+        #expect(presentationRelationships.contains("relationships/notesMaster"))
+        #expect(notesMasterRelationships.contains("../theme/theme1.xml"))
+        #expect(package["ppt/theme/theme2.xml"] == nil)
+        #expect(!contentTypes.contains("/ppt/theme/theme2.xml"))
+        #expect(contentTypes.contains("/ppt/notesMasters/notesMaster1.xml"))
+        #expect(try #require(presentation.range(of: "<p:sldIdLst>")).lowerBound < #require(presentation.range(of: "<p:notesMasterIdLst>")).lowerBound)
+        #expect(notes.contains("<p:ph type=\"sldImg\" idx=\"2\"/>"))
+        #expect(notes.contains("<p:ph type=\"body\" idx=\"3\"/>"))
+        #expect(notes.contains("<p:ph type=\"sldNum\" idx=\"5\"/>"))
     }
 
     @Test func listsRemainNativeAndNested() throws {
@@ -120,11 +150,41 @@ struct PowerPointWriterTests {
         let slide = try text("ppt/slides/slide2.xml", in: package)
 
         #expect(slide.contains("<a:buChar char=\"•\"/>"))
+        #expect(slide.contains("<a:buSzPct val=\"100000\"/>"))
+        #expect(slide.contains("<a:buFont typeface=\"Arial\"/>"))
         #expect(slide.contains("lvl=\"1\""))
         #expect(slide.contains("<a:buAutoNum type=\"arabicPeriod\" startAt=\"4\"/>"))
-        #expect(slide.contains("<a:buAutoNum type=\"arabicPeriod\" startAt=\"5\"/>"))
+        #expect(slide.contains("<a:buAutoNum type=\"arabicPeriod\"/>"))
+        #expect(!slide.contains("startAt=\"5\""))
         #expect(slide.contains("<p:ph type=\"body\" idx=\"1\""))
         #expect(!slide.contains("txBox=\"1\""))
+    }
+
+    @Test func orderedListsRestartOnlyAtMarkdownListBoundaries() throws {
+        let package = try entries(markdown: """
+        # Deck
+
+        ## Numbering
+
+        3. Third
+        4. Fourth
+           1. Nested first
+           2. Nested second
+
+        Between lists.
+
+        8. Eighth
+        9. Ninth
+        """)
+        let slide = try text("ppt/slides/slide2.xml", in: package)
+
+        #expect(slide.components(separatedBy: "startAt=\"3\"").count - 1 == 1)
+        #expect(slide.components(separatedBy: "startAt=\"1\"").count - 1 == 1)
+        #expect(slide.components(separatedBy: "startAt=\"8\"").count - 1 == 1)
+        #expect(slide.components(separatedBy: "<a:buAutoNum type=\"arabicPeriod\"/>").count - 1 == 3)
+        #expect(!slide.contains("startAt=\"4\""))
+        #expect(!slide.contains("startAt=\"2\""))
+        #expect(!slide.contains("startAt=\"9\""))
     }
 
     @Test func linksUseVisibleTextAndExternalRelationships() throws {

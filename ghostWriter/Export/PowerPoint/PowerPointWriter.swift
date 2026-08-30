@@ -44,7 +44,7 @@ nonisolated enum PowerPointWriter {
         enum Marker {
             case none
             case bullet
-            case numbered(start: Int)
+            case numbered(start: Int?)
         }
 
         var runs: [TextRun]
@@ -366,7 +366,7 @@ nonisolated enum PowerPointWriter {
                 runs: runs,
                 level: min(level, 8),
                 marker: list.isOrdered
-                    ? .numbered(start: list.start + offset)
+                    ? .numbered(start: offset == 0 ? list.start : nil)
                     : .bullet
             ))
             for child in item.children {
@@ -623,8 +623,9 @@ nonisolated enum PowerPointWriter {
         let paragraphXML = paragraphs.map {
             drawingParagraphXML($0, language: language, context: &context)
         }.joined()
+        let placeholderIndexXML = placeholderIndex == 0 ? "" : " idx=\"\(placeholderIndex)\""
         return """
-        <p:sp><p:nvSpPr><p:cNvPr id="\(placeholderIndex + 2)" name="\(xmlAttribute(name))"/><p:cNvSpPr/><p:nvPr><p:ph type="\(placeholderType)" idx="\(placeholderIndex)"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"/><a:lstStyle/>\(paragraphXML)</p:txBody></p:sp>
+        <p:sp><p:nvSpPr><p:cNvPr id="\(placeholderIndex + 2)" name="\(xmlAttribute(name))"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="\(placeholderType)"\(placeholderIndexXML)/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"/><a:lstStyle/>\(paragraphXML)</p:txBody></p:sp>
         """
     }
 
@@ -636,8 +637,14 @@ nonisolated enum PowerPointWriter {
         let marker: String
         switch paragraph.marker {
         case .none: marker = "<a:buNone/>"
-        case .bullet: marker = "<a:buChar char=\"•\"/>"
-        case .numbered(let start): marker = "<a:buAutoNum type=\"arabicPeriod\" startAt=\"\(max(1, start))\"/>"
+        case .bullet:
+            marker = "<a:buSzPct val=\"100000\"/><a:buFont typeface=\"Arial\"/><a:buChar char=\"•\"/>"
+        case .numbered(let start):
+            if let start {
+                marker = "<a:buSzPct val=\"100000\"/><a:buFont typeface=\"Arial\"/><a:buAutoNum type=\"arabicPeriod\" startAt=\"\(max(1, start))\"/>"
+            } else {
+                marker = "<a:buSzPct val=\"100000\"/><a:buFont typeface=\"Arial\"/><a:buAutoNum type=\"arabicPeriod\"/>"
+            }
         }
         let margin = paragraph.markerIsNone ? 0 : 457_200 + paragraph.level * 365_760
         let indent = paragraph.markerIsNone ? 0 : -228_600
@@ -719,8 +726,13 @@ nonisolated enum PowerPointWriter {
             let text = paragraph.runs.map(\.text).joined()
             return "<a:p><a:r><a:rPr lang=\"\(xmlAttribute(language))\" sz=\"1200\"><a:latin typeface=\"Arial\"/></a:rPr><a:t>\(xmlText(text))</a:t></a:r><a:endParaRPr lang=\"\(xmlAttribute(language))\" sz=\"1200\"/></a:p>"
         }.joined()
+        let slideImage = notesPlaceholderXML(id: 2, name: "Slide image", type: "sldImg", index: 2)
+        let notesBody = """
+        <p:sp><p:nvSpPr><p:cNvPr id="3" name="Notes body"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="3"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>\(notes)</p:txBody></p:sp>
+        """
+        let slideNumber = notesPlaceholderXML(id: 4, name: "Slide number", type: "sldNum", index: 5)
         return xmlHeader + """
-        <p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree>\(groupShapeRoot)<p:sp><p:nvSpPr><p:cNvPr id="2" name="Notes body"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>\(notes)</p:txBody></p:sp></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>
+        <p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree>\(groupShapeRoot)\(slideImage)\(notesBody)\(slideNumber)</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>
         """
     }
 
@@ -733,15 +745,22 @@ nonisolated enum PowerPointWriter {
         theme: PowerPointTheme,
         language: String
     ) -> [String: Data] {
-        let entries: [String: Data] = [
+        let hasNotes = notesCount > 0
+        var entries: [String: Data] = [
             "_rels/.rels": data(packageRelationshipsXML),
             "docProps/core.xml": data(corePropertiesXML(title: title, language: language)),
             "docProps/app.xml": data(appPropertiesXML(
                 slideCount: slideCount,
                 notesCount: notesCount
             )),
-            "ppt/presentation.xml": data(presentationXML(slideCount: slideCount)),
-            "ppt/_rels/presentation.xml.rels": data(presentationRelationshipsXML(slideCount: slideCount)),
+            "ppt/presentation.xml": data(presentationXML(
+                slideCount: slideCount,
+                hasNotes: hasNotes
+            )),
+            "ppt/_rels/presentation.xml.rels": data(presentationRelationshipsXML(
+                slideCount: slideCount,
+                hasNotes: hasNotes
+            )),
             "ppt/presProps.xml": data(presentationPropertiesXML),
             "ppt/viewProps.xml": data(viewPropertiesXML),
             "ppt/tableStyles.xml": data(tableStylesXML),
@@ -751,41 +770,63 @@ nonisolated enum PowerPointWriter {
             "ppt/slideLayouts/slideLayout1.xml": data(slideLayoutXML(isTitle: true)),
             "ppt/slideLayouts/slideLayout2.xml": data(slideLayoutXML(isTitle: false)),
             "ppt/slideLayouts/_rels/slideLayout1.xml.rels": data(slideLayoutRelationshipsXML),
-            "ppt/slideLayouts/_rels/slideLayout2.xml.rels": data(slideLayoutRelationshipsXML),
-            "ppt/notesMasters/notesMaster1.xml": data(notesMasterXML),
-            "ppt/notesMasters/_rels/notesMaster1.xml.rels": data(notesMasterRelationshipsXML)
+            "ppt/slideLayouts/_rels/slideLayout2.xml.rels": data(slideLayoutRelationshipsXML)
         ]
+        if hasNotes {
+            entries["ppt/notesMasters/notesMaster1.xml"] = data(
+                notesMasterXML(language: language)
+            )
+            entries["ppt/notesMasters/_rels/notesMaster1.xml.rels"] = data(
+                notesMasterRelationshipsXML
+            )
+        }
         return entries
     }
 
-    private static func presentationXML(slideCount: Int) -> String {
+    private static func presentationXML(slideCount: Int, hasNotes: Bool) -> String {
         let slides = (1...slideCount).map { number in
-            "<p:sldId id=\"\(255 + number)\" r:id=\"rId\(number + 2)\"/>"
+            "<p:sldId id=\"\(255 + number)\" r:id=\"rId\(number + 1)\"/>"
         }.joined()
+        let notesMaster = hasNotes
+            ? "<p:notesMasterIdLst><p:notesMasterId r:id=\"rId\(slideCount + 2)\"/></p:notesMasterIdLst>"
+            : ""
         return xmlHeader + """
-        <p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:notesMasterIdLst><p:notesMasterId r:id="rId2"/></p:notesMasterIdLst><p:sldIdLst>\(slides)</p:sldIdLst><p:sldSz cx="\(slideWidth)" cy="\(slideHeight)" type="screen16x9"/><p:notesSz cx="\(notesWidth)" cy="\(notesHeight)"/><p:defaultTextStyle/></p:presentation>
+        <p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>\(slides)</p:sldIdLst>\(notesMaster)<p:sldSz cx="\(slideWidth)" cy="\(slideHeight)"/><p:notesSz cx="\(notesWidth)" cy="\(notesHeight)"/>\(defaultTextStyleXML)</p:presentation>
         """
     }
 
-    private static func presentationRelationshipsXML(slideCount: Int) -> String {
-        var relationships = [
-            Relationship(id: "rId1", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster", target: "slideMasters/slideMaster1.xml"),
-            Relationship(id: "rId2", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster", target: "notesMasters/notesMaster1.xml")
-        ]
+    private static func presentationRelationshipsXML(slideCount: Int, hasNotes: Bool) -> String {
+        var relationships = [Relationship(
+            id: "rId1",
+            type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster",
+            target: "slideMasters/slideMaster1.xml"
+        )]
         relationships += (1...slideCount).map { number in
-            Relationship(id: "rId\(number + 2)", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide", target: "slides/slide\(number).xml")
+            Relationship(id: "rId\(number + 1)", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide", target: "slides/slide\(number).xml")
+        }
+        var nextRelationship = slideCount + 2
+        if hasNotes {
+            relationships.append(Relationship(
+                id: "rId\(nextRelationship)",
+                type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
+                target: "notesMasters/notesMaster1.xml"
+            ))
+            nextRelationship += 1
         }
         relationships += [
-            Relationship(id: "rId\(slideCount + 3)", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps", target: "presProps.xml"),
-            Relationship(id: "rId\(slideCount + 4)", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps", target: "viewProps.xml"),
-            Relationship(id: "rId\(slideCount + 5)", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles", target: "tableStyles.xml")
+            Relationship(id: "rId\(nextRelationship)", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps", target: "presProps.xml"),
+            Relationship(id: "rId\(nextRelationship + 1)", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps", target: "viewProps.xml"),
+            Relationship(id: "rId\(nextRelationship + 2)", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme", target: "theme/theme1.xml"),
+            Relationship(id: "rId\(nextRelationship + 3)", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles", target: "tableStyles.xml")
         ]
         return relationshipsXML(relationships)
     }
 
-    private static let slideMasterXML = xmlHeader + """
-    <p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="ghostWriter"><p:spTree>\(groupShapeRoot)</p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/><p:sldLayoutId id="2147483650" r:id="rId2"/></p:sldLayoutIdLst><p:txStyles><p:titleStyle><a:lvl1pPr algn="l"><a:defRPr sz="4000" b="1"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:lvl1pPr></p:titleStyle><p:bodyStyle><a:lvl1pPr marL="457200" indent="-228600"><a:defRPr sz="2400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:lvl1pPr></p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr sz="2400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="Arial"/></a:defRPr></a:defPPr></p:otherStyle></p:txStyles></p:sldMaster>
-    """
+    private static var slideMasterXML: String {
+        xmlHeader + """
+        <p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="ghostWriter"><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>\(groupShapeRoot)</p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/><p:sldLayoutId id="2147483650" r:id="rId2"/></p:sldLayoutIdLst><p:hf hdr="0" ftr="0" dt="0" sldNum="0"/><p:txStyles><p:titleStyle>\(textStyleLevels(fontSize: 4000, color: "accent1", bold: true))</p:titleStyle><p:bodyStyle>\(textStyleLevels(fontSize: 2400, color: "tx1", bulletIndent: true))</p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="en-US" sz="2400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="Arial"/><a:ea typeface="Arial"/><a:cs typeface="Arial"/></a:defRPr></a:defPPr>\(textStyleLevels(fontSize: 2400, color: "tx1"))</p:otherStyle></p:txStyles></p:sldMaster>
+        """
+    }
 
     private static let slideMasterRelationshipsXML = relationshipsXML([
         Relationship(id: "rId1", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout", target: "../slideLayouts/slideLayout1.xml"),
@@ -826,8 +867,9 @@ nonisolated enum PowerPointWriter {
         index: Int,
         position: (x: Int, y: Int, width: Int, height: Int)
     ) -> String {
-        """
-        <p:sp><p:nvSpPr><p:cNvPr id="\(id)" name="\(xmlAttribute(name))"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="\(type)" idx="\(index)"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>
+        let placeholderIndexXML = index == 0 ? "" : " idx=\"\(index)\""
+        return """
+        <p:sp><p:nvSpPr><p:cNvPr id="\(id)" name="\(xmlAttribute(name))"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="\(type)"\(placeholderIndexXML)/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp>
         """
     }
 
@@ -835,13 +877,65 @@ nonisolated enum PowerPointWriter {
         Relationship(id: "rId1", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster", target: "../slideMasters/slideMaster1.xml")
     ])
 
-    private static let notesMasterXML = xmlHeader + """
-    <p:notesMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree>\(groupShapeRoot)<p:sp><p:nvSpPr><p:cNvPr id="2" name="Notes body"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp></p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/><p:hf hdr="0" ftr="0" dt="0" sldNum="0"/><p:notesStyle><a:lvl1pPr><a:defRPr sz="1200"><a:latin typeface="Arial"/></a:defRPr></a:lvl1pPr></p:notesStyle></p:notesMaster>
-    """
+    private static func notesMasterXML(language: String) -> String {
+        let placeholders = [
+            notesMasterPlaceholderXML(id: 2, name: "Header", type: "hdr", index: 0, x: 685_800, y: 440_000, width: 2_700_000, height: 300_000, language: language),
+            notesMasterPlaceholderXML(id: 3, name: "Date", type: "dt", index: 1, x: 3_450_000, y: 440_000, width: 2_700_000, height: 300_000, language: language),
+            notesMasterPlaceholderXML(id: 4, name: "Slide image", type: "sldImg", index: 2, x: 685_800, y: 1_143_000, width: 5_486_400, height: 3_086_100, language: language),
+            notesMasterPlaceholderXML(id: 5, name: "Notes body", type: "body", index: 3, x: 685_800, y: 4_400_550, width: 5_486_400, height: 3_600_450, language: language),
+            notesMasterPlaceholderXML(id: 6, name: "Footer", type: "ftr", index: 4, x: 685_800, y: 8_450_000, width: 2_700_000, height: 300_000, language: language),
+            notesMasterPlaceholderXML(id: 7, name: "Slide number", type: "sldNum", index: 5, x: 3_450_000, y: 8_450_000, width: 2_700_000, height: 300_000, language: language)
+        ].joined()
+        return xmlHeader + """
+        <p:notesMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>\(groupShapeRoot)\(placeholders)</p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/><p:hf hdr="0" ftr="0" dt="0" sldNum="0"/><p:notesStyle>\(textStyleLevels(fontSize: 1200, color: "tx1", bulletIndent: true, language: language))</p:notesStyle></p:notesMaster>
+        """
+    }
 
     private static let notesMasterRelationshipsXML = relationshipsXML([
         Relationship(id: "rId1", type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme", target: "../theme/theme1.xml")
     ])
+
+    private static var defaultTextStyleXML: String {
+        "<p:defaultTextStyle><a:defPPr><a:defRPr lang=\"en-US\"/></a:defPPr>\(textStyleLevels(fontSize: 1800, color: "tx1"))</p:defaultTextStyle>"
+    }
+
+    private static func textStyleLevels(
+        fontSize: Int,
+        color: String,
+        bold: Bool = false,
+        bulletIndent: Bool = false,
+        language: String = "en-US"
+    ) -> String {
+        (1...9).map { level in
+            let margin = bulletIndent ? 457_200 + (level - 1) * 365_760 : 0
+            let indent = bulletIndent ? -228_600 : 0
+            let boldAttribute = bold ? " b=\"1\"" : ""
+            return "<a:lvl\(level)pPr marL=\"\(margin)\" indent=\"\(indent)\" algn=\"l\" defTabSz=\"914400\" rtl=\"0\" eaLnBrk=\"1\" latinLnBrk=\"0\" hangingPunct=\"1\"><a:defRPr lang=\"\(xmlAttribute(language))\" sz=\"\(fontSize)\" kern=\"1200\"\(boldAttribute)><a:solidFill><a:schemeClr val=\"\(color)\"/></a:solidFill><a:latin typeface=\"Arial\"/><a:ea typeface=\"Arial\"/><a:cs typeface=\"Arial\"/></a:defRPr></a:lvl\(level)pPr>"
+        }.joined()
+    }
+
+    private static func notesPlaceholderXML(
+        id: Int,
+        name: String,
+        type: String,
+        index: Int
+    ) -> String {
+        "<p:sp><p:nvSpPr><p:cNvPr id=\"\(id)\" name=\"\(xmlAttribute(name))\"/><p:cNvSpPr><a:spLocks noGrp=\"1\"/></p:cNvSpPr><p:nvPr><p:ph type=\"\(type)\" idx=\"\(index)\"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"en-US\"/></a:p></p:txBody></p:sp>"
+    }
+
+    private static func notesMasterPlaceholderXML(
+        id: Int,
+        name: String,
+        type: String,
+        index: Int,
+        x: Int,
+        y: Int,
+        width: Int,
+        height: Int,
+        language: String
+    ) -> String {
+        "<p:sp><p:nvSpPr><p:cNvPr id=\"\(id)\" name=\"\(xmlAttribute(name))\"/><p:cNvSpPr><a:spLocks noGrp=\"1\"/></p:cNvSpPr><p:nvPr><p:ph type=\"\(type)\" idx=\"\(index)\"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"\(x)\" y=\"\(y)\"/><a:ext cx=\"\(width)\" cy=\"\(height)\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"\(xmlAttribute(language))\"/></a:p></p:txBody></p:sp>"
+    }
 
     private static func themeXML(_ theme: PowerPointTheme) -> String {
         let palette = theme.palette
@@ -868,8 +962,9 @@ nonisolated enum PowerPointWriter {
         let notes = noteSlideNumbers.map {
             "<Override PartName=\"/ppt/notesSlides/notesSlide\($0).xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml\"/>"
         }.joined()
+        let notesPackageParts = noteSlideNumbers.isEmpty ? "" : "<Override PartName=\"/ppt/notesMasters/notesMaster1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml\"/>"
         return xmlHeader + """
-        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>\(imageDefaults)<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/><Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/><Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/slideLayouts/slideLayout2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/><Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/>\(slides)\(notes)<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>
+        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>\(imageDefaults)<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/><Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/><Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/slideLayouts/slideLayout2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>\(notesPackageParts)\(slides)\(notes)<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>
         """
     }
 
@@ -886,7 +981,7 @@ nonisolated enum PowerPointWriter {
     }
 
     private static let presentationPropertiesXML = xmlHeader + "<p:presentationPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"/>"
-    private static let viewPropertiesXML = xmlHeader + "<p:viewPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" lastView=\"sldView\"><p:normalViewPr/><p:slideViewPr/><p:notesTextViewPr/><p:gridSpacing cx=\"914400\" cy=\"914400\"/></p:viewPr>"
+    private static let viewPropertiesXML = xmlHeader + "<p:viewPr xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" lastView=\"sldView\"><p:normalViewPr horzBarState=\"maximized\"><p:restoredLeft sz=\"15987\"/><p:restoredTop sz=\"94660\"/></p:normalViewPr><p:slideViewPr><p:cSldViewPr snapToGrid=\"0\" snapToObjects=\"1\"><p:cViewPr varScale=\"1\"><p:scale><a:sx n=\"100\" d=\"100\"/><a:sy n=\"100\" d=\"100\"/></p:scale><p:origin x=\"0\" y=\"0\"/></p:cViewPr><p:guideLst/></p:cSldViewPr></p:slideViewPr><p:notesTextViewPr><p:cViewPr><p:scale><a:sx n=\"1\" d=\"1\"/><a:sy n=\"1\" d=\"1\"/></p:scale><p:origin x=\"0\" y=\"0\"/></p:cViewPr></p:notesTextViewPr><p:gridSpacing cx=\"76200\" cy=\"76200\"/></p:viewPr>"
     private static let tableStylesXML = xmlHeader + "<a:tblStyleLst xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" def=\"{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}\"/>"
 
     private static func relationshipsXML(_ relationships: [Relationship]) -> String {

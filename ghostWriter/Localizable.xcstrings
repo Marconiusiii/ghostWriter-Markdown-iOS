@@ -301,6 +301,17 @@
         }
       }
     },
+    "Alternative text" : {
+      "comment" : "MarkdownInsertionView.swift:58",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto alternativo"
+          }
+        }
+      }
+    },
     "Announces Light feedback and completed Markdown structures as you type." : {
       "comment" : "AppSettings.swift:110",
       "localizations" : {
@@ -620,6 +631,17 @@
         }
       }
     },
+    "Choose another photo…" : {
+      "comment" : "MarkdownInsertionView.swift:121",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir otra foto…"
+          }
+        }
+      }
+    },
     "Choose file…" : {
       "comment" : "MarkdownInsertionView.swift:51",
       "localizations" : {
@@ -627,6 +649,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Elegir archivo…"
+          }
+        }
+      }
+    },
+    "Choose Insert Actions, then Image from Files or Image from Photo Library to attach an ordinary image. Enter alternative text or mark the image decorative. ghostWriter stores the image with the document and inserts its relative Markdown reference." : {
+      "comment" : "HelpView.swift:118",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Acciones de inserción y, a continuación, Imagen desde Archivos o Imagen desde la fototeca para adjuntar una imagen ordinaria. Introduce texto alternativo o marca la imagen como decorativa. ghostWriter almacena la imagen con el documento e inserta su referencia relativa en Markdown."
+          }
+        }
+      }
+    },
+    "Choose photo…" : {
+      "comment" : "MarkdownInsertionView.swift:121",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir foto…"
+          }
+        }
+      }
+    },
+    "Choose Tactile Graphic to attach an SVG, PNG, or JPG prepared for tactile presentation. A tactile graphic has a description and the Markdown title tactile." : {
+      "comment" : "HelpView.swift:122",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Gráfico táctil para adjuntar un archivo SVG, PNG o JPG preparado para una presentación táctil. Un gráfico táctil tiene una descripción y el título tactile en Markdown."
           }
         }
       }
@@ -803,6 +860,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo %@ %@. %@"
+          }
+        }
+      }
+    },
+    "Could Not Attach Image" : {
+      "comment" : "MarkdownInsertionView.swift:100",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo adjuntar la imagen"
           }
         }
       }
@@ -1254,6 +1322,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fecha de modificación"
+          }
+        }
+      }
+    },
+    "Decorative image" : {
+      "comment" : "MarkdownInsertionView.swift:57",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen decorativa"
           }
         }
       }
@@ -2237,6 +2316,64 @@
         }
       }
     },
+    "Image from Files" : {
+      "comment" : "MarkdownInsertionView.swift:32",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen desde Archivos"
+          }
+        }
+      }
+    },
+    "Image from Files attaches an SVG, PNG, or JPG selected with the system file picker. Image from Photo Library attaches a photo selected with the system photo picker. Enter alternative text or mark the image decorative." : {
+      "comment" : "HelpView.swift:175",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen desde Archivos adjunta un archivo SVG, PNG o JPG seleccionado con el selector de archivos del sistema. Imagen desde la fototeca adjunta una foto seleccionada con el selector de fotos del sistema. Introduce texto alternativo o marca la imagen como decorativa."
+          }
+        }
+      }
+    },
+    "Image from Files…" : {
+      "comment" : "InsertActionsView.swift:27",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen desde Archivos…"
+          }
+        }
+      }
+    },
+    "Image from Photo Library" : {
+      "comment" : "MarkdownInsertionView.swift:33",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen desde la fototeca"
+          }
+        }
+      }
+    },
+    "Image from Photo Library…" : {
+      "comment" : "InsertActionsView.swift:28",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen desde la fototeca…"
+          }
+        }
+      }
+    },
     "Import" : {
       "comment" : "LibraryView.swift:424",
       "localizations" : {
@@ -3019,6 +3156,17 @@
         }
       }
     },
+    "Photo" : {
+      "comment" : "MarkdownInsertionView.swift:119",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foto"
+          }
+        }
+      }
+    },
     "Pin" : {
       "comment" : "LibraryView.swift:775",
       "localizations" : {
@@ -3438,6 +3586,18 @@
         }
       }
     },
+    "Selected" : {
+      "comment" : "MarkdownInsertionView.swift:114",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionada"
+          }
+        }
+      }
+    },
     "Selected Character Count" : {
       "comment" : "SettingsView.swift:426",
       "localizations" : {
@@ -3632,6 +3792,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Braille español, grado 2 (contraído)"
+          }
+        }
+      }
+    },
+    "Square brackets hold link text or an image description, and parentheses hold the address. An image with a description is ordinary. An image with empty brackets is decorative. Choose Image from Files or Image from Photo Library in Insert Actions to attach an ordinary image. Add the exact title tactile to mark an SVG, PNG, or JPG as a tactile graphic." : {
+      "comment" : "MarkdownReferenceView.swift:120",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los corchetes contienen el texto del enlace o la descripción de una imagen, y los paréntesis contienen la dirección. Una imagen con descripción es ordinaria. Una imagen con corchetes vacíos es decorativa. Elige Imagen desde Archivos o Imagen desde la fototeca en Acciones de inserción para adjuntar una imagen ordinaria. Añade el título exacto tactile para marcar un archivo SVG, PNG o JPG como gráfico táctil."
           }
         }
       }
@@ -3946,6 +4118,7 @@
     },
     "The image %@ could not be included in the PowerPoint presentation." : {
       "comment" : "PowerPointWriter.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4006,6 +4179,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El archivo seleccionado no es un documento de Word válido."
+          }
+        }
+      }
+    },
+    "The selected image could not be attached." : {
+      "comment" : "MarkdownInsertionView.swift:103",
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La imagen seleccionada no se pudo adjuntar."
           }
         }
       }
@@ -4556,182 +4741,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "De la Z a la A"
-          }
-        }
-      }
-    },
-    "Alternative text" : {
-      "comment" : "MarkdownInsertionView.swift:58",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Texto alternativo"
-          }
-        }
-      }
-    },
-    "Choose another photo…" : {
-      "comment" : "MarkdownInsertionView.swift:121",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elegir otra foto…"
-          }
-        }
-      }
-    },
-    "Choose photo…" : {
-      "comment" : "MarkdownInsertionView.swift:121",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elegir foto…"
-          }
-        }
-      }
-    },
-    "Could Not Attach Image" : {
-      "comment" : "MarkdownInsertionView.swift:100",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo adjuntar la imagen"
-          }
-        }
-      }
-    },
-    "Decorative image" : {
-      "comment" : "MarkdownInsertionView.swift:57",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Imagen decorativa"
-          }
-        }
-      }
-    },
-    "Image from Files" : {
-      "comment" : "MarkdownInsertionView.swift:32",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Imagen desde Archivos"
-          }
-        }
-      }
-    },
-    "Image from Files…" : {
-      "comment" : "InsertActionsView.swift:27",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Imagen desde Archivos…"
-          }
-        }
-      }
-    },
-    "Image from Photo Library" : {
-      "comment" : "MarkdownInsertionView.swift:33",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Imagen desde la fototeca"
-          }
-        }
-      }
-    },
-    "Image from Photo Library…" : {
-      "comment" : "InsertActionsView.swift:28",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Imagen desde la fototeca…"
-          }
-        }
-      }
-    },
-    "Photo" : {
-      "comment" : "MarkdownInsertionView.swift:119",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Foto"
-          }
-        }
-      }
-    },
-    "Selected" : {
-      "comment" : "MarkdownInsertionView.swift:114",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Seleccionada"
-          }
-        }
-      }
-    },
-    "The selected image could not be attached." : {
-      "comment" : "MarkdownInsertionView.swift:103",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La imagen seleccionada no se pudo adjuntar."
-          }
-        }
-      }
-    },
-    "Choose Insert Actions, then Image from Files or Image from Photo Library to attach an ordinary image. Enter alternative text or mark the image decorative. ghostWriter stores the image with the document and inserts its relative Markdown reference." : {
-      "comment" : "HelpView.swift:118",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elige Acciones de inserción y, a continuación, Imagen desde Archivos o Imagen desde la fototeca para adjuntar una imagen ordinaria. Introduce texto alternativo o marca la imagen como decorativa. ghostWriter almacena la imagen con el documento e inserta su referencia relativa en Markdown."
-          }
-        }
-      }
-    },
-    "Choose Tactile Graphic to attach an SVG, PNG, or JPG prepared for tactile presentation. A tactile graphic has a description and the Markdown title tactile." : {
-      "comment" : "HelpView.swift:122",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elige Gráfico táctil para adjuntar un archivo SVG, PNG o JPG preparado para una presentación táctil. Un gráfico táctil tiene una descripción y el título tactile en Markdown."
-          }
-        }
-      }
-    },
-    "Image from Files attaches an SVG, PNG, or JPG selected with the system file picker. Image from Photo Library attaches a photo selected with the system photo picker. Enter alternative text or mark the image decorative." : {
-      "comment" : "HelpView.swift:175",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Imagen desde Archivos adjunta un archivo SVG, PNG o JPG seleccionado con el selector de archivos del sistema. Imagen desde la fototeca adjunta una foto seleccionada con el selector de fotos del sistema. Introduce texto alternativo o marca la imagen como decorativa."
-          }
-        }
-      }
-    },
-    "Square brackets hold link text or an image description, and parentheses hold the address. An image with a description is ordinary. An image with empty brackets is decorative. Choose Image from Files or Image from Photo Library in Insert Actions to attach an ordinary image. Add the exact title tactile to mark an SVG, PNG, or JPG as a tactile graphic." : {
-      "comment" : "MarkdownReferenceView.swift:120",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los corchetes contienen el texto del enlace o la descripción de una imagen, y los paréntesis contienen la dirección. Una imagen con descripción es ordinaria. Una imagen con corchetes vacíos es decorativa. Elige Imagen desde Archivos o Imagen desde la fototeca en Acciones de inserción para adjuntar una imagen ordinaria. Añade el título exacto tactile para marcar un archivo SVG, PNG o JPG como gráfico táctil."
           }
         }
       }
