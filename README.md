@@ -76,7 +76,7 @@ Documents are shared through File Actions > Share.
 | Plain Text | `.txt` | Markdown syntax removed |
 | HTML | `.html` | Complete standalone document with managed local images embedded |
 | Word Document | `.docx` | Word heading styles, lists, and tables |
-| PowerPoint | `.pptx` | Widescreen slides, presentation themes, speaker notes, and embedded images |
+| PowerPoint | `.pptx` | Widescreen slides, native tables, presentation themes, speaker notes, and embedded images |
 | PDF | `.pdf` | Tagged PDF, US Letter, one-inch margins |
 | EPUB | `.epub` | Reflowable ebook with a table of contents |
 | eBraille | `.ebrl` | Reflowable Unicode braille targeting eBraille 1.0 |
@@ -108,14 +108,18 @@ next level 2 heading. Deeper headings do not end speaker notes.
 | Deeper headings and paragraphs | Slide text with supported inline emphasis and formatting |
 | Bulleted and numbered lists | Native list paragraphs with nested levels and starting numbers |
 | Task lists | List items with Completed or Not completed labels, not interactive checkboxes |
-| Links outside tables | Clickable text |
-| Tables | Column headings followed by labeled text rows, not native PowerPoint tables |
+| Links, including table-cell links | Clickable text |
+| Tables | Editable native tables with a header row, column alignment, formatting, and links |
 | Block quotes | Paragraphs introduced by Quote |
 | Code blocks | Monospaced text without syntax highlighting |
 | Images | Embedded pictures with alternative text or a decorative designation |
 
-Tables do not retain their grid, column alignment, cell formatting, or
-cell-by-cell table navigation. Links within table cells become plain text.
+Tables retain their rows and columns, mark the first row as a header, and use
+the selected theme for text, backgrounds, and borders. Column widths and row
+heights account for cell text, which wraps at a fixed 22-point size. Tables and
+surrounding text retain their Markdown order. Images referenced inside table
+cells appear as separate slide pictures. Tables inside speaker notes remain
+labeled text rows rather than native tables.
 
 Use Insert Actions > Image from Files or Image from Photo Library to attach an
 image. The app stores it with the document and inserts its relative Markdown
@@ -125,11 +129,12 @@ transparency preserved; the original Markdown reference is unchanged.
 Unavailable, invalid, or oversized images are skipped without preventing the
 rest of the presentation from exporting.
 
-Each slide supports up to four included images. Slides with too much text or
-too many images produce an error asking for another level 2 heading. Content is
-not automatically split across slides. Image loading is bounded to 32 unique
-references, 10 MiB per image, and a 40 MiB total image-data budget, including SVG
-conversions.
+Each slide supports up to four included images. Slides with too much text,
+too many images, or tables that are too wide or tall produce an error asking
+for another level 2 heading. Tables are not flattened or shrunk to force them
+onto a slide. Content is not automatically split across slides. Image loading
+is bounded to 32 unique references, 10 MiB per image, and a 40 MiB total
+image-data budget, including SVG conversions.
 
 Automated tests check exported content, package structure, and theme contrast.
 They do not establish PowerPoint or VoiceOver behavior on a user's device.

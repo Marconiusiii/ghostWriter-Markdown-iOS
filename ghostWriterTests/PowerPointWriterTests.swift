@@ -189,27 +189,192 @@ struct PowerPointWriterTests {
         #expect(!slide.contains("startAt=\"9\""))
     }
 
-    @Test func tablesBecomeLabeledTextRowsWithoutNativeTableStructure() throws {
+    @Test func tablesRemainNativeWithHeadersAlignmentFormattingAndLinks() throws {
         let package = try entries(markdown: """
         # Deck
 
         ## Habitats
 
-        | Species | Habitat |
-        | :--- | ---: |
-        | **Barn owl** | [Grassland](https://example.com/grassland) |
-        | Little owl | Farmland |
+        | Species | Habitat | Count |
+        | :--- | :---: | ---: |
+        | **Barn owl** | [Grassland](https://example.com/grassland) | 2 |
+        | *Little owl* | Farmland | 4 |
         """)
         let slide = try text("ppt/slides/slide2.xml", in: package)
         let relationships = try text("ppt/slides/_rels/slide2.xml.rels", in: package)
 
-        #expect(slide.contains("<a:t>Species | Habitat</a:t>"))
-        #expect(slide.contains("<a:t>Species: Barn owl; Habitat: Grassland</a:t>"))
-        #expect(slide.contains("<a:t>Species: Little owl; Habitat: Farmland</a:t>"))
-        #expect(!slide.contains("<a:tbl>"))
-        #expect(!slide.contains("<a:hlinkClick"))
+        let root = try xmlTree(slide)
+        let table = try #require(root.all("a:tbl").first)
+        #expect(table.all("a:tblPr").first?.attributes["firstRow"] == "1")
+        #expect(table.all("a:gridCol").count == 3)
+        let rows = table.all("a:tr")
+        #expect(rows.count == 3)
+        #expect(rows.allSatisfy { $0.all("a:tc").count == 3 })
+        #expect(rows[0].all("a:t").map(\.text) == ["Species", "Habitat", "Count"])
+        #expect(rows[1].all("a:t").map(\.text) == ["Barn owl", "Grassland", "2"])
+        #expect(rows[2].all("a:t").map(\.text) == ["Little owl", "Farmland", "4"])
+        #expect(rows[1].all("a:pPr").map { $0.attributes["algn"] } == ["l", "ctr", "r"])
+        #expect(rows[1].all("a:rPr").first?.attributes["b"] == "1")
+        #expect(rows[2].all("a:rPr").first?.attributes["i"] == "1")
+        let linkID = try #require(table.all("a:hlinkClick").first?.attributes["r:id"])
+        #expect(relationships.contains("Id=\"\(linkID)\""))
+        #expect(relationships.contains("Target=\"https://example.com/grassland\""))
+        #expect(relationships.contains("TargetMode=\"External\""))
         #expect(!slide.contains("**Barn owl**"))
-        #expect(!relationships.contains("https://example.com/grassland"))
+        #expect(!slide.contains("Species: Barn owl"))
+    }
+
+    @Test func tablesAndTextKeepSourceOrderAndNonoverlappingFrames() throws {
+        let package = try entries(markdown: """
+        # Deck
+
+        ## Mixed
+
+        Before the table.
+
+        | Species | Count |
+        | --- | --- |
+        | Owl | 2 |
+
+        - After the table
+
+        | Place | Count |
+        | --- | --- |
+        | Woods | 3 |
+        """)
+        let root = try xmlTree(text("ppt/slides/slide2.xml", in: package))
+        let tree = try #require(root.all("p:spTree").first)
+        let shapes = tree.children.filter { ["p:sp", "p:graphicFrame"].contains($0.name) }
+        #expect(shapes.map(\.name) == ["p:sp", "p:sp", "p:graphicFrame", "p:sp", "p:graphicFrame"])
+        let ids = shapes.compactMap { $0.all("p:cNvPr").first?.attributes["id"] }
+        #expect(Set(ids).count == shapes.count)
+        #expect(root.all("p:ph").filter { $0.attributes["type"] == "body" }.count == 1)
+        var previousBottom = 0
+        for shape in shapes {
+            let off = try #require(shape.all("a:off").first)
+            let ext = try #require(shape.all("a:ext").first)
+            let y = try #require(Int(off.attributes["y"] ?? ""))
+            let height = try #require(Int(ext.attributes["cy"] ?? ""))
+            #expect(y >= previousBottom)
+            previousBottom = y + height
+            #expect(previousBottom <= 6_858_000)
+        }
+        for shape in shapes where shape.name == "p:graphicFrame" {
+            let ext = try #require(shape.all("a:ext").first)
+            #expect(shape.all("a:gridCol").reduce(0) { $0 + (Int($1.attributes["w"] ?? "") ?? 0) }
+                == Int(ext.attributes["cx"] ?? ""))
+            #expect(shape.all("a:tr").reduce(0) { $0 + (Int($1.attributes["h"] ?? "") ?? 0) }
+                == Int(ext.attributes["cy"] ?? ""))
+        }
+    }
+
+    @Test func titleSlideTableLeavesRoomForTitleAndPicture() throws {
+        let source = "https://example.com/owl.png"
+        let package = try entries(markdown: "# Owls\n\n| Species | Count |\n| --- | --- |\n| Owl | 2 |\n\n![Owl](\(source))",
+            resolvedImages: [source: .init(data: tinyPNG, mediaType: "image/png")])
+        let root = try xmlTree(text("ppt/slides/slide1.xml", in: package))
+        let table = try #require(root.all("p:graphicFrame").first)
+        let picture = try #require(root.all("p:pic").first)
+        let tableOffset = try #require(table.all("a:off").first)
+        let tableSize = try #require(table.all("a:ext").first)
+        let pictureOffset = try #require(picture.all("a:off").first)
+        #expect(Int(tableOffset.attributes["y"] ?? "") == 1_900_000)
+        let tableRight = try #require(Int(tableOffset.attributes["x"] ?? ""))
+            + #require(Int(tableSize.attributes["cx"] ?? ""))
+        #expect(tableRight < (Int(pictureOffset.attributes["x"] ?? "") ?? 0))
+        #expect(root.all("p:cNvPr").contains { $0.attributes["descr"] == "Owl" })
+    }
+
+    @Test func tableRowsGrowForWrappedContentAndShortRowsKeepEmptyCells() throws {
+        let package = try entries(markdown: """
+        # Deck
+
+        ## Wrapping
+
+        | Species | Notes |
+        | --- | --- |
+        | Owl | A short note. |
+        | Another owl | This longer description needs to wrap onto several lines inside its table cell while retaining every word. |
+        | Last owl |
+        """)
+        let root = try xmlTree(text("ppt/slides/slide2.xml", in: package))
+        let rows = root.all("a:tr")
+        #expect(rows.count == 4)
+        #expect((Int(rows[2].attributes["h"] ?? "") ?? 0) > (Int(rows[1].attributes["h"] ?? "") ?? 0))
+        #expect(rows[3].all("a:tc").count == 2)
+        #expect(rows[3].all("a:tc")[1].all("a:p").count == 1)
+        #expect(root.all("a:t").contains { $0.text.hasSuffix("retaining every word.") })
+    }
+
+    @Test func tablesUseThemeColorsAndNotesKeepLabeledText() throws {
+        for theme in PowerPointTheme.allCases {
+            let package = try entries(markdown: """
+            # Deck
+
+            ## Table
+
+            | Name | Value |
+            | --- | --- |
+            | Owl | 2 |
+
+            ***
+
+            | Note | Detail |
+            | --- | --- |
+            | Source | Counted locally |
+            """, theme: theme)
+            let root = try xmlTree(text("ppt/slides/slide2.xml", in: package))
+            let table = try #require(root.all("a:tbl").first)
+            #expect(table.all("a:srgbClr").isEmpty)
+            #expect(table.all("a:schemeClr").contains { $0.attributes["val"] == "lt2" })
+            #expect(table.all("a:schemeClr").contains { $0.attributes["val"] == "bg1" })
+            let notes = try text("ppt/notesSlides/notesSlide2.xml", in: package)
+            #expect(notes.contains("Note: Source; Detail: Counted locally"))
+            #expect(!notes.contains("<a:tbl>"))
+        }
+    }
+
+    @Test func listNumberingContinuesAcrossAnEmbeddedTable() throws {
+        let package = try entries(markdown: """
+        # Deck
+
+        ## List with a table
+
+        3. Third
+
+           | Name | Count |
+           | --- | --- |
+           | Owl | 2 |
+
+        4. Fourth
+        """)
+        let root = try xmlTree(text("ppt/slides/slide2.xml", in: package))
+        #expect(root.all("a:tbl").count == 1)
+        #expect(root.all("a:buAutoNum").map { $0.attributes["startAt"] } == ["3", "4"])
+        #expect(root.all("a:t").map(\.text) == ["List with a table", "Third", "Name", "Count", "Owl", "2", "Fourth"])
+    }
+
+    @Test func tableCellImagesRemainDescribedSlidePictures() throws {
+        let source = "https://example.com/owl.png"
+        let package = try entries(markdown: "# Deck\n\n## Image cell\n\n| Species | Image |\n| --- | --- |\n| Owl | ![An owl](\(source)) |",
+            resolvedImages: [source: .init(data: tinyPNG, mediaType: "image/png")])
+        let root = try xmlTree(text("ppt/slides/slide2.xml", in: package))
+        #expect(root.all("a:tbl").count == 1)
+        #expect(root.all("p:pic").count == 1)
+        #expect(root.all("p:cNvPr").contains { $0.attributes["descr"] == "An owl" })
+        #expect(package["ppt/media/image1.png"] == tinyPNG)
+    }
+
+    @Test func oversizedTablesFailWithoutFlatteningOrShrinking() throws {
+        let rows = Array(repeating: "| Owl | 2 |", count: 20).joined(separator: "\n")
+        #expect(throws: PowerPointExportError.slideTooFull("Too tall")) {
+            try entries(markdown: "# Deck\n\n## Too tall\n\n| Name | Value |\n| --- | --- |\n\(rows)")
+        }
+        let header = Array(repeating: "Name", count: 12).joined(separator: " | ")
+        let separator = Array(repeating: "---", count: 12).joined(separator: " | ")
+        #expect(throws: PowerPointExportError.slideTooFull("Too wide")) {
+            try entries(markdown: "# Deck\n\n## Too wide\n\n| \(header) |\n| \(separator) |\n| \(header) |")
+        }
     }
 
     @Test func blockQuotesBecomeLabeledParagraphs() throws {
@@ -384,9 +549,46 @@ struct PowerPointWriterTests {
         }
     }
 
+    private func xmlTree(_ text: String) throws -> TestXMLNode {
+        let capture = TestXMLCapture()
+        let parser = XMLParser(data: Data(text.utf8))
+        parser.delegate = capture
+        #expect(parser.parse(), "Malformed XML: \(parser.parserError?.localizedDescription ?? "unknown error")")
+        return try #require(capture.root)
+    }
+
     private var tinyPNG: Data {
         Data(base64Encoded:
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
         ) ?? Data()
+    }
+}
+
+nonisolated private final class TestXMLNode {
+    let name: String
+    let attributes: [String: String]
+    var text = ""
+    var children: [TestXMLNode] = []
+    init(_ name: String, attributes: [String: String]) {
+        self.name = name
+        self.attributes = attributes
+    }
+    func all(_ name: String) -> [TestXMLNode] {
+        (self.name == name ? [self] : []) + children.flatMap { $0.all(name) }
+    }
+}
+
+nonisolated private final class TestXMLCapture: NSObject, XMLParserDelegate {
+    var root: TestXMLNode?
+    private var stack: [TestXMLNode] = []
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
+                qualifiedName qName: String?, attributes attributeDict: [String: String]) {
+        let node = TestXMLNode(elementName, attributes: attributeDict)
+        if let parent = stack.last { parent.children.append(node) } else { root = node }
+        stack.append(node)
+    }
+    func parser(_ parser: XMLParser, foundCharacters string: String) { stack.last?.text += string }
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        stack.removeLast()
     }
 }

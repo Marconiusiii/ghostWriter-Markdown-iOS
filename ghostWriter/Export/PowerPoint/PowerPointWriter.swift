@@ -9,6 +9,7 @@
 
 import Foundation
 import ImageIO
+import CoreText
 
 nonisolated enum PowerPointWriter {
     private static let xmlHeader = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
@@ -54,11 +55,28 @@ nonisolated enum PowerPointWriter {
         var color = "dk1"
         var bold = false
         var code = false
+        var alignment: String? = nil
+        var spacingAfter = 700
+        var linkColor = "hlink"
 
         var markerIsNone: Bool {
             if case .none = marker { return true }
             return false
         }
+    }
+
+    private enum SlideContent {
+        case text([Paragraph])
+        case table(ExportTable)
+    }
+
+    private typealias Frame = (x: Int, y: Int, width: Int, height: Int)
+
+    private struct TableLayout {
+        var cells: [[Paragraph]]
+        var widths: [Int]
+        var heights: [Int]
+        var hasHeader: Bool
     }
 
     private struct Relationship {
@@ -182,17 +200,23 @@ nonisolated enum PowerPointWriter {
             if images.count > 4 {
                 throw PowerPointExportError.tooManyImages(slide.title.plainText)
             }
-            let paragraphs = paragraphs(from: slide.content, language: documentLanguage)
+            let content = slideContent(from: slide.content, language: documentLanguage)
+            let hasTables = content.contains { if case .table = $0 { return true }; return false }
+            let paragraphs = content.flatMap { item -> [Paragraph] in
+                if case .text(let paragraphs) = item { return paragraphs }
+                return []
+            }
             try validateFit(
                 title: slide.title.plainText,
-                paragraphs: paragraphs,
+                paragraphs: hasTables ? [] : paragraphs,
                 imageCount: images.count,
                 isTitleSlide: isTitleSlide
             )
 
-            let built = slideXML(
+            let built = try slideXML(
                 slide: slide,
                 paragraphs: paragraphs,
+                tableContent: hasTables ? content : nil,
                 images: images,
                 number: number,
                 isTitleSlide: isTitleSlide,
@@ -307,6 +331,55 @@ nonisolated enum PowerPointWriter {
             titleNotes: titleNotes,
             slides: slides
         )
+    }
+
+    /// Keep tables as objects in the block stream. Notes still use paragraphs().
+    private static func slideContent(from blocks: [ExportBlock], language: String, level: Int = 0) -> [SlideContent] {
+        var result: [SlideContent] = []
+        var pendingParagraphs: [Paragraph] = []
+        func append(_ content: SlideContent) {
+            if case .text(let incoming) = content {
+                pendingParagraphs.append(contentsOf: incoming)
+                return
+            }
+            if !pendingParagraphs.isEmpty {
+                result.append(.text(pendingParagraphs))
+                pendingParagraphs = []
+            }
+            result.append(content)
+        }
+        for block in blocks {
+            switch block {
+            case .table(let table): append(.table(table))
+            case .list(let list):
+                for (offset, item) in list.items.enumerated() {
+                    var runs = textRuns(item.content)
+                    if let state = item.taskState {
+                        runs.insert(TextRun(text: state.spokenPrefix(for: language) + " ", bold: true), at: 0)
+                    }
+                    append(.text([Paragraph(runs: runs, level: min(level, 8), marker: list.isOrdered
+                        ? .numbered(start: offset == 0 ? list.start : nil) : .bullet)]))
+                    for child in slideContent(from: item.children, language: language, level: level + 1) {
+                        append(child)
+                    }
+                }
+            case .blockQuote(let children):
+                var quoted = slideContent(from: children, language: language, level: level)
+                if let first = quoted.first, case .text(var paragraphs) = first, !paragraphs.isEmpty {
+                    paragraphs[0].runs.insert(TextRun(text: String(localized: "Quote: "), bold: true), at: 0)
+                    quoted[0] = .text(paragraphs)
+                } else if !quoted.isEmpty {
+                    quoted.insert(.text([Paragraph(runs: [TextRun(text: String(localized: "Quote: "), bold: true)])]), at: 0)
+                }
+                for content in quoted { append(content) }
+            default:
+                var values = paragraphs(from: [block], language: language, level: level)
+                if level > 0 { for index in values.indices { values[index].level = min(level, 8) } }
+                append(.text(values))
+            }
+        }
+        if !pendingParagraphs.isEmpty { result.append(.text(pendingParagraphs)) }
+        return result
     }
 
     private static func paragraphs(
@@ -546,23 +619,24 @@ nonisolated enum PowerPointWriter {
     private static func slideXML(
         slide: Slide,
         paragraphs: [Paragraph],
+        tableContent: [SlideContent]?,
         images: [PreparedImage],
         number: Int,
         isTitleSlide: Bool,
         language: String,
         mediaNumber: inout Int,
         context: inout SlideContext
-    ) -> String {
-        let titlePosition = isTitleSlide && !images.isEmpty
+    ) throws -> String {
+        let titlePosition = isTitleSlide && (!images.isEmpty || tableContent != nil)
             ? (x: 548_640, y: 274_320, width: 11_094_720, height: 1_350_000)
             : isTitleSlide
             ? (x: 914_400, y: 1_200_000, width: 10_363_200, height: 1_400_000)
             : (x: 548_640, y: 274_320, width: 11_094_720, height: 822_960)
-        let hasText = !paragraphs.isEmpty
+        let hasText = !paragraphs.isEmpty || tableContent != nil
         let hasImages = !images.isEmpty
         let bodyPosition: (x: Int, y: Int, width: Int, height: Int)
-        if isTitleSlide && hasImages {
-            bodyPosition = (731_520, 1_900_000, 5_760_000, 4_300_000)
+        if isTitleSlide && (hasImages || tableContent != nil) {
+            bodyPosition = (731_520, 1_900_000, hasImages ? 5_760_000 : 10_728_000, 4_300_000)
         } else if isTitleSlide {
             bodyPosition = (1_371_600, 2_800_000, 9_448_800, 1_400_000)
         } else if hasImages && hasText {
@@ -578,7 +652,11 @@ nonisolated enum PowerPointWriter {
             language: language,
             context: &context
         )
-        if hasText {
+        if let tableContent {
+            shapes += try mixedContentXML(tableContent, position: bodyPosition,
+                title: slide.title.plainText, isTitleSlide: isTitleSlide,
+                language: language, context: &context)
+        } else if hasText {
             shapes += textShapeXML(
                 paragraphs: paragraphs,
                 position: bodyPosition,
@@ -649,14 +727,17 @@ nonisolated enum PowerPointWriter {
         placeholderIndex: Int,
         name: String,
         language: String,
+        shapeID: Int? = nil,
+        includePlaceholder: Bool = true,
         context: inout SlideContext
     ) -> String {
         let paragraphXML = paragraphs.map {
             drawingParagraphXML($0, language: language, context: &context)
         }.joined()
         let placeholderIndexXML = placeholderIndex == 0 ? "" : " idx=\"\(placeholderIndex)\""
+        let placeholder = includePlaceholder ? "<p:ph type=\"\(placeholderType)\"\(placeholderIndexXML)/>" : ""
         return """
-        <p:sp><p:nvSpPr><p:cNvPr id="\(placeholderIndex + 2)" name="\(xmlAttribute(name))"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="\(placeholderType)"\(placeholderIndexXML)/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"/><a:lstStyle/>\(paragraphXML)</p:txBody></p:sp>
+        <p:sp><p:nvSpPr><p:cNvPr id="\(shapeID ?? placeholderIndex + 2)" name="\(xmlAttribute(name))"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr>\(placeholder)</p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"/><a:lstStyle/>\(paragraphXML)</p:txBody></p:sp>
         """
     }
 
@@ -679,7 +760,8 @@ nonisolated enum PowerPointWriter {
         }
         let margin = paragraph.markerIsNone ? 0 : 457_200 + paragraph.level * 365_760
         let indent = paragraph.markerIsNone ? 0 : -228_600
-        let properties = "<a:pPr lvl=\"\(min(paragraph.level, 8))\" marL=\"\(margin)\" indent=\"\(indent)\"><a:spcAft><a:spcPts val=\"700\"/></a:spcAft>\(marker)</a:pPr>"
+        let alignment = paragraph.alignment.map { " algn=\"\($0)\"" } ?? ""
+        let properties = "<a:pPr lvl=\"\(min(paragraph.level, 8))\" marL=\"\(margin)\" indent=\"\(indent)\"\(alignment)><a:spcAft><a:spcPts val=\"\(paragraph.spacingAfter)\"/></a:spcAft>\(marker)</a:pPr>"
         let runs = paragraph.runs.map { run -> String in
             var attributes = "lang=\"\(xmlAttribute(language))\" sz=\"\(paragraph.fontSize)\""
             if run.bold || paragraph.bold { attributes += " b=\"1\"" }
@@ -687,7 +769,7 @@ nonisolated enum PowerPointWriter {
             if run.underline || run.hyperlink != nil { attributes += " u=\"sng\"" }
             if run.strikethrough { attributes += " strike=\"sngStrike\"" }
             let typeface = run.code || paragraph.code ? "<a:latin typeface=\"Courier New\"/>" : "<a:latin typeface=\"Arial\"/>"
-            let color = run.hyperlink == nil ? paragraph.color : "hlink"
+            let color = run.hyperlink == nil ? paragraph.color : paragraph.linkColor
             let hyperlinkXML: String
             if let target = run.hyperlink, !target.isEmpty {
                 hyperlinkXML = "<a:hlinkClick r:id=\"\(context.addHyperlink(target))\"/>"
@@ -697,6 +779,166 @@ nonisolated enum PowerPointWriter {
             return "<a:r><a:rPr \(attributes)><a:solidFill><a:schemeClr val=\"\(color)\"/></a:solidFill>\(typeface)\(hyperlinkXML)</a:rPr><a:t>\(xmlText(run.text))</a:t></a:r>"
         }.joined()
         return "<a:p>\(properties)\(runs)<a:endParaRPr lang=\"\(xmlAttribute(language))\" sz=\"\(paragraph.fontSize)\"><a:solidFill><a:schemeClr val=\"\(paragraph.color)\"/></a:solidFill><a:latin typeface=\"Arial\"/></a:endParaRPr></a:p>"
+    }
+
+    // MARK: - Native tables and mixed content
+
+    private static func mixedContentXML(
+        _ content: [SlideContent], position: Frame, title: String, isTitleSlide: Bool,
+        language: String, context: inout SlideContext
+    ) throws -> String {
+        var xml = ""
+        var y = position.y
+        var hasBodyPlaceholder = false
+        var numbering: [Int: Int] = [:]
+        // IDs 2 and 100... are reserved for the title and pictures.
+        guard content.count < 97 else { throw PowerPointExportError.slideTooFull(title) }
+        for (index, item) in content.enumerated() {
+            let shapeID = index + 3
+            if index > 0 { y += 152_400 }
+            let height: Int
+            switch item {
+            case .text(var paragraphs):
+                // A table separates text shapes. Restart native numbering at the
+                // correct value when a list continues in the following shape.
+                var seenLevels = Set<Int>()
+                for i in paragraphs.indices {
+                    if case .numbered(let start) = paragraphs[i].marker {
+                        let level = paragraphs[i].level
+                        let value = start ?? ((numbering[level] ?? 0) + 1)
+                        if seenLevels.insert(level).inserted {
+                            paragraphs[i].marker = .numbered(start: value)
+                        }
+                        numbering[level] = value
+                    }
+                }
+                height = try paragraphs.reduce(0) {
+                    $0 + (try measuredHeight($1, width: position.width, title: title))
+                }
+                guard height <= position.y + position.height - y else {
+                    throw PowerPointExportError.slideTooFull(title)
+                }
+                xml += textShapeXML(paragraphs: paragraphs,
+                    position: (position.x, y, position.width, height),
+                    placeholderType: isTitleSlide ? "subTitle" : "body", placeholderIndex: 1,
+                    name: "Content \(index + 1)", language: language, shapeID: shapeID,
+                    includePlaceholder: !hasBodyPlaceholder, context: &context)
+                hasBodyPlaceholder = true
+            case .table(let table):
+                let layout = try layoutTable(table, width: position.width, title: title)
+                height = layout.heights.reduce(0, +)
+                guard height <= position.y + position.height - y else {
+                    throw PowerPointExportError.slideTooFull(title)
+                }
+                xml += tableXML(layout, position: (position.x, y, position.width, height),
+                    shapeID: shapeID, language: language, context: &context)
+            }
+            y += height
+        }
+        return xml
+    }
+
+    /// Measure the actual fonts, including emphasis and explicit newlines.
+    /// Extra leading allows for differences between Core Text and Office.
+    private static func attributedText(_ paragraph: Paragraph) -> NSAttributedString {
+        let result = NSMutableAttributedString(string: "")
+        for run in paragraph.runs {
+            let family = run.code || paragraph.code ? "Courier New" : "Arial"
+            var font = CTFontCreateWithName(family as CFString, CGFloat(paragraph.fontSize) / 100, nil)
+            var traits: CTFontSymbolicTraits = []
+            if run.bold || paragraph.bold { traits.insert(.traitBold) }
+            if run.italic { traits.insert(.traitItalic) }
+            if let styled = CTFontCreateCopyWithSymbolicTraits(font, 0, nil, traits, traits) { font = styled }
+            result.append(NSAttributedString(string: run.text,
+                attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]))
+        }
+        return result
+    }
+
+    private static func measuredHeight(_ paragraph: Paragraph, width: Int, title: String) throws -> Int {
+        let inset = paragraph.markerIsNone ? 0 : 457_200 + paragraph.level * 365_760
+        let available = CGFloat(width - inset) / 12_700 - 4
+        guard available >= 24, paragraph.runs.reduce(0, { $0 + $1.text.count }) <= 10_000 else {
+            throw PowerPointExportError.slideTooFull(title)
+        }
+        let attributed = attributedText(paragraph)
+        let framesetter = CTFramesetterCreateWithAttributedString(attributed)
+        var fitted = CFRange()
+        let size = CTFramesetterSuggestFrameSizeWithConstraints(framesetter,
+            CFRange(location: 0, length: 0), nil, CGSize(width: available, height: 10_000), &fitted)
+        guard fitted.length == attributed.length else { throw PowerPointExportError.slideTooFull(title) }
+        let height = max(CGFloat(paragraph.fontSize) / 100 * 1.25, ceil(size.height * 1.2))
+            + CGFloat(paragraph.spacingAfter) / 100 + 4
+        return Int(ceil(height * 12_700))
+    }
+
+    private static func layoutTable(_ table: ExportTable, width: Int, title: String) throws -> TableLayout {
+        let columns = table.columnCount
+        let minimumWidth = 1_143_000 // 90 points at a fixed 22-point cell font.
+        let rows = (table.headers.isEmpty ? [] : [table.headers]) + table.rows
+        guard columns > 0, columns <= width / minimumWidth, !rows.isEmpty, rows.count <= 40 else {
+            throw PowerPointExportError.slideTooFull(title)
+        }
+        let cells = rows.enumerated().map { rowIndex, row in
+            (0..<columns).map { column in
+                let isHeader = !table.headers.isEmpty && rowIndex == 0
+                var paragraph = Paragraph(runs: textRuns(column < row.count ? row[column] : []),
+                    fontSize: 2200, bold: isHeader)
+                switch table.alignment(forColumn: column) {
+                case .natural, .leading: paragraph.alignment = "l"
+                case .center: paragraph.alignment = "ctr"
+                case .trailing: paragraph.alignment = "r"
+                }
+                paragraph.spacingAfter = 0
+                // Header links use the same tested high-contrast text pairing;
+                // the underline still identifies the hyperlink.
+                if isHeader { paragraph.linkColor = "dk1" }
+                return paragraph
+            }
+        }
+        var preferences = Array(repeating: Double(minimumWidth), count: columns)
+        for row in cells {
+            for (column, paragraph) in row.enumerated() {
+                guard paragraph.runs.reduce(0, { $0 + $1.text.count }) <= 10_000 else {
+                    throw PowerPointExportError.slideTooFull(title)
+                }
+                let line = CTLineCreateWithAttributedString(attributedText(paragraph))
+                let naturalWidth = (CTLineGetTypographicBounds(line, nil, nil, nil) + 24) * 12_700
+                preferences[column] = max(preferences[column], min(3_810_000, naturalWidth))
+            }
+        }
+        let spare = width - columns * minimumWidth
+        let totalPreference = preferences.reduce(0, +)
+        var widths = preferences.map { minimumWidth + Int(Double(spare) * $0 / totalPreference) }
+        widths[columns - 1] += width - widths.reduce(0, +)
+        let heights = try cells.map { row in
+            try row.enumerated().map { column, paragraph in
+                try measuredHeight(paragraph, width: widths[column] - 243_840, title: title) + 182_880
+            }.max() ?? 0
+        }
+        return TableLayout(cells: cells, widths: widths, heights: heights, hasHeader: !table.headers.isEmpty)
+    }
+
+    private static func tableXML(
+        _ table: TableLayout, position: Frame, shapeID: Int,
+        language: String, context: inout SlideContext
+    ) -> String {
+        let grid = table.widths.map { "<a:gridCol w=\"\($0)\"/>" }.joined()
+        let borders = ["lnL", "lnR", "lnT", "lnB"].map {
+            "<a:\($0) w=\"12700\"><a:solidFill><a:schemeClr val=\"accent2\"/></a:solidFill><a:prstDash val=\"solid\"/></a:\($0)>"
+        }.joined()
+        var rows = ""
+        for (index, row) in table.cells.enumerated() {
+            let fill = table.hasHeader && index == 0 ? "lt2" : "bg1"
+            let cells = row.map { paragraph in
+                let text = drawingParagraphXML(paragraph, language: language, context: &context)
+                return "<a:tc><a:txBody><a:bodyPr wrap=\"square\"/><a:lstStyle/>\(text)</a:txBody><a:tcPr marL=\"121920\" marR=\"121920\" marT=\"91440\" marB=\"91440\" anchor=\"t\">\(borders)<a:solidFill><a:schemeClr val=\"\(fill)\"/></a:solidFill></a:tcPr></a:tc>"
+            }.joined()
+            rows += "<a:tr h=\"\(table.heights[index])\">\(cells)</a:tr>"
+        }
+        return """
+        <p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="\(shapeID)" name="Table \(shapeID)"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="\(table.hasHeader ? 1 : 0)" bandRow="0"><a:tableStyleId>{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}</a:tableStyleId></a:tblPr><a:tblGrid>\(grid)</a:tblGrid>\(rows)</a:tbl></a:graphicData></a:graphic></p:graphicFrame>
+        """
     }
 
     private static func pictureXML(
