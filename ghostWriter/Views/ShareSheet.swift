@@ -67,6 +67,19 @@ struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
+nonisolated struct SharePreparationState {
+    private(set) var hasStarted = false
+
+    /// Claim this presentation's export before any asynchronous work begins.
+    /// Waiting for options does not consume the claim. Once started, it remains
+    /// claimed through completion or failure until a new share is presented.
+    mutating func beginIfReady(_ ready: Bool) -> Bool {
+        guard ready, !hasStarted else { return false }
+        hasStarted = true
+        return true
+    }
+}
+
 /// The editor's Share destination.
 ///
 /// `ShareLink` presents the system sheet itself and reports nothing back when
@@ -88,11 +101,11 @@ struct EditorShareView: View {
 
     @State private var fileURL: URL?
     @State private var failureMessage: String?
+    @State private var preparation = SharePreparationState()
 
     /// Set once the writer has confirmed the export options. Formats that need
     /// none begin preparing immediately; PowerPoint and the braille formats
-    /// wait here, which is why preparation is keyed on these rather than
-    /// started in `task`.
+    /// wait here. One task starts when the selected format is ready.
     ///
     /// The two braille formats ask for different things: eBraille carries
     /// metadata a BRF file has nowhere to put, and BRF needs a page geometry
@@ -161,17 +174,17 @@ struct EditorShareView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .task {
+        .task(id: isReadyToPrepare) {
             await prepareFile()
         }
-        .task(id: eBrailleMetadata) {
-            await prepareFile()
-        }
-        .task(id: brfOptions) {
-            await prepareFile()
-        }
-        .task(id: powerPointOptions) {
-            await prepareFile()
+    }
+
+    private var isReadyToPrepare: Bool {
+        switch format {
+        case .eBraille: return eBrailleMetadata != nil
+        case .brf: return brfOptions != nil
+        case .powerPoint: return powerPointOptions != nil
+        default: return true
         }
     }
 
@@ -179,11 +192,9 @@ struct EditorShareView: View {
     /// export is real work, and doing it inline would freeze the sheet as it
     /// appeared.
     private func prepareFile() async {
-        guard fileURL == nil, failureMessage == nil else { return }
-        // Neither braille format can be written until its options are in.
-        if format == .eBraille, eBrailleMetadata == nil { return }
-        if format == .brf, brfOptions == nil { return }
-        if format == .powerPoint, powerPointOptions == nil { return }
+        guard !Task.isCancelled,
+              fileURL == nil, failureMessage == nil,
+              preparation.beginIfReady(isReadyToPrepare) else { return }
 
         let format = format
         let title = title

@@ -15,6 +15,69 @@ import UniformTypeIdentifiers
 
 struct ShareItemBuilderTests {
 
+    @Test func exportPreparationWaitsForOptionsWithoutConsumingItsClaim() {
+        var preparation = SharePreparationState()
+
+        let waiting = preparation.beginIfReady(false)
+        let stillWaiting = preparation.beginIfReady(false)
+        #expect(!waiting)
+        #expect(!stillWaiting)
+        #expect(!preparation.hasStarted)
+        let started = preparation.beginIfReady(true)
+        #expect(started)
+        #expect(preparation.hasStarted)
+    }
+
+    @Test func repeatedExportTriggersClaimOnlyOneConversion() {
+        var preparation = SharePreparationState()
+        var conversions = 0
+
+        for _ in 0..<4 {
+            if preparation.beginIfReady(true) { conversions += 1 }
+        }
+
+        #expect(conversions == 1)
+        let notReadyAgain = preparation.beginIfReady(false)
+        let readyAgain = preparation.beginIfReady(true)
+        #expect(!notReadyAgain)
+        #expect(!readyAgain)
+    }
+
+    @Test func newSharePresentationCanPrepareItsOwnExport() {
+        var first = SharePreparationState()
+        var second = SharePreparationState()
+
+        let firstStarted = first.beginIfReady(true)
+        let secondStarted = second.beginIfReady(true)
+        let firstRestarted = first.beginIfReady(true)
+        #expect(firstStarted)
+        #expect(secondStarted)
+        #expect(!firstRestarted)
+    }
+
+    @Test func HTMLTemplatePreservesOutputWhenCalledFromBackgroundWork() async {
+        let title = "Owls & <Notes>"
+        let body = "<h1>Authored title</h1><p>Body</p>"
+        let expected = HTMLTemplate.exportDocument(title: title, language: "es", body: body)
+        let expectedPreview = HTMLTemplate.document(
+            title: title, language: "es", body: body, baseFontPointSize: 24
+        )
+
+        let (exported, preview) = await Task.detached {
+            (
+                HTMLTemplate.exportDocument(title: title, language: "es", body: body),
+                HTMLTemplate.document(title: title, language: "es", body: body, baseFontPointSize: 24)
+            )
+        }.value
+
+        #expect(exported == expected)
+        #expect(preview == expectedPreview)
+        #expect(exported.contains("<html lang=\"es\">"))
+        #expect(exported.contains("<title>Owls &amp; &lt;Notes&gt;</title>"))
+        #expect(exported.contains(body))
+        #expect(!exported.contains("<h1>Owls"))
+    }
+
     @MainActor
     @Test func fileActivitySourceShowsAndDeliversTheCompleteFileName() throws {
         let url = FileManager.default.temporaryDirectory

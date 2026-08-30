@@ -235,6 +235,29 @@ Available simulator destinations can be listed with:
 xcodebuild -project ghostWriter.xcodeproj -scheme ghostWriter -showdestinations
 ```
 
+### Temporary Spanish interface hold
+
+Debug and Release builds currently ship the English interface while Spanish
+copy awaits translator review. Spanish translations remain in
+`ghostWriter/Localizable.xcstrings`, and the Spanish Welcome document remains
+in source. Document-language metadata and Spanish braille exports are unchanged.
+
+The app target sets `XCSTRINGS_LANGUAGES_TO_COMPILE` to `en` in both build
+configurations. `EXCLUDED_SOURCE_FILE_NAMES` also excludes `*/es.lproj/*`
+resources, including the Spanish Welcome document, from the app target.
+
+Make a clean build after applying this hold: incremental build products can
+retain an empty `es.lproj` directory from earlier builds. Before distribution,
+verify that the app bundle has no `es.lproj` directory and still includes the
+English Welcome document and the Spanish braille tables.
+
+After the reviewed translations are merged, remove both language-compilation
+overrides and the `*/es.lproj/*` exclusion from both configurations. Make a
+clean build and inspect the archive for the intended language resources before
+distributing it. App Store Connect listing languages are managed separately
+and do not enable or disable the
+app's bundled interface languages.
+
 ## Files and privacy
 
 Documents are stored locally as Markdown files in the app's `ghostWriter`

@@ -9,9 +9,8 @@
 //
 
 import Foundation
-import UIKit
 
-enum HTMLTemplate {
+nonisolated enum HTMLTemplate {
 
     /// A full document for display in the in-app web view.
     ///
