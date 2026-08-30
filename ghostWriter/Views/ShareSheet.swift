@@ -295,7 +295,7 @@ nonisolated enum EditorShareFileWriter {
             }
             let url = directory.appendingPathComponent(safeName)
                 .appendingPathExtension("pptx")
-            let data = try PowerPointWriter.write(
+            let data = try await PowerPointWriter.writeLoadingImages(
                 title: title,
                 markdown: markdown,
                 theme: powerPointOptions.theme,

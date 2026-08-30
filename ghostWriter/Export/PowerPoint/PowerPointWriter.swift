@@ -102,7 +102,7 @@ nonisolated enum PowerPointWriter {
         mutating func addImage(
             _ image: PreparedImage,
             mediaNumber: Int
-        ) -> (id: String, part: MediaPart, ratio: Double) {
+        ) -> (id: String, ratio: Double) {
             let part = MediaPart(
                 fileName: "image\(mediaNumber).\(image.fileExtension)",
                 data: image.data,
@@ -116,8 +116,26 @@ nonisolated enum PowerPointWriter {
                 target: "../media/\(part.fileName)"
             ))
             media.append(part)
-            return (id, part, image.ratio)
+            return (id, image.ratio)
         }
+    }
+
+    static func writeLoadingImages(
+        title: String,
+        markdown: String,
+        theme: PowerPointTheme = .warmPaper,
+        sourceDirectory: URL? = nil,
+        documentLanguage: String = DocumentLanguage.resolvedTag("")
+    ) async throws -> Data {
+        let deck = makeDeck(title: title, document: MarkdownDocumentParser.parse(markdown))
+        let visibleBlocks = deck.titleContent + deck.slides.flatMap(\.content)
+        let images = try await PowerPointImageLoader.load(
+            sources: collectImages(in: visibleBlocks).map(\.source),
+            sourceDirectory: sourceDirectory
+        )
+        try Task.checkCancellation()
+        return try write(title: title, markdown: markdown, theme: theme,
+            sourceDirectory: sourceDirectory, documentLanguage: documentLanguage, resolvedImages: images)
     }
 
     static func write(
@@ -125,7 +143,8 @@ nonisolated enum PowerPointWriter {
         markdown: String,
         theme: PowerPointTheme = .warmPaper,
         sourceDirectory: URL? = nil,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        resolvedImages: [String: PowerPointImageLoader.Image]? = nil
     ) throws -> Data {
         let parsed = MarkdownDocumentParser.parse(markdown)
         let deck = makeDeck(
@@ -157,7 +176,8 @@ nonisolated enum PowerPointWriter {
             var context = SlideContext()
             let images = prepareImages(
                 collectImages(in: slide.content),
-                sourceDirectory: sourceDirectory
+                sourceDirectory: sourceDirectory,
+                resolvedImages: resolvedImages
             )
             if images.count > 4 {
                 throw PowerPointExportError.tooManyImages(slide.title.plainText)
@@ -468,20 +488,26 @@ nonisolated enum PowerPointWriter {
 
     private static func prepareImages(
         _ images: [ExportImage],
-        sourceDirectory: URL?
+        sourceDirectory: URL?,
+        resolvedImages: [String: PowerPointImageLoader.Image]?
     ) -> [PreparedImage] {
         images.compactMap { image in
-            guard let resolved = ExportImageResource.resolveManagedAsset(
+            let resolved: PowerPointImageLoader.Image
+            if let resolvedImages {
+                guard let loaded = resolvedImages[image.source] else { return nil }
+                resolved = loaded
+            } else if let local = ExportImageResource.resolveManagedAsset(
                 source: image.source,
                 sourceDirectory: sourceDirectory
-            ) else {
+            ), local.mediaType != "image/svg+xml" {
+                resolved = PowerPointImageLoader.Image(data: local.data, mediaType: local.mediaType)
+            } else {
                 return nil
             }
             let fileExtension: String
             switch resolved.mediaType {
             case "image/jpeg": fileExtension = "jpg"
             case "image/png": fileExtension = "png"
-            case "image/svg+xml": fileExtension = "svg"
             default: return nil
             }
             return PreparedImage(
@@ -527,13 +553,17 @@ nonisolated enum PowerPointWriter {
         mediaNumber: inout Int,
         context: inout SlideContext
     ) -> String {
-        let titlePosition = isTitleSlide
+        let titlePosition = isTitleSlide && !images.isEmpty
+            ? (x: 548_640, y: 274_320, width: 11_094_720, height: 1_350_000)
+            : isTitleSlide
             ? (x: 914_400, y: 1_200_000, width: 10_363_200, height: 1_400_000)
             : (x: 548_640, y: 274_320, width: 11_094_720, height: 822_960)
         let hasText = !paragraphs.isEmpty
         let hasImages = !images.isEmpty
         let bodyPosition: (x: Int, y: Int, width: Int, height: Int)
-        if isTitleSlide {
+        if isTitleSlide && hasImages {
+            bodyPosition = (731_520, 1_900_000, 5_760_000, 4_300_000)
+        } else if isTitleSlide {
             bodyPosition = (1_371_600, 2_800_000, 9_448_800, 1_400_000)
         } else if hasImages && hasText {
             bodyPosition = (731_520, 1_371_600, 5_760_000, 4_800_000)
@@ -571,6 +601,7 @@ nonisolated enum PowerPointWriter {
                     index: index,
                     count: images.count,
                     hasText: hasText,
+                    isTitleSlide: isTitleSlide,
                     ratio: added.ratio
                 )
                 shapes += pictureXML(
@@ -679,7 +710,7 @@ nonisolated enum PowerPointWriter {
             ? "<a:extLst><a:ext uri=\"{C183D7F6-B498-43B3-948B-1728B52AA6E4}\"><adec:decorative val=\"1\"/></a:ext></a:extLst>"
             : ""
         return """
-        <p:pic><p:nvPicPr><p:cNvPr id="\(shapeID)" name="Picture \(shapeID)" descr="\(xmlAttribute(description))">\(decorative)</p:cNvPr><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="\(relationshipID)"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:schemeClr val="accent2"/></a:ln></p:spPr></p:pic>
+        <p:pic><p:nvPicPr><p:cNvPr id="\(shapeID)" name="Picture \(shapeID)" descr="\(xmlAttribute(description))">\(decorative)</p:cNvPr><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="\(relationshipID)"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="\(position.x)" y="\(position.y)"/><a:ext cx="\(position.width)" cy="\(position.height)"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:solidFill><a:schemeClr val="accent2"/></a:solidFill></a:ln></p:spPr></p:pic>
         """
     }
 
@@ -687,9 +718,13 @@ nonisolated enum PowerPointWriter {
         index: Int,
         count: Int,
         hasText: Bool,
+        isTitleSlide: Bool,
         ratio: Double
     ) -> (x: Int, y: Int, width: Int, height: Int) {
-        let area = hasText
+        let area = isTitleSlide
+            ? (x: hasText ? 6_850_000 : 900_000, y: 1_900_000,
+               width: hasText ? 4_800_000 : 10_400_000, height: 4_300_000)
+            : hasText
             ? (x: 6_850_000, y: 1_350_000, width: 4_800_000, height: 4_900_000)
             : (x: 900_000, y: 1_300_000, width: 10_400_000, height: 5_000_000)
         let columns = count == 1 ? 1 : 2

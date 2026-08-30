@@ -9,14 +9,16 @@ struct PowerPointWriterTests {
         markdown: String,
         theme: PowerPointTheme = .warmPaper,
         sourceDirectory: URL? = nil,
-        language: String = "en"
+        language: String = "en",
+        resolvedImages: [String: PowerPointImageLoader.Image]? = nil
     ) throws -> [String: Data] {
         let data = try PowerPointWriter.write(
             title: title,
             markdown: markdown,
             theme: theme,
             sourceDirectory: sourceDirectory,
-            documentLanguage: language
+            documentLanguage: language,
+            resolvedImages: resolvedImages
         )
         let archive = try Archive(data: data, accessMode: .read)
         var result: [String: Data] = [:]
@@ -243,6 +245,28 @@ struct PowerPointWriterTests {
         #expect(!slide.contains("<p:pic>"))
         #expect(!relationships.contains("relationships/image"))
         #expect(!package.keys.contains { $0.hasPrefix("ppt/media/") })
+    }
+
+    @Test func resolvedRemoteImageEmbedsAlternativeTextWithoutOverlappingTitle() throws {
+        let source = "https://example.com/owl.svg"
+        let package = try entries(markdown: "# Owls\n\nIntroduction.\n\n![A cute hoot](\(source))",
+            resolvedImages: [source: .init(data: tinyPNG, mediaType: "image/png")])
+        let slide = try text("ppt/slides/slide1.xml", in: package)
+        let relationships = try text("ppt/slides/_rels/slide1.xml.rels", in: package)
+        let contentTypes = try text("[Content_Types].xml", in: package)
+        #expect(package["ppt/media/image1.png"] == tinyPNG)
+        #expect(package["ppt/media/image1.svg"] == nil)
+        #expect(slide.contains("descr=\"A cute hoot\""))
+        #expect(slide.contains("<a:blip r:embed=\"rId10\"/>"))
+        #expect(relationships.contains("Target=\"../media/image1.png\""))
+        #expect(!relationships.contains("Target=\"../media/image1.svg\""))
+        #expect(contentTypes.contains("image/png"))
+        #expect(slide.contains("<a:ln><a:solidFill><a:schemeClr val=\"accent2\"/></a:solidFill></a:ln>"))
+        // Title ends at y=1,624,320; body and image start below it at y=1,900,000.
+        // Body ends at x=6,491,520; the image column begins at x=6,850,000.
+        #expect(slide.contains("<a:off x=\"548640\" y=\"274320\"/><a:ext cx=\"11094720\" cy=\"1350000\"/>"))
+        #expect(slide.contains("<a:off x=\"731520\" y=\"1900000\"/><a:ext cx=\"5760000\" cy=\"4300000\"/>"))
+        #expect(slide.contains("<a:off x=\"7100000\" y=\"1900000\"/><a:ext cx=\"4300000\" cy=\"4300000\"/>"))
     }
 
     @Test func selectedThemeAndLanguageAreWrittenIntoThePackage() throws {
