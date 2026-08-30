@@ -55,11 +55,13 @@ assistive technology users are especially welcome.
 - Navigate long documents through a heading-based Outline
 - Jump directly to a numbered line from File Actions
 - Render Markdown as structured HTML inside the app
-- Export to Markdown, plain text, HTML, Word, PDF, EPUB, eBraille, and Braille
-  Ready Format
+- Export to Markdown, plain text, HTML, Word, PowerPoint, PDF, EPUB, eBraille,
+  and Braille Ready Format
 - Produce contracted or uncontracted braille editions translated with liblouis
 - Insert links, external images, formatting, headings, quotes, code, and lists
   through a dedicated Insert Actions workflow
+- Attach images from Files or the Photo Library with alternative text or a
+  decorative designation
 - Customize the information presented in the editor Status Bar
 - Choose an editor typeface without losing Dynamic Type support
 - Use optional hardware-keyboard shortcuts for common Library and editor actions
@@ -74,16 +76,63 @@ Documents are shared through File Actions > Share.
 | Plain Text | `.txt` | Markdown syntax removed |
 | HTML | `.html` | Complete standalone document with managed local images embedded |
 | Word Document | `.docx` | Word heading styles, lists, and tables |
+| PowerPoint | `.pptx` | Widescreen slides, presentation themes, speaker notes, and embedded images |
 | PDF | `.pdf` | Tagged PDF, US Letter, one-inch margins |
 | EPUB | `.epub` | Reflowable ebook with a table of contents |
 | eBraille | `.ebrl` | Reflowable Unicode braille targeting eBraille 1.0 |
 | Braille Ready Format | `.brf` | Fixed-page braille for displays and embossers |
 
-Headings, lists, links, tables, quotes, and code retain their document
-structure in formats that can express it. HTML embeds images from the app-managed
+Content handling varies by export format. PowerPoint's supported content and
+conversion limits are described below. HTML embeds images from the app-managed
 asset directory in the standalone file. EPUB and eBraille package those images
-inside their publications. Unsafe, missing, or unsupported local image references
-fall back to readable alternative text instead of becoming broken references.
+inside their publications. In these HTML-based exports, unsafe, missing, or
+unsupported local image references fall back to readable alternative text
+instead of becoming broken references.
+
+### PowerPoint presentations
+
+Choose File Actions > Share > PowerPoint, then select a theme. Warm paper,
+Midnight, High contrast light, and High contrast dark apply to the whole
+presentation. The app remembers the selected theme. Theme text and background
+pairings have automated contrast checks of at least 7:1; themes do not recolor
+images or guarantee the accessibility of their contents.
+
+A level 1 heading before the first slide supplies the presentation title;
+otherwise, the document name is used. Content before the first level 2 heading
+appears on the title slide. Each level 2 heading starts and titles a new slide.
+Put `***` on a line by itself to start speaker notes, which continue until the
+next level 2 heading. Deeper headings do not end speaker notes.
+
+| Markdown content | PowerPoint output |
+| --- | --- |
+| Deeper headings and paragraphs | Slide text with supported inline emphasis and formatting |
+| Bulleted and numbered lists | Native list paragraphs with nested levels and starting numbers |
+| Task lists | List items with Completed or Not completed labels, not interactive checkboxes |
+| Links outside tables | Clickable text |
+| Tables | Column headings followed by labeled text rows, not native PowerPoint tables |
+| Block quotes | Paragraphs introduced by Quote |
+| Code blocks | Monospaced text without syntax highlighting |
+| Images | Embedded pictures with alternative text or a decorative designation |
+
+Tables do not retain their grid, column alignment, cell formatting, or
+cell-by-cell table navigation. Links within table cells become plain text.
+
+Use Insert Actions > Image from Files or Image from Photo Library to attach an
+image. The app stores it with the document and inserts its relative Markdown
+reference. PowerPoint also downloads PNG, JPEG, and SVG images referenced by
+HTTPS URLs. SVGs become high-resolution PNG pictures with their colors and
+transparency preserved; the original Markdown reference is unchanged.
+Unavailable, invalid, or oversized images are skipped without preventing the
+rest of the presentation from exporting.
+
+Each slide supports up to four included images. Slides with too much text or
+too many images produce an error asking for another level 2 heading. Content is
+not automatically split across slides. Image loading is bounded to 32 unique
+references, 10 MiB per image, and a 40 MiB total image-data budget, including SVG
+conversions.
+
+Automated tests check exported content, package structure, and theme contrast.
+They do not establish PowerPoint or VoiceOver behavior on a user's device.
 
 ### Braille exports
 

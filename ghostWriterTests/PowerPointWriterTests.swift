@@ -189,6 +189,86 @@ struct PowerPointWriterTests {
         #expect(!slide.contains("startAt=\"9\""))
     }
 
+    @Test func tablesBecomeLabeledTextRowsWithoutNativeTableStructure() throws {
+        let package = try entries(markdown: """
+        # Deck
+
+        ## Habitats
+
+        | Species | Habitat |
+        | :--- | ---: |
+        | **Barn owl** | [Grassland](https://example.com/grassland) |
+        | Little owl | Farmland |
+        """)
+        let slide = try text("ppt/slides/slide2.xml", in: package)
+        let relationships = try text("ppt/slides/_rels/slide2.xml.rels", in: package)
+
+        #expect(slide.contains("<a:t>Species | Habitat</a:t>"))
+        #expect(slide.contains("<a:t>Species: Barn owl; Habitat: Grassland</a:t>"))
+        #expect(slide.contains("<a:t>Species: Little owl; Habitat: Farmland</a:t>"))
+        #expect(!slide.contains("<a:tbl>"))
+        #expect(!slide.contains("<a:hlinkClick"))
+        #expect(!slide.contains("**Barn owl**"))
+        #expect(!relationships.contains("https://example.com/grassland"))
+    }
+
+    @Test func blockQuotesBecomeLabeledParagraphs() throws {
+        let package = try entries(markdown: """
+        # Deck
+
+        ## Quote
+
+        > Owls listen carefully.
+        >
+        > They hunt quietly.
+        """)
+        let slide = try text("ppt/slides/slide2.xml", in: package)
+
+        #expect(slide.components(separatedBy: "<a:t>Quote: </a:t>").count - 1 == 1)
+        #expect(slide.contains("<a:t>Owls listen carefully.</a:t>"))
+        #expect(slide.contains("<a:t>They hunt quietly.</a:t>"))
+    }
+
+    @Test func codeBlocksKeepMonospacedTextAndLineBreaks() throws {
+        let package = try entries(markdown: """
+        # Deck
+
+        ## Code
+
+        ```swift
+        if count < 2 {
+            print("owl")
+        }
+        ```
+        """)
+        let slide = try text("ppt/slides/slide2.xml", in: package)
+
+        #expect(slide.contains("<a:latin typeface=\"Courier New\"/>"))
+        #expect(slide.contains("Code (swift):\nif count &lt; 2 {\n    print(\"owl\")\n}"))
+        #expect(!slide.contains("```"))
+    }
+
+    @Test func taskListsBecomeNativeListItemsWithCompletionLabels() throws {
+        let package = try entries(markdown: """
+        # Deck
+
+        ## Tasks
+
+        - [x] Find an owl
+        - [ ] Record its call
+        """)
+        let slide = try text("ppt/slides/slide2.xml", in: package)
+
+        #expect(slide.contains("<a:t>Completed: </a:t>"))
+        #expect(slide.contains("<a:t>Not completed: </a:t>"))
+        #expect(slide.contains("<a:t>Find an owl</a:t>"))
+        #expect(slide.contains("<a:t>Record its call</a:t>"))
+        #expect(slide.components(separatedBy: "<a:buChar ").count - 1 == 2)
+        #expect(!slide.contains("[x]"))
+        #expect(!slide.contains("[ ]"))
+        #expect(!slide.contains("<p:control"))
+    }
+
     @Test func linksUseVisibleTextAndExternalRelationships() throws {
         let package = try entries(markdown: "# Deck\n\n## Links\n\nRead [the guide](https://example.com/guide).")
         let slide = try text("ppt/slides/slide2.xml", in: package)
