@@ -105,6 +105,25 @@ struct BrailleTranslationTests {
         #expect(bold.count > plain.count)
     }
 
+    @Test func styledGrade2OutputCanGrowBeyondItsPrintInput() async throws {
+        let text = "A1"
+        let input = BrailleTranslationInput(
+            text: text,
+            typeforms: Array(repeating: .bold, count: text.utf16.count)
+        )
+
+        // liblouis writes typeform results for the expanded braille output
+        // back into the caller's buffer. Repeating this translation makes an
+        // input-sized allocation reliably expose its heap overwrite under
+        // Address Sanitizer instead of allowing a later save-sheet operation
+        // to appear responsible for the crash.
+        for _ in 0..<128 {
+            let braille = try await translator.translate(input, grade: .grade2)
+            #expect(isUnicodeBraille(braille))
+            #expect(braille.count > text.count)
+        }
+    }
+
     @Test func gradeMetadataNamesMatchTheStandard() {
         // These strings are written into the publication's a11y:brailleSystem
         // metadata, so they are part of the file format rather than UI wording.

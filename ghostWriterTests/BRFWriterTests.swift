@@ -144,6 +144,33 @@ struct BRFWriterTests {
         #expect(emphasized?.typeforms.allSatisfy { $0.contains(.bold) } == true)
     }
 
+    @Test func emphasizedGradeTwoDocumentUsesCustomSmallPages() async throws {
+        let markdown = """
+        This is about **braille confidence drift**.
+
+        **EXPECT. EXPOSE. ENABLE. EMPOWER. ENJOY.**
+
+        **Maximum literacy. Maximum independence. Maximum choice.**
+        """
+        let data = try await BRFWriter.write(
+            markdown: markdown,
+            title: "Braille Confidence",
+            grade: .grade2,
+            pageSetup: .init(cellsPerLine: 20, linesPerPage: 10),
+            translator: LiblouisBridge.shared
+        )
+        let pages = String(decoding: data, as: UTF8.self)
+            .components(separatedBy: "\r\n\u{000C}")
+
+        #expect(pages.count > 1)
+        for page in pages {
+            var lines = page.components(separatedBy: "\r\n")
+            if lines.last?.isEmpty == true { lines.removeLast() }
+            #expect(lines.count <= 10)
+            #expect(lines.allSatisfy { $0.count <= 20 })
+        }
+    }
+
     @Test func unorderedItemsUseBrailleBulletsAndSeparateLines() async throws {
         let translator = RecordingTranslator()
         let data = try await BRFWriter.write(

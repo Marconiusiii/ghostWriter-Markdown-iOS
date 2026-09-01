@@ -85,9 +85,19 @@ actor LiblouisBridge: BrailleTranslator {
             var output = [UInt16](repeating: 0, count: capacity + 1)
             var outputLength = Int32(capacity)
             inputLength = Int32(input.count)
-            var typeforms = translation.typeforms.isEmpty
-                ? nil
-                : translation.typeforms.map { formtype($0.rawValue) }
+            // liblouis reads one typeform entry per input code unit, then
+            // writes one entry per output cell back into the same buffer. An
+            // emphasized translation can grow when braille indicators are
+            // inserted, so an input-sized buffer corrupts the heap even when
+            // the output buffer itself is large enough.
+            var typeforms: [formtype]? = nil
+            if !translation.typeforms.isEmpty {
+                var buffer = [formtype](repeating: 0, count: capacity)
+                for (index, typeform) in translation.typeforms.enumerated() {
+                    buffer[index] = formtype(typeform.rawValue)
+                }
+                typeforms = buffer
+            }
 
             let result = grade.tableName.withCString { table in
                 input.withUnsafeMutableBufferPointer { inputBuffer in
