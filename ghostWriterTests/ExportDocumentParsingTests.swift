@@ -255,4 +255,21 @@ struct ExportDocumentParsingTests {
         }
         #expect(content.contains { if case .lineBreak = $0 { return true }; return false })
     }
+
+    @Test func strongFormattingCanSpanHardBreaks() {
+        let document = MarkdownDocumentParser.parse(
+            "**One learner.  \nOne barrier.  \nOne action.**"
+        )
+
+        guard case .paragraph(let content) = document.blocks[0],
+              content.count == 1,
+              case .strong(let children) = content[0] else {
+            Issue.record("Expected one strong span across all three lines")
+            return
+        }
+
+        #expect(children.filter { if case .lineBreak = $0 { return true }; return false }.count == 2)
+        #expect(content.plainText == "One learner. One barrier. One action.")
+        #expect(!content.plainText.contains("*"))
+    }
 }

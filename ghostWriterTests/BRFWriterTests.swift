@@ -209,6 +209,45 @@ struct BRFWriterTests {
         #expect(BRFWriter.wrappedPreformatted("", width: 8, margin: 2) == ["  "])
     }
 
+    @Test func wrappedHeadingMovesIntactToTheNextPage() {
+        let output = BRFWriter.paginate(
+            [
+                .init(lines: Array(repeating: "body", count: 6), isHeading: false),
+                .init(
+                    lines: ["", "heading one", "heading two", "heading three"],
+                    isHeading: true
+                ),
+                .init(lines: ["following"], isHeading: false)
+            ],
+            linesPerPage: 10
+        )
+        let pages = output.components(separatedBy: "\r\n\u{000C}")
+
+        #expect(pages.count == 2)
+        #expect(!pages[0].contains("heading"))
+        #expect(pages[1].contains("heading one\r\nheading two\r\nheading three"))
+        #expect(pages[1].contains("heading three\r\nfollowing"))
+    }
+
+    @Test func headingKeepsTheFirstFollowingLineOnItsPage() {
+        let output = BRFWriter.paginate(
+            [
+                .init(lines: Array(repeating: "body", count: 6), isHeading: false),
+                .init(lines: ["", "heading one", "heading two"], isHeading: true),
+                .init(lines: ["following"], isHeading: false)
+            ],
+            linesPerPage: 10
+        )
+        let pages = output.components(separatedBy: "\r\n\u{000C}")
+
+        #expect(pages.count == 1)
+        #expect(pages[0].contains("heading two\r\nfollowing"))
+        let lines = pages[0].components(separatedBy: "\r\n")
+            .filter { !$0.isEmpty }
+        #expect(lines.count <= 10)
+        #expect(lines.allSatisfy { $0.count <= 20 })
+    }
+
     @Test func codeTabsAreExpandedBeforeFixedCellTranslation() async throws {
         let translator = RecordingTranslator()
         _ = try await BRFWriter.write(

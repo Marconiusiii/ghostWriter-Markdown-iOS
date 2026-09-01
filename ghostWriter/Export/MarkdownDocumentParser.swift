@@ -394,7 +394,7 @@ nonisolated enum MarkdownDocumentParser {
             index += 1
         }
 
-        var content: [ExportInline] = []
+        var source = ""
         for (offset, part) in parts.enumerated() {
             var text = part
             var hardBreak = false
@@ -406,13 +406,50 @@ nonisolated enum MarkdownDocumentParser {
                 hardBreak = true
             }
 
-            content += MarkdownInlineParser.parse(text, definitions: definitions)
+            source += text
 
             if offset < parts.count - 1 {
-                content.append(hardBreak ? .lineBreak : .text(" "))
+                source += hardBreak ? "\n" : " "
             }
         }
 
+        // Inline formatting can span a Markdown hard break. Parse the complete
+        // paragraph first so delimiters on different physical lines still
+        // pair, then restore hard breaks inside the resulting nested spans.
+        let content = restoringHardBreaks(
+            in: MarkdownInlineParser.parse(source, definitions: definitions)
+        )
+
         return (.paragraph(content), index)
+    }
+
+    private static func restoringHardBreaks(in spans: [ExportInline]) -> [ExportInline] {
+        spans.flatMap { span -> [ExportInline] in
+            switch span {
+            case .text(let value):
+                let parts = value.split(separator: "\n", omittingEmptySubsequences: false)
+                var restored: [ExportInline] = []
+                for (index, part) in parts.enumerated() {
+                    if !part.isEmpty { restored.append(.text(String(part))) }
+                    if index < parts.count - 1 { restored.append(.lineBreak) }
+                }
+                return restored
+            case .emphasis(let children):
+                return [.emphasis(restoringHardBreaks(in: children))]
+            case .strong(let children):
+                return [.strong(restoringHardBreaks(in: children))]
+            case .strikethrough(let children):
+                return [.strikethrough(restoringHardBreaks(in: children))]
+            case .underline(let children):
+                return [.underline(restoringHardBreaks(in: children))]
+            case .link(let destination, let content):
+                return [.link(
+                    destination: destination,
+                    content: restoringHardBreaks(in: content)
+                )]
+            case .code, .image, .lineBreak:
+                return [span]
+            }
+        }
     }
 }

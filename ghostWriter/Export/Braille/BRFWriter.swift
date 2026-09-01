@@ -29,6 +29,11 @@ nonisolated enum BRFWriter {
         static let standard = PageSetup()
     }
 
+    struct RenderedBlock: Equatable, Sendable {
+        var lines: [String]
+        var isHeading: Bool
+    }
+
     static func write(
         markdown: String,
         title: String,
@@ -40,13 +45,17 @@ nonisolated enum BRFWriter {
         let document = MarkdownDocumentParser.parse(markdown)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        var lines: [String] = []
+        var renderedBlocks: [RenderedBlock] = []
 
         // The title is set apart as a centered heading.
         if !trimmedTitle.isEmpty {
             let braille = try await translator.translate(trimmedTitle, grade: grade)
-            lines += centered(try asciiBraille(braille), width: pageSetup.cellsPerLine)
-            lines.append("")
+            var titleLines = centered(
+                try asciiBraille(braille),
+                width: pageSetup.cellsPerLine
+            )
+            titleLines.append("")
+            renderedBlocks.append(RenderedBlock(lines: titleLines, isHeading: true))
         }
 
         for (index, block) in document.blocks.enumerated() {
@@ -57,7 +66,7 @@ nonisolated enum BRFWriter {
                 .caseInsensitiveCompare(trimmedTitle) == .orderedSame {
                 continue
             }
-            lines += try await render(
+            let rendered = try await render(
                 block: block,
                 grade: grade,
                 pageSetup: pageSetup,
@@ -65,14 +74,25 @@ nonisolated enum BRFWriter {
                 listDepth: 0,
                 listRunover: nil
             )
+            let isHeading: Bool
+            if case .heading = block {
+                isHeading = true
+            } else {
+                isHeading = false
+            }
+            renderedBlocks.append(RenderedBlock(lines: rendered, isHeading: isHeading))
         }
 
         assert(
-            lines.allSatisfy { $0.count <= pageSetup.cellsPerLine },
+            renderedBlocks.flatMap(\.lines)
+                .allSatisfy { $0.count <= pageSetup.cellsPerLine },
             "BRF layout produced a line wider than its configured page."
         )
 
-        let paginated = paginate(lines, linesPerPage: pageSetup.linesPerPage)
+        let paginated = paginate(
+            renderedBlocks,
+            linesPerPage: pageSetup.linesPerPage
+        )
         return Data(paginated.utf8)
     }
 
@@ -437,32 +457,74 @@ nonisolated enum BRFWriter {
     ///
     /// A form feed is how BRF marks a page break; without them the file is one
     /// continuous scroll and a reader loses any sense of position.
-    static func paginate(_ lines: [String], linesPerPage: Int) -> String {
-        guard linesPerPage > 0 else { return lines.joined(separator: "\r\n") }
+    static func paginate(_ blocks: [RenderedBlock], linesPerPage: Int) -> String {
+        let allLines = blocks.flatMap(\.lines)
+        guard linesPerPage > 0 else { return allLines.joined(separator: "\r\n") }
 
         var pages: [String] = []
         var page: [String] = []
 
-        for line in lines {
+        func finishPage() {
+            guard !page.isEmpty else { return }
+            pages.append(page.joined(separator: "\r\n"))
+            page = []
+        }
+
+        func followingContentRequirement(after blockIndex: Int) -> Int {
+            guard blockIndex + 1 < blocks.count else { return 0 }
+            for following in blocks[(blockIndex + 1)...] {
+                guard let firstContent = following.lines.firstIndex(where: { !$0.isEmpty }) else {
+                    continue
+                }
+                let prefixCount = firstContent + 1
+                // The general blank-line rule below keeps three lines when a
+                // block begins with a separator, so reserve the same amount.
+                return firstContent == 0 ? 1 : max(prefixCount, 3)
+            }
+            return 0
+        }
+
+        func append(_ line: String) {
             // Never open a page with a blank line: it wastes a line of a very
             // small page and reads as a missing heading.
-            if page.isEmpty && line.isEmpty { continue }
+            if page.isEmpty && line.isEmpty { return }
             // A separating blank line signals the start of a new block. Keep
             // room for that block's first line and at least one following line
             // instead of leaving a heading or list opening at the page bottom.
             if line.isEmpty, !page.isEmpty,
                linesPerPage - page.count < 3 {
-                pages.append(page.joined(separator: "\r\n"))
-                page = []
-                continue
+                finishPage()
+                return
             }
             page.append(line)
             if page.count == linesPerPage {
-                pages.append(page.joined(separator: "\r\n"))
-                page = []
+                finishPage()
             }
         }
-        if !page.isEmpty { pages.append(page.joined(separator: "\r\n")) }
+
+        for (blockIndex, block) in blocks.enumerated() {
+            if block.isHeading {
+                // Avoid counting a previous block's trailing separators twice.
+                while page.last?.isEmpty == true { page.removeLast() }
+
+                let leadingBlankCount = block.lines.prefix { $0.isEmpty }.count
+                let headingLineCount = block.lines.count
+                    - (page.isEmpty ? leadingBlankCount : 0)
+                let required = headingLineCount
+                    + followingContentRequirement(after: blockIndex)
+
+                // If the complete heading group fits on a fresh page but not
+                // here, move it before rendering any of its wrapped lines.
+                if !page.isEmpty,
+                   required <= linesPerPage,
+                   page.count + required > linesPerPage {
+                    finishPage()
+                }
+            }
+
+            for line in block.lines { append(line) }
+        }
+        finishPage()
 
         // BRF uses CRLF line endings and a form feed between pages.
         return pages.joined(separator: "\r\n\u{000C}") + "\r\n"
