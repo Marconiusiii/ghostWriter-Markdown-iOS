@@ -15,6 +15,7 @@ struct ghostWriterApp: App {
     @State private var store: DocumentStore
     @State private var settings = AppSettings()
     @State private var libraryMetadata = DocumentLibraryMetadataStore()
+    @State private var supportStore = SupportStore()
 
     init() {
         let storage = DocumentStorage()
@@ -34,6 +35,7 @@ struct ghostWriterApp: App {
                 .environment(store)
                 .environment(settings)
                 .environment(libraryMetadata)
+                .environment(supportStore)
                 // A theme override applies to the whole app; `nil` means follow
                 // the system, which is the default.
                 .preferredColorScheme(settings.appearance.colorScheme)

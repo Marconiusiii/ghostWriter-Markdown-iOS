@@ -8,6 +8,7 @@
 //
 
 import MessageUI
+import StoreKit
 import SwiftUI
 import UIKit
 
@@ -16,6 +17,7 @@ struct SettingsView: View {
     @Environment(DocumentStore.self) private var store
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(AppSettings.self) private var settings
+    @Environment(SupportStore.self) private var supportStore
     @Environment(\.dismiss) private var dismiss
     @AccessibilityFocusState private var focusedElement: FocusTarget?
     @State private var showingHelp = false
@@ -39,6 +41,7 @@ struct SettingsView: View {
         case whyGhostWriter
         case acknowledgements
         case feedback
+        case supportConfirmation
     }
 
     var body: some View {
@@ -219,6 +222,8 @@ struct SettingsView: View {
                     Text("Fills in new eBraille exports. You can edit these values before sharing.")
                 }
 
+                supportSection
+
                 Section {
                     LabeledContent("Version", value: appVersion)
                     Button("Why ghostWriter?") {
@@ -271,6 +276,12 @@ struct SettingsView: View {
                         showingHelp = true
                     }
                     .accessibilityFocused($focusedElement, equals: .help)
+                }
+            }
+            .task {
+                if supportStore.products.count
+                    != SupportStore.supportOptions.count {
+                    await supportStore.loadProducts()
                 }
             }
         }
@@ -350,6 +361,117 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+
+    private var supportSection: some View {
+        Section("Support ghostWriter Markdown") {
+            Text(
+                "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you."
+            )
+            .fixedSize(horizontal: false, vertical: true)
+
+            if let statusText = supportStatusText {
+                Text(statusText)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityFocused(
+                        $focusedElement,
+                        equals: .supportConfirmation
+                    )
+            }
+
+            if supportStore.status == .productLoadFailed {
+                Button("Try Again") {
+                    Task { await supportStore.loadProducts() }
+                }
+            }
+
+            ForEach(SupportStore.supportOptions) { option in
+                Button {
+                    Task {
+                        await supportStore.purchase(option)
+                        if supportStatusNeedsFocus {
+                            restoreFocus(to: .supportConfirmation)
+                        }
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(supportStore.displayName(for: option))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(supportPrice(for: option))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(
+                    !supportStore.isAvailable(option)
+                        || supportStore.isPurchasing
+                )
+            }
+        }
+    }
+
+    private var supportStatusText: String? {
+        switch supportStore.status {
+        case .idle:
+            return supportStore.latestThankYou.map(thankYouText)
+        case .loading:
+            return String(localized: "The support spirits are gathering…")
+        case .purchasing(let name):
+            return String.localizedStringWithFormat(
+                String(localized: "Sending your %@ through the haunted halls…"),
+                name
+            )
+        case .success(let thankYou):
+            return thankYouText(thankYou)
+        case .pending:
+            return String(
+                localized: "Your support is waiting for approval. The ghost will keep watch."
+            )
+        case .productLoadFailed:
+            return String(
+                localized: "The support options are hiding in the fog. Please check your connection and try again."
+            )
+        case .purchaseFailed:
+            return String(
+                localized: "That haunting lost its way. No support was recorded. Please try again."
+            )
+        case .verificationFailed:
+            return String(
+                localized: "The App Store could not verify this support, so nothing was recorded."
+            )
+        case .unexpected:
+            return String(
+                localized: "Something unexpected rattled the walls. No support was recorded."
+            )
+        }
+    }
+
+    private var supportStatusNeedsFocus: Bool {
+        switch supportStore.status {
+        case .success, .pending, .productLoadFailed, .purchaseFailed,
+             .verificationFailed, .unexpected:
+            return true
+        case .idle, .loading, .purchasing:
+            return false
+        }
+    }
+
+    private func supportPrice(for option: SupportStore.SupportOption) -> String {
+        supportStore.displayPrice(for: option)
+            ?? String(localized: "Price unavailable")
+    }
+
+    private func thankYouText(
+        _ thankYou: SupportStore.SupportThankYou
+    ) -> String {
+        let date = thankYou.date.formatted(date: .long, time: .omitted)
+        return String.localizedStringWithFormat(
+            String(
+                localized: "Thank you for your %@ on %@. ghostWriter is feeling pleasantly haunted."
+            ),
+            thankYou.supportName,
+            date
+        )
     }
 
     private var documentStorageBinding: Binding<DocumentStorageChoice> {

@@ -38,9 +38,22 @@
 		A11D0C020000000000000004 /* tables */ = {isa = PBXFileReference; lastKnownFileType = folder; name = tables; path = Vendor/liblouis/tables; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B50000000000000000000001 /* Exceptions for "ghostWriter" folder in "ghostWriter" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Store/SupportGhostWriter.storekit,
+			);
+			target = 82AAC97630181C6100A4551F /* ghostWriter */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		82AAC97930181C6100A4551F /* ghostWriter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B50000000000000000000001 /* Exceptions for "ghostWriter" folder in "ghostWriter" target */,
+			);
 			path = ghostWriter;
 			sourceTree = "<group>";
 		};
@@ -198,6 +211,9 @@
 					82AAC97630181C6100A4551F = {
 						CreatedOnToolsVersion = 26.6;
 						SystemCapabilities = {
+							com.apple.InAppPurchase = {
+								enabled = 1;
+							};
 							com.apple.iCloud = {
 								enabled = 1;
 							};
@@ -454,7 +470,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.1;
+				MARKETING_VERSION = 1.4.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marconius.ghostwriter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -498,7 +514,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.1;
+				MARKETING_VERSION = 1.4.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marconius.ghostwriter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

@@ -1,0 +1,98 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "GHOSTWRITERSUPPORT",
+  "nonRenewingSubscriptions" : [
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "LITTLEBOO001",
+      "localizations" : [
+        {
+          "description" : "Help keep ghostWriter writing and haunting.",
+          "displayName" : "Little Boo",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.marconius.ghostwriter.support.littleBoooo",
+      "referenceName" : "Little Boo",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "BIGBOO001",
+      "localizations" : [
+        {
+          "description" : "Help keep ghostWriter writing and haunting.",
+          "displayName" : "Big Boo",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.marconius.ghostwriter.support.bigBoo",
+      "referenceName" : "Big Boo",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "SPOOKYWAIL001",
+      "localizations" : [
+        {
+          "description" : "Help keep ghostWriter writing and haunting.",
+          "displayName" : "Spooky Wail",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.marconius.ghostwriter.support.spookyWail",
+      "referenceName" : "Spooky Wail",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "STARTLINGSCREAM001",
+      "localizations" : [
+        {
+          "description" : "Help keep ghostWriter writing and haunting.",
+          "displayName" : "Startling Scream",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.marconius.ghostwriter.support.startlingScream",
+      "referenceName" : "Startling Scream",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+  ],
+  "subscriptionSuiteGroups" : [
+  ],
+  "version" : {
+    "major" : 6,
+    "minor" : 3
+  }
+}

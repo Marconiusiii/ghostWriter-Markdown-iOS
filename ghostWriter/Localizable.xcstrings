@@ -4915,6 +4915,127 @@
         }
       }
     },
+    "Price unavailable" : {
+      "comment" : "SettingsView.swift: support purchase price fallback",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Precio no disponible"
+          }
+        }
+      }
+    },
+    "Sending your %@ through the haunted halls…" : {
+      "comment" : "SettingsView.swift: support purchase in progress",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando tu %@ por los pasillos encantados…"
+          }
+        }
+      }
+    },
+    "Something unexpected rattled the walls. No support was recorded." : {
+      "comment" : "SettingsView.swift: unexpected support purchase result",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algo inesperado hizo temblar las paredes. No se registró ningún apoyo."
+          }
+        }
+      }
+    },
+    "Support ghostWriter Markdown" : {
+      "comment" : "SettingsView.swift: optional support section heading",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apoya a ghostWriter Markdown"
+          }
+        }
+      }
+    },
+    "Thank you for your %@ on %@. ghostWriter is feeling pleasantly haunted." : {
+      "comment" : "SettingsView.swift: persistent support purchase thank-you",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gracias por tu %@ del %@. ghostWriter se siente agradablemente encantado."
+          }
+        }
+      }
+    },
+    "That haunting lost its way. No support was recorded. Please try again." : {
+      "comment" : "SettingsView.swift: failed support purchase",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese encantamiento se perdió por el camino. No se registró ningún apoyo. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "The App Store could not verify this support, so nothing was recorded." : {
+      "comment" : "SettingsView.swift: unverified support transaction",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Store no pudo verificar este apoyo, por lo que no se registró nada."
+          }
+        }
+      }
+    },
+    "The support options are hiding in the fog. Please check your connection and try again." : {
+      "comment" : "SettingsView.swift: support products unavailable",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las opciones de apoyo se esconden en la niebla. Comprueba tu conexión e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "The support spirits are gathering…" : {
+      "comment" : "SettingsView.swift: loading support products",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los espíritus de apoyo se están reuniendo…"
+          }
+        }
+      }
+    },
+    "Your support is waiting for approval. The ghost will keep watch." : {
+      "comment" : "SettingsView.swift: pending support purchase",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu apoyo está esperando aprobación. El fantasma seguirá vigilando."
+          }
+        }
+      }
+    },
+    "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you." : {
+      "comment" : "SettingsView.swift: optional support introduction",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ghostWriter no tiene anuncios ni suscripciones. Si te ayuda a escribir, puedes apoyar futuras actualizaciones con uno de estos encantamientos amistosos opcionales. Todas las opciones ofrecen el mismo agradecimiento sincero."
+          }
+        }
+      }
+    },
     "ZIPFoundation" : {
       "comment" : "AcknowledgementsView.swift:9",
       "localizations" : {

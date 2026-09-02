@@ -483,6 +483,44 @@ final class ghostWriterUITests: XCTestCase {
         XCTAssertFalse(app.textFields["Document name"].exists)
     }
 
+    @MainActor
+    func testSupportPurchasesAppearAboveAboutWithLocalizedPrices() throws {
+        let app = launchLibraryApp(
+            additionalArguments: ["-supportScreenshotMode"]
+        )
+        app.buttons["Settings"].tap()
+
+        let heading = app.staticTexts["SUPPORT GHOSTWRITER MARKDOWN"]
+        for _ in 0..<10 where !heading.exists {
+            app.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(heading.waitForExistence(timeout: 10))
+
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            .press(
+                forDuration: 0.2,
+                thenDragTo: app.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)
+                )
+            )
+
+        for name in [
+            "Little Boo", "Big Boo", "Spooky Wail", "Startling Scream"
+        ] {
+            let label = app.staticTexts[name]
+            XCTAssertTrue(
+                label.waitForExistence(timeout: 10),
+                "Expected the \(name) support option to be available."
+            )
+            XCTAssertTrue(label.isEnabled)
+        }
+
+        for price in ["$0.99", "$1.99", "$2.99", "$4.99"] {
+            XCTAssertTrue(app.staticTexts[price].exists)
+        }
+        attachScreenshot(app, name: "Support ghostWriter Markdown purchases")
+    }
+
     private func attachScreenshot(_ app: XCUIApplication, name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
