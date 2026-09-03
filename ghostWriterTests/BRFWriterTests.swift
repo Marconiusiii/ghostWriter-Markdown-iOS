@@ -233,6 +233,29 @@ struct BRFWriterTests {
         }
     }
 
+    @Test func embossedPagesWithoutNumbersUseEverySelectedLine() async throws {
+        let data = try await BRFWriter.write(
+            markdown: Array(repeating: "One.", count: 20)
+                .joined(separator: "\n\n"),
+            title: "",
+            grade: .grade2,
+            pageSetup: .init(cellsPerLine: 20, linesPerPage: 10),
+            outputPurpose: .embossedPages,
+            includeBraillePageNumbers: false,
+            translator: RecordingTranslator()
+        )
+        let output = String(decoding: data, as: UTF8.self)
+        let withoutFinalCRLF = String(output.dropLast(2))
+        let pages = withoutFinalCRLF.components(separatedBy: "\r\n\u{000C}")
+
+        #expect(pages.count == 2)
+        for page in pages {
+            let lines = page.components(separatedBy: "\r\n")
+            #expect(lines.count == 10)
+            #expect(lines.allSatisfy { $0.count <= 20 })
+        }
+    }
+
     @Test func brfLinksKeepTheirDestinationsWithoutDuplicatingBareURLs() async throws {
         let translator = RecordingTranslator()
         _ = try await BRFWriter.write(

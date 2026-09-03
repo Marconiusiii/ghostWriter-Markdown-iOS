@@ -80,7 +80,7 @@ Documents are shared through File Actions > Share.
 | PDF | `.pdf` | Tagged PDF, US Letter, one-inch margins |
 | EPUB | `.epub` | Reflowable ebook with a table of contents |
 | eBraille | `.ebrl` | Reflowable Unicode braille targeting eBraille 1.0 |
-| Braille Ready Format | `.brf` | Fixed-page braille for displays and embossers |
+| Braille Ready Format | `.brf` | Fixed-page braille for displays or straightforward embossing |
 
 Content handling varies by export format. PowerPoint's supported content and
 conversion limits are described below. HTML embeds images from the app-managed
@@ -204,8 +204,16 @@ completeness declaration rather than inventing those facts. Ordinary embedded
 pictures are not declared to be tactile graphics.
 
 **Braille Ready Format** produces a `.brf` file of ASCII braille, wrapped and
-paginated to a fixed page. The export asks for the braille grade and the page
-size; the default is the standard braille page of 40 cells by 25 lines.
+paginated to a fixed page. The export asks for the braille grade, use, and page
+layout. Common page uses 40 cells by 25 lines, and Custom braille page provides
+other cell and line counts. Embossed pages can include braille page numbers at
+the bottom right. When page numbers are included, the final line is reserved
+for them. Paper size, physical margins, binding margins, and single-sided or
+interpoint output are set in the embossing software.
+
+In BRF output, a readable link label is followed by its address in parentheses.
+A link whose label is already the address appears once. Internal document links
+include the link text without the fragment address.
 
 Two scripts in `Scripts/` help when working on braille output:
 

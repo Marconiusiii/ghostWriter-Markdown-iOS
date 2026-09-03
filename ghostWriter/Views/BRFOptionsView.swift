@@ -23,6 +23,7 @@ struct BRFOptionsView: View {
 
     @State private var grade: BrailleGrade
     @State private var outputPurpose: BRFWriter.OutputPurpose = .brailleDisplay
+    @State private var includeBraillePageNumbers = true
     @State private var layout: Layout
     @State private var cellsPerLine: Int
     @State private var linesPerPage: Int
@@ -44,7 +45,7 @@ struct BRFOptionsView: View {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .standard: return String(localized: "Standard BRF page (40 by 25)")
+            case .standard: return String(localized: "Common page, 40 cells by 25 lines")
             case .custom: return String(localized: "Custom braille page")
             }
         }
@@ -112,7 +113,18 @@ struct BRFOptionsView: View {
                         }
                     }
                 } footer: {
-                    Text("Choose how you plan to use this BRF file. Embossed pages include a braille page number at the bottom of each page.")
+                    Text("Embossed pages use the selected number of cells and lines. Paper and margins are set in your embossing software.")
+                }
+
+                if outputPurpose == .embossedPages {
+                    Section {
+                        Toggle(
+                            "Include braille page numbers",
+                            isOn: $includeBraillePageNumbers
+                        )
+                    } footer: {
+                        Text("Page numbers appear at the bottom right.")
+                    }
                 }
 
                 Section {
@@ -129,7 +141,7 @@ struct BRFOptionsView: View {
                         .onChange(of: layout) { _, _ in restoreFocus(to: .layout) }
                     }
                 } footer: {
-                    Text("Standard pages use 40 cells by 25 lines.")
+                    Text("Common pages use 40 cells by 25 lines.")
                 }
 
                 if layout == .custom {
@@ -167,7 +179,7 @@ struct BRFOptionsView: View {
                         if outputPurpose == .brailleDisplay {
                             Text("Match these dimensions to your braille display.")
                         } else {
-                            Text("Match the cells per line and lines per page to the layout selected in your embossing software. The final line is reserved for the page number.")
+                            Text("Match the cells per line and lines per page to the layout selected in your embossing software.")
                         }
                     }
                 }
@@ -198,7 +210,8 @@ struct BRFOptionsView: View {
             BRFExportOptions(
                 grade: grade,
                 pageSetup: pageSetup,
-                outputPurpose: outputPurpose
+                outputPurpose: outputPurpose,
+                includeBraillePageNumbers: includeBraillePageNumbers
             )
         )
     }
@@ -219,4 +232,5 @@ nonisolated struct BRFExportOptions: Equatable, Sendable {
     let grade: BrailleGrade
     let pageSetup: BRFWriter.PageSetup
     let outputPurpose: BRFWriter.OutputPurpose
+    let includeBraillePageNumbers: Bool
 }

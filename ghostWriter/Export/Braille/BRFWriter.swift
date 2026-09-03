@@ -45,6 +45,7 @@ nonisolated enum BRFWriter {
         grade: BrailleGrade,
         pageSetup: PageSetup = .standard,
         outputPurpose: OutputPurpose = .brailleDisplay,
+        includeBraillePageNumbers: Bool = true,
         translator: BrailleTranslator,
         documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) async throws -> Data {
@@ -95,11 +96,14 @@ nonisolated enum BRFWriter {
             "BRF layout produced a line wider than its configured page."
         )
 
-        if outputPurpose == .embossedPages, pageSetup.linesPerPage < 2 {
+        let addsPageNumbers = outputPurpose == .embossedPages
+            && includeBraillePageNumbers
+
+        if addsPageNumbers, pageSetup.linesPerPage < 2 {
             throw BRFExportError.pageTooShortForPageNumber
         }
 
-        let contentLinesPerPage = outputPurpose == .embossedPages
+        let contentLinesPerPage = addsPageNumbers
             ? pageSetup.linesPerPage - 1
             : pageSetup.linesPerPage
         let pages = paginatedPages(
@@ -107,10 +111,9 @@ nonisolated enum BRFWriter {
             linesPerPage: contentLinesPerPage
         )
         let paginated: String
-        switch outputPurpose {
-        case .brailleDisplay:
+        if !addsPageNumbers {
             paginated = serialized(pages)
-        case .embossedPages:
+        } else {
             var numberedPages: [[String]] = []
             for (index, page) in pages.enumerated() {
                 let number = try asciiBraille(

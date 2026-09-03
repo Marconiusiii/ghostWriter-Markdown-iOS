@@ -771,13 +771,13 @@
         }
       }
     },
-    "Choose how you plan to use this BRF file. Embossed pages include a braille page number at the bottom of each page." : {
+    "Embossed pages use the selected number of cells and lines. Paper and margins are set in your embossing software." : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Elige cómo piensas usar este archivo BRF. Las páginas para imprimir incluyen un número de página braille en la parte inferior de cada página."
+            "value" : "Las páginas para imprimir usan el número seleccionado de celdas y líneas. El papel y los márgenes se configuran en el programa de impresión braille."
           }
         }
       }
@@ -1855,6 +1855,17 @@
         }
       }
     },
+    "Include braille page numbers" : {
+      "comment" : "BRFOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incluir números de página braille"
+          }
+        }
+      }
+    },
     "Empty" : {
       "comment" : "RecentlyDeletedView.swift:117",
       "localizations" : {
@@ -2887,13 +2898,13 @@
         }
       }
     },
-    "Match the cells per line and lines per page to the layout selected in your embossing software. The final line is reserved for the page number." : {
+    "Match the cells per line and lines per page to the layout selected in your embossing software." : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajusta las celdas por línea y las líneas por página al diseño seleccionado en tu programa de impresión braille. La última línea se reserva para el número de página."
+            "value" : "Ajusta las celdas por línea y las líneas por página al diseño seleccionado en tu programa de impresión braille."
           }
         }
       }
@@ -3310,6 +3321,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pueden importar documentos de Word protegidos con contraseña."
+          }
+        }
+      }
+    },
+    "Page numbers appear at the bottom right." : {
+      "comment" : "BRFOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los números de página aparecen en la parte inferior derecha."
           }
         }
       }
@@ -3997,24 +4019,24 @@
         }
       }
     },
-    "Standard BRF page (40 by 25)" : {
+    "Common page, 40 cells by 25 lines" : {
       "comment" : "BRFOptionsView.swift:45",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Página BRF estándar (40 por 25)"
+            "value" : "Página común, 40 celdas por 25 líneas"
           }
         }
       }
     },
-    "Standard pages use 40 cells by 25 lines." : {
+    "Common pages use 40 cells by 25 lines." : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Las páginas estándar usan 40 celdas por 25 líneas."
+            "value" : "Las páginas comunes usan 40 celdas por 25 líneas."
           }
         }
       }
