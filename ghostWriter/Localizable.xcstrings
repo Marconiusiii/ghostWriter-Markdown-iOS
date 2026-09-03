@@ -1844,13 +1844,13 @@
         }
       }
     },
-    "Emboss on paper" : {
+    "Embossed Output" : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Imprimir en braille"
+            "value" : "Salida en braille impreso"
           }
         }
       }
@@ -4026,17 +4026,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Página común, 40 celdas por 25 líneas"
-          }
-        }
-      }
-    },
-    "Common pages use 40 cells by 25 lines." : {
-      "comment" : "BRFOptionsView.swift",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las páginas comunes usan 40 celdas por 25 líneas."
           }
         }
       }

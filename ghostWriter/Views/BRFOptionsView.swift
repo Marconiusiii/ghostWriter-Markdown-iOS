@@ -98,7 +98,7 @@ struct BRFOptionsView: View {
                         Picker(selection: $outputPurpose) {
                             Text("Braille display")
                                 .tag(BRFWriter.OutputPurpose.brailleDisplay)
-                            Text("Emboss on paper")
+                            Text("Embossed Output")
                                 .tag(BRFWriter.OutputPurpose.embossedPages)
                         } label: {
                             EmptyView()
@@ -140,8 +140,6 @@ struct BRFOptionsView: View {
                         .accessibilityFocused($accessibilityFocus, equals: .layout)
                         .onChange(of: layout) { _, _ in restoreFocus(to: .layout) }
                     }
-                } footer: {
-                    Text("Common pages use 40 cells by 25 lines.")
                 }
 
                 if layout == .custom {
