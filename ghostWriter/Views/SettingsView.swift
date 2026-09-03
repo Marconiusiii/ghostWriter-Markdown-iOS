@@ -30,10 +30,43 @@ struct SettingsView: View {
     @State private var focusRequestGate = FocusRestorationRequestGate()
     @State private var supportAlert: SupportAlertContent?
     @State private var showingSupportAlert = false
+    @State private var supportConfirmation: SupportConfirmationContent?
+    @State private var showingSupportConfirmation = false
 
     private struct SupportAlertContent {
         let title: String
         let message: String
+    }
+
+    private struct SupportConfirmationContent {
+        let title: String
+        let message: String
+    }
+
+    private struct SupportConfirmationSheet: View {
+        @Environment(\.dismiss) private var dismiss
+
+        let confirmation: SupportConfirmationContent
+
+        var body: some View {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(confirmation.title)
+                        .font(.title2)
+                        .accessibilityAddTraits(.isHeader)
+
+                    Text(confirmation.message)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+            }
+        }
     }
 
     private enum FocusTarget: Hashable {
@@ -291,6 +324,13 @@ struct SettingsView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingSupportConfirmation) {
+            if let supportConfirmation {
+                SupportConfirmationSheet(
+                    confirmation: supportConfirmation
+                )
+            }
+        }
         .sheet(isPresented: $showingHelp, onDismiss: {
             restoreFocus(to: .help)
         }) {
@@ -392,7 +432,15 @@ struct SettingsView: View {
                 Button {
                     Task {
                         await supportStore.purchase(option)
-                        if let alert = supportAlertContent {
+                        if case .success(let thankYou) = supportStore.status {
+                            supportConfirmation = SupportConfirmationContent(
+                                title: String(
+                                    localized: "Friendly Haunting Received"
+                                ),
+                                message: thankYouText(thankYou)
+                            )
+                            showingSupportConfirmation = true
+                        } else if let alert = supportAlertContent {
                             supportAlert = alert
                             showingSupportAlert = true
                         }
@@ -412,8 +460,7 @@ struct SettingsView: View {
             }
         }
         .alert(
-            Text(supportAlert?.title ?? "")
-                .accessibilityHeading(.unspecified),
+            supportAlert?.title ?? "",
             isPresented: $showingSupportAlert,
             presenting: supportAlert
         ) { _ in
@@ -427,11 +474,6 @@ struct SettingsView: View {
         let standardTitle = String(localized: "Support ghostWriter Markdown")
 
         switch supportStore.status {
-        case .success(let thankYou):
-            return SupportAlertContent(
-                title: String(localized: "Friendly Haunting Received"),
-                message: thankYouText(thankYou)
-            )
         case .pending, .productLoadFailed, .purchaseFailed,
              .verificationFailed, .unexpected:
             guard let message = supportStatusText else { return nil }
@@ -439,7 +481,7 @@ struct SettingsView: View {
                 title: standardTitle,
                 message: message
             )
-        case .idle, .loading, .purchasing:
+        case .idle, .loading, .purchasing, .success:
             return nil
         }
     }

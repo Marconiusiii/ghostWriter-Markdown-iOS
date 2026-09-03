@@ -526,25 +526,27 @@ final class ghostWriterUITests: XCTestCase {
         revealSupportSection(in: app)
 
         let littleBoo = app.staticTexts["Little Boo"]
+        for _ in 0..<5 where !littleBoo.exists || !littleBoo.isHittable {
+            app.swipeUp(velocity: .slow)
+        }
         XCTAssertTrue(littleBoo.waitForExistence(timeout: 10))
         XCTAssertTrue(littleBoo.isHittable)
         littleBoo.tap()
 
-        let alert = app.alerts.firstMatch
-        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        let confirmationTitle = app.staticTexts[
+            "Friendly Haunting Received"
+        ]
+        XCTAssertTrue(confirmationTitle.waitForExistence(timeout: 10))
         XCTAssertTrue(
-            alert.staticTexts["Friendly Haunting Received"].exists
-        )
-        XCTAssertTrue(
-            alert.staticTexts.matching(
+            app.staticTexts.matching(
                 NSPredicate(
                     format: "label CONTAINS %@",
                     "Thank you for your Little Boo"
                 )
             ).firstMatch.exists
         )
-        alert.buttons["Done"].tap()
-        XCTAssertFalse(alert.exists)
+        app.buttons["Done"].tap()
+        XCTAssertFalse(confirmationTitle.exists)
 
         let history = app.staticTexts.matching(
             NSPredicate(
