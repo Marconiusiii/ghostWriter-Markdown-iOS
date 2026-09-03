@@ -582,6 +582,17 @@
         }
       }
     },
+    "Braille display" : {
+      "comment" : "BRFOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Línea braille"
+          }
+        }
+      }
+    },
     "Braille Ready Format" : {
       "comment" : "BRFOptionsView.swift:152",
       "localizations" : {
@@ -756,6 +767,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Elige Gráfico táctil para adjuntar un archivo SVG, PNG o JPG preparado para una presentación táctil. Un gráfico táctil tiene una descripción y el título tactile en Markdown."
+          }
+        }
+      }
+    },
+    "Choose how you plan to use this BRF file. Embossed pages include a braille page number at the bottom of each page." : {
+      "comment" : "BRFOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige cómo piensas usar este archivo BRF. Las páginas para imprimir incluyen un número de página braille en la parte inferior de cada página."
           }
         }
       }
@@ -1348,13 +1370,13 @@
         }
       }
     },
-    "Custom display layout" : {
-      "comment" : "BRFOptionsView.swift:46",
+    "Custom braille page" : {
+      "comment" : "BRFOptionsView.swift",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Diseño de pantalla personalizado"
+            "value" : "Página braille personalizada"
           }
         }
       }
@@ -1818,6 +1840,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nivel educativo"
+          }
+        }
+      }
+    },
+    "Emboss on paper" : {
+      "comment" : "BRFOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imprimir en braille"
           }
         }
       }
@@ -2854,13 +2887,24 @@
         }
       }
     },
-    "Match these dimensions to the intended braille display." : {
-      "comment" : "BRFOptionsView.swift:142",
+    "Match these dimensions to the page size used by your embosser. The final line is reserved for the page number." : {
+      "comment" : "BRFOptionsView.swift",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajusta estas dimensiones a la línea braille prevista."
+            "value" : "Ajusta estas dimensiones al tamaño de página que usa tu impresora braille. La última línea se reserva para el número de página."
+          }
+        }
+      }
+    },
+    "Match these dimensions to your braille display." : {
+      "comment" : "BRFOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajusta estas dimensiones a tu línea braille."
           }
         }
       }
@@ -3964,13 +4008,13 @@
         }
       }
     },
-    "Standard BRF uses 40 cells by 25 lines. Choose a custom layout only when preparing the file for a particular display size." : {
-      "comment" : "BRFOptionsView.swift:107",
+    "Standard pages use 40 cells by 25 lines." : {
+      "comment" : "BRFOptionsView.swift",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El formato BRF estándar usa 40 celdas por 25 líneas. Elige un diseño personalizado solo al preparar el archivo para un tamaño de línea braille concreto."
+            "value" : "Las páginas estándar usan 40 celdas por 25 líneas."
           }
         }
       }
@@ -4281,6 +4325,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo incluir la imagen %@ en la presentación de PowerPoint."
+          }
+        }
+      }
+    },
+    "The page must have at least two lines when adding braille page numbers." : {
+      "comment" : "BRFWriter.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La página debe tener al menos dos líneas para añadir números de página braille."
           }
         }
       }
@@ -4712,6 +4767,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Usar la fecha de hoy"
+          }
+        }
+      }
+    },
+    "Use" : {
+      "comment" : "BRFOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uso"
           }
         }
       }

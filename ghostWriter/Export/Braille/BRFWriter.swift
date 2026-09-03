@@ -21,6 +21,11 @@ import Foundation
 
 nonisolated enum BRFWriter {
 
+    enum OutputPurpose: Equatable, Sendable {
+        case brailleDisplay
+        case embossedPages
+    }
+
     /// Page geometry. The defaults use the common 40-cell by 25-line page.
     struct PageSetup: Equatable, Sendable {
         var cellsPerLine: Int = 40
@@ -39,6 +44,7 @@ nonisolated enum BRFWriter {
         title: String,
         grade: BrailleGrade,
         pageSetup: PageSetup = .standard,
+        outputPurpose: OutputPurpose = .brailleDisplay,
         translator: BrailleTranslator,
         documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) async throws -> Data {
@@ -89,10 +95,41 @@ nonisolated enum BRFWriter {
             "BRF layout produced a line wider than its configured page."
         )
 
-        let paginated = paginate(
+        if outputPurpose == .embossedPages, pageSetup.linesPerPage < 2 {
+            throw BRFExportError.pageTooShortForPageNumber
+        }
+
+        let contentLinesPerPage = outputPurpose == .embossedPages
+            ? pageSetup.linesPerPage - 1
+            : pageSetup.linesPerPage
+        let pages = paginatedPages(
             renderedBlocks,
-            linesPerPage: pageSetup.linesPerPage
+            linesPerPage: contentLinesPerPage
         )
+        let paginated: String
+        switch outputPurpose {
+        case .brailleDisplay:
+            paginated = serialized(pages)
+        case .embossedPages:
+            var numberedPages: [[String]] = []
+            for (index, page) in pages.enumerated() {
+                let number = try asciiBraille(
+                    try await translator.translate("\(index + 1)", grade: grade)
+                )
+                var numberedPage = page
+                while numberedPage.count < pageSetup.linesPerPage - 1 {
+                    numberedPage.append("")
+                }
+                numberedPage.append(
+                    String(
+                        repeating: " ",
+                        count: max(0, pageSetup.cellsPerLine - number.count)
+                    ) + number
+                )
+                numberedPages.append(numberedPage)
+            }
+            paginated = serialized(numberedPages)
+        }
         return Data(paginated.utf8)
     }
 
@@ -110,7 +147,12 @@ nonisolated enum BRFWriter {
 
         switch block {
         case .heading(let level, let content):
-            let text = try await translate(content, grade: grade, translator: translator)
+            let text = try await translate(
+                content,
+                grade: grade,
+                translator: translator,
+                pageWidth: width
+            )
             guard !text.isEmpty else { return [] }
 
             // Use a consistent three-tier heading hierarchy.
@@ -127,7 +169,12 @@ nonisolated enum BRFWriter {
             return out
 
         case .paragraph(let content):
-            let text = try await translate(content, grade: grade, translator: translator)
+            let text = try await translate(
+                content,
+                grade: grade,
+                translator: translator,
+                pageWidth: width
+            )
             guard !text.isEmpty else { return [] }
             // 3-1: first line in cell 3, runover in cell 1.
             return wrapped(text, width: width, start: 2, runover: 0)
@@ -164,7 +211,8 @@ nonisolated enum BRFWriter {
                 let itemText = try await translate(
                     item.content,
                     grade: grade,
-                    translator: translator
+                    translator: translator,
+                    pageWidth: width
                 )
                 if !itemText.isEmpty { parts.append(itemText) }
                 let body = parts.joined(separator: " ")
@@ -242,7 +290,12 @@ nonisolated enum BRFWriter {
             var out: [String] = [""]
             var headers: [String] = []
             for header in table.headers {
-                headers.append(try await translate(header, grade: grade, translator: translator))
+                headers.append(try await translate(
+                    header,
+                    grade: grade,
+                    translator: translator,
+                    pageWidth: width
+                ))
             }
             let separator = try asciiBraille(
                 try await translator.translate(": ", grade: grade)
@@ -259,7 +312,12 @@ nonisolated enum BRFWriter {
                 out += wrapped(rowHeading, width: width, start: 0, runover: 2)
                 var cells: [String] = []
                 for cell in row {
-                    cells.append(try await translate(cell, grade: grade, translator: translator))
+                    cells.append(try await translate(
+                        cell,
+                        grade: grade,
+                        translator: translator,
+                        pageWidth: width
+                    ))
                 }
                 for (index, cell) in cells.enumerated() {
                     let label = index < headers.count ? headers[index] : ""
@@ -286,13 +344,34 @@ nonisolated enum BRFWriter {
     private static func translate(
         _ spans: [ExportInline],
         grade: BrailleGrade,
-        translator: BrailleTranslator
+        translator: BrailleTranslator,
+        pageWidth: Int
     ) async throws -> String {
         var result = ""
         for unit in EBrailleWriter.TranslationTable.inlineUnits(spans) {
             switch unit {
-            case .text(let input), .link(_, let input):
+            case .text(let input):
                 result += try asciiBraille(try await translator.translate(input, grade: grade))
+            case .link(let destination, let input):
+                guard !destination.hasPrefix("#") else {
+                    result += try asciiBraille(
+                        try await translator.translate(input, grade: grade)
+                    )
+                    continue
+                }
+
+                let addressIsLabel = input.text == destination
+                if !addressIsLabel {
+                    let label = try asciiBraille(
+                        try await translator.translate(input, grade: grade)
+                    )
+                    if !label.isEmpty { result += label + " " }
+                }
+                let addressSource = addressIsLabel ? destination : "(\(destination))"
+                let address = try asciiBraille(
+                    try await translator.translate(addressSource, grade: grade)
+                )
+                result += wrappedElectronicAddress(address, width: pageWidth)
             case .image(let image):
                 if let alternative = image.alternativeText {
                     let prefix: String
@@ -311,6 +390,26 @@ nonisolated enum BRFWriter {
             }
         }
         return result
+    }
+
+    /// Electronic addresses may be divided at any point in UEB. When an
+    /// address is longer than a complete line, dot 5 marks that it continues;
+    /// a literary word-division hyphen would look like part of the address.
+    private static func wrappedElectronicAddress(_ address: String, width: Int) -> String {
+        let safeWidth = max(width, 1)
+        guard address.count > safeWidth, safeWidth > 1 else { return address }
+
+        let continuation = "\"" // Dot 5 in Braille ASCII.
+        let contentWidth = safeWidth - continuation.count
+        var remainder = address[...]
+        var lines: [String] = []
+        while remainder.count > safeWidth {
+            let end = remainder.index(remainder.startIndex, offsetBy: contentWidth)
+            lines.append(String(remainder[..<end]) + continuation)
+            remainder = remainder[end...]
+        }
+        if !remainder.isEmpty { lines.append(String(remainder)) }
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Layout
@@ -458,15 +557,22 @@ nonisolated enum BRFWriter {
     /// A form feed is how BRF marks a page break; without them the file is one
     /// continuous scroll and a reader loses any sense of position.
     static func paginate(_ blocks: [RenderedBlock], linesPerPage: Int) -> String {
-        let allLines = blocks.flatMap(\.lines)
-        guard linesPerPage > 0 else { return allLines.joined(separator: "\r\n") }
+        serialized(paginatedPages(blocks, linesPerPage: linesPerPage))
+    }
 
-        var pages: [String] = []
+    private static func paginatedPages(
+        _ blocks: [RenderedBlock],
+        linesPerPage: Int
+    ) -> [[String]] {
+        let allLines = blocks.flatMap(\.lines)
+        guard linesPerPage > 0 else { return allLines.isEmpty ? [] : [allLines] }
+
+        var pages: [[String]] = []
         var page: [String] = []
 
         func finishPage() {
             guard !page.isEmpty else { return }
-            pages.append(page.joined(separator: "\r\n"))
+            pages.append(page)
             page = []
         }
 
@@ -526,8 +632,13 @@ nonisolated enum BRFWriter {
         }
         finishPage()
 
+        return pages
+    }
+
+    private static func serialized(_ pages: [[String]]) -> String {
         // BRF uses CRLF line endings and a form feed between pages.
-        return pages.joined(separator: "\r\n\u{000C}") + "\r\n"
+        return pages.map { $0.joined(separator: "\r\n") }
+            .joined(separator: "\r\n\u{000C}") + "\r\n"
     }
 
     // MARK: - ASCII braille
@@ -587,6 +698,7 @@ nonisolated enum BRFWriter {
 nonisolated enum BRFExportError: LocalizedError, Equatable, Sendable {
     case eightDotBrailleNotRepresentable
     case unexpectedCharacter(UInt32)
+    case pageTooShortForPageNumber
 
     var errorDescription: String? {
         switch self {
@@ -594,6 +706,8 @@ nonisolated enum BRFExportError: LocalizedError, Equatable, Sendable {
             return String(localized: "The translation contains eight-dot braille, which cannot be represented safely in BRF.")
         case .unexpectedCharacter(let value):
             return String(localized: "The translation contains a character that cannot be represented in BRF (Unicode \(String(value, radix: 16).uppercased())).")
+        case .pageTooShortForPageNumber:
+            return String(localized: "The page must have at least two lines when adding braille page numbers.")
         }
     }
 }

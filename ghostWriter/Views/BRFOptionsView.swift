@@ -9,8 +9,8 @@
 //  40 cells reads badly on a 32-cell display, so these are asked rather than
 //  assumed. The braille grade is asked for the same reason it is for eBraille.
 //
-//  BRF has no metadata container. This export creates reader-oriented UEB BRF,
-//  not the preliminary pages and source pagination of a production transcription.
+//  BRF has no metadata container. This export creates practical UEB BRF for
+//  displays and straightforward embossed pages, not a production transcription.
 //
 
 import SwiftUI
@@ -22,6 +22,7 @@ struct BRFOptionsView: View {
     let onExport: (BRFExportOptions) -> Void
 
     @State private var grade: BrailleGrade
+    @State private var outputPurpose: BRFWriter.OutputPurpose = .brailleDisplay
     @State private var layout: Layout
     @State private var cellsPerLine: Int
     @State private var linesPerPage: Int
@@ -30,6 +31,7 @@ struct BRFOptionsView: View {
 
     private enum AccessibilityTarget: Hashable {
         case grade
+        case outputPurpose
         case layout
         case cellsPerLine
         case linesPerPage
@@ -43,7 +45,7 @@ struct BRFOptionsView: View {
         var label: String {
             switch self {
             case .standard: return String(localized: "Standard BRF page (40 by 25)")
-            case .custom: return String(localized: "Custom display layout")
+            case .custom: return String(localized: "Custom braille page")
             }
         }
     }
@@ -91,6 +93,29 @@ struct BRFOptionsView: View {
                 }
 
                 Section {
+                    LabeledContent("Use") {
+                        Picker(selection: $outputPurpose) {
+                            Text("Braille display")
+                                .tag(BRFWriter.OutputPurpose.brailleDisplay)
+                            Text("Emboss on paper")
+                                .tag(BRFWriter.OutputPurpose.embossedPages)
+                        } label: {
+                            EmptyView()
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityFocused(
+                            $accessibilityFocus,
+                            equals: .outputPurpose
+                        )
+                        .onChange(of: outputPurpose) { _, _ in
+                            restoreFocus(to: .outputPurpose)
+                        }
+                    }
+                } footer: {
+                    Text("Choose how you plan to use this BRF file. Embossed pages include a braille page number at the bottom of each page.")
+                }
+
+                Section {
                     LabeledContent("Layout") {
                         Picker(selection: $layout) {
                             ForEach(Layout.allCases) { layout in
@@ -104,7 +129,7 @@ struct BRFOptionsView: View {
                         .onChange(of: layout) { _, _ in restoreFocus(to: .layout) }
                     }
                 } footer: {
-                    Text("Standard BRF uses 40 cells by 25 lines. Choose a custom layout only when preparing the file for a particular display size.")
+                    Text("Standard pages use 40 cells by 25 lines.")
                 }
 
                 if layout == .custom {
@@ -139,7 +164,11 @@ struct BRFOptionsView: View {
                         }
                     }
                     } footer: {
-                        Text("Match these dimensions to the intended braille display.")
+                        if outputPurpose == .brailleDisplay {
+                            Text("Match these dimensions to your braille display.")
+                        } else {
+                            Text("Match these dimensions to the page size used by your embosser. The final line is reserved for the page number.")
+                        }
                     }
                 }
 
@@ -168,7 +197,8 @@ struct BRFOptionsView: View {
         onExport(
             BRFExportOptions(
                 grade: grade,
-                pageSetup: pageSetup
+                pageSetup: pageSetup,
+                outputPurpose: outputPurpose
             )
         )
     }
@@ -188,4 +218,5 @@ struct BRFOptionsView: View {
 nonisolated struct BRFExportOptions: Equatable, Sendable {
     let grade: BrailleGrade
     let pageSetup: BRFWriter.PageSetup
+    let outputPurpose: BRFWriter.OutputPurpose
 }

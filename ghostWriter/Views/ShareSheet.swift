@@ -369,6 +369,7 @@ nonisolated enum EditorShareFileWriter {
                 title: title,
                 grade: brfOptions.grade,
                 pageSetup: brfOptions.pageSetup,
+                outputPurpose: brfOptions.outputPurpose,
                 translator: LiblouisBridge.shared,
                 documentLanguage: documentLanguage
             )

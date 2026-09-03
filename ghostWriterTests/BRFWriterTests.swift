@@ -171,6 +171,114 @@ struct BRFWriterTests {
         }
     }
 
+    @Test func displayPurposePreservesExistingOutput() async throws {
+        let translator = RecordingTranslator()
+        let implicit = try await BRFWriter.write(
+            markdown: "A short document.",
+            title: "Title",
+            grade: .grade2,
+            pageSetup: .init(cellsPerLine: 20, linesPerPage: 10),
+            translator: translator
+        )
+        let explicit = try await BRFWriter.write(
+            markdown: "A short document.",
+            title: "Title",
+            grade: .grade2,
+            pageSetup: .init(cellsPerLine: 20, linesPerPage: 10),
+            outputPurpose: .brailleDisplay,
+            translator: RecordingTranslator()
+        )
+
+        #expect(implicit == explicit)
+    }
+
+    @Test func embossedPagesReserveAndNumberTheFinalLine() async throws {
+        let data = try await BRFWriter.write(
+            markdown: Array(repeating: "One two three four five.", count: 20)
+                .joined(separator: "\n\n"),
+            title: "",
+            grade: .grade1,
+            pageSetup: .init(cellsPerLine: 20, linesPerPage: 10),
+            outputPurpose: .embossedPages,
+            translator: LiblouisBridge.shared
+        )
+        let output = String(decoding: data, as: UTF8.self)
+        #expect(output.hasSuffix("\r\n"))
+        let withoutFinalCRLF = String(output.dropLast())
+        let pages = withoutFinalCRLF.components(separatedBy: "\r\n\u{000C}")
+
+        #expect(pages.count > 1)
+        for (index, page) in pages.enumerated() {
+            let lines = page.components(separatedBy: "\r\n")
+            let expectedNumber = try BRFWriter.asciiBraille(
+                try await LiblouisBridge.shared.translate("\(index + 1)", grade: .grade1)
+            )
+            #expect(lines.count == 10)
+            #expect(lines.allSatisfy { $0.count <= 20 })
+            #expect(lines.last?.count == 20)
+            #expect(lines.last?.hasSuffix(expectedNumber) == true)
+        }
+    }
+
+    @Test func embossedPagesRequireRoomForContentAndPageNumber() async {
+        await #expect(throws: BRFExportError.pageTooShortForPageNumber) {
+            try await BRFWriter.write(
+                markdown: "Text",
+                title: "",
+                grade: .grade2,
+                pageSetup: .init(cellsPerLine: 20, linesPerPage: 1),
+                outputPurpose: .embossedPages,
+                translator: RecordingTranslator()
+            )
+        }
+    }
+
+    @Test func brfLinksKeepTheirDestinationsWithoutDuplicatingBareURLs() async throws {
+        let translator = RecordingTranslator()
+        _ = try await BRFWriter.write(
+            markdown: "[Guide](https://example.com) and <https://openai.com>.",
+            title: "",
+            grade: .grade2,
+            translator: translator
+        )
+
+        let inputs = await translator.inputs.map(\.text)
+        #expect(inputs.contains("Guide"))
+        #expect(inputs.contains("(https://example.com)"))
+        #expect(inputs.filter { $0 == "https://openai.com" }.count == 1)
+    }
+
+    @Test func internalLinksKeepTheirLabelsWithoutPrintingFragments() async throws {
+        let translator = RecordingTranslator()
+        _ = try await BRFWriter.write(
+            markdown: "[Introduction](#introduction)",
+            title: "",
+            grade: .grade2,
+            translator: translator
+        )
+
+        let inputs = await translator.inputs.map(\.text)
+        #expect(inputs.contains("Introduction"))
+        #expect(!inputs.contains { $0.contains("#introduction") })
+    }
+
+    @Test func longElectronicAddressUsesUEBContinuationInsteadOfHyphen() async throws {
+        let destination = "https://example.com/" + String(repeating: "a", count: 50)
+        let data = try await BRFWriter.write(
+            markdown: "[Guide](\(destination))",
+            title: "",
+            grade: .grade2,
+            pageSetup: .init(cellsPerLine: 20, linesPerPage: 25),
+            translator: RecordingTranslator()
+        )
+        let output = String(decoding: data, as: UTF8.self)
+
+        #expect(output.contains("\""))
+        #expect(!output.contains("-"))
+        #expect(output.components(separatedBy: "\r\n")
+            .allSatisfy { $0.count <= 20 })
+    }
+
     @Test func unorderedItemsUseBrailleBulletsAndSeparateLines() async throws {
         let translator = RecordingTranslator()
         let data = try await BRFWriter.write(
