@@ -167,7 +167,7 @@ struct BRFOptionsView: View {
                         if outputPurpose == .brailleDisplay {
                             Text("Match these dimensions to your braille display.")
                         } else {
-                            Text("Match these dimensions to the page size used by your embosser. The final line is reserved for the page number.")
+                            Text("Match the cells per line and lines per page to the layout selected in your embossing software. The final line is reserved for the page number.")
                         }
                     }
                 }

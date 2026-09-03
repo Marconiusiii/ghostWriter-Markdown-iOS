@@ -2887,13 +2887,13 @@
         }
       }
     },
-    "Match these dimensions to the page size used by your embosser. The final line is reserved for the page number." : {
+    "Match the cells per line and lines per page to the layout selected in your embossing software. The final line is reserved for the page number." : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajusta estas dimensiones al tamaño de página que usa tu impresora braille. La última línea se reserva para el número de página."
+            "value" : "Ajusta las celdas por línea y las líneas por página al diseño seleccionado en tu programa de impresión braille. La última línea se reserva para el número de página."
           }
         }
       }
