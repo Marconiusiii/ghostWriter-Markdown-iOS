@@ -5025,6 +5025,17 @@
         }
       }
     },
+    "Friendly Haunting Received" : {
+      "comment" : "SettingsView.swift: verified support purchase alert title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encantamiento amistoso recibido"
+          }
+        }
+      }
+    },
     "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you." : {
       "comment" : "SettingsView.swift: optional support introduction",
       "localizations" : {

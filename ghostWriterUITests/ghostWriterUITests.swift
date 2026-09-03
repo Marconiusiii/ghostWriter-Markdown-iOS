@@ -490,11 +490,7 @@ final class ghostWriterUITests: XCTestCase {
         )
         app.buttons["Settings"].tap()
 
-        let heading = app.staticTexts["SUPPORT GHOSTWRITER MARKDOWN"]
-        for _ in 0..<10 where !heading.exists {
-            app.swipeUp(velocity: .slow)
-        }
-        XCTAssertTrue(heading.waitForExistence(timeout: 10))
+        revealSupportSection(in: app)
 
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
             .press(
@@ -519,6 +515,61 @@ final class ghostWriterUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts[price].exists)
         }
         attachScreenshot(app, name: "Support ghostWriter Markdown purchases")
+    }
+
+    @MainActor
+    func testSuccessfulSupportPurchaseShowsConfirmationAndHistory() throws {
+        let app = launchLibraryApp(
+            additionalArguments: ["-supportScreenshotMode"]
+        )
+        app.buttons["Settings"].tap()
+        revealSupportSection(in: app)
+
+        let littleBoo = app.staticTexts["Little Boo"]
+        XCTAssertTrue(littleBoo.waitForExistence(timeout: 10))
+        XCTAssertTrue(littleBoo.isHittable)
+        littleBoo.tap()
+
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            alert.staticTexts["Friendly Haunting Received"].exists
+        )
+        XCTAssertTrue(
+            alert.staticTexts.matching(
+                NSPredicate(
+                    format: "label CONTAINS %@",
+                    "Thank you for your Little Boo"
+                )
+            ).firstMatch.exists
+        )
+        alert.buttons["Done"].tap()
+        XCTAssertFalse(alert.exists)
+
+        let history = app.staticTexts.matching(
+            NSPredicate(
+                format: "label CONTAINS %@",
+                "Thank you for your Little Boo"
+            )
+        ).firstMatch
+        for _ in 0..<3 where !history.exists {
+            app.swipeDown(velocity: .slow)
+        }
+        XCTAssertTrue(history.waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    private func revealSupportSection(in app: XCUIApplication) {
+        let heading = app.staticTexts.matching(
+            NSPredicate(
+                format: "label ==[c] %@",
+                "Support ghostWriter Markdown"
+            )
+        ).firstMatch
+        for _ in 0..<10 where !heading.exists {
+            app.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(heading.waitForExistence(timeout: 10))
     }
 
     private func attachScreenshot(_ app: XCUIApplication, name: String) {

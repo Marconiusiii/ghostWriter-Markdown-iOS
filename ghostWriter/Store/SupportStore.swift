@@ -140,6 +140,21 @@ final class SupportStore {
     }
 
     func purchase(_ option: SupportOption) async {
+#if DEBUG
+        if displaysScreenshotProducts {
+            guard let thankYou = recordSuccessfulSupport(
+                productID: option.productID,
+                purchaseDate: .now,
+                transactionID: "screenshot-\(UUID().uuidString)"
+            ) else {
+                status = .unexpected
+                return
+            }
+            status = .success(thankYou)
+            return
+        }
+#endif
+
         guard let product = product(for: option) else {
             status = .productLoadFailed
             return

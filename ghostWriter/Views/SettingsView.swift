@@ -28,6 +28,13 @@ struct SettingsView: View {
     @State private var showingMailUnavailable = false
     @State private var requestedStorageLocation: DocumentStorageChoice?
     @State private var focusRequestGate = FocusRestorationRequestGate()
+    @State private var supportAlert: SupportAlertContent?
+    @State private var showingSupportAlert = false
+
+    private struct SupportAlertContent {
+        let title: String
+        let message: String
+    }
 
     private enum FocusTarget: Hashable {
         case indentation
@@ -41,7 +48,6 @@ struct SettingsView: View {
         case whyGhostWriter
         case acknowledgements
         case feedback
-        case supportConfirmation
     }
 
     var body: some View {
@@ -374,10 +380,6 @@ struct SettingsView: View {
                 Text(statusText)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityFocused(
-                        $focusedElement,
-                        equals: .supportConfirmation
-                    )
             }
 
             if supportStore.status == .productLoadFailed {
@@ -390,8 +392,9 @@ struct SettingsView: View {
                 Button {
                     Task {
                         await supportStore.purchase(option)
-                        if supportStatusNeedsFocus {
-                            restoreFocus(to: .supportConfirmation)
+                        if let alert = supportAlertContent {
+                            supportAlert = alert
+                            showingSupportAlert = true
                         }
                     }
                 } label: {
@@ -407,6 +410,37 @@ struct SettingsView: View {
                         || supportStore.isPurchasing
                 )
             }
+        }
+        .alert(
+            Text(supportAlert?.title ?? "")
+                .accessibilityHeading(.unspecified),
+            isPresented: $showingSupportAlert,
+            presenting: supportAlert
+        ) { _ in
+            Button("Done") {}
+        } message: { alert in
+            Text(alert.message)
+        }
+    }
+
+    private var supportAlertContent: SupportAlertContent? {
+        let standardTitle = String(localized: "Support ghostWriter Markdown")
+
+        switch supportStore.status {
+        case .success(let thankYou):
+            return SupportAlertContent(
+                title: String(localized: "Friendly Haunting Received"),
+                message: thankYouText(thankYou)
+            )
+        case .pending, .productLoadFailed, .purchaseFailed,
+             .verificationFailed, .unexpected:
+            guard let message = supportStatusText else { return nil }
+            return SupportAlertContent(
+                title: standardTitle,
+                message: message
+            )
+        case .idle, .loading, .purchasing:
+            return nil
         }
     }
 
@@ -443,16 +477,6 @@ struct SettingsView: View {
             return String(
                 localized: "Something unexpected rattled the walls. No support was recorded."
             )
-        }
-    }
-
-    private var supportStatusNeedsFocus: Bool {
-        switch supportStore.status {
-        case .success, .pending, .productLoadFailed, .purchaseFailed,
-             .verificationFailed, .unexpected:
-            return true
-        case .idle, .loading, .purchasing:
-            return false
         }
     }
 
