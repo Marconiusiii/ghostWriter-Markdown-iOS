@@ -11,7 +11,7 @@ struct SupportStoreTests {
             "Startling Scream"
         ])
         #expect(SupportStore.supportOptions.map(\.productID) == [
-            "com.marconius.ghostwriter.support.littleBoooo",
+            "com.marconius.ghostwriter.support.littleBoo",
             "com.marconius.ghostwriter.support.bigBoo",
             "com.marconius.ghostwriter.support.spookyWail",
             "com.marconius.ghostwriter.support.startlingScream"

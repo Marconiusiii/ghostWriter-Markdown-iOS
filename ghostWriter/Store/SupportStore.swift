@@ -39,7 +39,7 @@ final class SupportStore {
 
     static let supportOptions: [SupportOption] = [
         SupportOption(
-            productID: "com.marconius.ghostwriter.support.littleBoooo",
+            productID: "com.marconius.ghostwriter.support.littleBoo",
             fallbackName: "Little Boo"
         ),
         SupportOption(
@@ -297,7 +297,7 @@ final class SupportStore {
 
 #if DEBUG
     private static let screenshotPrices = [
-        "com.marconius.ghostwriter.support.littleBoooo": "$0.99",
+        "com.marconius.ghostwriter.support.littleBoo": "$0.99",
         "com.marconius.ghostwriter.support.bigBoo": "$1.99",
         "com.marconius.ghostwriter.support.spookyWail": "$2.99",
         "com.marconius.ghostwriter.support.startlingScream": "$4.99"
