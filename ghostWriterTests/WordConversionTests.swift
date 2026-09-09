@@ -3,6 +3,56 @@ import Testing
 @testable import ghostWriter
 
 struct WordConversionTests {
+    @Test func exportsOnlyBuiltInStylesAndPreservesCode() throws {
+        for markdown in ["Ordinary text.", "Use `value` here.\n\n```\nlet value = 1\n```"] {
+            let data = try MarkdownToWordConverter.convert(title: "", markdown: markdown)
+            let entries = try WordPackage.entries(
+                from: data, paths: ["word/styles.xml", "word/document.xml"]
+            )
+            let styles = try #require(entries["word/styles.xml"])
+            let xml = try #require(String(data: styles, encoding: .utf8))
+            let matches = xml.matches(of: /w:styleId="([^"]+)"/)
+            let identifiers = Set(matches.map { String($0.1) })
+            #expect(identifiers == Set([
+                "Normal", "Heading1", "Heading2", "Heading3", "Heading4",
+                "Heading5", "Heading6", "Quote", "HTMLPreformatted", "HTMLCode", "TableGrid"
+            ]))
+            #expect(!xml.contains("Code Block"))
+            #expect(!xml.contains("Code Character"))
+            if markdown.contains("```") {
+                let document = try #require(entries["word/document.xml"])
+                let body = try #require(String(data: document, encoding: .utf8))
+                #expect(body.contains("w:val=\"HTMLPreformatted\""))
+                #expect(body.contains("w:val=\"HTMLCode\""))
+                let imported = try WordToMarkdownConverter.convert(data: data)
+                #expect(imported.contains("Use `value` here."))
+                #expect(imported.contains("```\nlet value = 1\n```"))
+            }
+        }
+    }
+
+    @Test func importsLegacyCustomCodeStyles() throws {
+        let styles = """
+        <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/></w:style>
+        <w:style w:type="character" w:styleId="CodeChar"><w:name w:val="Code Character"/></w:style>
+        </w:styles>
+        """
+        let document = """
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+        <w:p><w:r><w:rPr><w:rStyle w:val="CodeChar"/></w:rPr><w:t>value</w:t></w:r></w:p>
+        <w:p><w:pPr><w:pStyle w:val="CodeBlock"/></w:pPr><w:r><w:t>let value = 1</w:t></w:r></w:p>
+        </w:body></w:document>
+        """
+        let data = try WordPackage.create(entries: [
+            "word/styles.xml": Data(styles.utf8),
+            "word/document.xml": Data(document.utf8)
+        ])
+        let imported = try WordToMarkdownConverter.convert(data: data)
+        #expect(imported.contains("`value`"))
+        #expect(imported.contains("```\nlet value = 1\n```"))
+    }
+
     @Test func markdownBuildsSemanticWordModel() throws {
         let markdown = """
         # Guide
@@ -88,7 +138,7 @@ struct WordConversionTests {
         #expect(documentXML.contains("<w:strike/>"))
         #expect(documentXML.contains("<w:numPr>"))
         #expect(documentXML.contains("w:val=\"Quote\""))
-        #expect(documentXML.contains("w:val=\"CodeBlock\""))
+        #expect(documentXML.contains("w:val=\"HTMLPreformatted\""))
 
         let roundTrip = try WordToMarkdownConverter.convert(data: data)
         #expect(roundTrip.contains("## Accessible export"))
