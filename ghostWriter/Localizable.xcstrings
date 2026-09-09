@@ -4211,17 +4211,6 @@
         }
       }
     },
-    "Tap New to start writing in markdown." : {
-      "comment" : "LibraryView.swift:883",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pulsa Nuevo para empezar a escribir en Markdown."
-          }
-        }
-      }
-    },
     "Task list created." : {
       "comment" : "MarkdownInsertion.swift:59",
       "localizations" : {

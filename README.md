@@ -145,6 +145,9 @@ presentation. The app remembers the selected theme. Theme text and background
 pairings have automated contrast checks of at least 7:1; themes do not recolor
 images or guarantee the accessibility of their contents.
 
+Use Font family to choose the font for your presentation. The app remembers
+your choice for future exports.
+
 A level 1 heading before the first slide supplies the presentation title;
 otherwise, the document name is used. Content before the first level 2 heading
 appears on the title slide. Each level 2 heading starts and titles a new slide.

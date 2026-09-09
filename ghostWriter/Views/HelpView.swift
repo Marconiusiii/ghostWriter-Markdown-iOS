@@ -160,6 +160,7 @@ private struct HelpTopic: Identifiable {
                 "PowerPoint includes attached images from Files or the Photo Library and PNG, JPEG, or SVG images linked with HTTPS addresses. Images retain their alternative text. SVG images become high-resolution PNG pictures, preserving their colors and transparency. Unavailable, invalid, or oversized images are skipped while the rest of the presentation exports.",
                 "PowerPoint allows up to four included images per slide. If a slide contains too much text, too many images, or a table that is too wide or tall, divide the content with another level 2 heading. Tables keep readable text sizes. The exporter does not automatically split crowded slides.",
                 "The selected theme applies to the whole presentation, and the app remembers your choice. Themes set the slide background, text, and link colors. They do not change the colors inside images.",
+                "Use Font family to choose the font for your presentation. The app remembers your choice for future exports.",
                 "Warm paper: Warm cream background, dark brown text, deep green headings, and dark blue links.",
                 "Midnight: Near-black brown background, warm ivory text, pale sage-green headings, and light blue links.",
                 "High contrast light: White background, black text, navy headings, and dark blue links.",

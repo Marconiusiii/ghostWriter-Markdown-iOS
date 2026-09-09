@@ -630,7 +630,7 @@ struct LibraryView: View {
         if !store.storageAvailable {
             unavailableLibrary
         } else if libraryPresentation.currentItemCount == 0 {
-            emptyLibrary
+            EmptyView()
         } else if libraryPresentation.documents.isEmpty
                     && libraryPresentation.folders.isEmpty {
             noSearchResults
@@ -886,19 +886,6 @@ struct LibraryView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
-    }
-
-    // Neither empty state carries a heading. The Documents heading and the
-    // count text above already say there is nothing here, so a third element
-    // repeating it is just another stop on the way to the New Document button.
-    // What remains is the one thing the count does not convey: what to do next.
-
-    private var emptyLibrary: some View {
-        Text("Tap New to start writing in markdown.")
-            .font(.body)
-            .foregroundStyle(Color.ghostMuted)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 4)
     }
 
     private var unavailableLibrary: some View {
