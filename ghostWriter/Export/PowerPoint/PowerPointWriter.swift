@@ -41,6 +41,14 @@ nonisolated enum PowerPointWriter {
         var hyperlink: String?
     }
 
+    private final class ListMarkers {
+        let labels: [String]
+        var hangingIndent: Int?
+        init(_ list: ExportList) {
+            labels = list.isOrdered ? list.items.indices.map { "\(max(1, list.start) + $0)." } : ["•"]
+        }
+    }
+
     private struct Paragraph {
         enum Marker {
             case none
@@ -51,6 +59,9 @@ nonisolated enum PowerPointWriter {
         var runs: [TextRun]
         var level = 0
         var marker: Marker = .none
+        var listMarkers: ListMarkers?
+        var listHangingIndent = 228_600
+        var listLeftMargin = 457_200
         var fontSize = 2400
         var color = "dk1"
         var bold = false
@@ -395,13 +406,14 @@ nonisolated enum PowerPointWriter {
             switch block {
             case .table(let table): append(.table(table))
             case .list(let list):
+                let markers = ListMarkers(list)
                 for (offset, item) in list.items.enumerated() {
                     var runs = textRuns(item.content)
                     if let state = item.taskState {
                         runs.insert(TextRun(text: state.spokenPrefix(for: language) + " ", bold: true), at: 0)
                     }
                     append(.text([Paragraph(runs: runs, level: min(level, 8), marker: list.isOrdered
-                        ? .numbered(start: offset == 0 ? list.start : nil) : .bullet)]))
+                        ? .numbered(start: offset == 0 ? list.start : nil) : .bullet, listMarkers: markers)]))
                     for child in slideContent(from: item.children, language: language, level: level + 1) {
                         append(child)
                     }
@@ -490,6 +502,7 @@ nonisolated enum PowerPointWriter {
         level: Int,
         to paragraphs: inout [Paragraph]
     ) {
+        let markers = ListMarkers(list)
         for (offset, item) in list.items.enumerated() {
             var runs = textRuns(item.content)
             if let state = item.taskState {
@@ -503,7 +516,8 @@ nonisolated enum PowerPointWriter {
                 level: min(level, 8),
                 marker: list.isOrdered
                     ? .numbered(start: offset == 0 ? list.start : nil)
-                    : .bullet
+                    : .bullet,
+                listMarkers: markers
             ))
             for child in item.children {
                 if case .list(let nested) = child {
@@ -670,6 +684,7 @@ nonisolated enum PowerPointWriter {
         mediaNumber: inout Int,
         context: inout SlideContext
     ) throws -> String {
+        let paragraphs = try spacedLists(paragraphs, measurements: context.measurements)
         let titlePosition = isTitleSlide && (!images.isEmpty || tableContent != nil)
             ? (x: 548_640, y: 274_320, width: 11_094_720, height: 1_350_000)
             : isTitleSlide
@@ -815,8 +830,8 @@ nonisolated enum PowerPointWriter {
                 marker = "<a:buSzPct val=\"100000\"/><a:buFontTx/><a:buAutoNum type=\"arabicPeriod\"/>"
             }
         }
-        let margin = paragraph.markerIsNone ? 0 : 457_200 + paragraph.level * 365_760
-        let indent = paragraph.markerIsNone ? 0 : -228_600
+        let margin = listTextInset(paragraph)
+        let indent = paragraph.markerIsNone ? 0 : -paragraph.listHangingIndent
         let alignment = paragraph.alignment.map { " algn=\"\($0)\"" } ?? ""
         let properties = "<a:pPr lvl=\"\(min(paragraph.level, 8))\" marL=\"\(margin)\" indent=\"\(indent)\" latinLnBrk=\"0\"\(alignment)><a:spcAft><a:spcPts val=\"\(paragraph.spacingAfter)\"/></a:spcAft>\(marker)</a:pPr>"
         let ordinaryTypeface = "<a:latin typeface=\"\(fontReference)\"/>"
@@ -848,6 +863,12 @@ nonisolated enum PowerPointWriter {
         _ content: [SlideContent], position: Frame, title: String, isTitleSlide: Bool,
         language: String, context: inout SlideContext
     ) throws -> String {
+        let allParagraphs = content.flatMap { item -> [Paragraph] in
+            if case .text(let paragraphs) = item { return paragraphs }
+            return []
+        }
+        let spaced = try spacedLists(allParagraphs, measurements: context.measurements)
+        var paragraphOffset = 0
         var xml = ""
         var y = position.y
         var hasBodyPlaceholder = false
@@ -860,6 +881,9 @@ nonisolated enum PowerPointWriter {
             let height: Int
             switch item {
             case .text(var paragraphs):
+                let count = paragraphs.count
+                paragraphs = Array(spaced[paragraphOffset..<(paragraphOffset + count)])
+                paragraphOffset += count
                 // A table separates text shapes. Restart native numbering at the
                 // correct value when a list continues in the following shape.
                 var seenLevels = Set<Int>()
@@ -899,6 +923,52 @@ nonisolated enum PowerPointWriter {
         return xml
     }
 
+    private static func listTextInset(_ paragraph: Paragraph) -> Int {
+        paragraph.markerIsNone ? 0 : paragraph.listLeftMargin
+    }
+
+    /// Reserve the widest native marker plus half an em of separation for the
+    /// entire source list. Store the result for both XML and text-fit checks.
+    private static func spacedLists(_ paragraphs: [Paragraph], measurements: FontMeasurements) throws -> [Paragraph] {
+        let measured = try paragraphs.map { original in
+            guard !original.markerIsNone else { return original }
+            var paragraph = original
+            guard let markers = paragraph.listMarkers else { return paragraph }
+            if let cached = markers.hangingIndent {
+                paragraph.listHangingIndent = cached
+                return paragraph
+            }
+            var widest: Double = 0
+            // Leave room for emphasis and inline code at the beginning of any
+            // item without moving the text start between items in this list.
+            for code in [false, true] {
+                for bold in [false, true] {
+                    for italic in [false, true] {
+                        let font = try measurements.font(size: paragraph.fontSize,
+                            bold: bold, italic: italic, code: code)
+                        for marker in markers.labels {
+                            let string = NSAttributedString(string: marker,
+                                attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font])
+                            widest = max(widest, CTLineGetTypographicBounds(CTLineCreateWithAttributedString(string), nil, nil, nil))
+                        }
+                    }
+                }
+            }
+            let gap = max(6, Double(paragraph.fontSize) / 200)
+            paragraph.listHangingIndent = Int(ceil((widest + gap) * 12_700))
+            markers.hangingIndent = paragraph.listHangingIndent
+            return paragraph
+        }
+        // A child list must stay visibly indented even when its parent has
+        // wider, multiple-digit numbering.
+        let levelStride = max(365_760, measured.filter { !$0.markerIsNone }.map(\.listHangingIndent).max() ?? 0)
+        return measured.map { original in
+            var paragraph = original
+            paragraph.listLeftMargin = 228_600 + paragraph.level * levelStride + paragraph.listHangingIndent
+            return paragraph
+        }
+    }
+
     /// Measure the actual fonts, including emphasis and explicit newlines.
     /// Extra leading allows for differences between Core Text and Office.
     private static func attributedText(_ paragraph: Paragraph, measurements: FontMeasurements) throws -> NSAttributedString {
@@ -913,7 +983,7 @@ nonisolated enum PowerPointWriter {
     }
 
     private static func measuredHeight(_ paragraph: Paragraph, width: Int, title: String, measurements: FontMeasurements) throws -> Int {
-        let inset = paragraph.markerIsNone ? 0 : 457_200 + paragraph.level * 365_760
+        let inset = listTextInset(paragraph)
         let available = CGFloat(width - inset) / 12_700 - 4
         guard available >= 24, paragraph.runs.reduce(0, { $0 + $1.text.count }) <= 10_000 else {
             throw PowerPointExportError.slideTooFull(title)

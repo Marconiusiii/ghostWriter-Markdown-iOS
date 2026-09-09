@@ -1,4 +1,5 @@
 import Foundation
+import CoreText
 import Testing
 import ZIPFoundation
 @testable import ghostWriter
@@ -219,6 +220,40 @@ struct PowerPointWriterTests {
         #expect(!slide.contains("startAt=\"5\""))
         #expect(slide.contains("<p:ph type=\"body\" idx=\"1\""))
         #expect(!slide.contains("txBox=\"1\""))
+    }
+
+    @Test func nativeNumberingReservesMarkerSpaceAcrossDigitChanges() throws {
+        for family in PowerPointFont.allCases {
+            for start in [1, 9, 99] {
+                let package = try entries(markdown: "# Deck\n\n## Lists\n\n\(start). First item\n\(start + 1). Second item", font: family)
+                let root = try xmlTree(text("ppt/slides/slide2.xml", in: package))
+                let properties = root.all("a:pPr").filter { !$0.all("a:buAutoNum").isEmpty }
+                #expect(properties.count == 2)
+                #expect(Set(properties.compactMap { $0.attributes["marL"] }).count == 1)
+                let font = try #require(family.resolvedFont(size: 24, bold: false, italic: false))
+                for value in start...(start + 1) {
+                    let marker = NSAttributedString(string: "\(value).",
+                        attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font])
+                    let width = CTLineGetTypographicBounds(CTLineCreateWithAttributedString(marker), nil, nil, nil)
+                    for property in properties {
+                        let indent = try #require(Int(property.attributes["indent"] ?? ""))
+                        #expect(Double(-indent) / 12_700 >= width + 12)
+                    }
+                }
+                #expect(root.all("a:t").map(\.text) == ["Lists", "First item", "Second item"])
+                #expect(root.all("a:buAutoNum").map { $0.attributes["startAt"] } == [String(start), nil])
+            }
+        }
+    }
+
+    @Test func nestedTextRemainsIndentedAfterWideParentNumbers() throws {
+        let package = try entries(markdown: "# Deck\n\n## Lists\n\n999. Parent\n     1. Child\n1000. Parent again", font: .courierNew)
+        let root = try xmlTree(text("ppt/slides/slide2.xml", in: package))
+        let properties = root.all("a:pPr").filter { !$0.all("a:buAutoNum").isEmpty }
+        #expect(properties.count == 3)
+        let parent = try #require(properties.first { $0.attributes["lvl"] == "0" })
+        let child = try #require(properties.first { $0.attributes["lvl"] == "1" })
+        #expect(try #require(Int(child.attributes["marL"] ?? "")) > #require(Int(parent.attributes["marL"] ?? "")))
     }
 
     @Test func orderedListsRestartOnlyAtMarkdownListBoundaries() throws {
