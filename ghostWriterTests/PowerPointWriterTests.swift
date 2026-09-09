@@ -8,6 +8,7 @@ struct PowerPointWriterTests {
         title: String = "Deck",
         markdown: String,
         theme: PowerPointTheme = .warmPaper,
+        font: PowerPointFont = .arial,
         sourceDirectory: URL? = nil,
         language: String = "en",
         resolvedImages: [String: PowerPointImageLoader.Image]? = nil
@@ -16,6 +17,7 @@ struct PowerPointWriterTests {
             title: title,
             markdown: markdown,
             theme: theme,
+            font: font,
             sourceDirectory: sourceDirectory,
             documentLanguage: language,
             resolvedImages: resolvedImages
@@ -32,6 +34,63 @@ struct PowerPointWriterTests {
 
     private func text(_ path: String, in entries: [String: Data]) throws -> String {
         String(decoding: try #require(entries[path]), as: UTF8.self)
+    }
+
+    @Test func allFontsUseThemeReferencesAcrossSlideContentAndNotes() throws {
+        for family in PowerPointFont.allCases {
+            let package = try entries(markdown: """
+            # Font sample
+
+            ## Text and table
+
+            Ordinary **bold** and *italic* text with `inline code`.
+
+            - A list item
+
+            | Name | Value |
+            | --- | --- |
+            | Example | **Bold** and *italic* |
+
+            ***
+
+            Speaker notes.
+            """, font: family)
+            let theme = try text("ppt/theme/theme1.xml", in: package)
+            #expect(theme.contains("<a:majorFont><a:latin typeface=\"\(family.rawValue)\"/>"))
+            #expect(theme.contains("<a:minorFont><a:latin typeface=\"\(family.rawValue)\"/>"))
+            let slide = try text("ppt/slides/slide2.xml", in: package)
+            #expect(slide.contains("typeface=\"+mj-lt\""))
+            #expect(slide.contains("typeface=\"+mn-lt\""))
+            #expect(slide.contains("typeface=\"Courier New\""))
+            #expect(slide.contains("<a:buFontTx/>"))
+            #expect(slide.contains("latinLnBrk=\"0\""))
+            #expect((try text("ppt/notesSlides/notesSlide2.xml", in: package)).contains("typeface=\"+mn-lt\""))
+            for (path, bytes) in package where path.hasSuffix(".xml") && !path.contains("/theme/") {
+                let xml = String(decoding: bytes, as: UTF8.self)
+                for other in PowerPointFont.allCases where other != .courierNew {
+                    #expect(!xml.contains("typeface=\"\(other.rawValue)\""), "Direct font in \(path)")
+                }
+            }
+        }
+    }
+
+    @Test func wideTitlesAreRejectedUsingActualFontMeasurements() {
+        let title = String(repeating: "W", count: 40)
+        #expect(throws: PowerPointExportError.slideTooFull(title)) {
+            try PowerPointWriter.write(title: title, markdown: "", font: .verdana)
+        }
+    }
+
+    @Test func imageLoadingAndDirectPathsProduceTheSameSlideContent() async throws {
+        let source = "## Topic\n\nBody with **emphasis**.\n\n***\n\nNotes."
+        let direct = try entries(title: "  Deck  ", markdown: source, font: .georgia)
+        let bytes = try await PowerPointWriter.writeLoadingImages(title: "  Deck  ", markdown: source, font: .georgia, documentLanguage: "en")
+        let archive = try Archive(data: bytes, accessMode: .read)
+        for part in archive where part.path.hasPrefix("ppt/") && part.path.hasSuffix(".xml") {
+            var loaded = Data()
+            _ = try archive.extract(part) { loaded.append($0) }
+            #expect(loaded == direct[part.path], "Different content for \(part.path)")
+        }
     }
 
     @Test func levelTwoHeadingsCreateTitledSlides() throws {
@@ -153,7 +212,7 @@ struct PowerPointWriterTests {
 
         #expect(slide.contains("<a:buChar char=\"•\"/>"))
         #expect(slide.contains("<a:buSzPct val=\"100000\"/>"))
-        #expect(slide.contains("<a:buFont typeface=\"Arial\"/>"))
+        #expect(slide.contains("<a:buFontTx/>"))
         #expect(slide.contains("lvl=\"1\""))
         #expect(slide.contains("<a:buAutoNum type=\"arabicPeriod\" startAt=\"4\"/>"))
         #expect(slide.contains("<a:buAutoNum type=\"arabicPeriod\"/>"))

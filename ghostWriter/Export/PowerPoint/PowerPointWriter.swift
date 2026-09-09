@@ -100,7 +100,32 @@ nonisolated enum PowerPointWriter {
         var ratio: Double
     }
 
+    private final class FontMeasurements {
+        private struct Key: Hashable {
+            let family: PowerPointFont
+            let size: Int
+            let bold: Bool
+            let italic: Bool
+        }
+
+        let family: PowerPointFont
+        private var fonts: [Key: CTFont] = [:]
+
+        init(family: PowerPointFont) { self.family = family }
+
+        func font(size: Int, bold: Bool, italic: Bool, code: Bool) throws -> CTFont {
+            let key = Key(family: code ? .courierNew : family, size: size, bold: bold, italic: italic)
+            if let cached = fonts[key] { return cached }
+            guard let font = key.family.resolvedFont(size: CGFloat(size) / 100, bold: bold, italic: italic) else {
+                throw PowerPointExportError.fontUnavailable(key.family.rawValue)
+            }
+            fonts[key] = font
+            return font
+        }
+    }
+
     private struct SlideContext {
+        let measurements: FontMeasurements
         var relationships: [Relationship] = []
         var media: [MediaPart] = []
         var nextRelationship = 10
@@ -142,17 +167,19 @@ nonisolated enum PowerPointWriter {
         title: String,
         markdown: String,
         theme: PowerPointTheme = .warmPaper,
+        font: PowerPointFont = .arial,
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag("")
     ) async throws -> Data {
-        let deck = makeDeck(title: title, document: MarkdownDocumentParser.parse(markdown))
+        let deck = makeDeck(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            document: MarkdownDocumentParser.parse(markdown))
         let visibleBlocks = deck.titleContent + deck.slides.flatMap(\.content)
         let images = try await PowerPointImageLoader.load(
             sources: collectImages(in: visibleBlocks).map(\.source),
             sourceDirectory: sourceDirectory
         )
         try Task.checkCancellation()
-        return try write(title: title, markdown: markdown, theme: theme,
+        return try write(deck: deck, theme: theme, font: font,
             sourceDirectory: sourceDirectory, documentLanguage: documentLanguage, resolvedImages: images)
     }
 
@@ -160,6 +187,7 @@ nonisolated enum PowerPointWriter {
         title: String,
         markdown: String,
         theme: PowerPointTheme = .warmPaper,
+        font: PowerPointFont = .arial,
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
         resolvedImages: [String: PowerPointImageLoader.Image]? = nil
@@ -169,6 +197,19 @@ nonisolated enum PowerPointWriter {
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             document: parsed
         )
+        return try write(deck: deck, theme: theme, font: font,
+            sourceDirectory: sourceDirectory, documentLanguage: documentLanguage, resolvedImages: resolvedImages)
+    }
+
+    private static func write(
+        deck: Deck,
+        theme: PowerPointTheme,
+        font: PowerPointFont,
+        sourceDirectory: URL?,
+        documentLanguage: String,
+        resolvedImages: [String: PowerPointImageLoader.Image]?
+    ) throws -> Data {
+        let measurements = FontMeasurements(family: font)
         let allSlides = [Slide(
             title: [.text(deck.title)],
             content: deck.titleContent,
@@ -183,15 +224,17 @@ nonisolated enum PowerPointWriter {
             slideCount: allSlides.count,
             notesCount: noteSlideNumbers.count,
             theme: theme,
+            font: font,
             language: documentLanguage
         )
         var mediaNumber = 1
         var allMedia: [MediaPart] = []
 
         for (offset, slide) in allSlides.enumerated() {
+            try Task.checkCancellation()
             let number = offset + 1
             let isTitleSlide = number == 1
-            var context = SlideContext()
+            var context = SlideContext(measurements: measurements)
             let images = prepareImages(
                 collectImages(in: slide.content),
                 sourceDirectory: sourceDirectory,
@@ -645,7 +688,7 @@ nonisolated enum PowerPointWriter {
             bodyPosition = (731_520, 1_371_600, 10_728_000, 4_900_000)
         }
 
-        var shapes = titleShapeXML(
+        var shapes = try titleShapeXML(
             content: slide.title,
             position: titlePosition,
             isTitleSlide: isTitleSlide,
@@ -657,6 +700,13 @@ nonisolated enum PowerPointWriter {
                 title: slide.title.plainText, isTitleSlide: isTitleSlide,
                 language: language, context: &context)
         } else if hasText {
+            let height = try paragraphs.reduce(0) {
+                $0 + (try measuredHeight($1, width: bodyPosition.width,
+                    title: slide.title.plainText, measurements: context.measurements))
+            }
+            guard height <= bodyPosition.height else {
+                throw PowerPointExportError.slideTooFull(slide.title.plainText)
+            }
             shapes += textShapeXML(
                 paragraphs: paragraphs,
                 position: bodyPosition,
@@ -702,13 +752,18 @@ nonisolated enum PowerPointWriter {
         isTitleSlide: Bool,
         language: String,
         context: inout SlideContext
-    ) -> String {
+    ) throws -> String {
         let paragraph = Paragraph(
             runs: textRuns(content),
             fontSize: isTitleSlide ? 5400 : 4000,
             color: "accent1",
-            bold: true
+            bold: true,
+            spacingAfter: 0
         )
+        guard try measuredHeight(paragraph, width: position.width,
+            title: content.plainText, measurements: context.measurements) <= position.height else {
+            throw PowerPointExportError.slideTooFull(content.plainText)
+        }
         return textShapeXML(
             paragraphs: [paragraph],
             position: position,
@@ -732,7 +787,8 @@ nonisolated enum PowerPointWriter {
         context: inout SlideContext
     ) -> String {
         let paragraphXML = paragraphs.map {
-            drawingParagraphXML($0, language: language, context: &context)
+            drawingParagraphXML($0, language: language,
+                fontReference: placeholderIndex == 0 ? "+mj-lt" : "+mn-lt", context: &context)
         }.joined()
         let placeholderIndexXML = placeholderIndex == 0 ? "" : " idx=\"\(placeholderIndex)\""
         let placeholder = includePlaceholder ? "<p:ph type=\"\(placeholderType)\"\(placeholderIndexXML)/>" : ""
@@ -744,31 +800,36 @@ nonisolated enum PowerPointWriter {
     private static func drawingParagraphXML(
         _ paragraph: Paragraph,
         language: String,
+        fontReference: String = "+mn-lt",
         context: inout SlideContext
     ) -> String {
         let marker: String
         switch paragraph.marker {
         case .none: marker = "<a:buNone/>"
         case .bullet:
-            marker = "<a:buSzPct val=\"100000\"/><a:buFont typeface=\"Arial\"/><a:buChar char=\"•\"/>"
+            marker = "<a:buSzPct val=\"100000\"/><a:buFontTx/><a:buChar char=\"•\"/>"
         case .numbered(let start):
             if let start {
-                marker = "<a:buSzPct val=\"100000\"/><a:buFont typeface=\"Arial\"/><a:buAutoNum type=\"arabicPeriod\" startAt=\"\(max(1, start))\"/>"
+                marker = "<a:buSzPct val=\"100000\"/><a:buFontTx/><a:buAutoNum type=\"arabicPeriod\" startAt=\"\(max(1, start))\"/>"
             } else {
-                marker = "<a:buSzPct val=\"100000\"/><a:buFont typeface=\"Arial\"/><a:buAutoNum type=\"arabicPeriod\"/>"
+                marker = "<a:buSzPct val=\"100000\"/><a:buFontTx/><a:buAutoNum type=\"arabicPeriod\"/>"
             }
         }
         let margin = paragraph.markerIsNone ? 0 : 457_200 + paragraph.level * 365_760
         let indent = paragraph.markerIsNone ? 0 : -228_600
         let alignment = paragraph.alignment.map { " algn=\"\($0)\"" } ?? ""
-        let properties = "<a:pPr lvl=\"\(min(paragraph.level, 8))\" marL=\"\(margin)\" indent=\"\(indent)\"\(alignment)><a:spcAft><a:spcPts val=\"\(paragraph.spacingAfter)\"/></a:spcAft>\(marker)</a:pPr>"
+        let properties = "<a:pPr lvl=\"\(min(paragraph.level, 8))\" marL=\"\(margin)\" indent=\"\(indent)\" latinLnBrk=\"0\"\(alignment)><a:spcAft><a:spcPts val=\"\(paragraph.spacingAfter)\"/></a:spcAft>\(marker)</a:pPr>"
+        let ordinaryTypeface = "<a:latin typeface=\"\(fontReference)\"/>"
+            + "<a:ea typeface=\"\(fontReference.replacingOccurrences(of: "-lt", with: "-ea"))\"/>"
+            + "<a:cs typeface=\"\(fontReference.replacingOccurrences(of: "-lt", with: "-cs"))\"/>"
         let runs = paragraph.runs.map { run -> String in
             var attributes = "lang=\"\(xmlAttribute(language))\" sz=\"\(paragraph.fontSize)\""
             if run.bold || paragraph.bold { attributes += " b=\"1\"" }
             if run.italic { attributes += " i=\"1\"" }
             if run.underline || run.hyperlink != nil { attributes += " u=\"sng\"" }
             if run.strikethrough { attributes += " strike=\"sngStrike\"" }
-            let typeface = run.code || paragraph.code ? "<a:latin typeface=\"Courier New\"/>" : "<a:latin typeface=\"Arial\"/>"
+            let typeface = run.code || paragraph.code
+                ? "<a:latin typeface=\"Courier New\"/>" : ordinaryTypeface
             let color = run.hyperlink == nil ? paragraph.color : paragraph.linkColor
             let hyperlinkXML: String
             if let target = run.hyperlink, !target.isEmpty {
@@ -778,7 +839,7 @@ nonisolated enum PowerPointWriter {
             }
             return "<a:r><a:rPr \(attributes)><a:solidFill><a:schemeClr val=\"\(color)\"/></a:solidFill>\(typeface)\(hyperlinkXML)</a:rPr><a:t>\(xmlText(run.text))</a:t></a:r>"
         }.joined()
-        return "<a:p>\(properties)\(runs)<a:endParaRPr lang=\"\(xmlAttribute(language))\" sz=\"\(paragraph.fontSize)\"><a:solidFill><a:schemeClr val=\"\(paragraph.color)\"/></a:solidFill><a:latin typeface=\"Arial\"/></a:endParaRPr></a:p>"
+        return "<a:p>\(properties)\(runs)<a:endParaRPr lang=\"\(xmlAttribute(language))\" sz=\"\(paragraph.fontSize)\"><a:solidFill><a:schemeClr val=\"\(paragraph.color)\"/></a:solidFill><a:latin typeface=\"\(fontReference)\"/></a:endParaRPr></a:p>"
     }
 
     // MARK: - Native tables and mixed content
@@ -813,7 +874,7 @@ nonisolated enum PowerPointWriter {
                     }
                 }
                 height = try paragraphs.reduce(0) {
-                    $0 + (try measuredHeight($1, width: position.width, title: title))
+                    $0 + (try measuredHeight($1, width: position.width, title: title, measurements: context.measurements))
                 }
                 guard height <= position.y + position.height - y else {
                     throw PowerPointExportError.slideTooFull(title)
@@ -825,7 +886,7 @@ nonisolated enum PowerPointWriter {
                     includePlaceholder: !hasBodyPlaceholder, context: &context)
                 hasBodyPlaceholder = true
             case .table(let table):
-                let layout = try layoutTable(table, width: position.width, title: title)
+                let layout = try layoutTable(table, width: position.width, title: title, measurements: context.measurements)
                 height = layout.heights.reduce(0, +)
                 guard height <= position.y + position.height - y else {
                     throw PowerPointExportError.slideTooFull(title)
@@ -840,28 +901,24 @@ nonisolated enum PowerPointWriter {
 
     /// Measure the actual fonts, including emphasis and explicit newlines.
     /// Extra leading allows for differences between Core Text and Office.
-    private static func attributedText(_ paragraph: Paragraph) -> NSAttributedString {
+    private static func attributedText(_ paragraph: Paragraph, measurements: FontMeasurements) throws -> NSAttributedString {
         let result = NSMutableAttributedString(string: "")
         for run in paragraph.runs {
-            let family = run.code || paragraph.code ? "Courier New" : "Arial"
-            var font = CTFontCreateWithName(family as CFString, CGFloat(paragraph.fontSize) / 100, nil)
-            var traits: CTFontSymbolicTraits = []
-            if run.bold || paragraph.bold { traits.insert(.traitBold) }
-            if run.italic { traits.insert(.traitItalic) }
-            if let styled = CTFontCreateCopyWithSymbolicTraits(font, 0, nil, traits, traits) { font = styled }
+            let font = try measurements.font(size: paragraph.fontSize,
+                bold: run.bold || paragraph.bold, italic: run.italic, code: run.code || paragraph.code)
             result.append(NSAttributedString(string: run.text,
                 attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]))
         }
         return result
     }
 
-    private static func measuredHeight(_ paragraph: Paragraph, width: Int, title: String) throws -> Int {
+    private static func measuredHeight(_ paragraph: Paragraph, width: Int, title: String, measurements: FontMeasurements) throws -> Int {
         let inset = paragraph.markerIsNone ? 0 : 457_200 + paragraph.level * 365_760
         let available = CGFloat(width - inset) / 12_700 - 4
         guard available >= 24, paragraph.runs.reduce(0, { $0 + $1.text.count }) <= 10_000 else {
             throw PowerPointExportError.slideTooFull(title)
         }
-        let attributed = attributedText(paragraph)
+        let attributed = try attributedText(paragraph, measurements: measurements)
         let framesetter = CTFramesetterCreateWithAttributedString(attributed)
         var fitted = CFRange()
         let size = CTFramesetterSuggestFrameSizeWithConstraints(framesetter,
@@ -872,7 +929,7 @@ nonisolated enum PowerPointWriter {
         return Int(ceil(height * 12_700))
     }
 
-    private static func layoutTable(_ table: ExportTable, width: Int, title: String) throws -> TableLayout {
+    private static func layoutTable(_ table: ExportTable, width: Int, title: String, measurements: FontMeasurements) throws -> TableLayout {
         let columns = table.columnCount
         let minimumWidth = 1_143_000 // 90 points at a fixed 22-point cell font.
         let rows = (table.headers.isEmpty ? [] : [table.headers]) + table.rows
@@ -902,7 +959,7 @@ nonisolated enum PowerPointWriter {
                 guard paragraph.runs.reduce(0, { $0 + $1.text.count }) <= 10_000 else {
                     throw PowerPointExportError.slideTooFull(title)
                 }
-                let line = CTLineCreateWithAttributedString(attributedText(paragraph))
+                let line = CTLineCreateWithAttributedString(try attributedText(paragraph, measurements: measurements))
                 let naturalWidth = (CTLineGetTypographicBounds(line, nil, nil, nil) + 24) * 12_700
                 preferences[column] = max(preferences[column], min(3_810_000, naturalWidth))
             }
@@ -913,7 +970,7 @@ nonisolated enum PowerPointWriter {
         widths[columns - 1] += width - widths.reduce(0, +)
         let heights = try cells.map { row in
             try row.enumerated().map { column, paragraph in
-                try measuredHeight(paragraph, width: widths[column] - 243_840, title: title) + 182_880
+                try measuredHeight(paragraph, width: widths[column] - 243_840, title: title, measurements: measurements) + 182_880
             }.max() ?? 0
         }
         return TableLayout(cells: cells, widths: widths, heights: heights, hasHeader: !table.headers.isEmpty)
@@ -1001,7 +1058,7 @@ nonisolated enum PowerPointWriter {
     private static func notesSlideXML(blocks: [ExportBlock], language: String) -> String {
         let notes = paragraphs(from: blocks, language: language).map { paragraph in
             let text = paragraph.runs.map(\.text).joined()
-            return "<a:p><a:r><a:rPr lang=\"\(xmlAttribute(language))\" sz=\"1200\"><a:latin typeface=\"Arial\"/></a:rPr><a:t>\(xmlText(text))</a:t></a:r><a:endParaRPr lang=\"\(xmlAttribute(language))\" sz=\"1200\"/></a:p>"
+            return "<a:p><a:r><a:rPr lang=\"\(xmlAttribute(language))\" sz=\"1200\"><a:latin typeface=\"+mn-lt\"/></a:rPr><a:t>\(xmlText(text))</a:t></a:r><a:endParaRPr lang=\"\(xmlAttribute(language))\" sz=\"1200\"/></a:p>"
         }.joined()
         let slideImage = notesPlaceholderXML(id: 2, name: "Slide image", type: "sldImg", index: 2)
         let notesBody = """
@@ -1020,6 +1077,7 @@ nonisolated enum PowerPointWriter {
         slideCount: Int,
         notesCount: Int,
         theme: PowerPointTheme,
+        font: PowerPointFont,
         language: String
     ) -> [String: Data] {
         let hasNotes = notesCount > 0
@@ -1041,7 +1099,7 @@ nonisolated enum PowerPointWriter {
             "ppt/presProps.xml": data(presentationPropertiesXML),
             "ppt/viewProps.xml": data(viewPropertiesXML),
             "ppt/tableStyles.xml": data(tableStylesXML),
-            "ppt/theme/theme1.xml": data(themeXML(theme)),
+            "ppt/theme/theme1.xml": data(themeXML(theme, font: font)),
             "ppt/slideMasters/slideMaster1.xml": data(slideMasterXML),
             "ppt/slideMasters/_rels/slideMaster1.xml.rels": data(slideMasterRelationshipsXML),
             "ppt/slideLayouts/slideLayout1.xml": data(slideLayoutXML(isTitle: true)),
@@ -1101,7 +1159,7 @@ nonisolated enum PowerPointWriter {
 
     private static var slideMasterXML: String {
         xmlHeader + """
-        <p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="ghostWriter"><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>\(groupShapeRoot)</p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/><p:sldLayoutId id="2147483650" r:id="rId2"/></p:sldLayoutIdLst><p:hf hdr="0" ftr="0" dt="0" sldNum="0"/><p:txStyles><p:titleStyle>\(textStyleLevels(fontSize: 4000, color: "accent1", bold: true))</p:titleStyle><p:bodyStyle>\(textStyleLevels(fontSize: 2400, color: "tx1", bulletIndent: true))</p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="en-US" sz="2400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="Arial"/><a:ea typeface="Arial"/><a:cs typeface="Arial"/></a:defRPr></a:defPPr>\(textStyleLevels(fontSize: 2400, color: "tx1"))</p:otherStyle></p:txStyles></p:sldMaster>
+        <p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="ghostWriter"><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>\(groupShapeRoot)</p:spTree></p:cSld><p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/><p:sldLayoutId id="2147483650" r:id="rId2"/></p:sldLayoutIdLst><p:hf hdr="0" ftr="0" dt="0" sldNum="0"/><p:txStyles><p:titleStyle>\(textStyleLevels(fontSize: 4000, color: "accent1", bold: true, heading: true))</p:titleStyle><p:bodyStyle>\(textStyleLevels(fontSize: 2400, color: "tx1", bulletIndent: true))</p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="en-US" sz="2400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:defPPr>\(textStyleLevels(fontSize: 2400, color: "tx1"))</p:otherStyle></p:txStyles></p:sldMaster>
         """
     }
 
@@ -1180,14 +1238,16 @@ nonisolated enum PowerPointWriter {
         fontSize: Int,
         color: String,
         bold: Bool = false,
+        heading: Bool = false,
         bulletIndent: Bool = false,
         language: String = "en-US"
     ) -> String {
-        (1...9).map { level in
+        let role = heading ? "+mj" : "+mn"
+        return (1...9).map { level in
             let margin = bulletIndent ? 457_200 + (level - 1) * 365_760 : 0
             let indent = bulletIndent ? -228_600 : 0
             let boldAttribute = bold ? " b=\"1\"" : ""
-            return "<a:lvl\(level)pPr marL=\"\(margin)\" indent=\"\(indent)\" algn=\"l\" defTabSz=\"914400\" rtl=\"0\" eaLnBrk=\"1\" latinLnBrk=\"0\" hangingPunct=\"1\"><a:defRPr lang=\"\(xmlAttribute(language))\" sz=\"\(fontSize)\" kern=\"1200\"\(boldAttribute)><a:solidFill><a:schemeClr val=\"\(color)\"/></a:solidFill><a:latin typeface=\"Arial\"/><a:ea typeface=\"Arial\"/><a:cs typeface=\"Arial\"/></a:defRPr></a:lvl\(level)pPr>"
+            return "<a:lvl\(level)pPr marL=\"\(margin)\" indent=\"\(indent)\" algn=\"l\" defTabSz=\"914400\" rtl=\"0\" eaLnBrk=\"1\" latinLnBrk=\"0\" hangingPunct=\"1\"><a:defRPr lang=\"\(xmlAttribute(language))\" sz=\"\(fontSize)\" kern=\"1200\"\(boldAttribute)><a:solidFill><a:schemeClr val=\"\(color)\"/></a:solidFill><a:latin typeface=\"\(role)-lt\"/><a:ea typeface=\"\(role)-ea\"/><a:cs typeface=\"\(role)-cs\"/></a:defRPr></a:lvl\(level)pPr>"
         }.joined()
     }
 
@@ -1214,10 +1274,10 @@ nonisolated enum PowerPointWriter {
         "<p:sp><p:nvSpPr><p:cNvPr id=\"\(id)\" name=\"\(xmlAttribute(name))\"/><p:cNvSpPr><a:spLocks noGrp=\"1\"/></p:cNvSpPr><p:nvPr><p:ph type=\"\(type)\" idx=\"\(index)\"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"\(x)\" y=\"\(y)\"/><a:ext cx=\"\(width)\" cy=\"\(height)\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"\(xmlAttribute(language))\"/></a:p></p:txBody></p:sp>"
     }
 
-    private static func themeXML(_ theme: PowerPointTheme) -> String {
+    private static func themeXML(_ theme: PowerPointTheme, font: PowerPointFont) -> String {
         let palette = theme.palette
         return xmlHeader + """
-        <a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="ghostWriter \(xmlAttribute(theme.label))"><a:themeElements><a:clrScheme name="ghostWriter \(xmlAttribute(theme.label))"><a:dk1><a:srgbClr val="\(palette.text)"/></a:dk1><a:lt1><a:srgbClr val="\(palette.background)"/></a:lt1><a:dk2><a:srgbClr val="\(palette.secondaryText)"/></a:dk2><a:lt2><a:srgbClr val="\(palette.accentSoft)"/></a:lt2><a:accent1><a:srgbClr val="\(palette.accent)"/></a:accent1><a:accent2><a:srgbClr val="\(palette.border)"/></a:accent2><a:accent3><a:srgbClr val="\(palette.link)"/></a:accent3><a:accent4><a:srgbClr val="\(palette.secondaryText)"/></a:accent4><a:accent5><a:srgbClr val="\(palette.accent)"/></a:accent5><a:accent6><a:srgbClr val="\(palette.border)"/></a:accent6><a:hlink><a:srgbClr val="\(palette.link)"/></a:hlink><a:folHlink><a:srgbClr val="\(palette.link)"/></a:folHlink></a:clrScheme><a:fontScheme name="ghostWriter"><a:majorFont><a:latin typeface="Arial"/><a:ea typeface=""/><a:cs typeface="Arial"/></a:majorFont><a:minorFont><a:latin typeface="Arial"/><a:ea typeface=""/><a:cs typeface="Arial"/></a:minorFont></a:fontScheme><a:fmtScheme name="ghostWriter"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="25400"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="38100"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>
+        <a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="ghostWriter \(xmlAttribute(theme.label))"><a:themeElements><a:clrScheme name="ghostWriter \(xmlAttribute(theme.label))"><a:dk1><a:srgbClr val="\(palette.text)"/></a:dk1><a:lt1><a:srgbClr val="\(palette.background)"/></a:lt1><a:dk2><a:srgbClr val="\(palette.secondaryText)"/></a:dk2><a:lt2><a:srgbClr val="\(palette.accentSoft)"/></a:lt2><a:accent1><a:srgbClr val="\(palette.accent)"/></a:accent1><a:accent2><a:srgbClr val="\(palette.border)"/></a:accent2><a:accent3><a:srgbClr val="\(palette.link)"/></a:accent3><a:accent4><a:srgbClr val="\(palette.secondaryText)"/></a:accent4><a:accent5><a:srgbClr val="\(palette.accent)"/></a:accent5><a:accent6><a:srgbClr val="\(palette.border)"/></a:accent6><a:hlink><a:srgbClr val="\(palette.link)"/></a:hlink><a:folHlink><a:srgbClr val="\(palette.link)"/></a:folHlink></a:clrScheme><a:fontScheme name="ghostWriter"><a:majorFont><a:latin typeface="\(xmlAttribute(font.rawValue))"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="\(xmlAttribute(font.rawValue))"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme><a:fmtScheme name="ghostWriter"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="25400"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="38100"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>
         """
     }
 
@@ -1305,11 +1365,14 @@ nonisolated enum PowerPointWriter {
 
 nonisolated enum PowerPointExportError: LocalizedError, Equatable, Sendable {
     case couldNotCreateDocument
+    case fontUnavailable(String)
     case slideTooFull(String)
     case tooManyImages(String)
 
     var errorDescription: String? {
         switch self {
+        case .fontUnavailable(let family):
+            return String(localized: "The font “\(family)” is unavailable on this device. Choose another font family.")
         case .couldNotCreateDocument:
             return String(localized: "The PowerPoint presentation could not be created.")
         case .slideTooFull(let title):

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import CoreText
 
 nonisolated enum PowerPointTheme: String, CaseIterable, Identifiable, Sendable {
     case warmPaper
@@ -119,6 +120,34 @@ nonisolated enum PowerPointTheme: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// Families shared by Apple platforms and Windows, with native emphasis faces.
+/// No Office subscription, cloud download, or bundled font is required.
+nonisolated enum PowerPointFont: String, CaseIterable, Identifiable, Sendable {
+    case arial = "Arial"
+    case courierNew = "Courier New"
+    case georgia = "Georgia"
+    case timesNewRoman = "Times New Roman"
+    case trebuchetMS = "Trebuchet MS"
+    case verdana = "Verdana"
+
+    var id: String { rawValue }
+
+    /// Fail rather than measure a substituted family or lose emphasis.
+    func resolvedFont(size: CGFloat, bold: Bool = false, italic: Bool = false) -> CTFont? {
+        let base = CTFontCreateWithName(rawValue as CFString, size, nil)
+        var traits: CTFontSymbolicTraits = []
+        if bold { traits.insert(.traitBold) }
+        if italic { traits.insert(.traitItalic) }
+        guard let font = CTFontCreateCopyWithSymbolicTraits(base, size, nil, traits, [.traitBold, .traitItalic]),
+              (CTFontCopyFamilyName(font) as String).caseInsensitiveCompare(rawValue) == .orderedSame,
+              CTFontGetSymbolicTraits(font).intersection([.traitBold, .traitItalic]) == traits else {
+            return nil
+        }
+        return font
+    }
+}
+
 nonisolated struct PowerPointExportOptions: Equatable, Sendable {
     let theme: PowerPointTheme
+    var font: PowerPointFont = .arial
 }

@@ -310,6 +310,7 @@ nonisolated enum EditorShareFileWriter {
                 title: title,
                 markdown: markdown,
                 theme: powerPointOptions.theme,
+                font: powerPointOptions.font,
                 sourceDirectory: sourceDirectory,
                 documentLanguage: documentLanguage
             )

@@ -1,6 +1,18 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Font family" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Familia tipográfica" } }
+      }
+    },
+    "The font “%@” is unavailable on this device. Choose another font family." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "La fuente «%@» no está disponible en este dispositivo. Elige otra familia tipográfica." } }
+      }
+    },
     "An image exceeds the 10 MiB limit." : {
       "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
