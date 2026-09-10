@@ -22,11 +22,11 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
 
     static func decode(_ data: Data) throws -> Self {
         guard data.count <= maximumBytes else {
-            throw WordThemeError.invalid("The JSON style sheet must be 64 KiB or smaller.")
+            throw WordThemeError.invalid("The Word Stylesheet must be 64 KiB or smaller.")
         }
         do {
             guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                throw WordThemeError.invalid("The JSON style sheet must contain an object.")
+                throw WordThemeError.invalid("The Word Stylesheet must contain an object.")
             }
             try checkKeys(object, allowed: ["version", "body", "headings", "quote", "code", "list", "table", "page"], path: "theme")
             let styleKeys: Set<String> = ["font", "size", "color", "bold", "italic", "spaceBefore", "spaceAfter", "lineSpacing", "alignment"]
@@ -56,11 +56,11 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
             let context: DecodingError.Context
             switch error {
             case .keyNotFound(_, let value), .typeMismatch(_, let value), .valueNotFound(_, let value), .dataCorrupted(let value): context = value
-            @unknown default: throw WordThemeError.invalid("Check the JSON field values and version.")
+            @unknown default: throw WordThemeError.invalid("Check the stylesheet field values and version.")
             }
             let path = context.codingPath.map(\.stringValue).joined(separator: ".")
             throw WordThemeError.invalid("Check \(path.isEmpty ? "version and field values" : path): \(context.debugDescription)")
-        } catch { throw WordThemeError.invalid("The file is not valid JSON. Check quotes, commas, and brackets.") }
+        } catch { throw WordThemeError.invalid("The Word Stylesheet format is invalid. Check quotes, commas, and brackets.") }
     }
 
     private static func dictionary(_ value: Any?, path: String) throws -> [String: Any] {

@@ -38,6 +38,8 @@ struct EditorView: View {
     @State private var showingOutline = false
     @State private var showingReference = false
     @State private var showingRename = false
+    @State private var renameSubmitted = false
+    @FocusState private var jumpLineFieldFocused: Bool
     @State private var showingJumpToLine = false
     @State private var showingDocumentLanguage = false
     @State private var showingInsertActions = false
@@ -266,15 +268,15 @@ struct EditorView: View {
                 .presentationDragIndicator(.hidden)
             }
         }
-        .alert("Rename Document", isPresented: $showingRename) {
-            TextField("Name", text: $renameText)
-                .autocorrectionDisabled()
-            Button("Cancel", role: .cancel) { }
-            Button("Rename") {
+        .sheet(isPresented: $showingRename, onDismiss: {
+            if renameSubmitted {
+                renameSubmitted = false
                 commitRename()
             }
-        } message: {
-            Text("Enter a new name for this document.")
+        }) {
+            RenameItemView(title: "Rename Document", fieldLabel: "Document name", name: $renameText,
+                onCancel: { showingRename = false },
+                onRename: { renameSubmitted = true; showingRename = false })
         }
         .sheet(isPresented: $showingJumpToLine, onDismiss: finishCursorNavigation) {
             jumpToLineSheet
@@ -683,8 +685,16 @@ struct EditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Line number", text: $jumpLineText)
-                        .keyboardType(.numberPad)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Line number")
+                            .font(.subheadline)
+                            .accessibilityHidden(true)
+                        TextField("", text: $jumpLineText)
+                            .textFieldStyle(.roundedBorder)
+                            .keyboardType(.numberPad)
+                            .focused($jumpLineFieldFocused)
+                            .accessibilityLabel("Line number")
+                    }
                     Text("Enter a line number from 1 through \(LineNavigation.lineCount(in: text)).")
                     if let jumpLineError { Text(jumpLineError.message) }
                     Button("Jump", action: jumpToLine)
@@ -695,6 +705,11 @@ struct EditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { showingJumpToLine = false }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Dismiss") { jumpLineFieldFocused = false }
+                        .accessibilityLabel("Dismiss keyboard")
                 }
             }
         }

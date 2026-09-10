@@ -9,16 +9,14 @@ struct WordThemeImportSection: View {
     @Binding var isLoading: Bool
 
     var body: some View {
-        Section("JSON style sheet") {
-            Text(themeName ?? "Standard Word appearance")
-            Button("Import JSON style sheet…") { showingImporter = true }
+        Section {
+            if let themeName { Text(themeName) }
+            Button("Import Word Stylesheet…") { showingImporter = true }
                 .disabled(isLoading)
             if theme != nil {
-                Button("Remove style sheet") { theme = nil; themeName = nil }
+                Button("Remove Word Stylesheet") { theme = nil; themeName = nil }
             }
-            if isLoading { ProgressView("Reading style sheet…") }
-            NavigationLink("Word Export Help") { WordExportHelpView() }
-            Text("Optional. Supplied settings override the standard Word appearance. Word Export Help describes the format and includes an example.")
+            if isLoading { ProgressView("Reading Word Stylesheet…") }
         }
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json]) { result in
             switch result {
@@ -39,7 +37,7 @@ struct WordThemeImportSection: View {
             case .failure(let error): errorMessage = error.localizedDescription
             }
         }
-        .alert("Style sheet could not be imported", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+        .alert("Word Stylesheet could not be imported", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: { Text(errorMessage ?? "") }
     }

@@ -23,43 +23,54 @@ struct NewFolderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var name = ""
+    @FocusState private var nameFieldFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("New Folder")
-                .font(.title.bold())
-                .accessibilityAddTraits(.isHeader)
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("New Folder")
+                    .font(.title.bold())
+                    .accessibilityAddTraits(.isHeader)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(fieldLabel)
-                    .font(.subheadline)
-                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(fieldLabel)
+                        .font(.subheadline)
+                        .accessibilityHidden(true)
 
-                TextField("", text: $name)
-                    .textFieldStyle(.roundedBorder)
-                    .textInputAutocapitalization(.words)
-                    .autocorrectionDisabled()
-                    .accessibilityLabel(fieldLabel)
-            }
-
-            // A row of buttons at an accessibility text size runs out of width
-            // and truncates, so the two stack instead.
-            buttonLayout {
-                Button("Cancel") { dismiss() }
-                    .buttonStyle(.bordered)
-
-                Button("Create") {
-                    onCreate(name)
-                    dismiss()
+                    TextField("", text: $name)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($nameFieldFocused)
+                        .textInputAutocapitalization(.words)
+                        .autocorrectionDisabled()
+                        .accessibilityLabel(fieldLabel)
                 }
-                .ghostProminentButtonStyle()
-                .disabled(trimmedName.isEmpty)
-            }
 
-            Spacer(minLength: 0)
+                // A row of buttons at an accessibility text size runs out of width
+                // and truncates, so the two stack instead.
+                buttonLayout {
+                    Button("Cancel") { dismiss() }
+                        .buttonStyle(.bordered)
+
+                    Button("Create") {
+                        onCreate(name)
+                        dismiss()
+                    }
+                    .ghostProminentButtonStyle()
+                    .disabled(trimmedName.isEmpty)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(20)
+            .background(Color.pageBackground)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Dismiss") { nameFieldFocused = false }
+                        .accessibilityLabel("Dismiss keyboard")
+                }
+            }
         }
-        .padding(20)
-        .background(Color.pageBackground)
     }
 
     /// One string for both the visible label and the field's accessible name,

@@ -65,7 +65,7 @@ struct DocumentLanguageView: View {
 
                     if selection == .custom {
                         LabeledContent("Language tag") {
-                            TextField("es-MX", text: $customTag)
+                            TextField("", text: $customTag)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .focused($customFieldFocused)

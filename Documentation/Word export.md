@@ -1,14 +1,14 @@
 # Word export and compilation
 
-To export the document you are editing, choose File Actions > Share > Word Document. Optionally import a JSON style sheet, then activate Export and share… and choose a sharing destination or Save to Files.
+To export the document you are editing, choose File Actions > Share > Word Document. Optionally choose Import Word Stylesheet…, then activate Export and share… and choose a sharing destination or Save to Files.
 
-To combine documents, use a folder’s Export Compilation… action in its long-press context menu or VoiceOver Actions. You can do this from the parent folder without opening the selected folder. The Exporter starts with all documents in that folder, including nested folders. Choose Add documents or folders… to include other Library items.
+To combine documents, use a folder’s Export Compilation… action in its long-press context menu or VoiceOver Actions. You can do this from the parent folder without opening the selected folder. The Exporter starts with that folder and its nested files and folders included.
 
-Documents in export order lists the files that will be combined. Folders expand where they occur in the saved Manual order. Within each folder, items without saved positions follow the saved items alphabetically. Pinning and the current Library sort do not change compilation order.
+Files and folders shows the folder hierarchy in saved Manual order. Within each folder, items without saved positions follow the saved items alphabetically. Pinning and the current Library sort do not change compilation order. Documents are exported in order, including a folder’s selected contents where that folder occurs.
 
-Choose Add documents or folders… to include more files. Turn on Include document or Include folder for each item you want, then choose Add. Include folder adds all documents in that folder and its nested folders. Open folder lets you choose individual contents instead; Go to parent folder moves up one level. Selecting a folder and one of its documents includes that document only once. New selections append to the compilation in saved Library order.
+Turn a folder’s Include toggle off to exclude all its contents. Turn it on again to restore the individual choices inside it. Expand Contents to show its files and nested folders, then use their toggles to choose what to include. Collapsing Contents does not change inclusion. Controls inside an excluded folder are unavailable until that folder is included again.
 
-Choose Edit to reorder or remove documents, then Done. The system’s reorder controls move documents within the compilation. Remove from compilation also appears in a document’s context menu. Removing or rearranging a document here does not change its Library file or saved Library order.
+Choose Edit to change file and folder order using the system’s reorder controls. VoiceOver names this button Edit File Order. Inclusion toggles disappear while editing; their choices are retained. Expand a folder to reorder its contents, or move the folder to move its contents together. Choose Done Editing to return to the inclusion toggles. These changes affect this export only; Library files and saved Library order do not change.
 
 Enter the output name in Document name. Each source document begins with its own title. If its first paragraph is already a matching Heading 1, that heading supplies the title. The output name names the exported file; it does not insert an additional title page.
 
@@ -20,9 +20,9 @@ Heading 6 remains Heading 6; it never becomes Heading 7. Heading 5 and Heading 6
 
 Activate Export and share… to create the Word file. Documents stored only in iCloud are downloaded first. If a document cannot be read, the Exporter identifies the problem so you can retry; it does not share a compilation with that document silently omitted.
 
-## JSON style sheets
+## Word Stylesheet JSON format
 
-A JSON style sheet is an optional plain-text .json file that describes the appearance of the exported Word document. Choose Import JSON style sheet… and select the file in Files. The selected file name appears in the Exporter. Choose Remove style sheet to return to the standard Word appearance. The theme applies to this export and is not saved as a future default.
+Word Stylesheet accepts an optional plain-text .json file that describes the appearance of the exported Word document. Choose Import Word Stylesheet… and select the file in Files. The selected file name appears in the Exporter. Choose Remove Word Stylesheet to return to the standard Word appearance. The theme applies to this export and is not saved as a future default.
 
 The theme applies across the output, including every document in a compilation. Only supplied settings override the standard styles. The theme does not change Markdown source files, image colors, heading levels, or the page-break and heading-structure toggles. Explicit bold and italic formatting in the source is retained.
 

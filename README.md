@@ -44,13 +44,17 @@ assistive technology users are especially welcome.
 ## Word export and compilation
 
 Use a folder’s Export Compilation… action in its long-press context menu or
-VoiceOver Actions to combine documents into one Word file. Review the order,
-add or remove documents, and choose whether to start each document on a new
-page and preserve its heading structure. Compilation ignores pinning.
+VoiceOver Actions to combine documents into one Word file. Choose which folders and
+documents to include, review their order, and choose whether to start each
+document on a new page and preserve its heading structure. Compilation ignores pinning.
 
-Manual Library ordering uses Edit/Done after the item count. Pinned documents
+Manual Library ordering uses Edit/Done Editing after the item count. Pinned documents
 remain a separate first group; unpinned documents and folders can be mixed.
 Clear Search to reorder. Orders are saved per folder on this device.
+
+Compilation displays nested folders with inclusion toggles for whole folders and
+individual documents. Edit hides those toggles while native reorder controls
+change file and folder order; Done Editing restores them with their choices intact.
 
 Both single-document Word export and compilation accept an optional JSON style
 sheet. [Word export and JSON style sheet instructions](Documentation/Word%20export.md)
@@ -68,8 +72,8 @@ optional settings to create a theme.
 - Search document names and contents
 - Pin important documents at the beginning of the Library
 - Use Sort to arrange documents by name, creation date, modification date, last opened date, or saved Manual order
-- Use Edit and Done in Manual order to rearrange folders and files
-- Export ordered Word compilations from a folder’s Export Compilation action, with optional JSON themes
+- Use Edit and Done Editing in Manual order to rearrange folders and files
+- Export ordered Word compilations from a folder’s Export Compilation action, with optional Word Stylesheets
 - Continue bulleted, numbered, and task lists automatically
 - Indent and outdent using tabs, two spaces, or four spaces
 - Navigate long documents through a heading-based Outline

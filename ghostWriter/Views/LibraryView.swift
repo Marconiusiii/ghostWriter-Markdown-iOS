@@ -35,6 +35,7 @@ struct LibraryView: View {
     @State private var renderingSession: RenderedDocumentSession?
     @State private var renamingDocument: Document?
     @State private var pendingDeletion: Document?
+    @State private var pendingRename: LibraryItem?
     @State private var newName = ""
     @State private var shareItems: [Any] = []
     @State private var showingShare = false
@@ -102,7 +103,9 @@ struct LibraryView: View {
                 header
                 if isImporting { ProgressView("Importing documents…") }
                 documentArea
-                if canReorder { EditButton() }
+                if canReorder || libraryEditMode.isEditing {
+                    FileOrderEditButton(editMode: $libraryEditMode)
+                }
                 list
             }
             .environment(\.editMode, $libraryEditMode)
@@ -257,13 +260,10 @@ struct LibraryView: View {
                 pendingImportOptions = options
             }
         }
-        .alert("Rename Document", isPresented: renameBinding) {
-            TextField("Name", text: $newName)
-                .autocorrectionDisabled()
-            Button("Cancel", role: .cancel) { cancelRename() }
-            Button("Rename") { commitRename() }
-        } message: {
-            Text("Enter a new name for this document.")
+        .sheet(item: $renamingDocument, onDismiss: finishRenamePresentation) { item in
+            RenameItemView(title: "Rename Document", fieldLabel: "Document name", name: $newName,
+                onCancel: { renamingDocument = nil },
+                onRename: { pendingRename = .document(item); renamingDocument = nil })
         }
         .alert("Delete Document?", isPresented: deleteBinding) {
             Button("Cancel", role: .cancel) { cancelDelete() }
@@ -277,13 +277,10 @@ struct LibraryView: View {
                 } ?? ""
             )
         }
-        .alert("Rename Folder", isPresented: folderRenameBinding) {
-            TextField("Name", text: $newName)
-                .autocorrectionDisabled()
-            Button("Cancel", role: .cancel) { cancelFolderRename() }
-            Button("Rename") { commitFolderRename() }
-        } message: {
-            Text("Enter a new name for this folder.")
+        .sheet(item: $renamingFolder, onDismiss: finishRenamePresentation) { item in
+            RenameItemView(title: "Rename Folder", fieldLabel: "Folder name", name: $newName,
+                onCancel: { renamingFolder = nil },
+                onRename: { pendingRename = .folder(item); renamingFolder = nil })
         }
         .alert("Delete Folder?", isPresented: folderDeleteBinding) {
             Button("Cancel", role: .cancel) { cancelFolderDelete() }
@@ -1060,8 +1057,7 @@ struct LibraryView: View {
         renamingFolder = folder
     }
 
-    private func commitFolderRename() {
-        guard let folder = renamingFolder else { return }
+    private func commitFolderRename(_ folder: LibraryFolder) {
         let proposedURL = folder.url.deletingLastPathComponent()
             .appendingPathComponent(DocumentStore.sanitize(newName), isDirectory: true)
         let metadataPairs = store.documentMovePairs(
@@ -1078,10 +1074,6 @@ struct LibraryView: View {
                 with: renamedURL
             )
         }
-    }
-
-    private func cancelFolderRename() {
-        renamingFolder = nil
     }
 
     private func beginDelete(_ folder: LibraryFolder) {
@@ -1186,8 +1178,7 @@ struct LibraryView: View {
         renamingDocument = document
     }
 
-    private func commitRename() {
-        guard let document = renamingDocument else { return }
+    private func commitRename(_ document: Document) {
         let renamedURL = store.rename(at: document.url, to: newName)
         renamingDocument = nil
         if let renamedURL {
@@ -1196,10 +1187,6 @@ struct LibraryView: View {
                 to: renamedURL
             )
         }
-    }
-
-    private func cancelRename() {
-        renamingDocument = nil
     }
 
     private func duplicate(_ document: Document) {
@@ -1261,15 +1248,13 @@ struct LibraryView: View {
         pendingDeletion = nil
     }
 
-    private var renameBinding: Binding<Bool> {
-        Binding(
-            get: { renamingDocument != nil },
-            set: {
-                if !$0, renamingDocument != nil {
-                    cancelRename()
-                }
-            }
-        )
+    private func finishRenamePresentation() {
+        guard let item = pendingRename else { return }
+        pendingRename = nil
+        switch item {
+        case .document(let document): commitRename(document)
+        case .folder(let folder): commitFolderRename(folder)
+        }
     }
 
     private var deleteBinding: Binding<Bool> {
@@ -1280,13 +1265,6 @@ struct LibraryView: View {
                     cancelDelete()
                 }
             }
-        )
-    }
-
-    private var folderRenameBinding: Binding<Bool> {
-        Binding(
-            get: { renamingFolder != nil },
-            set: { if !$0, renamingFolder != nil { cancelFolderRename() } }
         )
     }
 
