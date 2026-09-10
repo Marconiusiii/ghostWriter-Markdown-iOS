@@ -34,14 +34,14 @@ nonisolated enum CompilationMarkdownWriter {
             }
         }.joined()
     }
-    static func blocks(_ values: [ExportBlock], headingCounter: inout Int) -> String {
+    static func blocks(_ values: [ExportBlock], headingCounter: inout Int, includesHeadingAnchors: Bool = true) -> String {
         values.map { value in
             switch value {
             case .heading(let level, let c):
                 headingCounter += 1
-                return "<a id=\"heading-\(headingCounter)\"></a>\n\n" + String(repeating: "#", count: level) + " " + inline(c)
+                return (includesHeadingAnchors ? "<a id=\"heading-\(headingCounter)\"></a>\n\n" : "") + String(repeating: "#", count: level) + " " + inline(c)
             case .paragraph(let c): return inline(c)
-            case .blockQuote(let c): return blocks(c, headingCounter: &headingCounter).components(separatedBy: "\n").map { "> " + $0 }.joined(separator: "\n")
+            case .blockQuote(let c): return blocks(c, headingCounter: &headingCounter, includesHeadingAnchors: includesHeadingAnchors).components(separatedBy: "\n").map { "> " + $0 }.joined(separator: "\n")
             case .codeBlock(let language, let code):
                 let count = max(3, (code.split(whereSeparator: { $0 != "`" }).map(\.count).max() ?? 0) + 1)
                 let fence = String(repeating: "`", count: count)
@@ -51,7 +51,7 @@ nonisolated enum CompilationMarkdownWriter {
                 return list.items.enumerated().map { index, item in
                     let marker = list.isOrdered ? "\(list.start + index). " : "- "
                     let task = item.taskState.map { $0 == .completed ? "[x] " : "[ ] " } ?? ""
-                    let children = item.children.isEmpty ? "" : "\n" + blocks(item.children, headingCounter: &headingCounter).components(separatedBy: "\n").map { "    " + $0 }.joined(separator: "\n")
+                    let children = item.children.isEmpty ? "" : "\n" + blocks(item.children, headingCounter: &headingCounter, includesHeadingAnchors: includesHeadingAnchors).components(separatedBy: "\n").map { "    " + $0 }.joined(separator: "\n")
                     return marker + task + inline(item.content) + children
                 }.joined(separator: "\n")
             case .table(let table):

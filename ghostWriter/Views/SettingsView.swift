@@ -120,6 +120,14 @@ struct SettingsView: View {
                     Text("Ask for a Title opens the naming screen. Use Today’s Date creates and opens the document immediately. You can rename it later from File Actions.")
                 }
 
+                Section {
+                    Toggle("Use smart punctuation", isOn: $settings.usesSmartPunctuation)
+                } header: {
+                    Text("Export")
+                } footer: {
+                    Text("Converts straight quotes and apostrophes to curly marks in exported documents. Does not change your source text.")
+                }
+
                 Section("Editing") {
                     Picker("Indentation", selection: $settings.indentUnit) {
                         ForEach(IndentUnit.allCases) { unit in

@@ -210,6 +210,7 @@ struct EditorShareView: View {
         let brf = brfOptions
         let word = wordOptions
         let powerPoint = powerPointOptions
+        let usesSmartPunctuation = settings.usesSmartPunctuation
 
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
             do {
@@ -224,7 +225,8 @@ struct EditorShareView: View {
                         eBrailleMetadata: metadata,
                         brfOptions: brf,
                         powerPointOptions: powerPoint,
-                        wordOptions: word
+                        wordOptions: word,
+                        usesSmartPunctuation: usesSmartPunctuation
                     )
                 )
             } catch {
@@ -254,7 +256,8 @@ nonisolated enum EditorShareFileWriter {
         eBrailleMetadata: EBrailleMetadata? = nil,
         brfOptions: BRFExportOptions? = nil,
         powerPointOptions: PowerPointExportOptions? = nil,
-        wordOptions: WordExportOptions? = nil
+        wordOptions: WordExportOptions? = nil,
+        usesSmartPunctuation: Bool = false
     ) async throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -268,11 +271,21 @@ nonisolated enum EditorShareFileWriter {
 
         let safeName = fileName.isEmpty ? "Document" : fileName
 
+        let originalTitle = title
+        let title = usesSmartPunctuation ? SmartPunctuation.convert([.init(text: title)])[0] : title
+        var preparedDocument: ExportDocument?
+        if usesSmartPunctuation && format != .word {
+            var document = MarkdownDocumentParser.parse(markdown)
+            document.blocks = try SmartPunctuation.blocks(document.blocks)
+            preparedDocument = document
+        }
+
         switch format {
         case .markdown:
             let url = directory.appendingPathComponent(safeName)
                 .appendingPathExtension("md")
-            try markdown.write(to: url, atomically: true, encoding: .utf8)
+            let contents = usesSmartPunctuation ? try SmartPunctuation.markdown(markdown) : markdown
+            try contents.write(to: url, atomically: true, encoding: .utf8)
             return url
         case .plainText:
             // Not the markdown source. This option used to hand over the raw
@@ -281,7 +294,7 @@ nonisolated enum EditorShareFileWriter {
             // the name that promised the most readable.
             let url = directory.appendingPathComponent(safeName)
                 .appendingPathExtension("txt")
-            let contents = PlainTextWriter.write(title: title, markdown: markdown)
+            let contents = PlainTextWriter.write(title: title, markdown: markdown, preparedDocument: preparedDocument)
             try contents.write(to: url, atomically: true, encoding: .utf8)
             return url
         case .html:
@@ -289,7 +302,7 @@ nonisolated enum EditorShareFileWriter {
                 .appendingPathExtension("html")
             let contents = ShareItemBuilder.contents(
                 title: title,
-                markdown: markdown,
+                markdown: usesSmartPunctuation ? try SmartPunctuation.markdown(markdown) : markdown,
                 format: .html,
                 sourceDirectory: sourceDirectory,
                 documentLanguage: documentLanguage
@@ -300,11 +313,12 @@ nonisolated enum EditorShareFileWriter {
             let url = directory.appendingPathComponent(safeName)
                 .appendingPathExtension("docx")
             let data = try MarkdownToWordConverter.convert(
-                title: title,
+                title: originalTitle,
                 markdown: markdown,
                 sourceDirectory: sourceDirectory,
                 documentLanguage: documentLanguage,
-                theme: wordOptions?.theme
+                theme: wordOptions?.theme,
+                usesSmartPunctuation: usesSmartPunctuation
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -320,7 +334,8 @@ nonisolated enum EditorShareFileWriter {
                 theme: powerPointOptions.theme,
                 font: powerPointOptions.font,
                 sourceDirectory: sourceDirectory,
-                documentLanguage: documentLanguage
+                documentLanguage: documentLanguage,
+                preparedDocument: preparedDocument
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -331,7 +346,8 @@ nonisolated enum EditorShareFileWriter {
                 title: title,
                 markdown: markdown,
                 sourceDirectory: sourceDirectory,
-                documentLanguage: documentLanguage
+                documentLanguage: documentLanguage,
+                preparedDocument: preparedDocument
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -342,7 +358,8 @@ nonisolated enum EditorShareFileWriter {
                 title: title,
                 markdown: markdown,
                 sourceDirectory: sourceDirectory,
-                documentLanguage: documentLanguage
+                documentLanguage: documentLanguage,
+                preparedDocument: preparedDocument
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -361,7 +378,8 @@ nonisolated enum EditorShareFileWriter {
                 metadata: eBrailleMetadata,
                 translator: LiblouisBridge.shared,
                 sourceDirectory: sourceDirectory,
-                documentLanguage: documentLanguage
+                documentLanguage: documentLanguage,
+                preparedDocument: preparedDocument
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -381,7 +399,8 @@ nonisolated enum EditorShareFileWriter {
                 outputPurpose: brfOptions.outputPurpose,
                 includeBraillePageNumbers: brfOptions.includeBraillePageNumbers,
                 translator: LiblouisBridge.shared,
-                documentLanguage: documentLanguage
+                documentLanguage: documentLanguage,
+                preparedDocument: preparedDocument
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -426,11 +445,12 @@ enum ShareItemBuilder {
         markdown: String,
         format: Format,
         sourceDirectory: URL? = nil,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        usesSmartPunctuation: Bool = false
     ) throws -> URL {
         let contents = contents(
             title: title,
-            markdown: markdown,
+            markdown: usesSmartPunctuation ? try SmartPunctuation.markdown(markdown) : markdown,
             format: format,
             sourceDirectory: sourceDirectory,
             documentLanguage: documentLanguage

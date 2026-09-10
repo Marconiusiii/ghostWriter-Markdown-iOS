@@ -11,6 +11,17 @@ import Testing
 
 struct AppSettingsTests {
 
+    @Test func smartPunctuationDefaultsOffAndPersists() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let settings = AppSettings(defaults: testDefaults.defaults)
+        #expect(!settings.usesSmartPunctuation)
+        settings.usesSmartPunctuation = true
+        #expect(AppSettings(defaults: testDefaults.defaults).usesSmartPunctuation)
+        settings.usesSmartPunctuation = false
+        #expect(!AppSettings(defaults: testDefaults.defaults).usesSmartPunctuation)
+    }
+
     @Test func launchAndNewDocumentDefaultsPreserveCurrentBehavior() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }

@@ -1233,7 +1233,8 @@ struct LibraryView: View {
             let url = try ShareItemBuilder.makeFile(
                 title: document.displayName,
                 markdown: text,
-                format: .markdown
+                format: .markdown,
+                usesSmartPunctuation: settings.usesSmartPunctuation
             )
             shareItems = [url]
 

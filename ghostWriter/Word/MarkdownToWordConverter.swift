@@ -6,9 +6,11 @@ nonisolated enum MarkdownToWordConverter {
         markdown: String,
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
-        theme: WordExportTheme? = nil
+        theme: WordExportTheme? = nil,
+        usesSmartPunctuation: Bool = false
     ) throws -> Data {
-        let document = document(from: markdown, title: title)
+        var document = document(from: markdown, title: title)
+        if usesSmartPunctuation { document.blocks = try SmartPunctuation.wordBlocks(document.blocks) }
         return try WordprocessingMLWriter.write(
             title: title,
             document: document,

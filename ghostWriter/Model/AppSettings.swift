@@ -328,10 +328,15 @@ final class AppSettings {
         }
     }
 
+    var usesSmartPunctuation: Bool {
+        didSet { defaults.set(usesSmartPunctuation, forKey: "usesSmartPunctuation") }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.usesSmartPunctuation = defaults.bool(forKey: "usesSmartPunctuation")
 
         // `object(forKey:)` distinguishes "never set" from "set to false", which
         // matters for the booleans that default to true.

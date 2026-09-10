@@ -130,7 +130,8 @@ struct CompilationExportView: View {
         creatingWordDocument = false
         exportStatus = "Preparing documents…"
         let outputTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let exportOptions = options
+        var exportOptions = options
+        exportOptions.usesSmartPunctuation = settings.usesSmartPunctuation
         exportTask = Task {
             defer { exporting = false }
             do {

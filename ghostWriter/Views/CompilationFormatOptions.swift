@@ -10,9 +10,6 @@ struct CompilationFormatOptions: View {
     var focusedField: FocusState<CompilationTextField?>.Binding
 
     var body: some View {
-        Section {
-            Toggle("Use smart punctuation", isOn: $options.usesSmartPunctuation)
-        }
         if options.format.supportsPageBreaks || options.format.supportsHeadingOptions {
             Section {
                 if options.format.supportsPageBreaks {

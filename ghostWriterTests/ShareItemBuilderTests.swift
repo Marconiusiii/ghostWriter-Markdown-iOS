@@ -15,6 +15,34 @@ import UniformTypeIdentifiers
 
 struct ShareItemBuilderTests {
 
+    @Test func editorTextExportsHonorGlobalPunctuationValue() async throws {
+        let source = "# Chapter\n\nDon't stop.\n\n`\"literal\"`"
+        for format: EditorView.EditorShareFormat in [.markdown, .plainText, .html] {
+            for enabled in [false, true] {
+                let url = try await EditorShareFileWriter.write(
+                    format: format, title: "Chapter", fileName: "Chapter", markdown: source,
+                    sourceDirectory: nil, usesSmartPunctuation: enabled
+                )
+                defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+                let output = try String(contentsOf: url, encoding: .utf8)
+                #expect(output.contains("Don’t") == enabled)
+                if format == .markdown && !enabled { #expect(output == source) }
+            }
+        }
+    }
+
+    @Test func libraryMarkdownShareHonorsGlobalPunctuationValue() throws {
+        let source = "# Chapter\n\nDon't stop.\n"
+        for enabled in [false, true] {
+            let url = try ShareItemBuilder.makeFile(title: UUID().uuidString, markdown: source, format: .markdown, usesSmartPunctuation: enabled)
+            defer { try? FileManager.default.removeItem(at: url) }
+            let output = try String(contentsOf: url, encoding: .utf8)
+            if enabled { #expect(output.contains("Don’t")) }
+            else { #expect(output == source) }
+        }
+    }
+
+
     @Test func exportPreparationWaitsForOptionsWithoutConsumingItsClaim() {
         var preparation = SharePreparationState()
 

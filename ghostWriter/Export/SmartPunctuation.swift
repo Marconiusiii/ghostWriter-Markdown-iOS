@@ -3,6 +3,12 @@ import Foundation
 /// Converts prose only. Each chunk retains its formatting and protected chunks
 /// supply context without being edited. Quote state is local to one paragraph.
 nonisolated enum SmartPunctuation {
+    static func markdown(_ source: String) throws -> String {
+        let document = MarkdownDocumentParser.parse(source)
+        var counter = 0
+        return CompilationMarkdownWriter.blocks(try blocks(document.blocks), headingCounter: &counter, includesHeadingAnchors: false) + "\n"
+    }
+
     struct Chunk {
         var text: String
         var protected = false

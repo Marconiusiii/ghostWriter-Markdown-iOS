@@ -7,6 +7,28 @@ struct SmartPunctuationTests {
         SmartPunctuation.convert([.init(text: text)])[0]
     }
 
+    @Test func singleDocumentMarkdownKeepsSyntaxAndProtectedText() throws {
+        let source = "# \"Title\"\n\nDon't **stop**. [Link](https://example.org/'path')\n\n`\"literal\"`"
+        let output = try SmartPunctuation.markdown(source)
+        #expect(output.contains("# “Title”"))
+        #expect(output.contains("Don’t **stop**"))
+        #expect(output.contains("https://example.org/'path'"))
+        #expect(output.contains("\"literal\""))
+        #expect(!output.contains("<a id="))
+        #expect(source.contains("Don't"))
+    }
+
+    @Test func singleWordExportHonorsPunctuationWithoutDuplicatingTitle() throws {
+        let source = "# \"Title\"\n\nDon't **stop**."
+        for enabled in [false, true] {
+            let data = try MarkdownToWordConverter.convert(title: "\"Title\"", markdown: source, usesSmartPunctuation: enabled)
+            let parts = try WordPackage.entries(from: data, paths: ["word/document.xml"])
+            let xml = String(decoding: try #require(parts["word/document.xml"]), as: UTF8.self)
+            #expect(xml.contains(enabled ? "Don’t" : "Don"))
+            #expect(xml.components(separatedBy: "w:val=\"Heading1\"").count == 2)
+        }
+    }
+
     @Test func quotationsApostrophesAndMeasurements() {
         #expect(convert("\"Hello,\" she said. Don't stop.") == "“Hello,” she said. Don’t stop.")
         #expect(convert("\"She said 'hello'.\"") == "“She said ‘hello’.”")

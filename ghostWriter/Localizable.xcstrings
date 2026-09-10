@@ -323,6 +323,9 @@
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
     },
+    "Additional publication metadata" : {
+
+    },
     "Address" : {
       "comment" : "MarkdownInsertionView.swift:190",
       "localizations" : {
@@ -573,6 +576,9 @@
           }
         }
       }
+    },
+    "Braille options" : {
+
     },
     "Braille Ready Format" : {
       "comment" : "BRFOptionsView.swift:152",
@@ -879,6 +885,9 @@
           }
         }
       }
+    },
+    "Complete transcription" : {
+
     },
     "Continue to Library" : {
       "comment" : "WelcomeView.swift:48",
@@ -1336,7 +1345,7 @@
         }
       }
     },
-    "Creating Word document…" : {
+    "Creating %@ compilation…" : {
 
     },
     "Current" : {
@@ -1759,6 +1768,9 @@
         }
       }
     },
+    "Each document starts a new slide. Heading 2 starts additional slides within that document, following the standard PowerPoint export rules." : {
+
+    },
     "eBraille" : {
       "comment" : "EditorView.swift:106",
       "localizations" : {
@@ -2122,6 +2134,9 @@
 
     },
     "Export Compilation…" : {
+
+    },
+    "Export format" : {
 
     },
     "File" : {
@@ -2920,6 +2935,9 @@
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
     },
+    "Local images and linked files are included in a ZIP with the Markdown document. Extract the ZIP before opening the Markdown file." : {
+
+    },
     "Mail Is Not Available" : {
       "comment" : "SettingsView.swift:321",
       "localizations" : {
@@ -2988,6 +3006,9 @@
           }
         }
       }
+    },
+    "Match the page dimensions to your display or embossing setup. Set paper and margins in your embossing software." : {
+
     },
     "Match these dimensions to your braille display." : {
       "comment" : "BRFOptionsView.swift",
@@ -3566,6 +3587,9 @@
           }
         }
       }
+    },
+    "Presentation options" : {
+
     },
     "Presentation theme" : {
       "comment" : "PowerPointOptionsView.swift",
@@ -4584,6 +4608,9 @@
         }
       }
     },
+    "The selected braille code applies to the whole compilation." : {
+
+    },
     "The selected file is not a valid PowerPoint presentation." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
@@ -4997,6 +5024,9 @@
         }
       }
     },
+    "Use smart punctuation" : {
+
+    },
     "Use Today’s Date" : {
       "comment" : "NewDocumentCreationMode.swift:21",
       "localizations" : {
@@ -5007,6 +5037,9 @@
           }
         }
       }
+    },
+    "Use YYYY, YYYY-MM, or YYYY-MM-DD for the copyright date." : {
+
     },
     "Used as the copyright date in new exports." : {
       "comment" : "EBrailleMetadataSettingsView.swift:47",

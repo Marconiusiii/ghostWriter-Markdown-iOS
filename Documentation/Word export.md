@@ -1,6 +1,6 @@
 # Word export and compilation
 
-In Compilation Export, Use smart punctuation optionally converts straight quotes and apostrophes in prose to curly marks before creating the Word document. It is off by default and does not change source files, code, or link destinations. Context can be ambiguous, and quotation conventions vary by language. See Compilation Export Help for examples and limitations; review punctuation-sensitive work before publication.
+Settings > Export > Use smart punctuation optionally converts straight quotes and apostrophes in prose to curly marks before creating the Word document. It is off by default and does not change source files, code, or link destinations. Context can be ambiguous, and quotation conventions vary by language. See Smart punctuation in exports in Help for examples and limitations; review punctuation-sensitive work before publication.
 
 To export the document you are editing, choose File Actions > Share > Word Document. Optionally choose Import Word Stylesheet…, then activate Export and share… and choose a sharing destination or Save to Files.
 

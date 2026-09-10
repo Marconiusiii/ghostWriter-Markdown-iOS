@@ -139,6 +139,10 @@ private struct HelpTopic: Identifiable {
             ]
         ),
         HelpTopic(
+            title: "Smart punctuation in exports",
+            paragraphs: CompilationHelp.smartPunctuation
+        ),
+        HelpTopic(
             title: "Compilation Export",
             paragraphs: CompilationHelp.paragraphs
         ),
