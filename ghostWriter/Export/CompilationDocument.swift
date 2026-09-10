@@ -43,7 +43,7 @@ nonisolated struct ExportCompilationSection: Equatable, Sendable {
 /// Prepares independent source documents before combining their block streams.
 /// Images and local linked assets receive unique relative paths in the export.
 nonisolated enum CompilationDocument {
-    static func prepare(sources: [WordCompilationSource], preservesHeadings: Bool, assetDirectory: URL, includesImages: Bool = true) throws -> ExportDocument {
+    static func prepare(sources: [WordCompilationSource], preservesHeadings: Bool, assetDirectory: URL, includesImages: Bool = true, usesSmartPunctuation: Bool = false) throws -> ExportDocument {
         var output = ExportDocument()
         let sourceURLs = sources.enumerated().compactMap { index, source -> (String, String)? in
             guard let directory = source.sourceDirectory else { return nil }
@@ -62,6 +62,7 @@ nonisolated enum CompilationDocument {
                 titleInsertions.append(1)
                 document.blocks.insert(.heading(level: 1, content: [.text(source.title)]), at: 0)
             }
+            if usesSmartPunctuation { document.blocks = try SmartPunctuation.blocks(document.blocks) }
             headingOffsets.append(headingCount)
             headingCount += document.headings().count
             documents.append(document)

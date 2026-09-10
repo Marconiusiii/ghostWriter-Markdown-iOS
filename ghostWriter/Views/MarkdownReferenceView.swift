@@ -80,6 +80,11 @@ struct ReferenceSection: Identifiable {
 
     static let all: [ReferenceSection] = [
         ReferenceSection(
+            title: "Paragraphs",
+            explanation: "Press Return twice to start a new paragraph, leaving one empty line between paragraphs. Pressing Return once usually continues the same paragraph when Markdown is rendered or exported. You do not need two empty lines.",
+            syntax: ["This is the first paragraph.\n\nThis is the second paragraph."]
+        ),
+        ReferenceSection(
             title: "Headings",
             explanation: "One to six number signs followed by a space. Headings are what make a document navigable, so use them generously.",
             syntax: [

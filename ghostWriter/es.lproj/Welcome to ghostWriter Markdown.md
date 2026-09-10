@@ -6,6 +6,18 @@ Markdown añade estructura mediante unos cuantos signos de puntuación comunes. 
 
 Este documento es tuyo. Léelo, edítalo o duplícalo antes de experimentar.
 
+## Empieza un nuevo párrafo
+
+Pulsa Retorno dos veces para empezar un nuevo párrafo, dejando una línea vacía entre los párrafos. Pulsar Retorno una sola vez normalmente continúa el mismo párrafo al renderizar o exportar Markdown.
+
+```markdown
+Este es el primer párrafo.
+
+Este es el segundo párrafo.
+```
+
+La línea vacía separa los dos párrafos. No necesitas dos líneas vacías.
+
 ## Markdown en un minuto
 
 Un documento Markdown sigue siendo solo texto. Los caracteres como almohadillas, asteriscos y corchetes indican a una aplicación cómo debe presentar algunas partes del texto.

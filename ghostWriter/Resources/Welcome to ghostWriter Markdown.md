@@ -6,6 +6,18 @@ Markdown adds structure using a few ordinary punctuation marks. Your documents r
 
 This document is yours. Read it, edit it, or duplicate it before experimenting.
 
+## Start a new paragraph
+
+Press Return twice to start a new paragraph, leaving one empty line between paragraphs. Pressing Return once usually continues the same paragraph when Markdown is rendered or exported.
+
+```markdown
+This is the first paragraph.
+
+This is the second paragraph.
+```
+
+The empty line separates the two paragraphs. You do not need two empty lines.
+
 ## Markdown in a Minute
 
 A Markdown document is still just text. Characters such as number signs, asterisks, and brackets tell an app how parts of that text should be presented.

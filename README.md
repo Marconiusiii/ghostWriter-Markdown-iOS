@@ -43,6 +43,8 @@ assistive technology users are especially welcome.
 
 ## Compilation export
 
+Use smart punctuation optionally converts straight quotes and apostrophes in compilation prose to curly marks without editing source files. It is off by default; Compilation Export Help explains ambiguous cases and language limitations.
+
 Use a folder’s Export Compilation… action in its long-press context menu or
 VoiceOver Actions to combine documents into Word, PDF, HTML, Markdown, Plain Text,
 EPUB, PowerPoint, eBraille, or BRF. A native format picker reveals the relevant

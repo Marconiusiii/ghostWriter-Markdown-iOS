@@ -14,10 +14,12 @@ nonisolated enum CompilationFileWriter {
             let data: Data
             var linkedAssets: [String] = []
             if settings.format == .word {
-                data = try WordCompilation.write(title: title, sources: sources, options: settings.word)
+                var wordOptions = settings.word
+                wordOptions.usesSmartPunctuation = settings.usesSmartPunctuation
+                data = try WordCompilation.write(title: title, sources: sources, options: wordOptions)
             } else {
                 let preserve = settings.format.supportsHeadingOptions ? settings.preservesHeadings : true
-                let document = try CompilationDocument.prepare(sources: sources, preservesHeadings: preserve, assetDirectory: root, includesImages: ![.plainText, .brf].contains(settings.format))
+                let document = try CompilationDocument.prepare(sources: sources, preservesHeadings: preserve, assetDirectory: root, includesImages: ![.plainText, .brf].contains(settings.format), usesSmartPunctuation: settings.usesSmartPunctuation)
                 linkedAssets = document.compilationLinkedAssets
                 switch settings.format {
                 case .word: throw WordThemeError.invalid("Invalid export format.")

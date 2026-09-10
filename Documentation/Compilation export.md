@@ -4,6 +4,12 @@ Use Export Compilation… from a folder’s context menu or VoiceOver Actions. W
 
 Enter Document name and choose Export format. Available formats are Word Document, PDF, HTML, Markdown, Plain Text, EPUB, PowerPoint, eBraille, and Braille Ready Format. Only options relevant to that format appear. Changing format keeps your inclusion choices and document order, and remembers each format’s choices for the current export session.
 
+Use smart punctuation is off by default. Turn it on to convert straight quotation marks and apostrophes in compilation prose to curly marks. For example, "Hello" becomes “Hello” and don't becomes don’t. The choice stays selected when you change export format. In eBraille and BRF, conversion happens before braille translation.
+
+The conversion covers prose in headings, paragraphs, lists, tables, and link text, including text split by bold or italic formatting. Code blocks, inline code, link destinations, asset paths, and existing curly punctuation are preserved. Source documents and filenames are unchanged. Dashes and ellipses are not converted.
+
+Smart punctuation uses context, so unusual quotations, leading apostrophes, abbreviations, and measurement marks can be misinterpreted. Recognizable measurements such as 6' 2" are left unchanged. The option uses curly single and double quotes, not language-specific quotation styles or spacing; review multilingual output for the conventions you need. It does not repair existing curly punctuation. Review punctuation-sensitive work before publication, or leave the option off to preserve the original characters.
+
 The selected folder is the export scope, so only its children appear in Files and folders. A folder’s switch is labeled with its name followed by Folder; its separate disclosure uses the folder name. Excluding a folder excludes everything inside it while retaining individual choices. Including it again restores those choices. Expanding or collapsing a folder does not change inclusion.
 
 Choose Edit to reorder files and folders. VoiceOver names the button Edit Document Order. Voice Control accepts Tap Edit, Tap Edit Files, Tap Edit Documents, Tap Edit Document Order, and Tap Edit File Order. Inclusion switches disappear while editing and return after Done Editing. Voice Control also accepts Tap Done. Moving a folder moves its contents together. These changes apply only to this compilation.

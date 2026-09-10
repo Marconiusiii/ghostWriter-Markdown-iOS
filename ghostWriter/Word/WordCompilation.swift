@@ -1,6 +1,7 @@
 import Foundation
 
 nonisolated struct WordExportOptions: Equatable, Sendable {
+    var usesSmartPunctuation = false
     var startsDocumentsOnNewPages = true
     var preservesHeadingStructure = true
     var theme: WordExportTheme?
@@ -59,6 +60,7 @@ nonisolated enum WordCompilation {
                     }
                 }
             }
+            if options.usesSmartPunctuation { document.blocks = try SmartPunctuation.wordBlocks(document.blocks) }
             result.blocks += try transform(document.blocks, topLevel: true)
         }
         return result
