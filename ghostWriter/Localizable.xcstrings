@@ -911,6 +911,9 @@
         }
       }
     },
+    "Converts straight quotes and apostrophes to curly marks in exported documents. Does not change your source text." : {
+
+    },
     "Copies Markdown, plain-text, or Word documents into ghostWriter" : {
       "comment" : "LibraryView.swift:431",
       "extractionState" : "stale",
@@ -2118,6 +2121,9 @@
           }
         }
       }
+    },
+    "Export" : {
+
     },
     "Export and share…" : {
       "comment" : "BRFOptionsView.swift:147",
