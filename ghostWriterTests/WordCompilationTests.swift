@@ -11,7 +11,7 @@ struct WordCompilationTests {
         let sources = [source("First", "# First\n# Another\n##### Five\n###### Six"), source("Second", "# Second\n## Two")]
         var options = WordExportOptions()
         options.preservesHeadingStructure = false
-        let model = WordCompilation.document(sources: sources, options: options)
+        let model = try WordCompilation.document(sources: sources, options: options)
         let paragraphs = model.blocks.compactMap { block -> WordParagraph? in
             if case .paragraph(let value) = block { return value }; return nil
         }
@@ -31,7 +31,7 @@ struct WordCompilationTests {
         for preserve in [true, false] {
             var options = WordExportOptions()
             options.preservesHeadingStructure = preserve
-            let model = WordCompilation.document(sources: sources, options: options)
+            let model = try WordCompilation.document(sources: sources, options: options)
             let paragraphs = model.blocks.compactMap { if case .paragraph(let value) = $0 { return value }; return nil }
             #expect(paragraphs.compactMap(\.headingLevel) == (preserve ? [1, 1, 2] : [1, 2, 3]))
             #expect(paragraphs.filter(\.pageBreakBefore).count == 1)
@@ -88,12 +88,103 @@ struct WordCompilationTests {
         #expect(xml.contains("descr=\"Second image\""))
     }
 
-    @Test func emptySourcesDoNotCreateLeadingBlankPagesAndPreservationRetainsLevels() {
+    @Test func emptySourcesDoNotCreateLeadingBlankPagesAndPreservationRetainsLevels() throws {
         let sources = [source("Empty", ""), source("Next", "## Heading")]
-        let document = WordCompilation.document(sources: sources, options: WordExportOptions())
+        let document = try WordCompilation.document(sources: sources, options: WordExportOptions())
         let paragraphs = document.blocks.compactMap { if case .paragraph(let value) = $0 { return value }; return nil }
         #expect(paragraphs.compactMap(\.headingLevel) == [1, 1, 2])
         #expect(paragraphs.filter(\.pageBreakBefore).count == 1)
+    }
+
+    @Test func continuousBoundariesUseRealEmptyParagraphsWithoutDuplicatingExistingOnes() throws {
+        for (ending, opening, expectedBlanks) in [("Tail", "# Next", 1), ("Tail\n\n", "# Next", 1), ("Tail", "\n# Next", 1), ("Tail\n\n\n", "\n# Next", 3)] {
+            var options = WordExportOptions()
+            options.startsDocumentsOnNewPages = false
+            options.preservesHeadingStructure = false
+            let model = try WordCompilation.document(sources: [source("First", "# First\n" + ending), source("filename", opening)], options: options)
+            let paragraphs = model.blocks.compactMap { if case .paragraph(let p) = $0 { return p }; return nil }
+            let texts = paragraphs.map { $0.runs.map(\.text).joined() }
+            let tail = try #require(texts.firstIndex(of: "Tail"))
+            let next = try #require(texts.firstIndex(of: "Next"))
+            #expect(next - tail - 1 == expectedBlanks)
+            #expect(paragraphs[(tail + 1)..<next].allSatisfy { $0.runs.isEmpty && $0.headingLevel == nil })
+            #expect(paragraphs[next].headingLevel == 2)
+            #expect(!paragraphs.contains { $0.pageBreakBefore })
+            #expect(!texts.contains("filename"))
+            let data = try WordCompilation.write(title: "Book", sources: [source("First", "# First\n" + ending), source("filename", opening)], options: options)
+            let parts = try WordPackage.entries(from: data, paths: ["word/document.xml"])
+            let xml = String(decoding: try #require(parts["word/document.xml"]), as: UTF8.self)
+            #expect(xml.contains("<w:p></w:p><w:p><w:pPr><w:pStyle w:val=\"Heading2\"/>"))
+        }
+    }
+
+    @Test func leadingBlankParagraphsPreserveTheFirstTitleAndPageBreakBehavior() throws {
+        let sources = [source("filename", "\n\n# Actual title\n###### Six"), source("other", "\n# Next")]
+        var options = WordExportOptions()
+        options.preservesHeadingStructure = false
+        let model = try WordCompilation.document(sources: sources, options: options)
+        let paragraphs = model.blocks.compactMap { if case .paragraph(let p) = $0 { return p }; return nil }
+        #expect(paragraphs.prefix(2).allSatisfy { $0.runs.isEmpty })
+        #expect(paragraphs.compactMap(\.headingLevel) == [1, 6, 2])
+        #expect(paragraphs.filter(\.pageBreakBefore).count == 1)
+        #expect(paragraphs.count == 6)
+    }
+
+    @Test func conversionAndZipCompressionCanStopMidOperation() throws {
+        var parsingChecks = 0
+        #expect(throws: CancellationError.self) {
+            _ = try MarkdownToWordConverter.document(from: String(repeating: "Text\n\n", count: 2000), checkCancellation: {
+                parsingChecks += 1
+                if parsingChecks == 6500 { throw CancellationError() }
+            })
+        }
+        #expect(parsingChecks == 6500)
+        var packagingChecks = 0
+        #expect(throws: CancellationError.self) {
+            _ = try WordPackage.create(entries: ["large.xml": Data(repeating: 65, count: 2_000_000)], checkCancellation: {
+                packagingChecks += 1
+                if packagingChecks == 4 { throw CancellationError() }
+            })
+        }
+        #expect(packagingChecks == 4)
+    }
+
+    @Test func cancelledTaskDoesNotProduceACompilation() async {
+        let task = Task.detached { () throws -> Data in
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try WordCompilation.write(title: "Cancelled", sources: [WordCompilationSource(title: "One", markdown: "# One", language: "en-US")], options: WordExportOptions())
+        }
+        do {
+            _ = try await task.value
+            Issue.record("Cancelled export produced a file")
+        } catch is CancellationError { }
+        catch { Issue.record("Unexpected cancellation error: \(error)") }
+    }
+
+    @Test func largerContinuousCompilationKeepsThemeTablesListsImagesAndHeadingSix() throws {
+        let png = try #require(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1sAAAAASUVORK5CYII="))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try png.write(to: directory.appendingPathComponent("image.png"))
+        let body = String(repeating: "A paragraph of book text.\n\n", count: 100)
+        let sources = (1...50).map { source("file-\($0)", "# Chapter \($0)\n" + body + "###### Detail\n1. Item\n\n| A | B |\n| --- | --- |\n| X | Y |\n\n![Description](image.png)", directory: directory) }
+        var options = WordExportOptions()
+        options.startsDocumentsOnNewPages = false
+        options.preservesHeadingStructure = false
+        options.theme = try WordExportTheme.decode(Data(#"{"version":1,"body":{"font":"Georgia"},"headings":{"2":{"color":"123456"}}}"#.utf8))
+        let data = try WordCompilation.write(title: "Book", sources: sources, options: options)
+        let parts = try WordPackage.entries(from: data, paths: ["word/document.xml", "word/styles.xml", "word/numbering.xml"])
+        let xml = String(decoding: try #require(parts["word/document.xml"]), as: UTF8.self)
+        let styles = String(decoding: try #require(parts["word/styles.xml"]), as: UTF8.self)
+        #expect(xml.components(separatedBy: "w:val=\"Heading1\"").count - 1 == 1)
+        #expect(xml.components(separatedBy: "w:val=\"Heading2\"").count - 1 == 49)
+        #expect(xml.components(separatedBy: "w:val=\"Heading6\"").count - 1 == 50)
+        #expect(xml.components(separatedBy: "<w:tbl>").count - 1 == 50)
+        #expect(xml.components(separatedBy: "<w:drawing>").count - 1 == 50)
+        #expect(xml.components(separatedBy: "<w:numPr>").count - 1 == 50)
+        #expect(!xml.contains("pageBreakBefore"))
+        #expect(styles.contains("Georgia") && styles.contains("123456"))
     }
 
     @Test func rejectsEmptyCompilation() {

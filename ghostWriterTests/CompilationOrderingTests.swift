@@ -122,6 +122,44 @@ struct CompilationOrderingTests {
         #expect(tree.includedDocuments == [c])
     }
 
+    @Test func deletedFolderPreferencesFollowConflictingRestorationAndArePurged() throws {
+        let suite = "DeletedFolderPreferences-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let metadata = DocumentLibraryMetadataStore(defaults: defaults)
+        let root = URL(fileURLWithPath: "/library")
+        metadata.useLibraryRoot(root)
+        let original = root.appendingPathComponent("Book")
+        let nested = original.appendingPathComponent("Nested")
+        let deleted = root.appendingPathComponent(".RecentlyDeleted/Book-unique")
+        let restored = root.appendingPathComponent("Book 2")
+        let manual = DocumentSort(field: .manual)
+        let fallback = DocumentSort()
+        metadata.setSort(manual, in: original)
+        metadata.setSort(DocumentSort(field: .name), in: nested)
+        metadata.setManualOrder([nested, original.appendingPathComponent("Title.md")], in: original)
+        metadata.setManualOrder([nested.appendingPathComponent("B.md"), nested.appendingPathComponent("A.md")], in: nested)
+        metadata.migrateManualOrder(from: original, to: deleted)
+        #expect(metadata.sort(in: original, fallback: fallback) == fallback)
+        #expect(metadata.sort(in: deleted, fallback: fallback) == manual)
+        metadata.setSort(DocumentSort(field: .created), in: original)
+        metadata.migrateManualOrder(from: deleted, to: restored)
+        #expect(metadata.sort(in: original, fallback: fallback).field == .created)
+        #expect(metadata.sort(in: restored, fallback: fallback) == manual)
+        let restoredNested = restored.appendingPathComponent("Nested")
+        #expect(metadata.sort(in: restoredNested, fallback: fallback).field == .name)
+        #expect(metadata.manuallyOrdered([restoredNested.appendingPathComponent("A.md"), restoredNested.appendingPathComponent("B.md")]).first?.lastPathComponent == "B.md")
+        metadata.migrateManualOrder(from: restored, to: deleted)
+        metadata.removeFolderPreferences(at: deleted)
+        #expect(metadata.sort(in: deleted, fallback: fallback) == fallback)
+        #expect(metadata.sort(in: deleted.appendingPathComponent("Nested"), fallback: fallback) == fallback)
+        #expect(!metadata.manualOrders.keys.contains { $0.contains(".RecentlyDeleted/") })
+        #expect(metadata.sort(in: original, fallback: fallback).field == .created)
+        let reopened = DocumentLibraryMetadataStore(defaults: defaults)
+        reopened.useLibraryRoot(root)
+        #expect(reopened.sort(in: deleted, fallback: fallback) == fallback)
+    }
+
     @Test func renameMoveAndMissingItemsPreserveOrder() throws {
         let suite = "CompilationOrderingTests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

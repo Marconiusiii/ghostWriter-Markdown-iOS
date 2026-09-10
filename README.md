@@ -54,7 +54,8 @@ remain a separate first group; unpinned documents and folders can be mixed.
 Clear Search to reorder. Manual positions, Sort By, and Sort Order are saved
 separately for the main Library and each folder on this device. Changing a
 folder’s sorting does not change its parent, and preferences survive restarts,
-folder renaming, and folder moves.
+folder renaming, folder moves, and restoration from Recently Deleted. Permanent
+deletion removes the deleted folder’s preferences.
 
 Compilation displays the selected project’s children directly, with inclusion
 toggles for nested folders and individual documents. Folder toggles use the
@@ -64,7 +65,10 @@ Edit is named Edit Document Order for accessibility and accepts the Voice Contro
 alternatives Edit, Edit Files, Edit Documents, Edit Document Order, and Edit File Order.
 
 Compilation uses each document’s opening Heading 1 as its title, falling back to
-the filename only when that heading is absent. Export progress identifies the
+the filename only when that heading is absent. Leading blank paragraphs are
+preserved without triggering an extra filename heading. Continuous output ensures
+an actual empty paragraph at each document boundary, reusing existing blank
+paragraphs and preserving additional source blanks. Export progress identifies the
 document being prepared and shows the completed-document count, then displays
 Creating Word document before presenting the Share Sheet.
 

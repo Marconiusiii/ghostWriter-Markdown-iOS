@@ -61,7 +61,7 @@ nonisolated enum WordprocessingMLWriter {
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
         theme: WordExportTheme? = nil
     ) throws -> Data {
-        let numberingKeys = collectNumberingKeys(document.blocks)
+        let numberingKeys = try collectNumberingKeys(document.blocks)
         let numberingIDs = Dictionary(
             uniqueKeysWithValues: numberingKeys.enumerated().map { ($0.element, $0.offset + 1) }
         )
@@ -92,7 +92,7 @@ nonisolated enum WordprocessingMLWriter {
             "word/document.xml": data(documentXML),
             "word/_rels/document.xml.rels": data(documentRelationships),
             "word/styles.xml": data(stylesXML(language: documentLanguage, theme: theme)),
-            "word/numbering.xml": data(numberingXML(keys: numberingKeys))
+            "word/numbering.xml": data(try numberingXML(keys: numberingKeys))
         ]
         for image in context.images {
             entries["word/media/\(image.fileName)"] = image.data
@@ -105,6 +105,7 @@ nonisolated enum WordprocessingMLWriter {
         numberingIDs: [NumberingKey: Int],
         context: inout WritingContext
     ) throws -> String {
+        try Task.checkCancellation()
         switch block {
         case .paragraph(let paragraph):
             return try paragraphXML(
@@ -159,8 +160,9 @@ nonisolated enum WordprocessingMLWriter {
             }
         }
         let pPr = properties.isEmpty ? "" : "<w:pPr>\(properties)</w:pPr>"
-        let runs = paragraph.runs.map {
-            runXML($0, context: &context)
+        let runs = try paragraph.runs.map {
+            try Task.checkCancellation()
+            return runXML($0, context: &context)
         }.joined()
         return "<w:p>\(pPr)\(runs)</w:p>"
     }
@@ -320,12 +322,13 @@ nonisolated enum WordprocessingMLWriter {
         }
     }
 
-    private static func collectNumberingKeys(_ blocks: [WordBlock]) -> [NumberingKey] {
+    private static func collectNumberingKeys(_ blocks: [WordBlock]) throws -> [NumberingKey] {
         var keys: [NumberingKey] = []
         func add(_ key: NumberingKey) {
             if !keys.contains(key) { keys.append(key) }
         }
         for block in blocks {
+            try Task.checkCancellation()
             switch block {
             case .paragraph(let paragraph):
                 guard let list = paragraph.list else { continue }
@@ -342,7 +345,7 @@ nonisolated enum WordprocessingMLWriter {
             case .table(let table):
                 for row in table.rows {
                     for cell in row.cells {
-                        for key in collectNumberingKeys(cell) { add(key) }
+                        for key in try collectNumberingKeys(cell) { add(key) }
                     }
                 }
             }
@@ -350,10 +353,11 @@ nonisolated enum WordprocessingMLWriter {
         return keys
     }
 
-    private static func numberingXML(keys: [NumberingKey]) -> String {
+    private static func numberingXML(keys: [NumberingKey]) throws -> String {
         var abstracts = ""
         var instances = ""
         for (offset, key) in keys.enumerated() {
+            try Task.checkCancellation()
             let id = offset + 1
             let levels = (0...8).map { level -> String in
                 let indentation = 720 + level * 360

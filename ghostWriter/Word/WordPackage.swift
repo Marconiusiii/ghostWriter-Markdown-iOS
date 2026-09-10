@@ -69,9 +69,11 @@ nonisolated enum WordPackage {
         return result
     }
 
-    static func create(entries: [String: Data]) throws -> Data {
+    static func create(entries: [String: Data], checkCancellation: () throws -> Void = { try Task.checkCancellation() }) throws -> Data {
+        try checkCancellation()
         let archive = try Archive(accessMode: .create)
         for path in entries.keys.sorted() {
+            try checkCancellation()
             guard let data = entries[path] else { continue }
             try archive.addEntry(
                 with: path,
@@ -79,6 +81,7 @@ nonisolated enum WordPackage {
                 uncompressedSize: Int64(data.count),
                 compressionMethod: .deflate,
                 provider: { position, size in
+                    try checkCancellation()
                     let start = Int(position)
                     return data.subdata(in: start..<(start + size))
                 }

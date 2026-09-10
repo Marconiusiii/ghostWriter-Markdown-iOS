@@ -214,6 +214,7 @@ struct RecentlyDeletedView: View {
             )
             restoredURL = store.restore(folder)
             if let restoredURL {
+                libraryMetadata.migrateManualOrder(from: folder.url, to: restoredURL)
                 migrateFolderMetadata(
                     pairs,
                     fromRoot: folder.url,
@@ -253,6 +254,7 @@ struct RecentlyDeletedView: View {
             )
             deleted = store.deletePermanently(folder)
             if deleted {
+                libraryMetadata.removeFolderPreferences(at: folder.url)
                 for pair in pairs {
                     EditorPositionStore.shared.removePosition(for: pair.sourceURL)
                     libraryMetadata.removeMetadata(for: pair.sourceURL)
@@ -290,6 +292,7 @@ struct RecentlyDeletedView: View {
                     rebuildDeletedItems()
                     return
                 }
+                libraryMetadata.removeFolderPreferences(at: folder.url)
                 for pair in pairs {
                     EditorPositionStore.shared.removePosition(for: pair.sourceURL)
                     libraryMetadata.removeMetadata(for: pair.sourceURL)

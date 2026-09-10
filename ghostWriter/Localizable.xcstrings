@@ -15,6 +15,9 @@
         }
       }
     },
+    "%@ Folder" : {
+
+    },
     "%@ is not yet available on this device." : {
       "comment" : "DocumentStore.swift:715",
       "localizations" : {
@@ -154,6 +157,16 @@
     "%lld merged PowerPoint tables were imported as labeled text rows." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
+    },
+    "%lld of %lld documents prepared" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld documents prepared"
+          }
+        }
+      }
     },
     "%lld PowerPoint images could not be included. Available descriptions were kept." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -1323,6 +1336,9 @@
         }
       }
     },
+    "Creating Word document…" : {
+
+    },
     "Current" : {
       "comment" : "ICloudMigrationView.swift:34",
       "localizations" : {
@@ -1693,6 +1709,12 @@
     "Done Editing" : {
 
     },
+    "Double-tap to exclude" : {
+
+    },
+    "Double-tap to include" : {
+
+    },
     "Download failed" : {
       "comment" : "DocumentAvailability.swift:63",
       "localizations" : {
@@ -1784,7 +1806,16 @@
         }
       }
     },
+    "Edit Document Order" : {
+
+    },
+    "Edit Documents" : {
+
+    },
     "Edit File Order" : {
+
+    },
+    "Edit Files" : {
 
     },
     "Editing" : {
@@ -1819,9 +1850,6 @@
           }
         }
       }
-    },
-    "Edits document output order" : {
-
     },
     "Education level" : {
       "comment" : "EBrailleMetadataSettingsView.swift:145",
@@ -2591,9 +2619,6 @@
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
     },
-    "Include %@" : {
-
-    },
     "Include braille page numbers" : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
@@ -3354,6 +3379,9 @@
         }
       }
     },
+    "Outputs with standard Word styles by default, or import your own custom stylesheet." : {
+
+    },
     "Page numbers appear at the bottom right." : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
@@ -3516,9 +3544,6 @@
           }
         }
       }
-    },
-    "Preparing compilation…" : {
-
     },
     "Preparing Welcome document" : {
       "comment" : "WelcomeView.swift:34",
@@ -5151,6 +5176,9 @@
           }
         }
       }
+    },
+    "Word Stylesheet" : {
+
     },
     "Word Stylesheet could not be imported" : {
 

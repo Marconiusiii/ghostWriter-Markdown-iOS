@@ -1115,6 +1115,7 @@ struct LibraryView: View {
             pendingFolderDeletion = nil
             return
         }
+        libraryMetadata.migrateManualOrder(from: folder.url, to: deletedURL)
         migrateFolderMetadata(
             metadataPairs,
             replacingProposedRoot: proposedDeletedURL,

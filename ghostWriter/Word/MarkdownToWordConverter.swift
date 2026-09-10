@@ -31,14 +31,20 @@ nonisolated enum MarkdownToWordConverter {
     }
 
     static func document(from markdown: String) -> WordDocumentModel {
+        document(from: markdown, checkCancellation: {})
+    }
+
+    static func document(from markdown: String, checkCancellation: () throws -> Void) rethrows -> WordDocumentModel {
+        try checkCancellation()
         var lines = markdown.components(separatedBy: "\n")
-        let definitions = extractLinkDefinitions(&lines)
+        let definitions = try extractLinkDefinitions(&lines, checkCancellation: checkCancellation)
         var blocks: [WordBlock] = []
         var index = 0
         var nextListIdentifier = 1
         var activeLists: [ListSequenceKey: WordListReference] = [:]
 
         while index < lines.count {
+            try checkCancellation()
             let line = lines[index]
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if ListMarker(line: line) == nil { activeLists.removeAll() }
@@ -58,6 +64,7 @@ nonisolated enum MarkdownToWordConverter {
                 index += 1
                 while index < lines.count,
                       !lines[index].trimmingCharacters(in: .whitespaces).hasPrefix(fence) {
+                    try checkCancellation()
                     body.append(lines[index])
                     index += 1
                 }
@@ -97,7 +104,7 @@ nonisolated enum MarkdownToWordConverter {
             }
 
             if tableStarts(lines, at: index) {
-                let (table, next) = parseTable(lines, at: index, definitions: definitions)
+                let (table, next) = try parseTable(lines, at: index, definitions: definitions, checkCancellation: checkCancellation)
                 blocks.append(.table(table))
                 index = next
                 continue
@@ -159,6 +166,7 @@ nonisolated enum MarkdownToWordConverter {
             var paragraphLines = [line]
             index += 1
             while index < lines.count {
+                try checkCancellation()
                 let candidate = lines[index]
                 let candidateTrimmed = candidate.trimmingCharacters(in: .whitespaces)
                 if candidateTrimmed.isEmpty
@@ -288,14 +296,16 @@ nonisolated enum MarkdownToWordConverter {
     private static func parseTable(
         _ lines: [String],
         at start: Int,
-        definitions: [String: String]
-    ) -> (WordTable, Int) {
+        definitions: [String: String],
+        checkCancellation: () throws -> Void
+    ) rethrows -> (WordTable, Int) {
         var rows = [WordTableRow(
             cells: splitRow(lines[start]).map { cellBlocks($0, definitions: definitions) },
             isHeader: true
         )]
         var index = start + 2
         while index < lines.count {
+            try checkCancellation()
             let line = lines[index]
             guard !line.trimmingCharacters(in: .whitespaces).isEmpty, line.contains("|") else { break }
             rows.append(WordTableRow(
@@ -336,12 +346,13 @@ nonisolated enum MarkdownToWordConverter {
             .caseInsensitiveCompare(title) == .orderedSame
     }
 
-    private static func extractLinkDefinitions(_ lines: inout [String]) -> [String: String] {
+    private static func extractLinkDefinitions(_ lines: inout [String], checkCancellation: () throws -> Void) rethrows -> [String: String] {
         var definitions: [String: String] = [:]
         var remaining: [String] = []
         var insideCodeBlock = false
 
         for line in lines {
+            try checkCancellation()
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
                 insideCodeBlock.toggle()

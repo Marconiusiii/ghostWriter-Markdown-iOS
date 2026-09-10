@@ -113,6 +113,17 @@ final class DocumentLibraryMetadataStore {
         folderSortPreferences = migratedSorts
     }
 
+    func removeFolderPreferences(at directory: URL) {
+        let root = manualKey(for: directory)
+        func belongsToFolder(_ key: String) -> Bool {
+            key == root || key.hasPrefix(root + "/")
+        }
+        folderSortPreferences = folderSortPreferences.filter { !belongsToFolder($0.key) }
+        manualOrders = manualOrders.filter { !belongsToFolder($0.key) }.mapValues {
+            $0.filter { !belongsToFolder($0) }
+        }
+    }
+
     private func manualKey(for url: URL) -> String {
         if url.standardizedFileURL.path == libraryRoot?.path { return "." }
         return key(for: url)

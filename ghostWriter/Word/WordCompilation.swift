@@ -16,20 +16,28 @@ nonisolated struct WordCompilationSource: Sendable {
 nonisolated enum WordCompilation {
     static let headingWarning = "Heading 6 remains Heading 6; it never becomes Heading 7. Heading 5 and Heading 6 can therefore both become Heading 6."
 
-    static func document(sources: [WordCompilationSource], options: WordExportOptions) -> WordDocumentModel {
+    static func document(sources: [WordCompilationSource], options: WordExportOptions) throws -> WordDocumentModel {
         var result = WordDocumentModel()
         for (index, source) in sources.enumerated() {
-            var document = MarkdownToWordConverter.document(from: source.markdown)
-            // Every source has a title paragraph, including empty documents.
-            if document.blocks.isEmpty || !isTitle(document.blocks[0]) {
-                document.blocks.insert(.paragraph(WordParagraph(runs: [WordRun(text: source.title)], headingLevel: 1)), at: 0)
+            try Task.checkCancellation()
+            var document = try MarkdownToWordConverter.document(from: source.markdown, checkCancellation: { try Task.checkCancellation() })
+            // Leading blank paragraphs are content, but do not obscure the title.
+            let titleIndex = document.blocks.firstIndex { !isEmptyParagraph($0) } ?? document.blocks.count
+            if titleIndex == document.blocks.count || !isTitle(document.blocks[titleIndex]) {
+                document.blocks.insert(.paragraph(WordParagraph(runs: [WordRun(text: source.title)], headingLevel: 1)), at: titleIndex)
             }
-            func transform(_ blocks: [WordBlock], topLevel: Bool) -> [WordBlock] {
-                blocks.enumerated().map { offset, block in
+            if index > 0, !options.startsDocumentsOnNewPages,
+               result.blocks.last.map(isEmptyParagraph) != true,
+               document.blocks.first.map(isEmptyParagraph) != true {
+                result.blocks.append(.paragraph(WordParagraph(language: source.language)))
+            }
+            func transform(_ blocks: [WordBlock], topLevel: Bool) throws -> [WordBlock] {
+                try blocks.enumerated().map { offset, block in
+                    try Task.checkCancellation()
                     switch block {
                     case .paragraph(var paragraph):
                         if !options.preservesHeadingStructure, let level = paragraph.headingLevel,
-                           !(index == 0 && topLevel && offset == 0) {
+                           !(index == 0 && topLevel && offset == titleIndex) {
                             paragraph.headingLevel = min(6, level + 1)
                         }
                         if var list = paragraph.list {
@@ -44,15 +52,22 @@ nonisolated enum WordCompilation {
                         return .paragraph(paragraph)
                     case .table(var table):
                         for row in table.rows.indices {
-                            table.rows[row].cells = table.rows[row].cells.map { transform($0, topLevel: false) }
+                            table.rows[row].cells = try table.rows[row].cells.map { try transform($0, topLevel: false) }
                         }
                         return .table(table)
                     }
                 }
             }
-            result.blocks += transform(document.blocks, topLevel: true)
+            result.blocks += try transform(document.blocks, topLevel: true)
         }
         return result
+    }
+
+    private static func isEmptyParagraph(_ block: WordBlock) -> Bool {
+        guard case .paragraph(let paragraph) = block,
+              paragraph.headingLevel == nil, paragraph.list == nil,
+              !paragraph.isCodeBlock, !paragraph.isBlockQuote else { return false }
+        return paragraph.runs.allSatisfy { $0.image == nil && $0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
     private static func isTitle(_ block: WordBlock) -> Bool {
