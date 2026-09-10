@@ -5,8 +5,20 @@ nonisolated enum MarkdownToWordConverter {
         title: String,
         markdown: String,
         sourceDirectory: URL? = nil,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        theme: WordExportTheme? = nil
     ) throws -> Data {
+        let document = document(from: markdown, title: title)
+        return try WordprocessingMLWriter.write(
+            title: title,
+            document: document,
+            sourceDirectory: sourceDirectory,
+            documentLanguage: documentLanguage,
+            theme: theme
+        )
+    }
+
+    static func document(from markdown: String, title: String) -> WordDocumentModel {
         var document = document(from: markdown)
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         if !cleanTitle.isEmpty, !startsWithMatchingTitle(document, title: cleanTitle) {
@@ -15,12 +27,7 @@ nonisolated enum MarkdownToWordConverter {
                 headingLevel: 1
             )), at: 0)
         }
-        return try WordprocessingMLWriter.write(
-            title: title,
-            document: document,
-            sourceDirectory: sourceDirectory,
-            documentLanguage: documentLanguage
-        )
+        return document
     }
 
     static func document(from markdown: String) -> WordDocumentModel {

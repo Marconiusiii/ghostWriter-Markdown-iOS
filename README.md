@@ -41,6 +41,24 @@ wording, image alternative text, and table design.
 Accessibility testing is an ongoing process. Reports from VoiceOver and other
 assistive technology users are especially welcome.
 
+## Word export and compilation
+
+Choose Library Actions > Export Compilation… or use a folder’s Export
+Compilation… action to combine documents into one Word file. Review the order,
+add or remove documents, and choose whether to start each document on a new
+page and preserve its heading structure. Compilation ignores pinning.
+
+Manual Library ordering uses Edit/Done after the item count. Pinned documents
+remain a separate first group; unpinned documents and folders can be mixed.
+Clear Search to reorder. Orders are saved per folder on this device.
+
+Both single-document Word export and compilation accept an optional JSON style
+sheet. [Word export and JSON style sheet instructions](Documentation/Word%20export.md)
+explain the controls, heading limit, supported fields, units, and validation.
+[Download the complete example](Documentation/word-theme.json) and change or omit
+optional settings to create a theme.
+
+
 ## Features
 
 - Create, open, rename, duplicate, import, share, and recover Markdown documents
@@ -49,7 +67,9 @@ assistive technology users are especially welcome.
 - Automatically save changes while protecting against external file conflicts
 - Search document names and contents
 - Pin important documents at the beginning of the Library
-- Sort documents by name, creation date, modification date, or last opened date
+- Use Library Actions to sort documents by name, creation date, modification date, last opened date, or saved Manual order
+- Use Edit and Done in Manual order to rearrange folders and files
+- Export ordered Word compilations from Library Actions or a folder’s Export Compilation action, with optional JSON themes
 - Continue bulleted, numbered, and task lists automatically
 - Indent and outdent using tabs, two spaces, or four spaces
 - Navigate long documents through a heading-based Outline

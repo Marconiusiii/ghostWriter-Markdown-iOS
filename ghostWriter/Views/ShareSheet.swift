@@ -104,7 +104,7 @@ struct EditorShareView: View {
     @State private var preparation = SharePreparationState()
 
     /// Set once the writer has confirmed the export options. Formats that need
-    /// none begin preparing immediately; PowerPoint and the braille formats
+    /// none begin preparing immediately; Word, PowerPoint, and the braille formats
     /// wait here. One task starts when the selected format is ready.
     ///
     /// The two braille formats ask for different things: eBraille carries
@@ -113,6 +113,7 @@ struct EditorShareView: View {
     @State private var eBrailleMetadata: EBrailleMetadata?
     @State private var brfOptions: BRFExportOptions?
     @State private var powerPointOptions: PowerPointExportOptions?
+    @State private var wordOptions: WordExportOptions?
 
     var body: some View {
         Group {
@@ -136,6 +137,8 @@ struct EditorShareView: View {
                         }
                     }
                 }
+            } else if format == .word, wordOptions == nil {
+                WordExportOptionsView(onCancel: onClose) { wordOptions = $0 }
             } else if format == .eBraille, eBrailleMetadata == nil {
                 EBrailleOptionsView(
                     settings: settings,
@@ -181,6 +184,7 @@ struct EditorShareView: View {
 
     private var isReadyToPrepare: Bool {
         switch format {
+        case .word: return wordOptions != nil
         case .eBraille: return eBrailleMetadata != nil
         case .brf: return brfOptions != nil
         case .powerPoint: return powerPointOptions != nil
@@ -204,6 +208,7 @@ struct EditorShareView: View {
         let documentLanguage = documentLanguage
         let metadata = eBrailleMetadata
         let brf = brfOptions
+        let word = wordOptions
         let powerPoint = powerPointOptions
 
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
@@ -218,7 +223,8 @@ struct EditorShareView: View {
                         documentLanguage: documentLanguage,
                         eBrailleMetadata: metadata,
                         brfOptions: brf,
-                        powerPointOptions: powerPoint
+                        powerPointOptions: powerPoint,
+                        wordOptions: word
                     )
                 )
             } catch {
@@ -247,7 +253,8 @@ nonisolated enum EditorShareFileWriter {
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
         eBrailleMetadata: EBrailleMetadata? = nil,
         brfOptions: BRFExportOptions? = nil,
-        powerPointOptions: PowerPointExportOptions? = nil
+        powerPointOptions: PowerPointExportOptions? = nil,
+        wordOptions: WordExportOptions? = nil
     ) async throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -296,7 +303,8 @@ nonisolated enum EditorShareFileWriter {
                 title: title,
                 markdown: markdown,
                 sourceDirectory: sourceDirectory,
-                documentLanguage: documentLanguage
+                documentLanguage: documentLanguage,
+                theme: wordOptions?.theme
             )
             try data.write(to: url, options: .atomic)
             return url

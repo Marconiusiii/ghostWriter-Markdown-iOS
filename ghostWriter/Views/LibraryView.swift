@@ -49,6 +49,8 @@ struct LibraryView: View {
 
     @State private var iCloudMonitor = ICloudDocumentMonitor()
     @State private var searchText = ""
+    @State private var libraryEditMode = EditMode.inactive
+    @State private var compilationFolder: LibraryFolder?
     @State private var showingSettings = false
     @State private var showingRecentlyDeleted = false
     @State private var renderingSession: RenderedDocumentSession?
@@ -145,8 +147,10 @@ struct LibraryView: View {
                 header
                 if isImporting { ProgressView("Importing documents…") }
                 documentArea
+                if canReorder { EditButton() }
                 list
             }
+            .environment(\.editMode, $libraryEditMode)
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(Color.pageBackground)
@@ -186,8 +190,14 @@ struct LibraryView: View {
                 }
             }
             .onChange(of: searchText) { _, _ in
+                libraryEditMode = .inactive
                 scheduleSearchAnnouncement()
             }
+        }
+        .onChange(of: currentDirectory) { _, _ in libraryEditMode = .inactive }
+        .onChange(of: settings.sort) { _, _ in libraryEditMode = .inactive }
+        .sheet(item: $compilationFolder) { folder in
+            CompilationExportView(directory: folder.url)
         }
         .onAppear {
             if settings.renderSoundEnabled {
@@ -486,20 +496,28 @@ struct LibraryView: View {
                 .labelsHidden()
             }
 
-            Section("Sort Order") {
-                Picker("Sort Order", selection: sortDirectionBinding) {
-                    ForEach(SortDirection.allCases) { direction in
-                        Text(direction.label(for: settings.sort.field)).tag(direction)
+            if settings.sort.field != .manual {
+                Section("Sort Order") {
+                    Picker("Sort Order", selection: sortDirectionBinding) {
+                        ForEach(SortDirection.allCases) { direction in
+                            Text(direction.label(for: settings.sort.field)).tag(direction)
+                        }
                     }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
                 }
-                .pickerStyle(.inline)
-                .labelsHidden()
+            }
+            Section {
+                Button("Export Compilation…") {
+                    compilationFolder = LibraryFolder(url: currentDirectory)
+                }
+                .disabled(!store.storageAvailable)
             }
         } label: {
-            Label("Sort", systemImage: "arrow.up.arrow.down")
+            Label("Library Actions", systemImage: "ellipsis.circle")
         }
         .buttonStyle(.bordered)
-        .accessibilityLabel("Sort")
+        .accessibilityLabel("Library Actions")
         .accessibilityValue(settings.sort.spokenDescription)
         .accessibilityFocused($focusedElement, equals: .sort)
     }
@@ -641,23 +659,78 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var documentList: some View {
-        // No section header here: the count heading above this list is the
-        // heading for it, and repeating it would be a second announcement of
-        // the same thing.
-        ForEach(libraryPresentation.folders) { presentation in
-            libraryFolderRow(presentation)
-            .listRowInsets(
-                EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
-            )
+        if settings.sort.field == .manual {
+            manualRows(pinnedManualItems)
+            manualRows(unpinnedManualItems)
+        } else {
+            // No section header here: the count heading above this list is the
+            // heading for it, and repeating it would be a second announcement of
+            // the same thing.
+            ForEach(libraryPresentation.folders) { presentation in
+                libraryFolderRow(presentation)
+                .listRowInsets(
+                    EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
+                )
+                .listRowBackground(Color.clear)
+            }
+
+            ForEach(libraryPresentation.documents) { presentation in
+                libraryDocumentRow(presentation)
+                .listRowInsets(
+                    EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
+                )
+                .listRowBackground(Color.clear)
+            }
+        }
+    }
+
+    private var canReorder: Bool {
+        settings.sort.field == .manual && trimmedSearch.isEmpty
+            && libraryPresentation.currentItemCount > 1
+    }
+
+    private var manualItems: [LibraryItem] {
+        let items = libraryPresentation.folders.map { LibraryItem.folder($0.folder) }
+            + libraryPresentation.documents.map { LibraryItem.document($0.document) }
+        let byURL = Dictionary(uniqueKeysWithValues: items.map { ($0.url, $0) })
+        return libraryMetadata.manuallyOrdered(items.map(\.url)).compactMap { byURL[$0] }
+    }
+
+    private var pinnedManualItems: [LibraryItem] {
+        manualItems.filter { !$0.isFolder && libraryMetadata.isPinned($0.url) }
+    }
+
+    private var unpinnedManualItems: [LibraryItem] {
+        manualItems.filter { $0.isFolder || !libraryMetadata.isPinned($0.url) }
+    }
+
+    private func manualRows(_ items: [LibraryItem]) -> some View {
+        ForEach(items) { item in
+            Group {
+                switch item {
+                case .folder(let folder):
+                    if let row = libraryPresentation.folders.first(where: { $0.id == folder.id }) {
+                        libraryFolderRow(row)
+                    }
+                case .document(let document):
+                    if let row = libraryPresentation.documents.first(where: { $0.id == document.id }) {
+                        libraryDocumentRow(row)
+                    }
+                }
+            }
+            .moveDisabled(!canReorder)
+            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
             .listRowBackground(Color.clear)
         }
-
-        ForEach(libraryPresentation.documents) { presentation in
-            libraryDocumentRow(presentation)
-            .listRowInsets(
-                EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
-            )
-            .listRowBackground(Color.clear)
+        .onMove { offsets, destination in
+            guard canReorder else { return }
+            var reordered = items
+            reordered.move(fromOffsets: offsets, toOffset: destination)
+            let movedIDs = Set(items.map(\.id))
+            var iterator = reordered.makeIterator()
+            let merged = manualItems.map { movedIDs.contains($0.id) ? iterator.next()! : $0 }
+            libraryMetadata.setManualOrder(merged.map(\.url), in: currentDirectory)
+            rebuildLibraryPresentation()
         }
     }
 
@@ -678,6 +751,9 @@ struct LibraryView: View {
         .accessibilityFocused($focusedElement, equals: .folder(folder.url))
 
         let accessibleRow = primaryRow
+            .accessibilityAction(named: "Export Compilation…") {
+                compilationFolder = folder
+            }
             .accessibilityAction(named: "Rename") {
                 beginRename(folder)
             }
@@ -715,6 +791,7 @@ struct LibraryView: View {
             }
 
         return swipeRow.contextMenu {
+            Button("Export Compilation…") { compilationFolder = folder }
             Button {
                 beginRename(folder)
             } label: {
@@ -1120,6 +1197,7 @@ struct LibraryView: View {
         let renamedURL = store.rename(folder, to: newName)
         renamingFolder = nil
         if let renamedURL {
+            libraryMetadata.migrateManualOrder(from: folder.url, to: renamedURL)
             migrateFolderMetadata(
                 metadataPairs,
                 replacingProposedRoot: proposedURL,
@@ -1200,6 +1278,7 @@ struct LibraryView: View {
                 focusAfterMove = .documentsHeading
             }
         case .folder:
+            libraryMetadata.migrateManualOrder(from: oldURL, to: movedURL)
             migrateFolderMetadata(
                 folderMetadataPairs,
                 replacingProposedRoot: proposedFolderURL,

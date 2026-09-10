@@ -23,6 +23,8 @@ nonisolated enum WordprocessingMLWriter {
 
     private struct WritingContext {
         var sourceDirectory: URL?
+        var language: String?
+        var theme: WordExportTheme?
         var hyperlinks: [HyperlinkRelationship] = []
         var images: [ImagePart] = []
 
@@ -56,13 +58,14 @@ nonisolated enum WordprocessingMLWriter {
         title: String,
         document: WordDocumentModel,
         sourceDirectory: URL? = nil,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        theme: WordExportTheme? = nil
     ) throws -> Data {
         let numberingKeys = collectNumberingKeys(document.blocks)
         let numberingIDs = Dictionary(
             uniqueKeysWithValues: numberingKeys.enumerated().map { ($0.element, $0.offset + 1) }
         )
-        var context = WritingContext(sourceDirectory: sourceDirectory)
+        var context = WritingContext(sourceDirectory: sourceDirectory, theme: theme)
         let body = try document.blocks.map {
             try blockXML($0, numberingIDs: numberingIDs, context: &context)
         }.joined()
@@ -75,7 +78,7 @@ nonisolated enum WordprocessingMLWriter {
         }.joined()
 
         let documentXML = xmlHeader + """
-        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:adec="http://schemas.microsoft.com/office/drawing/2017/decorative"><w:body>\(body)<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:adec="http://schemas.microsoft.com/office/drawing/2017/decorative"><w:body>\(body)\(pageXML(theme?.page))</w:body></w:document>
         """
         let documentRelationships = xmlHeader + """
         <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>\(hyperlinkXML)\(imageXML)</Relationships>
@@ -88,7 +91,7 @@ nonisolated enum WordprocessingMLWriter {
             "docProps/app.xml": data(appPropertiesXML),
             "word/document.xml": data(documentXML),
             "word/_rels/document.xml.rels": data(documentRelationships),
-            "word/styles.xml": data(stylesXML(language: documentLanguage)),
+            "word/styles.xml": data(stylesXML(language: documentLanguage, theme: theme)),
             "word/numbering.xml": data(numberingXML(keys: numberingKeys))
         ]
         for image in context.images {
@@ -123,6 +126,14 @@ nonisolated enum WordprocessingMLWriter {
         numberingIDs: [NumberingKey: Int],
         context: inout WritingContext
     ) throws -> String {
+        let previousDirectory = context.sourceDirectory
+        let previousLanguage = context.language
+        if let directory = paragraph.sourceDirectory { context.sourceDirectory = directory }
+        context.language = paragraph.language
+        defer {
+            context.sourceDirectory = previousDirectory
+            context.language = previousLanguage
+        }
         var properties = ""
         if let level = paragraph.headingLevel {
             properties += "<w:pStyle w:val=\"Heading\(max(1, min(6, level)))\"/>"
@@ -131,6 +142,10 @@ nonisolated enum WordprocessingMLWriter {
         } else if paragraph.isCodeBlock {
             properties += "<w:pStyle w:val=\"HTMLPreformatted\"/>"
         }
+        if paragraph.list != nil && context.theme?.list != nil {
+            properties += "<w:pStyle w:val=\"ListParagraph\"/>"
+        }
+        if paragraph.pageBreakBefore { properties += "<w:pageBreakBefore/>" }
         if let list = paragraph.list {
             let key: NumberingKey
             switch list.kind {
@@ -160,7 +175,8 @@ nonisolated enum WordprocessingMLWriter {
                     image,
                     relationshipID: part.id,
                     imageNumber: context.images.count,
-                    data: part.data
+                    data: part.data,
+                    page: context.theme?.page
                 )
             }
             var fallback = run
@@ -174,6 +190,7 @@ nonisolated enum WordprocessingMLWriter {
             return runXML(fallback, context: &context)
         }
         var properties = ""
+        if let language = context.language { properties += "<w:lang w:val=\"\(xmlAttribute(language))\"/>" }
         if run.bold { properties += "<w:b/>" }
         if run.italic { properties += "<w:i/>" }
         if run.underline { properties += "<w:u w:val=\"single\"/>" }
@@ -213,9 +230,10 @@ nonisolated enum WordprocessingMLWriter {
         _ image: WordImage,
         relationshipID: String,
         imageNumber: Int,
-        data: Data
+        data: Data,
+        page: WordThemePage?
     ) -> String {
-        let size = imageSizeEMU(data: data)
+        let size = imageSizeEMU(data: data, page: page)
         let alternativeText = image.isDecorative ? "" : image.alternativeText ?? ""
         let description = xmlAttribute(alternativeText)
         let decorative = image.isDecorative
@@ -226,20 +244,20 @@ nonisolated enum WordprocessingMLWriter {
         """
     }
 
-    private static func imageSizeEMU(data: Data) -> (width: Int, height: Int) {
-        let fallback = (width: 4_572_000, height: 3_048_000)
+    private static func imageSizeEMU(data: Data, page: WordThemePage?) -> (width: Int, height: Int) {
+        let maximumWidth = ((page?.width ?? 612) - (page?.left ?? 72) - (page?.right ?? 72)) * 12_700
+        let maximumHeight = ((page?.height ?? 792) - (page?.top ?? 72) - (page?.bottom ?? 72)) * 12_700
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
-                as? [CFString: Any],
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let pixelWidth = properties[kCGImagePropertyPixelWidth] as? NSNumber,
               let pixelHeight = properties[kCGImagePropertyPixelHeight] as? NSNumber,
-              pixelWidth.doubleValue > 0,
-              pixelHeight.doubleValue > 0 else { return fallback }
-        let maximum = 5_943_600.0
-        let scale = min(1, maximum / pixelWidth.doubleValue)
-        let width = max(1, Int(pixelWidth.doubleValue * scale * 9_525))
-        let height = max(1, Int(pixelHeight.doubleValue * scale * 9_525))
-        return (width, height)
+              pixelWidth.doubleValue > 0, pixelHeight.doubleValue > 0 else {
+            return (Int(min(maximumWidth, 4_572_000)), Int(min(maximumHeight, 3_048_000)))
+        }
+        let naturalWidth = pixelWidth.doubleValue * 9_525
+        let naturalHeight = pixelHeight.doubleValue * 9_525
+        let scale = min(1, maximumWidth / naturalWidth, maximumHeight / naturalHeight)
+        return (max(1, Int(naturalWidth * scale)), max(1, Int(naturalHeight * scale)))
     }
 
     private static func localImageData(
@@ -378,10 +396,56 @@ nonisolated enum WordprocessingMLWriter {
     <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>ghostWriter</Application></Properties>
     """
 
-    private static func stylesXML(language: String) -> String {
-        xmlHeader + """
-        <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="22"/><w:lang w:val="\(xmlAttribute(language))"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="3"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading5"><w:name w:val="heading 5"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="4"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading6"><w:name w:val="heading 6"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="5"/></w:pPr><w:rPr><w:b/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:pPr><w:ind w:left="720"/></w:pPr></w:style><w:style w:type="paragraph" w:styleId="HTMLPreformatted"><w:name w:val="HTML Preformatted"/><w:basedOn w:val="Normal"/><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/></w:rPr></w:style><w:style w:type="character" w:styleId="HTMLCode"><w:name w:val="HTML Code"/><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/></w:rPr></w:style><w:style w:type="table" w:styleId="TableGrid"><w:name w:val="Table Grid"/><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4" w:color="auto"/><w:left w:val="single" w:sz="4" w:color="auto"/><w:bottom w:val="single" w:sz="4" w:color="auto"/><w:right w:val="single" w:sz="4" w:color="auto"/><w:insideH w:val="single" w:sz="4" w:color="auto"/><w:insideV w:val="single" w:sz="4" w:color="auto"/></w:tblBorders></w:tblPr></w:style></w:styles>
-        """
+    private static func pageXML(_ page: WordThemePage?) -> String {
+        func twips(_ value: Double) -> Int { Int((value * 20).rounded()) }
+        return "<w:sectPr><w:pgSz w:w=\"\(twips(page?.width ?? 612))\" w:h=\"\(twips(page?.height ?? 792))\"/><w:pgMar w:top=\"\(twips(page?.top ?? 72))\" w:right=\"\(twips(page?.right ?? 72))\" w:bottom=\"\(twips(page?.bottom ?? 72))\" w:left=\"\(twips(page?.left ?? 72))\"/></w:sectPr>"
+    }
+
+    private static func styleRunProperties(_ style: WordThemeStyle?, defaultSize: Double? = nil, defaultBold: Bool = false, defaultFont: String? = nil) -> String {
+        var xml = ""
+        if let font = style?.font ?? defaultFont {
+            xml += "<w:rFonts w:ascii=\"\(xmlAttribute(font))\" w:hAnsi=\"\(xmlAttribute(font))\" w:eastAsia=\"\(xmlAttribute(font))\" w:cs=\"\(xmlAttribute(font))\"/>"
+        }
+        if let bold = style?.bold ?? (defaultBold ? true : nil) { xml += "<w:b w:val=\"\(bold ? 1 : 0)\"/>" }
+        if let italic = style?.italic { xml += "<w:i w:val=\"\(italic ? 1 : 0)\"/>" }
+        if let color = style?.color { xml += "<w:color w:val=\"\(color.uppercased())\"/>" }
+        if let size = style?.size ?? defaultSize { xml += "<w:sz w:val=\"\(Int((size * 2).rounded()))\"/>" }
+        return xml
+    }
+
+    private static func styleParagraphProperties(_ style: WordThemeStyle?) -> String {
+        var xml = ""
+        var spacing = ""
+        if let value = style?.spaceBefore { spacing += " w:before=\"\(Int((value * 20).rounded()))\"" }
+        if let value = style?.spaceAfter { spacing += " w:after=\"\(Int((value * 20).rounded()))\"" }
+        if let value = style?.lineSpacing { spacing += " w:line=\"\(Int((value * 240).rounded()))\" w:lineRule=\"auto\"" }
+        if !spacing.isEmpty { xml += "<w:spacing\(spacing)/>" }
+        if let alignment = style?.alignment { xml += "<w:jc w:val=\"\(alignment == "justify" ? "both" : alignment)\"/>" }
+        return xml
+    }
+
+    private static func stylesXML(language: String, theme: WordExportTheme?) -> String {
+        var xml = xmlHeader + "<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val=\"22\"/><w:lang w:val=\"\(xmlAttribute(language))\"/></w:rPr></w:rPrDefault></w:docDefaults>"
+        func style(_ id: String, name: String, type: String = "paragraph", value: WordThemeStyle?, pPr: String = "", defaultSize: Double? = nil, bold: Bool = false, font: String? = nil, tableProperties: String = "") -> String {
+            let isNormal = id == "Normal"
+            let basedOn = type == "paragraph" && !isNormal ? "<w:basedOn w:val=\"Normal\"/>" : ""
+            let defaultAttribute = isNormal ? " w:default=\"1\"" : ""
+            let paragraph = type == "character" ? "" : pPr + styleParagraphProperties(value)
+            let run = styleRunProperties(value, defaultSize: defaultSize, defaultBold: bold, defaultFont: font)
+            return "<w:style w:type=\"\(type)\"\(defaultAttribute) w:styleId=\"\(id)\"><w:name w:val=\"\(name)\"/>\(basedOn)\(paragraph.isEmpty ? "" : "<w:pPr>" + paragraph + "</w:pPr>")\(run.isEmpty ? "" : "<w:rPr>" + run + "</w:rPr>")\(tableProperties)</w:style>"
+        }
+        xml += style("Normal", name: "Normal", value: theme?.body)
+        for level in 1...6 {
+            let defaultSize: Double? = [1: 16.0, 2: 14.0, 3: 13.0][level]
+            xml += style("Heading\(level)", name: "heading \(level)", value: theme?.headings?[String(level)], pPr: "<w:outlineLvl w:val=\"\(level - 1)\"/>", defaultSize: defaultSize, bold: true)
+        }
+        xml += style("Quote", name: "Quote", value: theme?.quote, pPr: "<w:ind w:left=\"720\"/>")
+        xml += style("HTMLPreformatted", name: "HTML Preformatted", value: theme?.code, font: "Courier New")
+        xml += style("HTMLCode", name: "HTML Code", type: "character", value: theme?.code, font: "Courier New")
+        if let list = theme?.list { xml += style("ListParagraph", name: "List Paragraph", value: list) }
+        let borders = ["top", "left", "bottom", "right", "insideH", "insideV"].map { "<w:\($0) w:val=\"single\" w:sz=\"4\" w:color=\"auto\"/>" }.joined()
+        xml += style("TableGrid", name: "Table Grid", type: "table", value: theme?.table, tableProperties: "<w:tblPr><w:tblBorders>\(borders)</w:tblBorders></w:tblPr>")
+        return xml + "</w:styles>"
     }
 
     private static func data(_ string: String) -> Data { Data(string.utf8) }

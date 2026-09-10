@@ -19,6 +19,7 @@ struct HelpView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             ForEach(topic.paragraphs, id: \.self) { paragraph in
                                 Text(paragraph)
+                                    .textSelection(.enabled)
                                     .font(.body)
                                     .foregroundStyle(Color.ghostText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -55,7 +56,7 @@ private struct HelpTopic: Identifiable {
                 "New creates a named markdown file and opens it for editing.",
                 "New Folder creates a folder in your current location. Open a folder to see what is inside, and use Back to return to its parent folder.",
                 "Import copies one or more markdown, plain-text, Word, or PowerPoint documents from Files into your current folder. Word and PowerPoint documents are converted to markdown. PowerPoint Import lets you choose which content to include. Name conflicts receive a safe numbered name.",
-                "Choose any document in the library to open it. Folders always appear before documents."
+                "Choose any document in the library to open it. Folders appear before documents with automatic sorting. Manual sorting lets you arrange folders and unpinned documents together."
             ]
         ),
         HelpTopic(
@@ -133,9 +134,13 @@ private struct HelpTopic: Identifiable {
                 "Footnotes are imported as markdown footnote references with their text collected at the end of the document. Tracked insertions are imported as ordinary text, and tracked deletions are discarded. Comments are not imported.",
                 "Exporting to Word converts headings to Word heading styles, so they appear in Word’s Navigation pane and are announced as headings by screen readers. Lists become real Word lists, tables become Word tables with the first row marked as a header row, and block quotes and code blocks receive their own paragraph styles.",
                 "Task list items export as text beginning with Completed or Not completed, because Word has no checkbox equivalent in an ordinary paragraph. Horizontal rules are not exported, as markdown’s thematic break has no direct Word counterpart.",
-                "Word features with no markdown equivalent are not preserved in either direction. These include fonts, colours, text size, alignment, columns, headers and footers, page breaks, merged table cells, and embedded objects such as charts. A document exported to Word and imported again keeps its structure and text, but not any formatting applied inside Word afterwards.",
+                "Word import does not retain fonts, colors, text size, alignment, columns, headers and footers, page breaks, merged table cells, or embedded objects such as charts. On export, an optional JSON style sheet sets Word appearance, and compilation can add page breaks. These export settings are not restored if the Word file is imported again.",
                 "Import copies Word documents from Files and converts them. File Actions > Share > Word Document exports the document you are editing."
             ]
+        ),
+        HelpTopic(
+            title: "Word Export Help",
+            paragraphs: WordExportHelp.workflow + WordExportHelp.theme + [WordExportHelp.example]
         ),
         HelpTopic(
             title: "PowerPoint Import",
@@ -171,8 +176,9 @@ private struct HelpTopic: Identifiable {
             title: "Searching, Sorting, and Document Actions",
             paragraphs: [
                 "The library Search field checks document names and contents. The result count updates beneath the field. Activate Clear Search to return to the full library.",
-                "Sort changes the field and direction used to arrange documents. Tap a document to open it.",
-                "Pin keeps an important document at the beginning of the Library. Pinned documents remain first with every sort option. Last Opened sorts documents by the most recent time they were opened in the editor.",
+                "Library Actions contains Sort By, Sort Order, and Export Compilation…. Choose Manual under Sort By to use your saved order. Sort Order appears only for automatic sorting. Activate a document to open it.",
+                "Pin keeps an important document at the beginning of the document group with automatic sorting. In Manual order, pinned documents appear first and can be reordered within their group. Pinning never changes compilation order. Last Opened sorts documents by the most recent time they were opened in the editor.",
+                "With Manual sorting and at least two items, Edit appears after the item count and before the rows. Activate Edit, use the system’s reorder controls to move items within their group, then activate Done. Unpinned documents and folders can be mixed. Clear Search before reordering. Each folder remembers its order on this device; new items follow saved items alphabetically. Renaming preserves positions, and moving an item to another folder appends it to that folder’s saved order.",
                 "Deleting a folder keeps everything inside it together.",
                 "Delete moves a document or folder to Deleted. Restoring returns it to its previous folder when that folder still exists, or to Documents when it does not.",
                 "Jump to Line in File Actions moves the cursor to the beginning of a numbered line. Line numbers begin at 1."
@@ -184,7 +190,7 @@ private struct HelpTopic: Identifiable {
                 "For non-VoiceOver users, swipe left or right on a document or folder to reveal common actions. Touch and hold a document or folder to open its complete actions menu.",
                 "On a document, swipe left for Share and Delete. Swipe right for Pin or Unpin. If a download failed, swiping right also provides Retry Download.",
                 "On a folder, swipe left for Move and Delete. Swipe right for Rename.",
-                "Touch and hold a document for Pin or Unpin, Render, Share, Rename, Move, Duplicate, and Delete. Touch and hold a folder for Rename, Move, and Delete."
+                "Touch and hold a document for Pin or Unpin, Render, Share, Rename, Move, Duplicate, and Delete. Touch and hold a folder for Export Compilation…, Rename, Move, and Delete. Export Compilation… is also available in the folder’s VoiceOver Actions."
             ]
         ),
         HelpTopic(

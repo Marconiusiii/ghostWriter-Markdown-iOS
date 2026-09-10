@@ -34,6 +34,64 @@ final class DocumentLibraryMetadataStore {
         }
     }
 
+    private(set) var manualOrders: [String: [String]] {
+        didSet {
+            defaults.set(manualOrders, forKey: "libraryManualOrders")
+            libraryPresentationRevision &+= 1
+        }
+    }
+
+    /// Missing items append alphabetically. Filtering never rewrites the saved order.
+    func manuallyOrdered(_ urls: [URL]) -> [URL] {
+        guard let parent = urls.first?.deletingLastPathComponent() else { return [] }
+        let order = manualOrders[manualKey(for: parent)] ?? []
+        let ranks = Dictionary(order.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: { first, _ in first })
+        return urls.sorted {
+            let left = ranks[manualKey(for: $0)] ?? Int.max
+            let right = ranks[manualKey(for: $1)] ?? Int.max
+            if left != right { return left < right }
+            let comparison = $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent)
+            return comparison == .orderedSame ? $0.path < $1.path : comparison == .orderedAscending
+        }
+    }
+
+    func setManualOrder(_ urls: [URL], in directory: URL) {
+        var seen: Set<String> = []
+        manualOrders[manualKey(for: directory)] = urls.filter {
+            $0.deletingLastPathComponent().standardizedFileURL.path == directory.standardizedFileURL.path
+        }.map { manualKey(for: $0) }.filter { seen.insert($0).inserted }
+    }
+
+    /// Folder renames also update descendant order keys. Cross-folder moves append.
+    func migrateManualOrder(from oldURL: URL, to newURL: URL) {
+        let old = manualKey(for: oldURL)
+        let new = manualKey(for: newURL)
+        guard old != new else { return }
+        let sameParent = oldURL.deletingLastPathComponent().standardizedFileURL.path == newURL.deletingLastPathComponent().standardizedFileURL.path
+        func replacingRoot(_ value: String) -> String {
+            if value == old { return new }
+            if value.hasPrefix(old + "/") { return new + value.dropFirst(old.count) }
+            return value
+        }
+        var updated: [String: [String]] = [:]
+        for (directory, items) in manualOrders {
+            updated[replacingRoot(directory)] = items.compactMap { item in
+                if item == old && !sameParent { return nil }
+                return replacingRoot(item)
+            }
+        }
+        if !sameParent {
+            let parent = manualKey(for: newURL.deletingLastPathComponent())
+            if let siblings = updated[parent], !siblings.contains(new) { updated[parent, default: []].append(new) }
+        }
+        manualOrders = updated
+    }
+
+    private func manualKey(for url: URL) -> String {
+        if url.standardizedFileURL.path == libraryRoot?.path { return "." }
+        return key(for: url)
+    }
+
     private let defaults: UserDefaults
     private let pinnedStorageKey: String
     private let lastOpenedStorageKey: String
@@ -45,6 +103,7 @@ final class DocumentLibraryMetadataStore {
         lastOpenedStorageKey: String = "documentLastOpened",
         languageStorageKey: String = "documentLanguageTags"
     ) {
+        self.manualOrders = defaults.dictionary(forKey: "libraryManualOrders") as? [String: [String]] ?? [:]
         self.defaults = defaults
         self.pinnedStorageKey = pinnedStorageKey
         self.lastOpenedStorageKey = lastOpenedStorageKey
@@ -152,6 +211,7 @@ final class DocumentLibraryMetadataStore {
         to newURL: URL,
         relativeTo newRoot: URL?
     ) {
+        if oldRoot == newRoot { migrateManualOrder(from: oldURL, to: newURL) }
         let oldKey = key(for: oldURL, relativeTo: oldRoot)
         let newKey = key(for: newURL, relativeTo: newRoot)
         let oldLegacyKey = legacyKey(for: oldURL)

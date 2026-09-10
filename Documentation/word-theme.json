@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "body": { "font": "Georgia", "size": 12, "color": "202020", "spaceAfter": 8, "lineSpacing": 1.15 },
+  "headings": {
+    "1": { "font": "Arial", "size": 24, "color": "203864", "bold": true, "spaceBefore": 12, "spaceAfter": 8 },
+    "2": { "font": "Arial", "size": 18, "color": "203864", "spaceBefore": 10, "spaceAfter": 6 },
+    "3": { "size": 15 },
+    "4": { "size": 13 },
+    "5": { "size": 12 },
+    "6": { "size": 12, "italic": true }
+  },
+  "quote": { "italic": true, "spaceBefore": 6, "spaceAfter": 6 },
+  "code": { "font": "Courier New", "size": 10, "alignment": "left" },
+  "list": { "spaceAfter": 4 },
+  "table": { "font": "Arial", "size": 11 },
+  "page": { "width": 612, "height": 792, "top": 72, "right": 72, "bottom": 72, "left": 72 }
+}

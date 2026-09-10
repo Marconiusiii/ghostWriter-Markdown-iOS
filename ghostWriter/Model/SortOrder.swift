@@ -9,6 +9,7 @@
 import Foundation
 
 enum DocumentSortField: String, CaseIterable, Identifiable {
+    case manual
     case name
     case created
     case modified
@@ -18,6 +19,7 @@ enum DocumentSortField: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
+        case .manual: return String(localized: "Manual")
         case .name: return String(localized: "Name")
         case .created: return String(localized: "Date Created")
         case .modified: return String(localized: "Date Modified")
@@ -51,7 +53,7 @@ struct DocumentSort: Equatable {
     /// Spoken summary of the current ordering, used as the sort button's
     /// accessibility value so the state is available without opening the menu.
     var spokenDescription: String {
-        "\(field.label), \(direction.label(for: field))"
+        field == .manual ? field.label : "\(field.label), \(direction.label(for: field))"
     }
 
     func sorted(
@@ -72,7 +74,12 @@ struct DocumentSort: Equatable {
         _ documents: [Document],
         metadata: DocumentLibraryMetadataStore?
     ) -> [Document] {
-        documents.sorted { lhs, rhs in
+        if field == .manual, let metadata {
+            let ordered = metadata.manuallyOrdered(documents.map(\.url))
+            let byURL = Dictionary(uniqueKeysWithValues: documents.map { ($0.url, $0) })
+            return ordered.compactMap { byURL[$0] }
+        }
+        return documents.sorted { lhs, rhs in
             let comparison = compare(lhs, rhs, metadata: metadata)
             if comparison == .orderedSame {
                 return lhs.displayName.localizedStandardCompare(rhs.displayName)
@@ -90,7 +97,7 @@ struct DocumentSort: Equatable {
         metadata: DocumentLibraryMetadataStore?
     ) -> ComparisonResult {
         switch field {
-        case .name:
+        case .manual, .name:
             // Case- and diacritic-insensitive, and numeric so "note 10"
             // sorts after "note 9" rather than before it.
             return lhs.displayName.localizedStandardCompare(rhs.displayName)

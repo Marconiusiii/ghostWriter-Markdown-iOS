@@ -17,6 +17,9 @@ nonisolated struct WordParagraph: Equatable, Sendable {
     var list: WordListReference?
     var isBlockQuote = false
     var isCodeBlock = false
+    var pageBreakBefore = false
+    var sourceDirectory: URL?
+    var language: String?
 }
 
 nonisolated struct WordRun: Equatable, Sendable {
