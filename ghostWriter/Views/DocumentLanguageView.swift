@@ -15,7 +15,6 @@ struct DocumentLanguageView: View {
     @State private var selection: Selection
     @State private var customTag: String
     @FocusState private var customFieldFocused: Bool
-    @AccessibilityFocusState private var languageFocused: Bool
 
     private enum Selection: Hashable {
         case automatic
@@ -62,13 +61,6 @@ struct DocumentLanguageView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
-                        .accessibilityFocused($languageFocused)
-                        .onChange(of: selection) { _, newValue in
-                            if newValue == .custom {
-                                Task { @MainActor in customFieldFocused = true }
-                            }
-                            restoreLanguageFocus()
-                        }
                     }
 
                     if selection == .custom {
@@ -114,16 +106,6 @@ struct DocumentLanguageView: View {
             onSave(tag)
         case .custom:
             onSave(normalizedCustomTag)
-        }
-    }
-
-    private func restoreLanguageFocus() {
-        languageFocused = false
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
-            languageFocused = true
-            try? await Task.sleep(for: .milliseconds(350))
-            languageFocused = true
         }
     }
 }

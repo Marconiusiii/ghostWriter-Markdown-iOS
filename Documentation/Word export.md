@@ -2,7 +2,7 @@
 
 To export the document you are editing, choose File Actions > Share > Word Document. Optionally import a JSON style sheet, then activate Export and share… and choose a sharing destination or Save to Files.
 
-To combine documents, choose Library Actions > Export Compilation…. To begin with a closed folder, use its Export Compilation… action in the context menu or VoiceOver Actions. The Exporter starts with all documents in that location, including nested folders.
+To combine documents, use a folder’s Export Compilation… action in its long-press context menu or VoiceOver Actions. You can do this from the parent folder without opening the selected folder. The Exporter starts with all documents in that folder, including nested folders. Choose Add documents or folders… to include other Library items.
 
 Documents in export order lists the files that will be combined. Folders expand where they occur in the saved Manual order. Within each folder, items without saved positions follow the saved items alphabetically. Pinning and the current Library sort do not change compilation order.
 

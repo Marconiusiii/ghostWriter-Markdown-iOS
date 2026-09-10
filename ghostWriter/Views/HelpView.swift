@@ -176,12 +176,12 @@ private struct HelpTopic: Identifiable {
             title: "Searching, Sorting, and Document Actions",
             paragraphs: [
                 "The library Search field checks document names and contents. The result count updates beneath the field. Activate Clear Search to return to the full library.",
-                "Library Actions contains Sort By, Sort Order, and Export Compilation…. Choose Manual under Sort By to use your saved order. Sort Order appears only for automatic sorting. Activate a document to open it.",
+                "Sort contains Sort By and Sort Order. Choose Manual under Sort By to use your saved order. Sort Order appears only for automatic sorting. Activate a document to open it.",
                 "Pin keeps an important document at the beginning of the document group with automatic sorting. In Manual order, pinned documents appear first and can be reordered within their group. Pinning never changes compilation order. Last Opened sorts documents by the most recent time they were opened in the editor.",
                 "With Manual sorting and at least two items, Edit appears after the item count and before the rows. Activate Edit, use the system’s reorder controls to move items within their group, then activate Done. Unpinned documents and folders can be mixed. Clear Search before reordering. Each folder remembers its order on this device; new items follow saved items alphabetically. Renaming preserves positions, and moving an item to another folder appends it to that folder’s saved order.",
                 "Deleting a folder keeps everything inside it together.",
                 "Delete moves a document or folder to Deleted. Restoring returns it to its previous folder when that folder still exists, or to Documents when it does not.",
-                "Jump to Line in File Actions moves the cursor to the beginning of a numbered line. Line numbers begin at 1."
+                "Choose Jump to Line in File Actions, enter a line number, then activate Jump to move the cursor to the beginning of that line. Line numbers begin at 1. If the number is invalid, correct it in the open sheet and activate Jump again. Cancel returns to the editor without moving the cursor."
             ]
         ),
         HelpTopic(

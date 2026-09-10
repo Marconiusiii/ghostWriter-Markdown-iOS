@@ -183,10 +183,7 @@ struct MarkdownTextView: UIViewRepresentable {
             )
             let target = NSRange(location: utf16Offset, length: 0)
 
-            // Take focus before moving the caret. Without this the editor never
-            // becomes first responder, so after the outline sheet closes
-            // VoiceOver has nothing to land on and falls back to the first
-            // element on the screen — the Back button.
+            // A deliberate cursor command resumes editing at the requested position.
             if !textView.isFirstResponder {
                 textView.becomeFirstResponder()
             }
@@ -194,14 +191,6 @@ struct MarkdownTextView: UIViewRepresentable {
             textView.selectedRange = target
             textView.scrollRangeToVisible(target)
             session.updateNativeSelection(target)
-
-            // Then hand VoiceOver focus to the editor explicitly. The sheet
-            // dismissal moves focus on its own, so this has to happen after
-            // that settles or it is immediately overridden.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                textView.selectedRange = target
-                UIAccessibility.post(notification: .screenChanged, argument: textView)
-            }
 
             DispatchQueue.main.async { self.pendingCursorOffset = nil }
         }

@@ -1,70 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Font family" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Familia tipográfica" } }
-      }
-    },
-    "The font “%@” is unavailable on this device. Choose another font family." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "La fuente «%@» no está disponible en este dispositivo. Elige otra familia tipográfica." } }
-      }
-    },
-    "An image exceeds the 10 MiB limit." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "An image exceeds the limit of 40 million pixels." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "An internal XML part exceeds the limit of 150,000 elements." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "An internal XML part exceeds the limit of 64 nested elements." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "An internal document part exceeds the 8 MiB limit." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "Choose what to include and exclude from the import." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "The presentation exceeds the 512 MiB file-size limit." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "The presentation exceeds the import limit of 128 unique images." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "The presentation exceeds the limit of 4,096 internal files and folders." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "The presentation exceeds the limit of 500 slides, including hidden slides." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "The text in an internal XML part exceeds the 8 MiB limit." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "The unpacked document content exceeds the 96 MiB limit, excluding images." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
-    "The unpacked images exceed the separate 96 MiB image limit." : {
-      "comment" : "PowerPoint import introduction or specific safety limit.",
-      "extractionState" : "manual"
-    },
     "" : {
 
     },
@@ -199,6 +135,9 @@
           }
         }
       }
+    },
+    "%lld documents" : {
+
     },
     "%lld internal slide links were imported as plain text." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -348,6 +287,9 @@
         }
       }
     },
+    "Add" : {
+
+    },
     "Add a description to the tactile graphic %@ before exporting." : {
       "comment" : "EBrailleWriter.swift:834",
       "localizations" : {
@@ -369,6 +311,12 @@
           }
         }
       }
+    },
+    "Add documents or folders" : {
+
+    },
+    "Add documents or folders…" : {
+
     },
     "Additional options" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -395,6 +343,26 @@
           }
         }
       }
+    },
+    "An image exceeds the 10 MiB limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
+    },
+    "An image exceeds the limit of 40 million pixels." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
+    },
+    "An internal document part exceeds the 8 MiB limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
+    },
+    "An internal XML part exceeds the limit of 64 nested elements." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
+    },
+    "An internal XML part exceeds the limit of 150,000 elements." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
     },
     "Announces Light feedback and completed Markdown structures as you type." : {
       "comment" : "AppSettings.swift:110",
@@ -783,16 +751,9 @@
         }
       }
     },
-    "Embossed pages use the selected number of cells and lines. Paper and margins are set in your embossing software." : {
-      "comment" : "BRFOptionsView.swift",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las páginas para imprimir usan el número seleccionado de celdas y líneas. El papel y los márgenes se configuran en el programa de impresión braille."
-          }
-        }
-      }
+    "Choose what to include and exclude from the import." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
     },
     "Clear Search" : {
       "comment" : "LibraryView.swift:539",
@@ -892,6 +853,20 @@
           }
         }
       }
+    },
+    "Common page, 40 cells by 25 lines" : {
+      "comment" : "BRFOptionsView.swift:45",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Página común, 40 celdas por 25 líneas"
+          }
+        }
+      }
+    },
+    "Compilation could not be exported" : {
+
     },
     "Complete document" : {
       "comment" : "EBrailleMetadataSettingsView.swift:99",
@@ -1625,6 +1600,9 @@
         }
       }
     },
+    "Document name" : {
+
+    },
     "Document Removed in Files" : {
       "comment" : "EditorView.swift:1131",
       "localizations" : {
@@ -1701,6 +1679,9 @@
           }
         }
       }
+    },
+    "Documents in export order" : {
+
     },
     "Documents sync with iCloud Drive." : {
       "comment" : "DocumentStorage.swift:137",
@@ -1867,13 +1848,13 @@
         }
       }
     },
-    "Include braille page numbers" : {
+    "Embossed pages use the selected number of cells and lines. Paper and margins are set in your embossing software." : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Incluir números de página braille"
+            "value" : "Las páginas para imprimir usan el número seleccionado de celdas y líneas. El papel y los márgenes se configuran en el programa de impresión braille."
           }
         }
       }
@@ -2109,6 +2090,12 @@
         }
       }
     },
+    "Export Compilation" : {
+
+    },
+    "Export Compilation…" : {
+
+    },
     "File" : {
       "comment" : "MarkdownInsertionView.swift:50",
       "localizations" : {
@@ -2197,6 +2184,28 @@
         }
       }
     },
+    "Font family" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Familia tipográfica"
+          }
+        }
+      }
+    },
+    "Friendly Haunting Received" : {
+      "comment" : "SettingsView.swift: verified support purchase alert title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encantamiento amistoso recibido"
+          }
+        }
+      }
+    },
     "Full" : {
       "comment" : "AppSettings.swift:99",
       "localizations" : {
@@ -2226,6 +2235,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Error de ghostWriter"
+          }
+        }
+      }
+    },
+    "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you." : {
+      "comment" : "SettingsView.swift: optional support introduction",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ghostWriter no tiene anuncios ni suscripciones. Si te ayuda a escribir, puedes apoyar futuras actualizaciones con uno de estos encantamientos amistosos opcionales. Todas las opciones ofrecen el mismo agradecimiento sincero."
           }
         }
       }
@@ -2284,6 +2304,9 @@
           }
         }
       }
+    },
+    "Go to parent folder" : {
+
     },
     "Headers and footers" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -2557,6 +2580,9 @@
         }
       }
     },
+    "Import JSON style sheet…" : {
+
+    },
     "Importing documents…" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
@@ -2564,6 +2590,23 @@
     "Include" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
+    },
+    "Include braille page numbers" : {
+      "comment" : "BRFOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incluir números de página braille"
+          }
+        }
+      }
+    },
+    "Include document: %@" : {
+
+    },
+    "Include folder: %@" : {
+
     },
     "Indentation" : {
       "comment" : "SettingsView.swift:110",
@@ -2663,6 +2706,12 @@
           }
         }
       }
+    },
+    "JSON style sheet" : {
+
+    },
+    "JSON style sheets" : {
+
     },
     "Jump" : {
       "comment" : "EditorView.swift:304",
@@ -2774,6 +2823,9 @@
         }
       }
     },
+    "Library Actions" : {
+
+    },
     "Light" : {
       "comment" : "AppSettings.swift:53",
       "localizations" : {
@@ -2876,6 +2928,9 @@
           }
         }
       }
+    },
+    "Manual" : {
+
     },
     "Markdown" : {
       "comment" : "EditorView.swift:100",
@@ -3223,6 +3278,9 @@
         }
       }
     },
+    "Open folder: %@" : {
+
+    },
     "Open Last Document" : {
       "comment" : "AppLaunchBehavior.swift:24",
       "localizations" : {
@@ -3289,6 +3347,9 @@
         }
       }
     },
+    "Optional. Supplied settings override the standard Word appearance. Word Export Help describes the format and includes an example." : {
+
+    },
     "Other language tag…" : {
       "comment" : "DocumentLanguageView.swift:59",
       "localizations" : {
@@ -3307,6 +3368,20 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Esquema"
+          }
+        }
+      }
+    },
+    "Output" : {
+
+    },
+    "Page numbers appear at the bottom right." : {
+      "comment" : "BRFOptionsView.swift",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los números de página aparecen en la parte inferior derecha."
           }
         }
       }
@@ -3333,17 +3408,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pueden importar documentos de Word protegidos con contraseña."
-          }
-        }
-      }
-    },
-    "Page numbers appear at the bottom right." : {
-      "comment" : "BRFOptionsView.swift",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los números de página aparecen en la parte inferior derecha."
           }
         }
       }
@@ -3391,6 +3455,9 @@
           }
         }
       }
+    },
+    "Pinning does not change this order. Removing a document here leaves its Library file unchanged." : {
+
     },
     "Plain Text" : {
       "comment" : "EditorView.swift:101",
@@ -3474,6 +3541,9 @@
         }
       }
     },
+    "Preparing compilation…" : {
+
+    },
     "Preparing Welcome document" : {
       "comment" : "WelcomeView.swift:34",
       "localizations" : {
@@ -3503,6 +3573,20 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tema de presentación"
+          }
+        }
+      }
+    },
+    "Preserve individual document heading structure" : {
+
+    },
+    "Price unavailable" : {
+      "comment" : "SettingsView.swift: support purchase price fallback",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Precio no disponible"
           }
         }
       }
@@ -3551,6 +3635,9 @@
         }
       }
     },
+    "Reading style sheet…" : {
+
+    },
     "Recently Deleted" : {
       "comment" : "RecentlyDeletedView.swift:41",
       "localizations" : {
@@ -3583,6 +3670,12 @@
           }
         }
       }
+    },
+    "Remove from compilation" : {
+
+    },
+    "Remove style sheet" : {
+
     },
     "Rename" : {
       "comment" : "EditorView.swift:289",
@@ -3838,6 +3931,17 @@
         }
       }
     },
+    "Sending your %@ through the haunted halls…" : {
+      "comment" : "SettingsView.swift: support purchase in progress",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando tu %@ por los pasillos encantados…"
+          }
+        }
+      }
+    },
     "Serif" : {
       "comment" : "AppSettings.swift:83",
       "localizations" : {
@@ -3934,8 +4038,20 @@
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
     },
+    "Something unexpected rattled the walls. No support was recorded." : {
+      "comment" : "SettingsView.swift: unexpected support purchase result",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algo inesperado hizo temblar las paredes. No se registró ningún apoyo."
+          }
+        }
+      }
+    },
     "Sort" : {
       "comment" : "LibraryView.swift:488",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4031,17 +4147,6 @@
         }
       }
     },
-    "Common page, 40 cells by 25 lines" : {
-      "comment" : "BRFOptionsView.swift:45",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Página común, 40 celdas por 25 líneas"
-          }
-        }
-      }
-    },
     "Start a New Document" : {
       "comment" : "AppLaunchBehavior.swift:22",
       "localizations" : {
@@ -4063,6 +4168,9 @@
           }
         }
       }
+    },
+    "Start each document on a new page" : {
+
     },
     "Status Bar" : {
       "comment" : "EditorView.swift:582",
@@ -4097,6 +4205,9 @@
         }
       }
     },
+    "Style sheet could not be imported" : {
+
+    },
     "Subject" : {
       "comment" : "EBrailleMetadataSettingsView.swift:128",
       "localizations" : {
@@ -4104,6 +4215,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tema"
+          }
+        }
+      }
+    },
+    "Support ghostWriter Markdown" : {
+      "comment" : "SettingsView.swift: optional support section heading",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apoya a ghostWriter Markdown"
           }
         }
       }
@@ -4226,6 +4348,28 @@
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
     },
+    "Thank you for your %@ on %@. ghostWriter is feeling pleasantly haunted." : {
+      "comment" : "SettingsView.swift: persistent support purchase thank-you",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gracias por tu %@ del %@. ghostWriter se siente agradablemente encantado."
+          }
+        }
+      }
+    },
+    "That haunting lost its way. No support was recorded. Please try again." : {
+      "comment" : "SettingsView.swift: failed support purchase",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese encantamiento se perdió por el camino. No se registró ningún apoyo. Inténtalo de nuevo."
+          }
+        }
+      }
+    },
     "The .md filename extension is added automatically." : {
       "comment" : "NewDocumentView.swift:50",
       "localizations" : {
@@ -4233,6 +4377,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "La extensión de archivo .md se añade automáticamente."
+          }
+        }
+      }
+    },
+    "The App Store could not verify this support, so nothing was recorded." : {
+      "comment" : "SettingsView.swift: unverified support transaction",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Store no pudo verificar este apoyo, por lo que no se registró nada."
           }
         }
       }
@@ -4329,6 +4484,20 @@
         }
       }
     },
+    "The first document’s title is the only Heading 1. All other headings move down one level." : {
+
+    },
+    "The font “%@” is unavailable on this device. Choose another font family." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La fuente «%@» no está disponible en este dispositivo. Elige otra familia tipográfica."
+          }
+        }
+      }
+    },
     "The image %@ could not be included in the PowerPoint presentation." : {
       "comment" : "PowerPointWriter.swift",
       "extractionState" : "stale",
@@ -4391,6 +4560,22 @@
     },
     "The PowerPoint presentation is too large or complex to import safely." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
+      "extractionState" : "manual"
+    },
+    "The presentation exceeds the 512 MiB file-size limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
+    },
+    "The presentation exceeds the import limit of 128 unique images." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
+    },
+    "The presentation exceeds the limit of 4,096 internal files and folders." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
+    },
+    "The presentation exceeds the limit of 500 slides, including hidden slides." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
     },
     "The render sound follows your device's silent switch." : {
@@ -4486,6 +4671,28 @@
         }
       }
     },
+    "The support options are hiding in the fog. Please check your connection and try again." : {
+      "comment" : "SettingsView.swift: support products unavailable",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las opciones de apoyo se esconden en la niebla. Comprueba tu conexión e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "The support spirits are gathering…" : {
+      "comment" : "SettingsView.swift: loading support products",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los espíritus de apoyo se están reuniendo…"
+          }
+        }
+      }
+    },
     "The tactile graphic %@ could not be found or read. Attach it again before exporting." : {
       "comment" : "EBrailleWriter.swift:836",
       "localizations" : {
@@ -4530,6 +4737,10 @@
         }
       }
     },
+    "The text in an internal XML part exceeds the 8 MiB limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
+    },
     "The translation contains a character that cannot be represented in BRF (Unicode %@)." : {
       "comment" : "BRFWriter.swift:534",
       "localizations" : {
@@ -4551,6 +4762,14 @@
           }
         }
       }
+    },
+    "The unpacked document content exceeds the 96 MiB limit, excluding images." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
+    },
+    "The unpacked images exceed the separate 96 MiB image limit." : {
+      "comment" : "PowerPoint import introduction or specific safety limit.",
+      "extractionState" : "manual"
     },
     "The Welcome document could not be prepared right now. You can continue to the Library, and ghostWriter will try again on a later launch." : {
       "comment" : "WelcomeView.swift:36",
@@ -4772,17 +4991,6 @@
         }
       }
     },
-    "Use Today’s Date" : {
-      "comment" : "NewDocumentCreationMode.swift:21",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usar la fecha de hoy"
-          }
-        }
-      }
-    },
     "Use" : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
@@ -4790,6 +4998,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uso"
+          }
+        }
+      }
+    },
+    "Use Today’s Date" : {
+      "comment" : "NewDocumentCreationMode.swift:21",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar la fecha de hoy"
           }
         }
       }
@@ -4948,6 +5167,15 @@
         }
       }
     },
+    "Word export" : {
+
+    },
+    "Word export and compilation" : {
+
+    },
+    "Word Export Help" : {
+
+    },
     "Word Import" : {
       "comment" : "LibraryView.swift:361",
       "extractionState" : "stale",
@@ -4982,116 +5210,6 @@
         }
       }
     },
-    "Z to A" : {
-      "comment" : "SortOrder.swift:40",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "De la Z a la A"
-          }
-        }
-      }
-    },
-    "Price unavailable" : {
-      "comment" : "SettingsView.swift: support purchase price fallback",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Precio no disponible"
-          }
-        }
-      }
-    },
-    "Sending your %@ through the haunted halls…" : {
-      "comment" : "SettingsView.swift: support purchase in progress",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enviando tu %@ por los pasillos encantados…"
-          }
-        }
-      }
-    },
-    "Something unexpected rattled the walls. No support was recorded." : {
-      "comment" : "SettingsView.swift: unexpected support purchase result",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Algo inesperado hizo temblar las paredes. No se registró ningún apoyo."
-          }
-        }
-      }
-    },
-    "Support ghostWriter Markdown" : {
-      "comment" : "SettingsView.swift: optional support section heading",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apoya a ghostWriter Markdown"
-          }
-        }
-      }
-    },
-    "Thank you for your %@ on %@. ghostWriter is feeling pleasantly haunted." : {
-      "comment" : "SettingsView.swift: persistent support purchase thank-you",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gracias por tu %@ del %@. ghostWriter se siente agradablemente encantado."
-          }
-        }
-      }
-    },
-    "That haunting lost its way. No support was recorded. Please try again." : {
-      "comment" : "SettingsView.swift: failed support purchase",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ese encantamiento se perdió por el camino. No se registró ningún apoyo. Inténtalo de nuevo."
-          }
-        }
-      }
-    },
-    "The App Store could not verify this support, so nothing was recorded." : {
-      "comment" : "SettingsView.swift: unverified support transaction",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App Store no pudo verificar este apoyo, por lo que no se registró nada."
-          }
-        }
-      }
-    },
-    "The support options are hiding in the fog. Please check your connection and try again." : {
-      "comment" : "SettingsView.swift: support products unavailable",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las opciones de apoyo se esconden en la niebla. Comprueba tu conexión e inténtalo de nuevo."
-          }
-        }
-      }
-    },
-    "The support spirits are gathering…" : {
-      "comment" : "SettingsView.swift: loading support products",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los espíritus de apoyo se están reuniendo…"
-          }
-        }
-      }
-    },
     "Your support is waiting for approval. The ghost will keep watch." : {
       "comment" : "SettingsView.swift: pending support purchase",
       "localizations" : {
@@ -5103,24 +5221,13 @@
         }
       }
     },
-    "Friendly Haunting Received" : {
-      "comment" : "SettingsView.swift: verified support purchase alert title",
+    "Z to A" : {
+      "comment" : "SortOrder.swift:40",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Encantamiento amistoso recibido"
-          }
-        }
-      }
-    },
-    "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you." : {
-      "comment" : "SettingsView.swift: optional support introduction",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ghostWriter no tiene anuncios ni suscripciones. Si te ayuda a escribir, puedes apoyar futuras actualizaciones con uno de estos encantamientos amistosos opcionales. Todas las opciones ofrecen el mismo agradecimiento sincero."
+            "value" : "De la Z a la A"
           }
         }
       }

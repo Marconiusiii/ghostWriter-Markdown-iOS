@@ -48,6 +48,7 @@ struct EditorView: View {
     @State private var renameText = ""
     @State private var jumpLineText = ""
     @State private var jumpLineError: LineNavigationError?
+    @State private var navigationCursorOffset: Int?
 
     @State private var statusTask: Task<Void, Never>?
     @State private var lastCapturedRevision = 0
@@ -56,7 +57,7 @@ struct EditorView: View {
     @State private var pendingExternalCheck = false
     @State private var externalConflict: ExternalConflict?
     @State private var statusMessage = ""
-    @State private var focusRequestGate = FocusRestorationRequestGate()
+    // Observes native focus only; never assigns a VoiceOver focus destination.
     @AccessibilityFocusState private var focusedElement: EditorFocus?
     /// The name the file was last saved under, so ordinary editing does not
     /// rename the file as the first heading is typed.
@@ -67,8 +68,6 @@ struct EditorView: View {
     private let onClose: (URL) -> Void
 
     private enum EditorFocus: Hashable {
-        case render
-        case insert
         case fileActions
         case status
     }
@@ -79,10 +78,7 @@ struct EditorView: View {
         case duplicate
     }
 
-    /// The export formats offered by Share. Identifiable so the share sheet can
-    /// be driven by `sheet(item:)`, which gives an onDismiss callback —
-    /// ShareLink presents the system sheet itself and reports nothing back, so
-    /// there was no point at which focus could be restored.
+    /// The export formats offered by Share, presented through a native sheet.
     enum EditorShareFormat: String, CaseIterable, Identifiable {
         case markdown
         case plainText
@@ -109,7 +105,6 @@ struct EditorView: View {
             case .brf: return String(localized: "Braille Ready Format")
             }
         }
-
     }
 
     private struct PendingInsertion {
@@ -215,28 +210,22 @@ struct EditorView: View {
             requestSave(announce: false)
             RenderSound.shared.stop()
         }
-        .fullScreenCover(isPresented: $showingRendered, onDismiss: {
-            restoreFocus(to: .render)
-        }) {
+        .fullScreenCover(isPresented: $showingRendered) {
             RenderedHTMLView(
                 title: displayTitle,
                 markdown: text,
                 documentURL: fileURL
             )
         }
-        .sheet(isPresented: $showingOutline) {
+        .sheet(isPresented: $showingOutline, onDismiss: finishCursorNavigation) {
             OutlineView(entries: OutlineBuilder.build(from: text)) { offset in
-                pendingCursorOffset = offset
+                navigationCursorOffset = offset
             }
         }
-        .sheet(isPresented: $showingReference, onDismiss: {
-            restoreFocus(to: .fileActions)
-        }) {
+        .sheet(isPresented: $showingReference) {
             MarkdownReferenceView()
         }
-        .sheet(isPresented: $showingDocumentLanguage, onDismiss: {
-            restoreFocus(to: .fileActions)
-        }) {
+        .sheet(isPresented: $showingDocumentLanguage) {
             DocumentLanguageView(
                 initialTag: currentDocumentLanguage,
                 onSave: { tag in
@@ -248,12 +237,7 @@ struct EditorView: View {
                 onCancel: { showingDocumentLanguage = false }
             )
         }
-        // Presented here rather than by ShareLink so that dismissing — whether
-        // by sharing, by Close, or by swiping down — returns focus to File
-        // Actions, the control the writer opened this from.
-        .sheet(item: $sharingFormat, onDismiss: {
-            restoreFocus(to: .fileActions)
-        }) { format in
+        .sheet(item: $sharingFormat) { format in
             EditorShareView(
                 format: format,
                 title: displayTitle,
@@ -285,52 +269,19 @@ struct EditorView: View {
         .alert("Rename Document", isPresented: $showingRename) {
             TextField("Name", text: $renameText)
                 .autocorrectionDisabled()
-            Button("Cancel", role: .cancel) {
-                restoreFocus(to: .fileActions)
-            }
+            Button("Cancel", role: .cancel) { }
             Button("Rename") {
                 commitRename()
-                if store.lastError == nil {
-                    restoreFocus(to: .fileActions)
-                }
             }
         } message: {
             Text("Enter a new name for this document.")
         }
-        .alert("Jump to Line", isPresented: $showingJumpToLine) {
-            TextField("Line number", text: $jumpLineText)
-                .keyboardType(.numberPad)
-            Button("Cancel", role: .cancel) {
-                restoreFocus(to: .fileActions)
-            }
-            Button("Jump") {
-                jumpToLine()
-            }
-        } message: {
-            Text(
-                "Enter a line number from 1 through \(LineNavigation.lineCount(in: text))."
-            )
-        }
-        .alert(
-            jumpLineError?.title ?? "Could Not Jump",
-            isPresented: jumpLineErrorBinding,
-            presenting: jumpLineError
-        ) { _ in
-            Button("Try Again") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    showingJumpToLine = true
-                }
-            }
-            Button("Cancel", role: .cancel) {
-                restoreFocus(to: .fileActions)
-            }
-        } message: { error in
-            Text(error.message)
+        .sheet(isPresented: $showingJumpToLine, onDismiss: finishCursorNavigation) {
+            jumpToLineSheet
         }
         .alert("ghostWriter Error", isPresented: errorBinding) {
             Button("OK") {
                 store.lastError = nil
-                restoreFocus(to: .fileActions)
             }
         } message: {
             Text(store.lastError ?? "An unknown error occurred.")
@@ -434,7 +385,6 @@ struct EditorView: View {
         }
         .ghostProminentButtonStyle()
         .accessibilityHint("Shows this document as formatted HTML")
-        .accessibilityFocused($focusedElement, equals: .render)
         .keyboardShortcut(shortcut("r", modifiers: .command))
     }
 
@@ -460,7 +410,6 @@ struct EditorView: View {
         }
         .buttonStyle(.bordered)
         .accessibilityHint("Opens list of insertable Markdown elements")
-        .accessibilityFocused($focusedElement, equals: .insert)
         .keyboardShortcut(
             shortcut("i", modifiers: [.command, .shift])
         )
@@ -484,7 +433,6 @@ struct EditorView: View {
             }
 
             Button {
-                focusRequestGate.invalidate()
                 pendingFindRequest = UUID()
             } label: {
                 Label("Find and Replace", systemImage: "magnifyingglass")
@@ -493,6 +441,8 @@ struct EditorView: View {
 
             Button {
                 jumpLineText = ""
+                jumpLineError = nil
+                navigationCursorOffset = nil
                 present { showingJumpToLine = true }
             } label: {
                 Label("Jump to Line…", systemImage: "arrow.down.to.line")
@@ -616,7 +566,6 @@ struct EditorView: View {
         DocumentStore.sanitize(displayTitle)
     }
 
-
     // MARK: - Actions
 
     private func dismissKeyboard() {
@@ -631,7 +580,6 @@ struct EditorView: View {
     /// Dismisses the keyboard, then presents. Anything that puts content over
     /// the editor goes through this.
     private func present(_ action: @escaping () -> Void) {
-        focusRequestGate.invalidate()
         dismissKeyboard()
         action()
     }
@@ -674,7 +622,6 @@ struct EditorView: View {
     }
 
     private func render() {
-        focusRequestGate.invalidate()
         dismissKeyboard()
         captureCurrentEditorState()
         if settings.renderSoundEnabled { RenderSound.shared.play() }
@@ -713,7 +660,6 @@ struct EditorView: View {
 
     private func finishInsertionPresentation() {
         guard let insertion = pendingInsertion else {
-            restoreFocus(to: .insert)
             return
         }
 
@@ -722,7 +668,6 @@ struct EditorView: View {
     }
 
     private func applyInsertion(_ insertion: PendingInsertion) {
-        focusRequestGate.invalidate()
         dismissKeyboard()
         applyEditorReplacement(insertion.result)
         pendingCursorOffset = insertion.result.selection.location
@@ -734,18 +679,43 @@ struct EditorView: View {
         }
     }
 
+    private var jumpToLineSheet: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Line number", text: $jumpLineText)
+                        .keyboardType(.numberPad)
+                    Text("Enter a line number from 1 through \(LineNavigation.lineCount(in: text)).")
+                    if let jumpLineError { Text(jumpLineError.message) }
+                    Button("Jump", action: jumpToLine)
+                }
+            }
+            .navigationTitle("Jump to Line")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showingJumpToLine = false }
+                }
+            }
+        }
+    }
+
     private func jumpToLine() {
         captureCurrentEditorState()
         switch LineNavigation.destination(for: jumpLineText, in: text) {
         case .success(let offset):
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                pendingCursorOffset = offset
-            }
+            navigationCursorOffset = offset
+            showingJumpToLine = false
         case .failure(let error):
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                jumpLineError = error
-            }
+            jumpLineError = error
         }
+    }
+
+    /// The native sheet has finished dismissing before a requested jump is applied.
+    private func finishCursorNavigation() {
+        if let offset = navigationCursorOffset { pendingCursorOffset = offset }
+        navigationCursorOffset = nil
+        jumpLineError = nil
     }
 
     // MARK: - Saving
@@ -779,7 +749,6 @@ struct EditorView: View {
                 )
             )
         }
-
     }
 
     private func persistEditingPosition(
@@ -1084,32 +1053,10 @@ struct EditorView: View {
             : nil
     }
 
-    private func restoreFocus(to target: EditorFocus) {
-        let requestID = focusRequestGate.begin()
-        focusedElement = nil
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            guard focusRequestGate.permits(requestID) else { return }
-            focusedElement = target
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-            guard focusRequestGate.permits(requestID) else { return }
-            focusedElement = target
-        }
-    }
-
     private var errorBinding: Binding<Bool> {
         Binding(
             get: { store.lastError != nil },
             set: { if !$0 { store.lastError = nil } }
-        )
-    }
-
-    private var jumpLineErrorBinding: Binding<Bool> {
-        Binding(
-            get: { jumpLineError != nil },
-            set: { if !$0 { jumpLineError = nil } }
         )
     }
 

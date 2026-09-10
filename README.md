@@ -31,7 +31,7 @@ Accessibility features include:
 - Accessible rendered HTML with semantic headings, lists, tables, links, and
   landmarks
 - Reduced-motion support and visible keyboard focus in rendered documents
-- Logical focus restoration after sheets, menus, alerts, and file operations
+- Native menus, pickers, and sheet dismissal
 
 The app interface is responsible for providing an accessible editing and file
 management experience. The author of a document remains responsible for the
@@ -43,8 +43,8 @@ assistive technology users are especially welcome.
 
 ## Word export and compilation
 
-Choose Library Actions > Export Compilation… or use a folder’s Export
-Compilation… action to combine documents into one Word file. Review the order,
+Use a folder’s Export Compilation… action in its long-press context menu or
+VoiceOver Actions to combine documents into one Word file. Review the order,
 add or remove documents, and choose whether to start each document on a new
 page and preserve its heading structure. Compilation ignores pinning.
 
@@ -67,9 +67,9 @@ optional settings to create a theme.
 - Automatically save changes while protecting against external file conflicts
 - Search document names and contents
 - Pin important documents at the beginning of the Library
-- Use Library Actions to sort documents by name, creation date, modification date, last opened date, or saved Manual order
+- Use Sort to arrange documents by name, creation date, modification date, last opened date, or saved Manual order
 - Use Edit and Done in Manual order to rearrange folders and files
-- Export ordered Word compilations from Library Actions or a folder’s Export Compilation action, with optional JSON themes
+- Export ordered Word compilations from a folder’s Export Compilation action, with optional JSON themes
 - Continue bulleted, numbered, and task lists automatically
 - Indent and outdent using tabs, two spaces, or four spaces
 - Navigate long documents through a heading-based Outline

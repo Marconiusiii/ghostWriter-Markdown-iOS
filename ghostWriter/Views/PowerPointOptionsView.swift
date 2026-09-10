@@ -14,12 +14,6 @@ struct PowerPointOptionsView: View {
 
     @State private var theme: PowerPointTheme
     @State private var font: PowerPointFont
-    @AccessibilityFocusState private var accessibilityFocus: AccessibilityTarget?
-
-    private enum AccessibilityTarget: Hashable {
-        case theme
-        case font
-    }
 
     init(
         settings: AppSettings,
@@ -43,10 +37,6 @@ struct PowerPointOptionsView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityFocused($accessibilityFocus, equals: .theme)
-                    .onChange(of: theme) { _, _ in
-                        restoreFocusAfterSelection(to: .theme)
-                    }
 
                     Picker("Font family", selection: $font) {
                         ForEach(PowerPointFont.allCases) { font in
@@ -54,10 +44,6 @@ struct PowerPointOptionsView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityFocused($accessibilityFocus, equals: .font)
-                    .onChange(of: font) { _, _ in
-                        restoreFocusAfterSelection(to: .font)
-                    }
                 }
 
                 Section {
@@ -74,15 +60,5 @@ struct PowerPointOptionsView: View {
         settings.powerPointTheme = theme
         settings.powerPointFont = font
         onExport(PowerPointExportOptions(theme: theme, font: font))
-    }
-
-    private func restoreFocusAfterSelection(to target: AccessibilityTarget) {
-        accessibilityFocus = nil
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
-            accessibilityFocus = target
-            try? await Task.sleep(for: .milliseconds(350))
-            accessibilityFocus = target
-        }
     }
 }

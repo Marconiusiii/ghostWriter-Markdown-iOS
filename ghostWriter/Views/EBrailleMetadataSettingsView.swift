@@ -11,11 +11,6 @@ struct EBrailleMetadataSettingsView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var focusedField: Field?
-    @AccessibilityFocusState private var accessibilityFocus: AccessibilityTarget?
-
-    private enum AccessibilityTarget: Hashable {
-        case grade
-    }
 
     private enum Field: Hashable {
         case creator
@@ -63,10 +58,6 @@ struct EBrailleMetadataSettingsView: View {
                         EmptyView()
                     }
                     .pickerStyle(.menu)
-                    .accessibilityFocused($accessibilityFocus, equals: .grade)
-                    .onChange(of: settings.eBrailleGrade) { _, _ in
-                        restoreGradeFocusAfterSelection()
-                    }
                 }
             }
 
@@ -158,16 +149,6 @@ struct EBrailleMetadataSettingsView: View {
                 Button("Dismiss") { focusedField = nil }
                     .accessibilityLabel("Dismiss keyboard")
             }
-        }
-    }
-
-    private func restoreGradeFocusAfterSelection() {
-        accessibilityFocus = nil
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
-            accessibilityFocus = .grade
-            try? await Task.sleep(for: .milliseconds(350))
-            accessibilityFocus = .grade
         }
     }
 }

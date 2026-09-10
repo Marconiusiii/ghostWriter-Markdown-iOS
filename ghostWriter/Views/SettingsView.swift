@@ -19,7 +19,6 @@ struct SettingsView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(SupportStore.self) private var supportStore
     @Environment(\.dismiss) private var dismiss
-    @AccessibilityFocusState private var focusedElement: FocusTarget?
     @State private var showingHelp = false
     @State private var showingWhyGhostWriter = false
     @State private var showingAcknowledgements = false
@@ -27,7 +26,6 @@ struct SettingsView: View {
     @State private var showingMailComposer = false
     @State private var showingMailUnavailable = false
     @State private var requestedStorageLocation: DocumentStorageChoice?
-    @State private var focusRequestGate = FocusRestorationRequestGate()
     @State private var supportAlert: SupportAlertContent?
     @State private var showingSupportAlert = false
     @State private var supportConfirmation: SupportConfirmationContent?
@@ -69,20 +67,6 @@ struct SettingsView: View {
         }
     }
 
-    private enum FocusTarget: Hashable {
-        case indentation
-        case documentStorage
-        case appLaunch
-        case newDocumentCreation
-        case theme
-        case editorFont
-        case customizeStatusBar
-        case help
-        case whyGhostWriter
-        case acknowledgements
-        case feedback
-    }
-
     var body: some View {
         @Bindable var settings = settings
 
@@ -98,10 +82,6 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityFocused(
-                        $focusedElement,
-                        equals: .documentStorage
-                    )
                 } header: {
                     Text("Files")
                 } footer: {
@@ -118,10 +98,6 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityFocused(
-                        $focusedElement,
-                        equals: .appLaunch
-                    )
                 } header: {
                     Text("App Launch")
                 } footer: {
@@ -138,10 +114,6 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityFocused(
-                        $focusedElement,
-                        equals: .newDocumentCreation
-                    )
                 } header: {
                     Text("New Documents")
                 } footer: {
@@ -155,7 +127,6 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityFocused($focusedElement, equals: .indentation)
 
                     Toggle("Automatic Lists", isOn: $settings.smartListsEnabled)
                         .ghostFilledControlTint()
@@ -212,7 +183,6 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityFocused($focusedElement, equals: .theme)
 
                     Picker("Editor Font", selection: $settings.editorFontDesign) {
                         ForEach(EditorFontDesign.allCases) { design in
@@ -220,7 +190,6 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .accessibilityFocused($focusedElement, equals: .editorFont)
                 }
 
                 Section {
@@ -230,10 +199,8 @@ struct SettingsView: View {
 
                     if settings.statusBarEnabled {
                         Button("Customize Status Bar") {
-                            focusRequestGate.invalidate()
                             showingStatusBarSettings = true
                         }
-                        .accessibilityFocused($focusedElement, equals: .customizeStatusBar)
                     }
                 } header: {
                     Text("Editor Status")
@@ -266,23 +233,13 @@ struct SettingsView: View {
                 Section {
                     LabeledContent("Version", value: appVersion)
                     Button("Why ghostWriter?") {
-                        focusRequestGate.invalidate()
                         showingWhyGhostWriter = true
                     }
                     .accessibilityHint("Opens the lore of ghostWriter")
-                    .accessibilityFocused(
-                        $focusedElement,
-                        equals: .whyGhostWriter
-                    )
                     Button("Acknowledgements") {
-                        focusRequestGate.invalidate()
                         showingAcknowledgements = true
                     }
                     .accessibilityHint("Opens software acknowledgements and licenses")
-                    .accessibilityFocused(
-                        $focusedElement,
-                        equals: .acknowledgements
-                    )
                     externalLink(
                         title: "ghostWriter on the web",
                         url: "https://marconius.com/fun/ghostWriter/"
@@ -293,7 +250,6 @@ struct SettingsView: View {
                     )
                     Button("Send Feedback", action: sendFeedback)
                         .accessibilityHint("Opens an in-app email with app and system information included")
-                        .accessibilityFocused($focusedElement, equals: .feedback)
                 } header: {
                     Text("About")
                 } footer: {
@@ -311,10 +267,8 @@ struct SettingsView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Help") {
-                        focusRequestGate.invalidate()
                         showingHelp = true
                     }
-                    .accessibilityFocused($focusedElement, equals: .help)
                 }
             }
             .task {
@@ -331,43 +285,29 @@ struct SettingsView: View {
                 )
             }
         }
-        .sheet(isPresented: $showingHelp, onDismiss: {
-            restoreFocus(to: .help)
-        }) {
+        .sheet(isPresented: $showingHelp) {
             HelpView()
         }
-        .sheet(item: $requestedStorageLocation, onDismiss: {
-            restoreFocus(to: .documentStorage)
-        }) { destination in
+        .sheet(item: $requestedStorageLocation) { destination in
             ICloudMigrationView(
                 destination: destination,
-                onCompletion: {
-                    restoreFocus(to: .documentStorage)
-                }
+                onCompletion: {}
             )
             .environment(storage)
             .environment(store)
             .environment(libraryMetadata)
         }
-        .sheet(isPresented: $showingWhyGhostWriter, onDismiss: {
-            restoreFocus(to: .whyGhostWriter)
-        }) {
+        .sheet(isPresented: $showingWhyGhostWriter) {
             WhyGhostWriterView()
                 .presentationDragIndicator(.hidden)
         }
-        .sheet(isPresented: $showingAcknowledgements, onDismiss: {
-            restoreFocus(to: .acknowledgements)
-        }) {
+        .sheet(isPresented: $showingAcknowledgements) {
             AcknowledgementsView()
         }
-        .sheet(isPresented: $showingStatusBarSettings, onDismiss: {
-            restoreFocus(to: .customizeStatusBar)
-        }) {
+        .sheet(isPresented: $showingStatusBarSettings) {
             StatusBarSettingsView()
         }
-        .sheet(isPresented: $showingMailComposer, onDismiss: {
-            restoreFocus(to: .feedback)
-        }) {
+        .sheet(isPresented: $showingMailComposer) {
             MailComposerView(
                 recipient: FeedbackMailDraft.recipient,
                 subject: FeedbackMailDraft.subject,
@@ -378,28 +318,10 @@ struct SettingsView: View {
         .alert("Mail Is Not Available", isPresented: $showingMailUnavailable) {
             Button("Copy Email Address") {
                 UIPasteboard.general.string = FeedbackMailDraft.recipient
-                restoreFocus(to: .feedback)
             }
-            Button("Cancel", role: .cancel) {
-                restoreFocus(to: .feedback)
-            }
+            Button("Cancel", role: .cancel) { }
         } message: {
             Text("Mail is not configured on this device. You can copy the feedback address and use it in another mail app.")
-        }
-        .onChange(of: settings.indentUnit) { _, _ in
-            restoreFocus(to: .indentation)
-        }
-        .onChange(of: settings.appLaunchBehavior) { _, _ in
-            restoreFocus(to: .appLaunch)
-        }
-        .onChange(of: settings.newDocumentCreationMode) { _, _ in
-            restoreFocus(to: .newDocumentCreation)
-        }
-        .onChange(of: settings.appearance) { _, _ in
-            restoreFocus(to: .theme)
-        }
-        .onChange(of: settings.editorFontDesign) { _, _ in
-            restoreFocus(to: .editorFont)
         }
     }
 
@@ -464,7 +386,7 @@ struct SettingsView: View {
             isPresented: $showingSupportAlert,
             presenting: supportAlert
         ) { _ in
-            Button("Done") {}
+            Button("Done") { }
         } message: { alert in
             Text(alert.message)
         }
@@ -545,7 +467,7 @@ struct SettingsView: View {
             get: { storage.selectedLocation },
             set: { location in
                 guard location != storage.selectedLocation else { return }
-                focusRequestGate.invalidate()
+
                 requestedStorageLocation = location
             }
         )
@@ -557,7 +479,6 @@ struct SettingsView: View {
     }
 
     private func sendFeedback() {
-        focusRequestGate.invalidate()
         if MFMailComposeViewController.canSendMail() {
             showingMailComposer = true
         } else {
@@ -570,21 +491,6 @@ struct SettingsView: View {
             .accessibilityAddTraits(.isLink)
             .accessibilityRemoveTraits(.isButton)
             .accessibilityHint("Opens in external browser")
-    }
-
-    private func restoreFocus(to target: FocusTarget) {
-        let requestID = focusRequestGate.begin()
-        focusedElement = nil
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            guard focusRequestGate.permits(requestID) else { return }
-            focusedElement = target
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-            guard focusRequestGate.permits(requestID) else { return }
-            focusedElement = target
-        }
     }
 }
 

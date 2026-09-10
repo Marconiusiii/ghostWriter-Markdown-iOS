@@ -17,19 +17,11 @@ struct RecentlyDeletedView: View {
 
     @State private var pendingPermanentDeletion: DeletedLibraryItem?
     @State private var showingEmptyConfirmation = false
-    @State private var focusAfterError: FocusTarget?
-    @State private var focusRequestGate = FocusRestorationRequestGate()
     @State private var statusMessage = ""
     /// Reading `store.recentlyDeletedItems` decodes one JSON deletion record
     /// per item from disk. Sorting that on every body evaluation is what made
     /// this screen lag, so the rows are built once per change instead.
     @State private var deletedItems: [DeletedLibraryItem] = []
-    @AccessibilityFocusState private var focusedElement: FocusTarget?
-
-    private enum FocusTarget: Hashable {
-        case count
-        case item(URL)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -46,10 +38,6 @@ struct RecentlyDeletedView: View {
                 Text(countDescription)
                     .font(.title3.bold())
                     .foregroundStyle(Color.ghostAccent)
-                    .accessibilityFocused(
-                        $focusedElement,
-                        equals: .count
-                    )
 
                 if !statusMessage.isEmpty {
                     Text(statusMessage)
@@ -68,7 +56,6 @@ struct RecentlyDeletedView: View {
                 }
 
                 Button("Empty Recently Deleted", role: .destructive) {
-                    focusRequestGate.invalidate()
                     showingEmptyConfirmation = true
                 }
                 .buttonStyle(.bordered)
@@ -111,9 +98,7 @@ struct RecentlyDeletedView: View {
             )
         }
         .alert("Empty Recently Deleted?", isPresented: $showingEmptyConfirmation) {
-            Button("Cancel", role: .cancel) {
-                restoreFocus(to: .count)
-            }
+            Button("Cancel", role: .cancel) { }
             Button("Empty", role: .destructive) {
                 emptyRecentlyDeleted()
             }
@@ -162,7 +147,6 @@ struct RecentlyDeletedView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
-        .accessibilityFocused($focusedElement, equals: .item(item.url))
 
         let leadingSwipeRow = primaryRow
             .swipeActions(edge: .leading, allowsFullSwipe: false) {
@@ -215,10 +199,6 @@ struct RecentlyDeletedView: View {
     }
 
     private func restore(_ item: DeletedLibraryItem) {
-        focusRequestGate.invalidate()
-        let nextTarget = focusAfterRemoving(item)
-        focusAfterError = .item(item.url)
-
         let restoredURL: URL?
         switch item.item {
         case .document(let document):
@@ -242,29 +222,21 @@ struct RecentlyDeletedView: View {
             }
         }
         guard restoredURL != nil else { return }
-        // Refresh the cached rows before resolving the focus target, so
-        // `availableFocus` tests against the list as it now stands.
         rebuildDeletedItems()
-        focusAfterError = nil
+
         announceSuccess("\(item.displayName) restored")
-        restoreFocus(to: availableFocus(nextTarget))
     }
 
     private func beginPermanentDeletion(_ item: DeletedLibraryItem) {
-        focusRequestGate.invalidate()
         pendingPermanentDeletion = item
     }
 
     private func cancelPermanentDeletion() {
-        guard let item = pendingPermanentDeletion else { return }
         pendingPermanentDeletion = nil
-        restoreFocus(to: availableFocus(.item(item.url)))
     }
 
     private func commitPermanentDeletion() {
         guard let item = pendingPermanentDeletion else { return }
-        let nextTarget = focusAfterRemoving(item)
-        focusAfterError = .item(item.url)
 
         let deleted: Bool
         switch item.item {
@@ -293,15 +265,12 @@ struct RecentlyDeletedView: View {
         }
         rebuildDeletedItems()
         pendingPermanentDeletion = nil
-        focusAfterError = nil
+
         announceSuccess("\(item.displayName) deleted permanently")
-        restoreFocus(to: availableFocus(nextTarget))
     }
 
     private func emptyRecentlyDeleted() {
-        focusRequestGate.invalidate()
         let items = deletedItems
-        focusAfterError = .count
 
         for item in items {
             switch item.item {
@@ -329,51 +298,10 @@ struct RecentlyDeletedView: View {
         }
 
         rebuildDeletedItems()
-        focusAfterError = nil
-        restoreFocus(to: .count)
-    }
-
-    private func focusAfterRemoving(_ item: DeletedLibraryItem) -> FocusTarget {
-        guard let index = deletedItems.firstIndex(of: item) else {
-            return .count
-        }
-        if index + 1 < deletedItems.count {
-            return .item(deletedItems[index + 1].url)
-        }
-        if index > 0 {
-            return .item(deletedItems[index - 1].url)
-        }
-        return .count
-    }
-
-    private func availableFocus(_ target: FocusTarget) -> FocusTarget {
-        if case .item(let url) = target,
-           !deletedItems.contains(where: { $0.url == url }) {
-            return .count
-        }
-        return target
-    }
-
-    private func restoreFocus(to target: FocusTarget) {
-        let requestID = focusRequestGate.begin()
-        focusedElement = nil
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            guard focusRequestGate.permits(requestID) else { return }
-            focusedElement = target
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-            guard focusRequestGate.permits(requestID) else { return }
-            focusedElement = target
-        }
     }
 
     private func dismissError() {
         store.lastError = nil
-        let target = availableFocus(focusAfterError ?? .count)
-        focusAfterError = nil
-        restoreFocus(to: target)
     }
 
     private func announceSuccess(_ message: String) {

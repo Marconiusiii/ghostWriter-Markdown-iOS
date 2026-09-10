@@ -18,27 +18,6 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-/// Identifies the newest delayed accessibility-focus request. SwiftUI sheets
-/// can dismiss close together, so older callbacks must not override a newer,
-/// more relevant destination.
-struct FocusRestorationRequestGate {
-    private(set) var currentID: UUID?
-
-    mutating func begin() -> UUID {
-        let id = UUID()
-        currentID = id
-        return id
-    }
-
-    mutating func invalidate() {
-        currentID = nil
-    }
-
-    func permits(_ id: UUID) -> Bool {
-        currentID == id
-    }
-}
-
 struct LibraryView: View {
     @Environment(DocumentStorage.self) private var storage
     @Environment(DocumentStore.self) private var store
@@ -62,7 +41,6 @@ struct LibraryView: View {
     @State private var openedDocument: DocumentSession?
     @State private var showingNewDocument = false
     @State private var showingNewFolder = false
-    @State private var focusAfterNewFolder: LibraryFocus?
     @State private var showingImporter = false
     @State private var showingPowerPointImportOptions = false
     @State private var pendingImportURLs: [URL] = []
@@ -71,18 +49,11 @@ struct LibraryView: View {
     @State private var pendingImportAccess: [URL] = []
     @State private var isImporting = false
     @State private var importNotice: String?
-    @State private var importNoticeFocus: LibraryFocus?
     @State private var currentFolderURL: URL?
     @State private var configuredStorageLocation: DocumentStorageChoice?
     @State private var renamingFolder: LibraryFolder?
     @State private var pendingFolderDeletion: LibraryFolder?
     @State private var movingItem: LibraryItem?
-    @State private var focusAfterMove: LibraryFocus?
-    @State private var shouldRestoreNewDocumentFocus = false
-    @State private var focusAfterEditor: LibraryFocus?
-    @State private var focusAfterPresentation: LibraryFocus?
-    @State private var focusAfterError: LibraryFocus?
-    @State private var focusRequestGate = FocusRestorationRequestGate()
     @State private var appLaunchActionGate = AppLaunchActionGate()
     @State private var welcomeExperience = WelcomeExperience()
     @State private var showingWelcome = false
@@ -102,22 +73,6 @@ struct LibraryView: View {
     @State private var downloadTasks:
         [URL: Task<Void, Never>] = [:]
     @FocusState private var searchFocused: Bool
-    @AccessibilityFocusState private var focusedElement: LibraryFocus?
-
-    private enum LibraryFocus: Hashable {
-        case appHeading
-        case settings
-        case newDocument
-        case newFolder
-        case importDocument
-        case recentlyDeleted
-        case sort
-        case search
-        case documentsHeading
-        case back
-        case folder(URL)
-        case document(URL)
-    }
 
     private enum PendingDocumentAction {
         case open
@@ -158,30 +113,13 @@ struct LibraryView: View {
             // rather than duplicating it above the content.
             .navigationBarHidden(true)
             .navigationDestination(item: $openedDocument) { session in
-                EditorView(
-                    document: session.document,
-                    initialText: session.text,
-                    onDocumentURLChange: { url in
-                        focusAfterEditor = .document(url)
-                    },
-                    onClose: { url in
-                        focusAfterEditor = .document(
-                            documentURL(matching: url)
-                        )
-                    }
-                )
+                EditorView(document: session.document, initialText: session.text)
             }
+
             .onChange(of: openedDocument) { _, value in
                 if value != nil {
                     suspendLibraryActivityForEditing()
                 } else {
-                    // The cached Library snapshot still contains the document
-                    // row. Restore VoiceOver immediately instead of making it
-                    // wait for a complete filesystem and iCloud refresh.
-                    if let target = focusAfterEditor {
-                        restoreFocus(to: availableFocus(target))
-                        focusAfterEditor = nil
-                    }
                     libraryActivityTask = Task {
                         await resumeLibraryActivityAfterEditing()
                         guard !Task.isCancelled else { return }
@@ -271,38 +209,23 @@ struct LibraryView: View {
                 onContinue: continueFromWelcome
             )
         }
-        .sheet(isPresented: $showingSettings, onDismiss: {
-            restoreFocus(to: .settings)
-        }) {
+        .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
-        .sheet(isPresented: $showingRecentlyDeleted, onDismiss: {
-            restoreFocus(to: .recentlyDeleted)
-        }) {
+        .sheet(isPresented: $showingRecentlyDeleted) {
             RecentlyDeletedView()
         }
-        .sheet(isPresented: $showingNewDocument, onDismiss: {
-            if shouldRestoreNewDocumentFocus {
-                restoreFocus(to: .newDocument)
-            }
-            shouldRestoreNewDocumentFocus = false
-        }) {
+        .sheet(isPresented: $showingNewDocument) {
             NewDocumentView { name in
                 createDocument(named: name)
             }
         }
-        .sheet(isPresented: $showingNewFolder, onDismiss: {
-            restoreFocus(to: availableFocus(focusAfterNewFolder ?? .newFolder))
-            focusAfterNewFolder = nil
-        }) {
+        .sheet(isPresented: $showingNewFolder) {
             NewFolderView { name in
                 createFolder(named: name)
             }
         }
-        .sheet(item: $movingItem, onDismiss: {
-            restoreFocus(to: availableFocus(focusAfterMove ?? .documentsHeading))
-            focusAfterMove = nil
-        }) { item in
+        .sheet(item: $movingItem) { item in
             MoveLibraryItemView(
                 itemName: item.displayName,
                 rootDirectory: store.directory,
@@ -311,18 +234,14 @@ struct LibraryView: View {
                 onMove: { destination in move(item, to: destination) }
             )
         }
-        .fullScreenCover(item: $renderingSession, onDismiss: {
-            restorePresentationFocus()
-        }) { session in
+        .fullScreenCover(item: $renderingSession) { session in
             RenderedHTMLView(
                 title: session.title,
                 markdown: session.markdown,
                 documentURL: session.documentURL
             )
         }
-        .sheet(isPresented: $showingShare, onDismiss: {
-            restorePresentationFocus()
-        }) {
+        .sheet(isPresented: $showingShare) {
             ShareSheet(items: shareItems)
         }
         .fileImporter(
@@ -399,17 +318,14 @@ struct LibraryView: View {
                 .font(.largeTitle.bold())
                 .foregroundStyle(Color.ghostAccent)
                 .accessibilityAddTraits(.isHeader)
-                .accessibilityFocused($focusedElement, equals: .appHeading)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
-                focusRequestGate.invalidate()
                 showingSettings = true
             } label: {
                 Label("Settings", systemImage: "gearshape")
             }
             .buttonStyle(.bordered)
-            .accessibilityFocused($focusedElement, equals: .settings)
             .keyboardShortcut(shortcut(",", modifiers: .command))
 
             // New Document is the primary action, so it comes straight after
@@ -424,12 +340,9 @@ struct LibraryView: View {
             .controlSize(.large)
             .disabled(!store.storageAvailable)
             .accessibilityLabel("New document")
-            .accessibilityFocused($focusedElement, equals: .newDocument)
             .keyboardShortcut(shortcut("n", modifiers: .command))
 
             Button {
-                focusRequestGate.invalidate()
-                focusAfterNewFolder = .newFolder
                 showingNewFolder = true
             } label: {
                 Label("New Folder", systemImage: "folder.badge.plus")
@@ -438,10 +351,8 @@ struct LibraryView: View {
             .buttonStyle(.bordered)
             .controlSize(.large)
             .disabled(!store.storageAvailable)
-            .accessibilityFocused($focusedElement, equals: .newFolder)
 
             Button {
-                focusRequestGate.invalidate()
                 showingImporter = true
             } label: {
                 Label("Import", systemImage: "square.and.arrow.down")
@@ -453,11 +364,9 @@ struct LibraryView: View {
             .accessibilityLabel("Import document")
             .disabled(isImporting)
             .accessibilityHint("Copies Markdown, plain-text, Word, or PowerPoint documents into ghostWriter")
-            .accessibilityFocused($focusedElement, equals: .importDocument)
             .keyboardShortcut(shortcut("o", modifiers: .command))
 
             Button {
-                focusRequestGate.invalidate()
                 showingRecentlyDeleted = true
             } label: {
                 HStack {
@@ -473,7 +382,6 @@ struct LibraryView: View {
             .accessibilityLabel(
                 "Deleted, \(recentlyDeletedCountDescription)"
             )
-            .accessibilityFocused($focusedElement, equals: .recentlyDeleted)
         }
         .padding(.top, 8)
         .padding(.bottom, 12)
@@ -507,19 +415,12 @@ struct LibraryView: View {
                     .labelsHidden()
                 }
             }
-            Section {
-                Button("Export Compilation…") {
-                    compilationFolder = LibraryFolder(url: currentDirectory)
-                }
-                .disabled(!store.storageAvailable)
-            }
         } label: {
-            Label("Library Actions", systemImage: "ellipsis.circle")
+            Label("Sort", systemImage: "arrow.up.arrow.down")
         }
         .buttonStyle(.bordered)
-        .accessibilityLabel("Library Actions")
+        .accessibilityLabel("Sort")
         .accessibilityValue(settings.sort.spokenDescription)
-        .accessibilityFocused($focusedElement, equals: .sort)
     }
 
     /// An ordinary text field rather than `.searchable`, so it stays where it is
@@ -551,7 +452,6 @@ struct LibraryView: View {
                             .stroke(Color.ghostBorder, lineWidth: 1)
                     )
                     .accessibilityLabel("Search")
-                    .accessibilityFocused($focusedElement, equals: .search)
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
                             Spacer()
@@ -589,7 +489,7 @@ struct LibraryView: View {
     private func clearSearch() {
         searchText = ""
         searchFocused = true
-        restoreFocus(to: .search)
+
         announceCount(prefix: "Showing")
     }
 
@@ -620,14 +520,12 @@ struct LibraryView: View {
                 .font(.title2.bold())
                 .foregroundStyle(Color.ghostAccent)
                 .accessibilityAddTraits(.isHeader)
-                .accessibilityFocused($focusedElement, equals: .documentsHeading)
 
             if currentFolderURL != nil {
                 Button("Back to \(parentFolderName)") {
                     navigateBack()
                 }
                 .buttonStyle(.bordered)
-                .accessibilityFocused($focusedElement, equals: .back)
             }
 
             sortMenu
@@ -748,7 +646,6 @@ struct LibraryView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
-        .accessibilityFocused($focusedElement, equals: .folder(folder.url))
 
         let accessibleRow = primaryRow
             .accessibilityAction(named: "Export Compilation…") {
@@ -823,10 +720,6 @@ struct LibraryView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
-        .accessibilityFocused(
-            $focusedElement,
-            equals: .document(document.url)
-        )
 
         let commonActions = primaryRow
             .accessibilityActions {
@@ -1071,8 +964,7 @@ struct LibraryView: View {
         let url = document.url.standardizedFileURL
         guard openingDocumentURL != url else { return }
         documentOpenTask?.cancel()
-        focusRequestGate.invalidate()
-        focusAfterError = .document(document.url)
+
         openingDocumentURL = url
         documentOpenTask = Task {
             guard let text = try? await store.textAsynchronously(
@@ -1087,9 +979,9 @@ struct LibraryView: View {
             }
             openingDocumentURL = nil
             documentOpenTask = nil
-            focusAfterError = nil
+
             libraryMetadata.recordOpened(document.url)
-            focusAfterEditor = .document(document.url)
+
             beginEditing(DocumentSession(document: document, text: text))
         }
     }
@@ -1099,14 +991,11 @@ struct LibraryView: View {
     }
 
     private func renderAvailable(_ document: Document) {
-        focusRequestGate.invalidate()
-        focusAfterError = .document(document.url)
         Task {
             guard let text = try? await store.textAsynchronously(for: document) else {
                 return
             }
-            focusAfterError = nil
-            focusAfterPresentation = .document(document.url)
+
             if settings.renderSoundEnabled {
                 RenderSound.shared.play()
             }
@@ -1122,66 +1011,51 @@ struct LibraryView: View {
     /// the default; the date option skips the naming sheet and uses the same
     /// safe creation path directly.
     private func newDocument() {
-        focusRequestGate.invalidate()
         switch settings.newDocumentCreationMode {
         case .askForTitle:
-            shouldRestoreNewDocumentFocus = true
+
             showingNewDocument = true
         case .useTodaysDate:
-            shouldRestoreNewDocumentFocus = false
+
             createDocument(named: NewDocumentTitle.today())
         }
     }
 
     /// Creates the file with the chosen name and opens it.
     private func createDocument(named name: String) {
-        focusRequestGate.invalidate()
-        shouldRestoreNewDocumentFocus = false
-        focusAfterError = .newDocument
         Task {
             guard let url = await store.createDocument(
                 named: name,
                 contents: "",
                 in: currentDirectory
             ) else { return }
-            focusAfterError = nil
-            shouldRestoreNewDocumentFocus = false
+
             store.refresh()
             guard let document = Document(fileURL: url) else { return }
             libraryMetadata.recordOpened(url)
-            focusAfterEditor = .document(url)
+
             beginEditing(DocumentSession(document: document, text: ""))
         }
     }
 
     private func createFolder(named name: String) {
-        focusRequestGate.invalidate()
-        guard let folder = store.createFolder(named: name, in: currentDirectory) else {
-            focusAfterError = .newFolder
-            return
-        }
-        focusAfterNewFolder = .folder(folder.url)
+        _ = store.createFolder(named: name, in: currentDirectory)
     }
 
     private func open(_ folder: LibraryFolder) {
-        focusRequestGate.invalidate()
         searchText = ""
         currentFolderURL = folder.url
-        restoreFocus(to: .documentsHeading)
     }
 
     private func navigateBack() {
         guard let currentFolderURL else { return }
-        let childURL = currentFolderURL
         let parent = currentFolderURL.deletingLastPathComponent()
         self.currentFolderURL = parent.standardizedFileURL
             == store.directory.standardizedFileURL ? nil : parent
         searchText = ""
-        restoreFocus(to: .folder(childURL))
     }
 
     private func beginRename(_ folder: LibraryFolder) {
-        focusRequestGate.invalidate()
         newName = folder.displayName
         renamingFolder = folder
     }
@@ -1203,36 +1077,23 @@ struct LibraryView: View {
                 replacingProposedRoot: proposedURL,
                 with: renamedURL
             )
-            restoreFocus(to: .folder(renamedURL))
         }
     }
 
     private func cancelFolderRename() {
-        guard let folder = renamingFolder else { return }
         renamingFolder = nil
-        restoreFocus(to: .folder(folder.url))
     }
 
     private func beginDelete(_ folder: LibraryFolder) {
-        focusRequestGate.invalidate()
         pendingFolderDeletion = folder
     }
 
     private func cancelFolderDelete() {
-        guard let folder = pendingFolderDeletion else { return }
         pendingFolderDeletion = nil
-        restoreFocus(to: .folder(folder.url))
     }
 
     private func commitFolderDelete() {
         guard let folder = pendingFolderDeletion else { return }
-        let siblings = visibleFolders
-        let index = siblings.firstIndex(of: folder)
-        let nextURL = index.flatMap { position -> URL? in
-            if position + 1 < siblings.count { return siblings[position + 1].url }
-            if position > 0 { return siblings[position - 1].url }
-            return nil
-        }
         let proposedDeletedURL = store.recentlyDeletedDirectory
             .appendingPathComponent(folder.displayName, isDirectory: true)
         let metadataPairs = store.documentMovePairs(
@@ -1249,7 +1110,6 @@ struct LibraryView: View {
             with: deletedURL
         )
         pendingFolderDeletion = nil
-        restoreFocus(to: nextURL.map(LibraryFocus.folder) ?? .documentsHeading)
     }
 
     private func move(_ item: LibraryItem, to destination: URL) {
@@ -1272,11 +1132,6 @@ struct LibraryView: View {
         case .document:
             EditorPositionStore.shared.migratePosition(from: oldURL, to: movedURL)
             libraryMetadata.migrateMetadata(from: oldURL, to: movedURL)
-            if destination.standardizedFileURL == currentDirectory.standardizedFileURL {
-                focusAfterMove = .document(movedURL)
-            } else {
-                focusAfterMove = .documentsHeading
-            }
         case .folder:
             libraryMetadata.migrateManualOrder(from: oldURL, to: movedURL)
             migrateFolderMetadata(
@@ -1284,17 +1139,10 @@ struct LibraryView: View {
                 replacingProposedRoot: proposedFolderURL,
                 with: movedURL
             )
-            if destination.standardizedFileURL == currentDirectory.standardizedFileURL {
-                focusAfterMove = .folder(movedURL)
-            } else {
-                focusAfterMove = .documentsHeading
-            }
         }
     }
 
     private func beginMove(_ item: LibraryItem) {
-        focusRequestGate.invalidate()
-        focusAfterMove = item.isFolder ? .folder(item.url) : .document(item.url)
         movingItem = item
     }
 
@@ -1334,8 +1182,6 @@ struct LibraryView: View {
     }
 
     private func beginRename(_ document: Document) {
-        focusRequestGate.invalidate()
-        focusAfterError = .document(document.url)
         newName = document.displayName
         renamingDocument = document
     }
@@ -1349,15 +1195,11 @@ struct LibraryView: View {
                 from: document.url,
                 to: renamedURL
             )
-            focusAfterError = nil
-            restoreFocus(to: .document(renamedURL))
         }
     }
 
     private func cancelRename() {
-        guard let document = renamingDocument else { return }
         renamingDocument = nil
-        restoreFocus(to: .document(document.url))
     }
 
     private func duplicate(_ document: Document) {
@@ -1365,18 +1207,13 @@ struct LibraryView: View {
     }
 
     private func duplicateAvailable(_ document: Document) {
-        focusAfterError = .document(document.url)
         Task {
-            if let copy = await store.duplicate(document) {
-                focusAfterError = nil
-                restoreFocus(to: .document(copy.url))
-            }
+            _ = await store.duplicate(document)
         }
     }
 
     private func togglePin(_ document: Document) {
         libraryMetadata.togglePin(for: document.url)
-        restoreFocus(to: .document(document.url))
     }
 
     private func share(_ document: Document) {
@@ -1384,8 +1221,6 @@ struct LibraryView: View {
     }
 
     private func shareAvailable(_ document: Document) {
-        focusRequestGate.invalidate()
-        focusAfterError = .document(document.url)
         guard let text = try? store.text(for: document) else { return }
         do {
             let url = try ShareItemBuilder.makeFile(
@@ -1394,8 +1229,7 @@ struct LibraryView: View {
                 format: .markdown
             )
             shareItems = [url]
-            focusAfterError = nil
-            focusAfterPresentation = .document(document.url)
+
             showingShare = true
         } catch {
             store.lastError = String(localized: "Could not prepare \(document.displayName) for sharing. \(error.localizedDescription)")
@@ -1403,31 +1237,15 @@ struct LibraryView: View {
     }
 
     private func cancelDelete() {
-        guard let document = pendingDeletion else { return }
         pendingDeletion = nil
-        restoreFocus(to: .document(document.url))
     }
 
     private func beginDelete(_ document: Document) {
-        focusRequestGate.invalidate()
         pendingDeletion = document
     }
 
     private func commitDelete() {
         guard let document = pendingDeletion else { return }
-        let before = visibleDocuments
-        let deletedIndex = before.firstIndex(of: document)
-        let nextURL: URL?
-
-        if let deletedIndex, deletedIndex + 1 < before.count {
-            nextURL = before[deletedIndex + 1].url
-        } else if let deletedIndex, deletedIndex > 0 {
-            nextURL = before[deletedIndex - 1].url
-        } else {
-            nextURL = nil
-        }
-
-        focusAfterError = nextURL.map(LibraryFocus.document) ?? .documentsHeading
         guard let deletedURL = store.moveToRecentlyDeleted(document) else {
             pendingDeletion = nil
             return
@@ -1441,14 +1259,6 @@ struct LibraryView: View {
             to: deletedURL
         )
         pendingDeletion = nil
-
-        guard store.lastError == nil else { return }
-        focusAfterError = nil
-        if let nextURL, visibleDocuments.contains(where: { $0.url == nextURL }) {
-            restoreFocus(to: .document(nextURL))
-        } else {
-            restoreFocus(to: .documentsHeading)
-        }
     }
 
     private var renameBinding: Binding<Bool> {
@@ -1512,7 +1322,6 @@ struct LibraryView: View {
                 var updatedSort = settings.sort
                 updatedSort.field = field
                 settings.sort = updatedSort
-                restoreFocus(to: .sort)
             }
         )
     }
@@ -1524,7 +1333,6 @@ struct LibraryView: View {
                 var updatedSort = settings.sort
                 updatedSort.direction = direction
                 settings.sort = updatedSort
-                restoreFocus(to: .sort)
             }
         )
     }
@@ -1560,10 +1368,7 @@ struct LibraryView: View {
             }
         case .failure(let error):
             let nsError = error as NSError
-            if nsError.code == NSUserCancelledError {
-                restoreFocus(to: .importDocument)
-            } else {
-                focusAfterError = .importDocument
+            if nsError.code != NSUserCancelledError {
                 store.lastError = String(localized: "Could not import the selected files. \(error.localizedDescription)")
             }
         }
@@ -1580,7 +1385,7 @@ struct LibraryView: View {
         pendingImportOptions = nil
         guard let options else {
             access.forEach { $0.stopAccessingSecurityScopedResource() }
-            restoreFocus(to: .importDocument)
+
             return
         }
         performImport(urls, into: destination, options: options, scopedAccess: access)
@@ -1601,19 +1406,11 @@ struct LibraryView: View {
             let importResult = await store.importDocuments(
                 from: urls, into: destination, powerPointOptions: options
             )
-            let target = importResult.imported.first
-                .map { LibraryFocus.document($0.url) }
-                ?? .importDocument
             if importResult.failedFileNames.isEmpty {
-                focusAfterError = nil
-                if importResult.notices.isEmpty {
-                    restoreFocus(to: target)
-                } else {
-                    importNoticeFocus = target
+                if !importResult.notices.isEmpty {
                     importNotice = importResult.notices.joined(separator: " ")
                 }
             } else {
-                focusAfterError = target
                 // Keep successful-file conversion notices visible in partial batches.
                 if !importResult.notices.isEmpty, let failure = store.lastError {
                     store.lastError = failure + " " + importResult.notices.joined(separator: " ")
@@ -1624,15 +1421,10 @@ struct LibraryView: View {
 
     private func dismissError() {
         store.lastError = nil
-        restoreFocus(to: availableFocus(focusAfterError ?? .documentsHeading))
-        focusAfterError = nil
     }
 
     private func dismissImportNotice() {
-        let target = importNoticeFocus ?? .documentsHeading
         importNotice = nil
-        importNoticeFocus = nil
-        restoreFocus(to: availableFocus(target))
     }
 
     private func configureSelectedStorage() async {
@@ -1782,13 +1574,10 @@ struct LibraryView: View {
             guard let document = store.documents.first(where: {
                 $0.url.standardizedFileURL == url.standardizedFileURL
             }) else {
-                restoreFocus(to: .appHeading)
                 return
             }
             open(document)
-        case .library:
-            restoreFocus(to: .appHeading)
-        case nil:
+        case .library, nil:
             break
         }
     }
@@ -1818,14 +1607,11 @@ struct LibraryView: View {
     private func synchronize(_ document: Document) {
         let url = document.url.standardizedFileURL
         guard downloadTasks[url] == nil else { return }
-        focusAfterError = .document(document.url)
 
         downloadTasks[url] = Task {
             let succeeded = await store.synchronizeWithICloud(document)
             downloadTasks[url] = nil
             if succeeded {
-                focusAfterError = nil
-                restoreFocus(to: .document(document.url))
                 UIAccessibility.post(
                     notification: .announcement,
                     argument: "\(document.displayName) synced."
@@ -1877,45 +1663,6 @@ struct LibraryView: View {
             shareAvailable(document)
         case .duplicate:
             duplicateAvailable(document)
-        }
-    }
-
-    private func restorePresentationFocus() {
-        guard let target = focusAfterPresentation else { return }
-        focusAfterPresentation = nil
-        restoreFocus(to: availableFocus(target))
-    }
-
-    private func availableFocus(_ target: LibraryFocus) -> LibraryFocus {
-        if case .folder(let url) = target,
-           !visibleFolders.contains(where: { $0.url == url }) {
-            return .documentsHeading
-        }
-        if case .document(let url) = target,
-           !visibleDocuments.contains(where: { $0.url == url }) {
-            return .documentsHeading
-        }
-        return target
-    }
-
-    private func documentURL(matching url: URL) -> URL {
-        store.documents.first {
-            $0.url.standardizedFileURL == url.standardizedFileURL
-        }?.url ?? url
-    }
-
-    private func restoreFocus(to target: LibraryFocus) {
-        let requestID = focusRequestGate.begin()
-        focusedElement = nil
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            guard focusRequestGate.permits(requestID) else { return }
-            focusedElement = target
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-            guard focusRequestGate.permits(requestID) else { return }
-            focusedElement = target
         }
     }
 }

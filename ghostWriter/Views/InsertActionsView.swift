@@ -16,8 +16,6 @@ struct InsertActionsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var presentedCategory: InsertCategory?
     @State private var pendingCommand: MarkdownInsertionCommand?
-    @State private var lastCategory: InsertCategory?
-    @AccessibilityFocusState private var focusedCategory: InsertCategory?
 
     var body: some View {
         NavigationStack {
@@ -53,12 +51,10 @@ struct InsertActionsView: View {
         category: InsertCategory
     ) -> some View {
         Button(title) {
-            focusedCategory = nil
             pendingCommand = nil
-            lastCategory = category
+
             presentedCategory = category
         }
-        .accessibilityFocused($focusedCategory, equals: category)
     }
 
     @ViewBuilder
@@ -156,12 +152,6 @@ struct InsertActionsView: View {
             onInsert(command)
             dismiss()
             return
-        }
-
-        guard let lastCategory else { return }
-        Task {
-            await Task.yield()
-            focusedCategory = lastCategory
         }
     }
 }

@@ -27,16 +27,7 @@ struct BRFOptionsView: View {
     @State private var layout: Layout
     @State private var cellsPerLine: Int
     @State private var linesPerPage: Int
-    @AccessibilityFocusState private var accessibilityFocus: AccessibilityTarget?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    private enum AccessibilityTarget: Hashable {
-        case grade
-        case outputPurpose
-        case layout
-        case cellsPerLine
-        case linesPerPage
-    }
 
     private enum Layout: String, CaseIterable, Identifiable {
         case standard
@@ -88,8 +79,6 @@ struct BRFOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
-                        .accessibilityFocused($accessibilityFocus, equals: .grade)
-                        .onChange(of: grade) { _, _ in restoreFocus(to: .grade) }
                     }
                 }
 
@@ -104,13 +93,6 @@ struct BRFOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
-                        .accessibilityFocused(
-                            $accessibilityFocus,
-                            equals: .outputPurpose
-                        )
-                        .onChange(of: outputPurpose) { _, _ in
-                            restoreFocus(to: .outputPurpose)
-                        }
                     }
                 } footer: {
                     Text("Embossed pages use the selected number of cells and lines. Paper and margins are set in your embossing software.")
@@ -137,8 +119,6 @@ struct BRFOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
-                        .accessibilityFocused($accessibilityFocus, equals: .layout)
-                        .onChange(of: layout) { _, _ in restoreFocus(to: .layout) }
                     }
                 }
 
@@ -153,10 +133,6 @@ struct BRFOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
-                        .accessibilityFocused($accessibilityFocus, equals: .cellsPerLine)
-                        .onChange(of: cellsPerLine) { _, _ in
-                            restoreFocus(to: .cellsPerLine)
-                        }
                     }
 
                     LabeledContent("Lines per page") {
@@ -168,10 +144,6 @@ struct BRFOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
-                        .accessibilityFocused($accessibilityFocus, equals: .linesPerPage)
-                        .onChange(of: linesPerPage) { _, _ in
-                            restoreFocus(to: .linesPerPage)
-                        }
                     }
                     } footer: {
                         if outputPurpose == .brailleDisplay {
@@ -212,16 +184,6 @@ struct BRFOptionsView: View {
                 includeBraillePageNumbers: includeBraillePageNumbers
             )
         )
-    }
-
-    private func restoreFocus(to target: AccessibilityTarget) {
-        accessibilityFocus = nil
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
-            accessibilityFocus = target
-            try? await Task.sleep(for: .milliseconds(350))
-            accessibilityFocus = target
-        }
     }
 }
 

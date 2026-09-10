@@ -63,12 +63,7 @@ struct EBrailleOptionsView: View {
     @State private var descriptionText: String
     @State private var educationLevel: String
     @FocusState private var focusedField: Field?
-    @AccessibilityFocusState private var accessibilityFocus: AccessibilityTarget?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    private enum AccessibilityTarget: Hashable {
-        case grade
-    }
 
     /// Text in a field lines up with the row it sits in: trailing beside its
     /// label, leading when stacked beneath it.
@@ -163,10 +158,6 @@ struct EBrailleOptionsView: View {
                             EmptyView()
                         }
                         .pickerStyle(.menu)
-                        .accessibilityFocused($accessibilityFocus, equals: .grade)
-                        .onChange(of: grade) { _, _ in
-                            restoreGradeFocusAfterSelection()
-                        }
                     }
                 }
 
@@ -313,15 +304,5 @@ struct EBrailleOptionsView: View {
             descriptionText: descriptionText,
             educationLevel: educationLevel
         )
-    }
-
-    private func restoreGradeFocusAfterSelection() {
-        accessibilityFocus = nil
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
-            accessibilityFocus = .grade
-            try? await Task.sleep(for: .milliseconds(350))
-            accessibilityFocus = .grade
-        }
     }
 }
