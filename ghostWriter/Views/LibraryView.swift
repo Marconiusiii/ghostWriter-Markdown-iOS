@@ -29,6 +29,7 @@ struct LibraryView: View {
     @State private var iCloudMonitor = ICloudDocumentMonitor()
     @State private var searchText = ""
     @State private var libraryEditMode = EditMode.inactive
+    @State private var countFolder: LibraryFolder?
     @State private var compilationFolder: LibraryFolder?
     @State private var showingSettings = false
     @State private var showingRecentlyDeleted = false
@@ -137,6 +138,8 @@ struct LibraryView: View {
         }
         .onChange(of: currentDirectory) { _, _ in libraryEditMode = .inactive }
         .onChange(of: currentSort) { _, _ in libraryEditMode = .inactive }
+        .focusedSceneValue(\.newLibraryDocument, canCreateUsingCommand ? { newDocument() } : nil)
+        .sheet(item: $countFolder) { folder in FolderCountView(folder: folder) }
         .sheet(item: $compilationFolder) { folder in
             CompilationExportView(directory: folder.url)
         }
@@ -337,7 +340,6 @@ struct LibraryView: View {
             .controlSize(.large)
             .disabled(!store.storageAvailable)
             .accessibilityLabel("New document")
-            .keyboardShortcut(shortcut("n", modifiers: .command))
 
             Button {
                 showingNewFolder = true
@@ -520,6 +522,8 @@ struct LibraryView: View {
                 .accessibilityAddTraits(.isHeader)
                 .contextMenu {
                     if let currentFolderURL {
+                        Button("Total Word Count") { countFolder = LibraryFolder(url: currentFolderURL) }
+                        Button(libraryMetadata.inclusionActionLabel(for: currentFolderURL)) { libraryMetadata.toggleDefaultInclusion(for: currentFolderURL) }
                         Button("Export Compilation…") {
                             compilationFolder = LibraryFolder(url: currentFolderURL)
                         }
@@ -527,6 +531,8 @@ struct LibraryView: View {
                 }
                 .accessibilityActions {
                     if let currentFolderURL {
+                        Button("Total Word Count") { countFolder = LibraryFolder(url: currentFolderURL) }
+                        Button(libraryMetadata.inclusionActionLabel(for: currentFolderURL)) { libraryMetadata.toggleDefaultInclusion(for: currentFolderURL) }
                         Button("Export Compilation…") {
                             compilationFolder = LibraryFolder(url: currentFolderURL)
                         }
@@ -660,6 +666,8 @@ struct LibraryView: View {
         .buttonStyle(.plain)
 
         let accessibleRow = primaryRow
+            .accessibilityAction(named: "Total Word Count") { countFolder = folder }
+            .accessibilityAction(named: libraryMetadata.inclusionActionLabel(for: folder.url)) { libraryMetadata.toggleDefaultInclusion(for: folder.url) }
             .accessibilityAction(named: "Export Compilation…") {
                 compilationFolder = folder
             }
@@ -700,6 +708,8 @@ struct LibraryView: View {
             }
 
         return swipeRow.contextMenu {
+            Button("Total Word Count") { countFolder = folder }
+            Button(libraryMetadata.inclusionActionLabel(for: folder.url)) { libraryMetadata.toggleDefaultInclusion(for: folder.url) }
             Button("Export Compilation…") { compilationFolder = folder }
             Button {
                 beginRename(folder)
@@ -741,6 +751,7 @@ struct LibraryView: View {
                     }
                 }
             }
+            .accessibilityAction(named: libraryMetadata.inclusionActionLabel(for: document.url)) { libraryMetadata.toggleDefaultInclusion(for: document.url) }
             .accessibilityAction(named: "Render") {
                 render(document)
             }
@@ -801,6 +812,7 @@ struct LibraryView: View {
             }
 
         return swipeRow.contextMenu {
+            Button(libraryMetadata.inclusionActionLabel(for: document.url)) { libraryMetadata.toggleDefaultInclusion(for: document.url) }
             if store.usesICloudStorage {
                 Button {
                     synchronize(document)
@@ -1026,6 +1038,16 @@ struct LibraryView: View {
     /// Uses the writer's selected New Document flow. Asking for a title remains
     /// the default; the date option skips the naming sheet and uses the same
     /// safe creation path directly.
+    private var canCreateUsingCommand: Bool {
+        settings.keyboardShortcutsEnabled && store.storageAvailable && openedDocument == nil
+            && !showingNewDocument && !showingNewFolder && !showingSettings
+            && !showingRecentlyDeleted && !showingImporter && !showingPowerPointImportOptions
+            && !showingWelcome && !showingShare && !isImporting
+            && countFolder == nil && compilationFolder == nil && renderingSession == nil
+            && renamingDocument == nil && renamingFolder == nil && movingItem == nil
+            && pendingDeletion == nil && pendingFolderDeletion == nil
+    }
+
     private func newDocument() {
         switch settings.newDocumentCreationMode {
         case .askForTitle:

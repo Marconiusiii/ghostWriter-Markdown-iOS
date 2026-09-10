@@ -57,6 +57,7 @@ struct NewDocumentView: View {
             }
             .navigationTitle("New Document")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { nameFieldFocused = true }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

@@ -97,6 +97,7 @@ struct EditorShareView: View {
     let documentLanguage: String
     let onClose: () -> Void
 
+    @Environment(DocumentStore.self) private var store
     @Environment(AppSettings.self) private var settings
 
     @State private var fileURL: URL?
@@ -104,7 +105,7 @@ struct EditorShareView: View {
     @State private var preparation = SharePreparationState()
 
     /// Set once the writer has confirmed the export options. Formats that need
-    /// none begin preparing immediately; Word, PowerPoint, and the braille formats
+    /// none begin preparing immediately; PowerPoint and the braille formats
     /// wait here. One task starts when the selected format is ready.
     ///
     /// The two braille formats ask for different things: eBraille carries
@@ -113,7 +114,6 @@ struct EditorShareView: View {
     @State private var eBrailleMetadata: EBrailleMetadata?
     @State private var brfOptions: BRFExportOptions?
     @State private var powerPointOptions: PowerPointExportOptions?
-    @State private var wordOptions: WordExportOptions?
 
     var body: some View {
         Group {
@@ -137,8 +137,7 @@ struct EditorShareView: View {
                         }
                     }
                 }
-            } else if format == .word, wordOptions == nil {
-                WordExportOptionsView(onCancel: onClose) { wordOptions = $0 }
+
             } else if format == .eBraille, eBrailleMetadata == nil {
                 EBrailleOptionsView(
                     settings: settings,
@@ -184,7 +183,6 @@ struct EditorShareView: View {
 
     private var isReadyToPrepare: Bool {
         switch format {
-        case .word: return wordOptions != nil
         case .eBraille: return eBrailleMetadata != nil
         case .brf: return brfOptions != nil
         case .powerPoint: return powerPointOptions != nil
@@ -208,12 +206,15 @@ struct EditorShareView: View {
         let documentLanguage = documentLanguage
         let metadata = eBrailleMetadata
         let brf = brfOptions
-        let word = wordOptions
+        let usesStylesheet = settings.usesWordStylesheet
+        let libraryRoot = store.directory
         let powerPoint = powerPointOptions
         let usesSmartPunctuation = settings.usesSmartPunctuation
 
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
             do {
+                var word = WordExportOptions()
+                if format == .word { word.theme = try await WordStylesheetLoader.load(in: libraryRoot, enabled: usesStylesheet) }
                 return .success(
                     try await EditorShareFileWriter.write(
                         format: format,

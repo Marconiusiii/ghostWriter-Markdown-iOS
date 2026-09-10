@@ -26,10 +26,19 @@ nonisolated enum SmartPunctuation {
             }
             tokenStart = end + 1
         }
-        var output = characters
+        var output = characters.map(String.init)
         var singleOpen = false
         var doubleOpen = false
         for index in characters.indices where !protected[index] {
+            if characters[index] == ".", index + 2 < characters.count,
+               (index == 0 || characters[index - 1] != "."),
+               characters[index + 1] == ".", characters[index + 2] == ".",
+               (index + 3 == characters.count || characters[index + 3] != "."),
+               !protected[index + 1], !protected[index + 2] {
+                output[index] = "…"
+                output[index + 1] = ""
+                output[index + 2] = ""
+            }
             let mark = characters[index]
             guard mark == "'" || mark == "\"" || "‘’“”".contains(mark) else { continue }
             let before: Character? = index > 0 ? characters[index - 1] : nil
@@ -69,7 +78,7 @@ nonisolated enum SmartPunctuation {
         var offset = 0
         return chunks.map { chunk in
             defer { offset += chunk.text.count }
-            return String(output[offset..<(offset + chunk.text.count)])
+            return output[offset..<(offset + chunk.text.count)].joined()
         }
     }
 

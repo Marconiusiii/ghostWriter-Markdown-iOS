@@ -4,7 +4,6 @@ nonisolated struct CompilationExportSettings: Sendable {
     var usesSmartPunctuation = false
     var format = CompilationFormat.word
     var word = WordExportOptions()
-    var wordThemeName: String?
     var powerPointTheme = PowerPointTheme.warmPaper
     var powerPointFont = PowerPointFont.arial
     var headingChoices: [CompilationFormat: Bool] = [:]

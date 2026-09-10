@@ -1,20 +1,14 @@
 # Compilation export
 
-Use Export Compilation… from a folder’s context menu or VoiceOver Actions. When the folder is open, its heading offers the same action. The Exporter starts with all files and nested folders in that folder included.
+Use Export Compilation… from a folder’s context menu or VoiceOver Actions. When the folder is open, its heading offers the same action. The Exporter starts with the saved inclusion preferences for files and nested folders. Items are included by default unless you choose Always Exclude. Opening a folder for export sets the scope directly, even if that folder is normally excluded from its parent’s compilation.
 
 Enter Document name and choose Export format. Available formats are Word Document, PDF, HTML, Markdown, Plain Text, EPUB, PowerPoint, eBraille, and Braille Ready Format. Only options relevant to that format appear. Changing format keeps your inclusion choices and document order, and remembers each format’s choices for the current export session.
 
-Settings > Export > Use smart punctuation is off by default. Turn it on to convert straight quotation marks and apostrophes in exported prose to curly marks. For example, "Hello" becomes “Hello” and don't becomes don’t. The saved setting applies to all nine formats in single-document and compilation exports, including Markdown sharing from the Library. It does not change punctuation while typing. In eBraille and BRF, conversion happens before braille translation.
-
-The conversion covers prose in headings, paragraphs, lists, tables, and link text, including text split by bold or italic formatting. Code blocks, inline code, link destinations, asset paths, and existing curly punctuation are preserved. Source documents and filenames are unchanged. Dashes and ellipses are not converted.
-
-Smart punctuation uses context, so unusual quotations, leading apostrophes, abbreviations, and measurement marks can be misinterpreted. Recognizable measurements such as 6' 2" are left unchanged. The option uses curly single and double quotes, not language-specific quotation styles or spacing; review multilingual output for the conventions you need. It does not repair existing curly punctuation. Review punctuation-sensitive work before publication, or leave the option off to preserve the original characters.
-
-When enabled, Markdown export writes normalized Markdown, so syntax and spacing may change as well as punctuation. Leave the setting off to share the original single-document Markdown unchanged. Your saved source is never rewritten.
+Settings > Export > Use smart punctuation applies to compilation exports as well as single-document exports. See Smart punctuation in exports in Help for examples and limitations.
 
 The selected folder is the export scope, so only its children appear in Files and folders. A folder’s switch is labeled with its name followed by Folder; its separate disclosure uses the folder name. Excluding a folder excludes everything inside it while retaining individual choices. Including it again restores those choices. Expanding or collapsing a folder does not change inclusion.
 
-Choose Edit to reorder files and folders. VoiceOver names the button Edit Document Order. Voice Control accepts Tap Edit, Tap Edit Files, Tap Edit Documents, Tap Edit Document Order, and Tap Edit File Order. Inclusion switches disappear while editing and return after Done Editing. Voice Control also accepts Tap Done. Moving a folder moves its contents together. These changes apply only to this compilation.
+Choose Edit to reorder files and folders. VoiceOver names the button Edit Document Order. Voice Control accepts Tap Edit, Tap Edit Files, Tap Edit Documents, Tap Edit Document Order, and Tap Edit File Order. Inclusion switches disappear while editing and return after Done Editing. Voice Control also accepts Tap Done. Moving a folder moves its contents together. Reordering and inclusion changes here apply only to this compilation. To change future defaults, use Always Exclude or Always Include on files and folders in the Library or on the open document in File Actions. An excluded folder suppresses its contents without changing their individual defaults.
 
 Compilation starts in saved Manual order and ignores pinning and the current Library sort. Within each folder, new items follow saved items alphabetically. Each document uses its opening Heading 1 as its title; otherwise its filename supplies the title. The output name identifies the exported file and does not add another title to the compiled content.
 
@@ -22,7 +16,7 @@ Word and PDF offer Start each document on a new page. Turn it off for continuous
 
 Word, PDF, HTML, Markdown, EPUB, and eBraille offer Preserve individual document heading structure. Turn it off to retain only the first document’s title as Heading 1 and move every other heading down one level. Heading 6 stays Heading 6; Heading 5 and Heading 6 can therefore both become Heading 6. Plain Text and BRF convey structure through text layout, while PowerPoint uses headings to divide slides.
 
-Word offers an optional Word Stylesheet. The Word Export Help topic describes its JSON format, supported settings, and an example. The stylesheet affects Word output only.
+Settings > Export > Use Word Stylesheet reads word-theme.json from the root of the active ghostWriter storage folder for each Word export, using standard styling when the file is absent. The Word Export Help topic describes its JSON format, supported settings, and an example. The stylesheet affects Word output only.
 
 PDF retains tagged headings, lists, tables, and image descriptions. HTML creates document sections with headings and language information, and embeds supported local images. EPUB creates a reflowable publication with chapter sections and heading navigation.
 
@@ -37,3 +31,13 @@ Braille Ready Format offers Braille code, Use, Layout, and custom cells-per-line
 Images with identical filenames in different source folders remain separate assets. Supported links between selected documents are directed to their compiled document sections. EPUB and eBraille include local linked attachments inside the publication. HTML, PDF, PowerPoint, and Plain Text may be shared as a ZIP when local linked files need to accompany the output; extract and keep those files together.
 
 Export and share… first prepares the selected documents, downloading iCloud files as needed. Progress identifies the current document and reports how many are prepared. The next stage creates the chosen format. The Share Sheet opens only when the output is ready. Cancel closes the Exporter and cancels the export. An unreadable document or linked file produces an error rather than silently removing it from the compilation.
+
+## Smart punctuation
+
+Settings > Export > Use smart punctuation is off by default. Turn it on to convert straight quotation marks and apostrophes in exported prose to curly marks. For example, "Hello" becomes “Hello” and don't becomes don’t. The saved setting applies to all nine formats in single-document and compilation exports, including Markdown sharing from the Library. It does not change punctuation while typing. In eBraille and BRF, conversion happens before braille translation.
+
+The conversion covers prose in headings, paragraphs, lists, tables, and link text, including text split by bold or italic formatting. Code blocks, inline code, link destinations, asset paths, and existing curly punctuation are preserved. Source documents and filenames are unchanged. Three consecutive periods become an ellipsis (…). Existing ellipses and runs of four or more periods are preserved. Dashes are not converted.
+
+Smart punctuation uses context, so unusual quotations, leading apostrophes, abbreviations, and measurement marks can be misinterpreted. Recognizable measurements such as 6' 2" are left unchanged. The option uses curly single and double quotes, not language-specific quotation styles or spacing; review multilingual output for the conventions you need. It does not repair existing curly punctuation. Review punctuation-sensitive work before publication, or leave the option off to preserve the original characters.
+
+When enabled, Markdown export writes normalized Markdown, so syntax and spacing may change as well as punctuation. Leave the setting off to share the original single-document Markdown unchanged. Your saved source is never rewritten.

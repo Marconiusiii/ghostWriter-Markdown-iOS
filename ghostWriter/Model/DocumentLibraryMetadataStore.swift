@@ -11,6 +11,22 @@ import Observation
 
 @Observable
 final class DocumentLibraryMetadataStore {
+    private(set) var excludedCompilationKeys: Set<String> {
+        didSet {
+            defaults.set(Array(excludedCompilationKeys).sorted(), forKey: "excludedCompilationItems")
+            libraryPresentationRevision &+= 1
+        }
+    }
+
+    func isIncludedByDefault(_ url: URL) -> Bool { !excludedCompilationKeys.contains(manualKey(for: url)) }
+    func inclusionActionLabel(for url: URL) -> String {
+        isIncludedByDefault(url) ? String(localized: "Always Exclude") : String(localized: "Always Include")
+    }
+    func toggleDefaultInclusion(for url: URL) {
+        let key = manualKey(for: url)
+        if !excludedCompilationKeys.insert(key).inserted { excludedCompilationKeys.remove(key) }
+    }
+
     private(set) var libraryPresentationRevision = 0
     private(set) var libraryRoot: URL?
     private(set) var pinnedKeys: Set<String> {
@@ -105,6 +121,7 @@ final class DocumentLibraryMetadataStore {
             let parent = manualKey(for: newURL.deletingLastPathComponent())
             if let siblings = updated[parent], !siblings.contains(new) { updated[parent, default: []].append(new) }
         }
+        excludedCompilationKeys = Set(excludedCompilationKeys.map(replacingRoot))
         manualOrders = updated
         var migratedSorts: [String: [String: String]] = [:]
         for (directory, sort) in folderSortPreferences {
@@ -118,6 +135,7 @@ final class DocumentLibraryMetadataStore {
         func belongsToFolder(_ key: String) -> Bool {
             key == root || key.hasPrefix(root + "/")
         }
+        excludedCompilationKeys = excludedCompilationKeys.filter { !belongsToFolder($0) }
         folderSortPreferences = folderSortPreferences.filter { !belongsToFolder($0.key) }
         manualOrders = manualOrders.filter { !belongsToFolder($0.key) }.mapValues {
             $0.filter { !belongsToFolder($0) }
@@ -140,6 +158,7 @@ final class DocumentLibraryMetadataStore {
         lastOpenedStorageKey: String = "documentLastOpened",
         languageStorageKey: String = "documentLanguageTags"
     ) {
+        self.excludedCompilationKeys = Set(defaults.stringArray(forKey: "excludedCompilationItems") ?? [])
         self.folderSortPreferences = defaults.dictionary(forKey: "libraryFolderSortPreferences") as? [String: [String: String]] ?? [:]
         self.manualOrders = defaults.dictionary(forKey: "libraryManualOrders") as? [String: [String]] ?? [:]
         self.defaults = defaults
@@ -214,6 +233,7 @@ final class DocumentLibraryMetadataStore {
     }
 
     func copyMetadata(from sourceURL: URL, to destinationURL: URL) {
+        if !isIncludedByDefault(sourceURL) { excludedCompilationKeys.insert(manualKey(for: destinationURL)) }
         if isPinned(sourceURL) { pinnedKeys.insert(key(for: destinationURL)) }
         if let opened = lastOpened(sourceURL) {
             lastOpenedTimestamps[key(for: destinationURL)] = opened.timeIntervalSince1970
@@ -253,6 +273,7 @@ final class DocumentLibraryMetadataStore {
         let oldKey = key(for: oldURL, relativeTo: oldRoot)
         let newKey = key(for: newURL, relativeTo: newRoot)
         let oldLegacyKey = legacyKey(for: oldURL)
+        if excludedCompilationKeys.remove(oldKey) != nil { excludedCompilationKeys.insert(newKey) }
 
         let removedStablePin = pinnedKeys.remove(oldKey)
         let removedLegacyPin = pinnedKeys.remove(oldLegacyKey)
@@ -285,6 +306,7 @@ final class DocumentLibraryMetadataStore {
 
     func removeMetadata(for url: URL) {
         let documentKey = key(for: url)
+        excludedCompilationKeys.remove(manualKey(for: url))
         pinnedKeys.remove(documentKey)
         pinnedKeys.remove(legacyKey(for: url))
         lastOpenedTimestamps.removeValue(forKey: documentKey)

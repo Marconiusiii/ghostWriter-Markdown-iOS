@@ -43,7 +43,9 @@ assistive technology users are especially welcome.
 
 ## Compilation export
 
-Settings > Export > Use smart punctuation optionally converts straight quotes and apostrophes in exported prose to curly marks without editing source files. It is off by default; Compilation Export Help explains ambiguous cases and language limitations.
+Folder actions include Total Word Count, which reads all nested Markdown files and reports words, characters, and documents counted. Always Exclude and Always Include set persistent compilation defaults for files and folders. These preferences follow renames, moves, and restoration.
+
+Settings > Export > Use smart punctuation optionally converts straight quotes, apostrophes, and three periods in exported prose to curly marks without editing source files. It is off by default; Compilation Export Help explains ambiguous cases and language limitations.
 
 Use a folder’s Export Compilation… action in its long-press context menu or
 VoiceOver Actions to combine documents into Word, PDF, HTML, Markdown, Plain Text,
@@ -79,8 +81,7 @@ Creating Word document before presenting the Share Sheet.
 [Compilation export instructions](Documentation/Compilation%20export.md) explain
 format-specific controls, braille metadata, and portable asset packages.
 
-Both single-document Word export and compilation accept an optional JSON style
-sheet. [Word export and JSON style sheet instructions](Documentation/Word%20export.md)
+Settings > Export > Use Word Stylesheet applies `word-theme.json` from the root of the active local or iCloud ghostWriter folder to every Word export. If the file is absent, standard styling is used. [Word export and JSON style sheet instructions](Documentation/Word%20export.md)
 explain the controls, heading limit, supported fields, units, and validation.
 [Download the complete example](Documentation/word-theme.json) and change or omit
 optional settings to create a theme.
@@ -410,3 +411,7 @@ ghostWriter Markdown is available under the
 [MIT License](LICENSE).
 
 Copyright © 2026 Marco Salsiccia.
+
+## Settings and Help navigation
+
+Settings groups controls into Files and startup, Editing, Export, Accessibility, and Appearance and sound. Help has searchable topics with dedicated reading screens. New Document and naming screens activate their text field when opened. Command+N is available throughout the Library; the editor no longer dismisses the keyboard when navigating its controls.

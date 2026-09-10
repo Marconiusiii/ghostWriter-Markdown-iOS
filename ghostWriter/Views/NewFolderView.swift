@@ -63,6 +63,7 @@ struct NewFolderView: View {
             }
             .padding(20)
             .background(Color.pageBackground)
+            .onAppear { nameFieldFocused = true }
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()

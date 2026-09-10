@@ -328,6 +328,10 @@ final class AppSettings {
         }
     }
 
+    var usesWordStylesheet: Bool {
+        didSet { defaults.set(usesWordStylesheet, forKey: "usesWordStylesheet") }
+    }
+
     var usesSmartPunctuation: Bool {
         didSet { defaults.set(usesSmartPunctuation, forKey: "usesSmartPunctuation") }
     }
@@ -336,6 +340,7 @@ final class AppSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.usesWordStylesheet = defaults.bool(forKey: "usesWordStylesheet")
         self.usesSmartPunctuation = defaults.bool(forKey: "usesSmartPunctuation")
 
         // `object(forKey:)` distinguishes "never set" from "set to false", which

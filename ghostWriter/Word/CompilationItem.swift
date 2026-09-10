@@ -49,11 +49,11 @@ extension CompilationSelection {
         let ordered = metadata.manuallyOrdered(children.map(\.url)).compactMap { url -> CompilationItem? in
             guard let item = byURL[url] else { return nil }
             switch item {
-            case .document: return CompilationItem(item: item)
+            case .document: return CompilationItem(item: item, isIncluded: metadata.isIncludedByDefault(url))
             case .folder:
                 return folder(at: url, documents: documents, folders: folders, metadata: metadata)
             }
         }
-        return CompilationItem(item: .folder(LibraryFolder(url: directory)), children: ordered)
+        return CompilationItem(item: .folder(LibraryFolder(url: directory)), isIncluded: metadata.isIncludedByDefault(directory), children: ordered)
     }
 }

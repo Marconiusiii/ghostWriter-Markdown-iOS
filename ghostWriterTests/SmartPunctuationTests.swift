@@ -35,7 +35,7 @@ struct SmartPunctuationTests {
         #expect(convert("'tis the '90s; writers' books") == "’tis the ’90s; writers’ books")
         #expect(convert("6' 2\" and 12\" wide") == "6' 2\" and 12\" wide")
         #expect(convert("\"42\" and '42'") == "“42” and ‘42’")
-        #expect(convert("“Existing” and don’t change — or ...") == "“Existing” and don’t change — or ...")
+        #expect(convert("“Existing” and don’t change — or ...") == "“Existing” and don’t change — or …")
     }
 
     @Test func formattingAndProtectedContent() throws {

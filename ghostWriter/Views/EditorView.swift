@@ -179,10 +179,7 @@ struct EditorView: View {
             }
         }
         .onChange(of: focusedElement) { _, element in
-            // VoiceOver activation does not pass through the touch gesture
-            // attached to the Menu. Put the keyboard away when VoiceOver
-            // reaches File Actions so it is already gone before the native
-            // menu opens.
+            // Capture the live editor state without changing keyboard focus.
             if element == .fileActions {
                 prepareFileActions()
             } else if element == .status {
@@ -334,6 +331,16 @@ struct EditorView: View {
             .keyboardShortcut(shortcut("w", modifiers: .command))
 
             Text(displayTitle)
+                .contextMenu {
+                    if let url = fileURL ?? saveController.currentURL {
+                        Button(libraryMetadata.inclusionActionLabel(for: url)) { libraryMetadata.toggleDefaultInclusion(for: url) }
+                    }
+                }
+                .accessibilityActions {
+                    if let url = fileURL ?? saveController.currentURL {
+                        Button(libraryMetadata.inclusionActionLabel(for: url)) { libraryMetadata.toggleDefaultInclusion(for: url) }
+                    }
+                }
                 .font(.title2.bold())
                 .foregroundStyle(Color.ghostAccent)
                 .accessibilityAddTraits(.isHeader)
@@ -467,6 +474,10 @@ struct EditorView: View {
             }
             .keyboardShortcut(shortcut("s", modifiers: .command))
 
+            if let url = fileURL ?? saveController.currentURL {
+                Button(libraryMetadata.inclusionActionLabel(for: url)) { libraryMetadata.toggleDefaultInclusion(for: url) }
+            }
+
             Menu {
                 // Driven from the enum so a new export format cannot be added
                 // without appearing here.
@@ -489,11 +500,15 @@ struct EditorView: View {
         }
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
+        .accessibilityActions {
+            if let url = fileURL ?? saveController.currentURL {
+                Button(libraryMetadata.inclusionActionLabel(for: url)) { libraryMetadata.toggleDefaultInclusion(for: url) }
+            }
+        }
         .accessibilityFocused($focusedElement, equals: .fileActions)
         .simultaneousGesture(
             TapGesture().onEnded {
-                // Preserve Menu's native activation while dismissing the
-                // editor keyboard for direct-touch users.
+                // Capture the live editor state without changing keyboard focus.
                 prepareFileActions()
             }
         )
@@ -570,19 +585,8 @@ struct EditorView: View {
 
     // MARK: - Actions
 
-    private func dismissKeyboard() {
-        UIApplication.shared.sendAction(
-            #selector(UIResponder.resignFirstResponder),
-            to: nil,
-            from: nil,
-            for: nil
-        )
-    }
-
-    /// Dismisses the keyboard, then presents. Anything that puts content over
-    /// the editor goes through this.
+    /// Presents an editor action without dismissing the keyboard.
     private func present(_ action: @escaping () -> Void) {
-        dismissKeyboard()
         action()
     }
 
@@ -619,12 +623,10 @@ struct EditorView: View {
     }
 
     private func prepareFileActions() {
-        dismissKeyboard()
         captureCurrentEditorState()
     }
 
     private func render() {
-        dismissKeyboard()
         captureCurrentEditorState()
         if settings.renderSoundEnabled { RenderSound.shared.play() }
         requestSave(announce: false)
@@ -670,7 +672,6 @@ struct EditorView: View {
     }
 
     private func applyInsertion(_ insertion: PendingInsertion) {
-        dismissKeyboard()
         applyEditorReplacement(insertion.result)
         pendingCursorOffset = insertion.result.selection.location
 
@@ -872,12 +873,10 @@ struct EditorView: View {
         saveController.cancelPending()
         pendingFileAction = nil
         finishBackgroundSave()
-        dismissKeyboard()
         externalConflict = conflict
     }
 
     private func reloadExternalVersion(_ externalText: String) {
-        dismissKeyboard()
         let currentSelection = editorSession.snapshot().selection
         editorSession.replaceText(externalText, selection: currentSelection)
         acceptSnapshot(editorSession.snapshot())
@@ -939,7 +938,6 @@ struct EditorView: View {
     /// still has local work outstanding. That would make Cancel on a conflict
     /// alert meaningless and discard the in-memory version when the view closes.
     private func closeEditor() {
-        dismissKeyboard()
         captureCurrentEditorState(publishingChanges: false)
         pendingFileAction = .close
         guard saveController.isSaving

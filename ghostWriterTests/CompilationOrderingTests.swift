@@ -6,6 +6,27 @@ import Testing
 struct CompilationOrderingTests {
     private func document(_ url: URL) -> Document { Document(url: url, created: .distantPast, modified: .distantPast, byteCount: 0) }
 
+    @Test func compilationStartsFromSavedInclusionWithoutMutatingChildren() throws {
+        let suite = "CompilationDefaults-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let metadata = DocumentLibraryMetadataStore(defaults: defaults)
+        let root = URL(fileURLWithPath: "/library")
+        metadata.useLibraryRoot(root)
+        let folder = LibraryFolder(url: root.appendingPathComponent("Book"))
+        let chapter = document(folder.url.appendingPathComponent("Chapter.md"))
+        let notes = document(folder.url.appendingPathComponent("Notes.md"))
+        metadata.toggleDefaultInclusion(for: notes.url)
+        metadata.toggleDefaultInclusion(for: folder.url)
+        var tree = CompilationSelection.folder(at: folder.url, documents: [chapter, notes], folders: [], metadata: metadata)
+        #expect(tree.includedDocuments.isEmpty)
+        tree.isIncluded = true
+        #expect(tree.includedDocuments == [chapter])
+        #expect(!metadata.isIncludedByDefault(folder.url))
+        let explicitScope = CompilationSelection.items(in: folder.url, documents: [chapter, notes], folders: [], metadata: metadata)
+        #expect(explicitScope.flatMap(\.includedDocuments) == [chapter])
+    }
+
     @Test func savedMixedOrderExpandsFoldersAndIgnoresPinning() throws {
         let suite = "CompilationOrderingTests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

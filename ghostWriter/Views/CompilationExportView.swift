@@ -11,7 +11,6 @@ struct CompilationExportView: View {
     @FocusState private var focusedField: CompilationTextField?
     @State private var title = "Compilation"
     @State private var options = CompilationExportSettings()
-    @State private var themeIsLoading = false
     @State private var editMode = EditMode.inactive
     @State private var initialized = false
     @State private var exporting = false
@@ -46,7 +45,7 @@ struct CompilationExportView: View {
                     .pickerStyle(.menu)
                 }
                 .disabled(exporting)
-                CompilationFormatOptions(options: $options, themeIsLoading: $themeIsLoading, focusedField: $focusedField)
+                CompilationFormatOptions(options: $options, focusedField: $focusedField)
                     .disabled(exporting)
                 Section("Files and folders") {
                     if editMode.isEditing || items.count > 1 || items.contains(where: \.hasReorderableContents) {
@@ -73,7 +72,7 @@ struct CompilationExportView: View {
                         }
                     }
                     Button("Export and share…", action: export)
-                        .disabled(includedDocuments.isEmpty || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || exporting || themeIsLoading || (options.format == .eBraille && options.eBraille.validationMessage != nil))
+                        .disabled(includedDocuments.isEmpty || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || exporting || (options.format == .eBraille && options.eBraille.validationMessage != nil))
                 }
             }
             .environment(\.editMode, $editMode)
@@ -132,6 +131,8 @@ struct CompilationExportView: View {
         let outputTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         var exportOptions = options
         exportOptions.usesSmartPunctuation = settings.usesSmartPunctuation
+        let usesStylesheet = settings.usesWordStylesheet
+        let libraryRoot = store.directory
         exportTask = Task {
             defer { exporting = false }
             do {
@@ -157,7 +158,11 @@ struct CompilationExportView: View {
                 creatingWordDocument = true
                 let inputs = sources
                 let work = Task.detached(priority: .userInitiated) { () throws -> URL in
-                    try await CompilationFileWriter.write(title: outputTitle, sources: inputs, settings: exportOptions)
+                    var resolvedOptions = exportOptions
+                    if resolvedOptions.format == .word {
+                        resolvedOptions.word.theme = try await WordStylesheetLoader.load(in: libraryRoot, enabled: usesStylesheet)
+                    }
+                    return try await CompilationFileWriter.write(title: outputTitle, sources: inputs, settings: resolvedOptions)
                 }
                 let url = try await withTaskCancellationHandler { try await work.value } onCancel: { work.cancel() }
                 if Task.isCancelled { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()); return }

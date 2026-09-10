@@ -6,7 +6,6 @@ nonisolated enum CompilationTextField: Hashable {
 
 struct CompilationFormatOptions: View {
     @Binding var options: CompilationExportSettings
-    @Binding var themeIsLoading: Bool
     var focusedField: FocusState<CompilationTextField?>.Binding
 
     var body: some View {
@@ -25,8 +24,7 @@ struct CompilationFormatOptions: View {
             }
         }
         switch options.format {
-        case .word:
-            WordThemeImportSection(theme: $options.word.theme, isLoading: $themeIsLoading, name: $options.wordThemeName)
+        case .word: EmptyView()
         case .powerPoint:
             Section("Presentation options") {
                 Picker("Presentation theme", selection: $options.powerPointTheme) {

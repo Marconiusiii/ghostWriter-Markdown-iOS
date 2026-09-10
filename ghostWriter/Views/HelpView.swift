@@ -7,34 +7,51 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct HelpView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var search = ""
+    private let categories = ["Getting started", "Files and folders", "Editing", "Export", "Accessibility"]
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(HelpTopic.all) { topic in
-                    DisclosureGroup {
-                        VStack(alignment: .leading, spacing: 12) {
-                            ForEach(topic.paragraphs, id: \.self) { paragraph in
-                                Text(paragraph)
-                                    .textSelection(.enabled)
-                                    .font(.body)
-                                    .foregroundStyle(Color.ghostText)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                if !search.isEmpty && !HelpTopic.all.contains(where: { $0.title.localizedCaseInsensitiveContains(search) || $0.paragraphs.contains(where: { $0.localizedCaseInsensitiveContains(search) }) }) {
+                    Text("No matching Help topics.")
+                }
+                ForEach(categories, id: \.self) { category in
+                    let topics = HelpTopic.all.filter { topic in
+                        topic.category == category && (search.isEmpty || topic.title.localizedCaseInsensitiveContains(search) || topic.paragraphs.contains { $0.localizedCaseInsensitiveContains(search) })
+                    }
+                    if !topics.isEmpty {
+                        Section(category) {
+                            ForEach(topics) { topic in
+                                NavigationLink(topic.title) {
+                                    List {
+                                        ForEach(topic.paragraphs, id: \.self) { paragraph in
+                                            Text(paragraph).textSelection(.enabled)
+                                        }
+                                    }
+                                    .navigationTitle(topic.title)
+                                    .navigationBarTitleDisplayMode(.inline)
+                                }
                             }
                         }
-                        .padding(.vertical, 4)
-                    } label: {
-                        Text(topic.title)
-                            .font(.headline)
                     }
                 }
             }
+            .searchable(text: $search, prompt: "Search Help")
             .navigationTitle("Help")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Dismiss") {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                    .accessibilityLabel("Dismiss keyboard")
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Back") { dismiss() }
                 }
@@ -43,13 +60,31 @@ struct HelpView: View {
     }
 }
 
-private struct HelpTopic: Identifiable {
+struct HelpTopic: Identifiable {
     let title: String
     let paragraphs: [String]
+    var category: String {
+        switch title {
+        case "Creating and Opening Documents": return "Getting started"
+        case "Saving and the Files App", "Searching, Sorting, and Document Actions", "Library Gestures", "Folder totals and compilation defaults": return "Files and folders"
+        case "VoiceOver Settings", "Keyboard Shortcuts": return "Accessibility"
+        case "Sharing and export formats", "Handling Word Documents", "Smart punctuation in exports", "Compilation Export", "Word Export Help", "PowerPoint Import", "PowerPoint Output": return "Export"
+        default: return "Editing"
+        }
+    }
 
     var id: String { title }
 
     static let all: [HelpTopic] = [
+        HelpTopic(
+            title: "Folder totals and compilation defaults",
+            paragraphs: [
+                "Choose Total Word Count from a folder’s context menu or accessibility actions, or from its heading when the folder is open. The result includes all Markdown files in that folder and nested folders, regardless of compilation inclusion preferences.",
+                "Words use the same whitespace-based count as the editor. Characters include Markdown syntax, spaces, and line breaks. Counts are summed per file. Progress appears while files are read or downloaded. Cancel closes the count. Any unreadable files are listed and the result is labeled Partial total.",
+                "Files and folders are included in new compilations by default. Choose Always Exclude to start future compilations with that item unchecked. The action then becomes Always Include, which restores the default. Find these actions in Library context menus and accessibility actions, folder heading actions, and an open document’s File Actions or heading actions.",
+                "Excluding a folder also excludes its contents from the output, but retains each child’s preference. Including the folder again restores those individual choices. You can override inclusion for a single compilation without changing saved defaults. Preferences follow items when renamed, moved, or restored from Recently Deleted."
+            ]
+        ),
         HelpTopic(
             title: "Creating and Opening Documents",
             paragraphs: [
@@ -64,7 +99,7 @@ private struct HelpTopic: Identifiable {
             paragraphs: [
                 "The Markdown Editor is where you write and revise the document’s plain-text markdown.",
                 "Markdown punctuation is kept exactly as typed. Smart quotes and smart dashes are disabled so they cannot silently change links, code, or other syntax.",
-                "Markdown Reference in File Actions provides examples of supported syntax."
+                "Markdown Reference in File Actions provides examples of supported syntax. Moving to editor controls does not ask the app to dismiss the keyboard. Use Dismiss when you want to hide it."
             ]
         ),
         HelpTopic(
@@ -78,13 +113,13 @@ private struct HelpTopic: Identifiable {
             title: "Automatic Lists and Indentation",
             paragraphs: [
                 "When Automatic Lists is enabled, pressing Return after a bullet, numbered item, or task continues that list. Press Return on an empty list item to end the list.",
-                "Use Indent and Outdent above the on-screen keyboard to change the nesting level of the current line or selected lines. Choose tabs, two spaces, or four spaces in Settings."
+                "Use Indent and Outdent above the on-screen keyboard to change the nesting level of the current line or selected lines. Choose tabs, two spaces, or four spaces in Settings > Editing."
             ]
         ),
         HelpTopic(
             title: "VoiceOver Settings",
             paragraphs: [
-                "VoiceOver Verbosity controls Markdown editing announcements. Off makes no Markdown editing announcements. Light announces list changes, indentation levels, and Insert actions. Full also announces completed Markdown structures as you type.",
+                "Settings > Accessibility > VoiceOver Settings contains Verbosity and Heading Swipe Navigation. VoiceOver Verbosity controls Markdown editing announcements. Off makes no Markdown editing announcements. Light announces list changes, indentation levels, and Insert actions. Full also announces completed Markdown structures as you type.",
                 "Heading Swipe Navigation moves between headings in the editor. Swipe right with three fingers for the next heading, or left with three fingers for the previous heading. These gestures are not available while using Braille Screen Input or when assigned to other VoiceOver commands."
             ]
         ),
@@ -198,14 +233,14 @@ private struct HelpTopic: Identifiable {
                 "For non-VoiceOver users, swipe left or right on a document or folder to reveal common actions. Touch and hold a document or folder to open its complete actions menu.",
                 "On a document, swipe left for Share and Delete. Swipe right for Pin or Unpin. If a download failed, swiping right also provides Retry Download.",
                 "On a folder, swipe left for Move and Delete. Swipe right for Rename.",
-                "Touch and hold a document for Pin or Unpin, Render, Share, Rename, Move, Duplicate, and Delete. Touch and hold a folder for Export Compilation…, Rename, Move, and Delete. Export Compilation… is also available in the folder’s VoiceOver Actions."
+                "Touch and hold a document for Always Exclude or Always Include, Pin or Unpin, Render, Share, Rename, Move, Duplicate, and Delete. Touch and hold a folder for Total Word Count, Always Exclude or Always Include, Export Compilation…, Rename, Move, and Delete. Export Compilation… is also available in the folder’s VoiceOver Actions."
             ]
         ),
         HelpTopic(
             title: "Keyboard Shortcuts",
             paragraphs: [
                 "Keyboard Shortcuts can be turned on or off under Editing in Settings.",
-                "Use Command-N for New, Command-O for Import, and Command-comma for Settings.",
+                "Use Command-N for New throughout the Library, including the files list and folder views. Use Command-O for Import and Command-comma for Settings.",
                 "While editing, use Command-S for Save Now, Command-F for Find and Replace, Command-R for Render, Command-Shift-O for Outline, Command-Shift-I for Insert, Command-J for Jump to Line, and Command-W to close the editor.",
                 "Press Escape to dismiss the editor keyboard."
             ]

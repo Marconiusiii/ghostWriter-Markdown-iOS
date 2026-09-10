@@ -80,12 +80,6 @@ final class EditorCoordinator: NSObject, UITextViewDelegate {
         textView?.resignFirstResponder()
     }
 
-    /// Puts the keyboard away from outside the text view, used before showing a
-    /// menu or sheet so it does not sit over the presented content.
-    func dismissKeyboard() {
-        textView?.resignFirstResponder()
-    }
-
     // MARK: - Typing
 
     func textView(

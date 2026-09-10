@@ -11,6 +11,15 @@ import Testing
 
 struct AppSettingsTests {
 
+    @Test func wordStylesheetDefaultsOffAndPersists() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let settings = AppSettings(defaults: testDefaults.defaults)
+        #expect(!settings.usesWordStylesheet)
+        settings.usesWordStylesheet = true
+        #expect(AppSettings(defaults: testDefaults.defaults).usesWordStylesheet)
+    }
+
     @Test func smartPunctuationDefaultsOffAndPersists() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }
