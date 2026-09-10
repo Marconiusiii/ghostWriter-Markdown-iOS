@@ -168,6 +168,16 @@
         }
       }
     },
+    "%lld of %lld documents processed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld documents processed"
+          }
+        }
+      }
+    },
     "%lld PowerPoint images could not be included. Available descriptions were kept." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
@@ -348,6 +358,12 @@
         }
       }
     },
+    "Always Exclude" : {
+
+    },
+    "Always Include" : {
+
+    },
     "An image exceeds the 10 MiB limit." : {
       "comment" : "PowerPoint import introduction or specific safety limit.",
       "extractionState" : "manual"
@@ -436,6 +452,7 @@
     },
     "Ask for a Title opens the naming screen. Use Today’s Date creates and opens the document immediately. You can rename it later from File Actions." : {
       "comment" : "SettingsView.swift:106",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -668,6 +685,9 @@
         }
       }
     },
+    "Characters" : {
+
+    },
     "Checking iCloud Drive." : {
       "comment" : "DocumentStorage.swift:135",
       "localizations" : {
@@ -678,6 +698,9 @@
           }
         }
       }
+    },
+    "Checking Word Stylesheet…" : {
+
     },
     "Choose an SVG, PNG, or JPG file that was prepared for tactile presentation." : {
       "comment" : "MarkdownInsertionView.swift:55",
@@ -910,9 +933,6 @@
           }
         }
       }
-    },
-    "Converts straight quotes and apostrophes to curly marks in exported documents. Does not change your source text." : {
-
     },
     "Copies Markdown, plain-text, or Word documents into ghostWriter" : {
       "comment" : "LibraryView.swift:431",
@@ -1326,6 +1346,9 @@
         }
       }
     },
+    "Counts Markdown source, including syntax, spaces, and line breaks. Includes all Markdown files in this folder and nested folders, regardless of compilation preferences." : {
+
+    },
     "Create" : {
       "comment" : "NewDocumentView.swift:54",
       "localizations" : {
@@ -1695,6 +1718,9 @@
           }
         }
       }
+    },
+    "Documents counted" : {
+
     },
     "Documents sync with iCloud Drive." : {
       "comment" : "DocumentStorage.swift:137",
@@ -2192,8 +2218,12 @@
     "Files and folders" : {
 
     },
+    "Files not counted" : {
+
+    },
     "Fills in new eBraille exports. You can edit these values before sharing." : {
       "comment" : "SettingsView.swift:219",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -2293,6 +2323,7 @@
     },
     "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you." : {
       "comment" : "SettingsView.swift: optional support introduction",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -2629,9 +2660,6 @@
         }
       }
     },
-    "Import Word Stylesheet…" : {
-
-    },
     "Importing documents…" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
@@ -2944,6 +2972,9 @@
     "Local images and linked files are included in a ZIP with the Markdown document. Extract the ZIP before opening the Markdown file." : {
 
     },
+    "Location" : {
+
+    },
     "Mail Is Not Available" : {
       "comment" : "SettingsView.swift:321",
       "localizations" : {
@@ -3095,6 +3126,7 @@
     },
     "Moves between headings with three-finger horizontal swipes in the editor." : {
       "comment" : "SettingsView.swift:161",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -3406,9 +3438,6 @@
         }
       }
     },
-    "Outputs with standard Word styles by default, or import your own custom stylesheet." : {
-
-    },
     "Page numbers appear at the bottom right." : {
       "comment" : "BRFOptionsView.swift",
       "localizations" : {
@@ -3430,6 +3459,9 @@
           }
         }
       }
+    },
+    "Partial total" : {
+
     },
     "Password-protected PowerPoint presentations cannot be imported." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -3666,9 +3698,6 @@
         }
       }
     },
-    "Reading Word Stylesheet…" : {
-
-    },
     "Recently Deleted" : {
       "comment" : "RecentlyDeletedView.swift:41",
       "localizations" : {
@@ -3701,9 +3730,6 @@
           }
         }
       }
-    },
-    "Remove Word Stylesheet" : {
-
     },
     "Rename" : {
       "comment" : "EditorView.swift:289",
@@ -4188,6 +4214,7 @@
     },
     "Start a New Document follows your New Documents setting. Open Last Document returns to the most recently opened file when it is still available." : {
       "comment" : "SettingsView.swift:86",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4232,6 +4259,9 @@
           }
         }
       }
+    },
+    "Stylesheet" : {
+
     },
     "Subject" : {
       "comment" : "EBrailleMetadataSettingsView.swift:128",
@@ -4605,6 +4635,7 @@
     },
     "The render sound follows your device's silent switch." : {
       "comment" : "SettingsView.swift:209",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4690,6 +4721,7 @@
     },
     "The status bar is one focus stop beneath the editor and does not interrupt typing." : {
       "comment" : "SettingsView.swift:199",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4909,6 +4941,9 @@
         }
       }
     },
+    "Total Word Count" : {
+
+    },
     "Try Again" : {
       "comment" : "EditorView.swift:317",
       "localizations" : {
@@ -5044,6 +5079,9 @@
         }
       }
     },
+    "Use Word Stylesheet" : {
+
+    },
     "Use YYYY, YYYY-MM, or YYYY-MM-DD for the copyright date." : {
 
     },
@@ -5057,6 +5095,9 @@
           }
         }
       }
+    },
+    "Using standard Word styles. No stylesheet found." : {
+
     },
     "Verbosity" : {
       "comment" : "SettingsView.swift:149",
@@ -5201,9 +5242,6 @@
         }
       }
     },
-    "Word export" : {
-
-    },
     "Word Import" : {
       "comment" : "LibraryView.swift:361",
       "extractionState" : "stale",
@@ -5216,14 +5254,12 @@
         }
       }
     },
-    "Word Stylesheet" : {
-
-    },
-    "Word Stylesheet could not be imported" : {
+    "Words" : {
 
     },
     "Your documents are stored in the ghostWriter folder, which you can open in the Files app." : {
       "comment" : "SettingsView.swift:257",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {

@@ -68,24 +68,207 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        @Bindable var settings = settings
+
+        return NavigationStack {
             Form {
                 Section {
-                    NavigationLink("Files and startup") { filesSettings }
-                    NavigationLink("Editing") { editingSettings }
-                    NavigationLink("Export") { exportSettings }
-                    NavigationLink("Accessibility") { accessibilitySettings }
-                    NavigationLink("Appearance and sound") { appearanceSettings }
+                    Picker(
+                        "Document Storage",
+                        selection: documentStorageBinding
+                    ) {
+                        ForEach(DocumentStorageChoice.allCases) { location in
+                            Text(location.label).tag(location)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    if storage.activeDirectory == nil { Text(storage.statusDescription) }
+                } header: {
+                    Text("Files")
                 }
+
                 Section {
-                    Button("Help") { showingHelp = true }
-                    NavigationLink("About") { aboutSettings }
-                    NavigationLink("Support") { supportSettings }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("When App Opens")
+                            .accessibilityHidden(true)
+                        Picker(
+                            "When App Opens",
+                            selection: $settings.appLaunchBehavior
+                        ) {
+                            ForEach(AppLaunchBehavior.allCases) { behavior in
+                                Text(behavior.label).tag(behavior)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                    }
+                } header: {
+                    Text("App Launch")
+                }
+
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("When Starting a New Document")
+                            .accessibilityHidden(true)
+                        Picker(
+                            "When Starting a New Document",
+                            selection: $settings.newDocumentCreationMode
+                        ) {
+                            ForEach(NewDocumentCreationMode.allCases) { mode in
+                                Text(mode.label).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                    }
+                } header: {
+                    Text("New Documents")
+                }
+
+                Section {
+                    Toggle("Use smart punctuation", isOn: $settings.usesSmartPunctuation)
+                    Toggle("Use Word Stylesheet", isOn: $settings.usesWordStylesheet)
+                    if settings.usesWordStylesheet { WordStylesheetStatusView() }
+                } header: {
+                    Text("Export")
+                }
+
+                Section("Editing") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Indentation")
+                            .accessibilityHidden(true)
+                        Picker("Indentation", selection: $settings.indentUnit) {
+                            ForEach(IndentUnit.allCases) { unit in
+                                Text(unit.label).tag(unit)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                    }
+
+                    Toggle("Automatic Lists", isOn: $settings.smartListsEnabled)
+                        .ghostFilledControlTint()
+                        .accessibilityHint("Continues bullets and numbering when you press return")
+
+                    Toggle(
+                        "Keyboard Shortcuts",
+                        isOn: $settings.keyboardShortcutsEnabled
+                    )
+                    .ghostFilledControlTint()
+                    .accessibilityHint(
+                        "Enables ghostWriter commands for a hardware keyboard"
+                    )
+                }
+
+                Section("VoiceOver Settings") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Verbosity")
+                            .font(.headline)
+                            .accessibilityHidden(true)
+
+                        Picker(
+                            "Verbosity",
+                            selection: $settings.voiceOverVerbosity
+                        ) {
+                            ForEach(VoiceOverVerbosity.allCases) { verbosity in
+                                Text(verbosity.label).tag(verbosity)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Verbosity")
+                    Toggle("Heading Swipe Navigation", isOn: $settings.headingSwipeNavigationEnabled)
+                        .ghostFilledControlTint()
+                }
+
+                Section("Appearance") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Theme")
+                            .accessibilityHidden(true)
+                        Picker("Theme", selection: $settings.appearance) {
+                            ForEach(AppearanceMode.allCases) { mode in
+                                Text(mode.label).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Editor Font")
+                            .accessibilityHidden(true)
+                        Picker("Editor Font", selection: $settings.editorFontDesign) {
+                            ForEach(EditorFontDesign.allCases) { design in
+                                Text(design.label).tag(design)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                    }
+                }
+
+                Section {
+                    Toggle("Status Bar", isOn: $settings.statusBarEnabled)
+                        .ghostFilledControlTint()
+                        .accessibilityHint("Shows selected document information after the editor")
+
+                    if settings.statusBarEnabled {
+                        Button("Customize Status Bar") {
+                            showingStatusBarSettings = true
+                        }
+                    }
+                } header: {
+                    Text("Editor Status")
+                }
+
+                Section {
+                    Toggle("Render Sound", isOn: $settings.renderSoundEnabled)
+                        .ghostFilledControlTint()
+                        .accessibilityHint("Plays a tone when a document is rendered")
+                } header: {
+                    Text("Sound")
+                }
+
+                Section {
+                    NavigationLink("Edit defaults") {
+                        EBrailleMetadataSettingsView()
+                    }
+                } header: {
+                    Text("eBraille metadata")
+                }
+
+                supportSection
+
+                Section {
+                    LabeledContent("Version", value: appVersion)
+                    Button("Why ghostWriter?") {
+                        showingWhyGhostWriter = true
+                    }
+                    .accessibilityHint("Opens the lore of ghostWriter")
+                    Button("Acknowledgements") {
+                        showingAcknowledgements = true
+                    }
+                    .accessibilityHint("Opens software acknowledgements and licenses")
+                    externalLink(
+                        title: "ghostWriter on the web",
+                        url: "https://marconius.com/fun/ghostWriter/"
+                    )
+                    externalLink(
+                        title: "Privacy Policy",
+                        url: "https://marconius.com/gwPrivacy/"
+                    )
+                    Button("Send Feedback", action: sendFeedback)
+                        .accessibilityHint("Opens an in-app email with app and system information included")
+                } header: {
+                    Text("About")
+                } footer: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(copyright)
+                    }
                 }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Help") { showingHelp = true }
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Back") { dismiss() }
                 }
@@ -152,11 +335,6 @@ struct SettingsView: View {
 
     private var supportSection: some View {
         Section("Support ghostWriter Markdown") {
-            Text(
-                "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you."
-            )
-            .fixedSize(horizontal: false, vertical: true)
-
             if let statusText = supportStatusText {
                 Text(statusText)
                     .foregroundStyle(.secondary)
@@ -261,256 +439,6 @@ struct SettingsView: View {
                 localized: "Something unexpected rattled the walls. No support was recorded."
             )
         }
-    }
-
-    private var filesSettings: some View {
-        @Bindable var settings = settings
-        return Form {
-                Section {
-                    Picker(
-                        "Document Storage",
-                        selection: documentStorageBinding
-                    ) {
-                        ForEach(DocumentStorageChoice.allCases) { location in
-                            Text(location.label).tag(location)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                } header: {
-                    Text("Files")
-                } footer: {
-                    Text(storage.statusDescription)
-                }
-
-                Section {
-                    Picker(
-                        "When App Opens",
-                        selection: $settings.appLaunchBehavior
-                    ) {
-                        ForEach(AppLaunchBehavior.allCases) { behavior in
-                            Text(behavior.label).tag(behavior)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                } header: {
-                    Text("App Launch")
-                } footer: {
-                    Text("Start a New Document follows your New Documents setting. Open Last Document returns to the most recently opened file when it is still available.")
-                }
-
-                Section {
-                    Picker(
-                        "When Starting a New Document",
-                        selection: $settings.newDocumentCreationMode
-                    ) {
-                        ForEach(NewDocumentCreationMode.allCases) { mode in
-                            Text(mode.label).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                } header: {
-                    Text("New Documents")
-                } footer: {
-                    Text("Ask for a Title opens the naming screen. Use Today’s Date creates and opens the document immediately. You can rename it later from File Actions.")
-                }
-
-        }
-        .navigationTitle("Files and startup")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var editingSettings: some View {
-        @Bindable var settings = settings
-        return Form {
-                Section("Editing") {
-                    Picker("Indentation", selection: $settings.indentUnit) {
-                        ForEach(IndentUnit.allCases) { unit in
-                            Text(unit.label).tag(unit)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    Toggle("Automatic Lists", isOn: $settings.smartListsEnabled)
-                        .ghostFilledControlTint()
-                        .accessibilityHint("Continues bullets and numbering when you press return")
-
-                    Toggle(
-                        "Keyboard Shortcuts",
-                        isOn: $settings.keyboardShortcutsEnabled
-                    )
-                    .ghostFilledControlTint()
-                    .accessibilityHint(
-                        "Enables ghostWriter commands for a hardware keyboard"
-                    )
-                }
-
-        }
-        .navigationTitle("Editing")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var exportSettings: some View {
-        @Bindable var settings = settings
-        return Form {
-                Section {
-                    Toggle("Use smart punctuation", isOn: $settings.usesSmartPunctuation)
-                    Toggle("Use Word Stylesheet", isOn: $settings.usesWordStylesheet)
-                } header: {
-                    Text("Export")
-                } footer: {
-                    Text("Smart punctuation converts straight quotes, apostrophes, and three periods in exports. Word Stylesheet looks for word-theme.json in the root of your active ghostWriter folder in Files or iCloud. If it is absent, Word uses standard styling. Neither option changes your source text.")
-                }
-
-                Section {
-                    NavigationLink("Edit defaults") {
-                        EBrailleMetadataSettingsView()
-                    }
-                } header: {
-                    Text("eBraille metadata")
-                } footer: {
-                    Text("Fills in new eBraille exports. You can edit these values before sharing.")
-                }
-
-        }
-        .navigationTitle("Export")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var accessibilitySettings: some View {
-        @Bindable var settings = settings
-        return Form {
-                Section("VoiceOver Settings") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Verbosity")
-                            .font(.headline)
-                            .accessibilityHidden(true)
-
-                        Picker(
-                            "Verbosity",
-                            selection: $settings.voiceOverVerbosity
-                        ) {
-                            ForEach(VoiceOverVerbosity.allCases) { verbosity in
-                                Text(verbosity.label).tag(verbosity)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    .accessibilityElement(children: .contain)
-                    .accessibilityLabel("Verbosity")
-
-                    Text(settings.voiceOverVerbosity.description)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Toggle(
-                            "Heading Swipe Navigation",
-                            isOn: $settings.headingSwipeNavigationEnabled
-                        )
-                        .ghostFilledControlTint()
-
-                        Text(
-                            "Moves between headings with three-finger horizontal swipes in the editor."
-                        )
-                    }
-                }
-
-                Section {
-                    Toggle("Status Bar", isOn: $settings.statusBarEnabled)
-                        .ghostFilledControlTint()
-                        .accessibilityHint("Shows selected document information after the editor")
-
-                    if settings.statusBarEnabled {
-                        Button("Customize Status Bar") {
-                            showingStatusBarSettings = true
-                        }
-                    }
-                } header: {
-                    Text("Editor Status")
-                } footer: {
-                    Text("The status bar is one focus stop beneath the editor and does not interrupt typing.")
-                }
-
-        }
-        .navigationTitle("Accessibility")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var appearanceSettings: some View {
-        @Bindable var settings = settings
-        return Form {
-                Section("Appearance") {
-                    Picker("Theme", selection: $settings.appearance) {
-                        ForEach(AppearanceMode.allCases) { mode in
-                            Text(mode.label).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    Picker("Editor Font", selection: $settings.editorFontDesign) {
-                        ForEach(EditorFontDesign.allCases) { design in
-                            Text(design.label).tag(design)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                Section {
-                    Toggle("Render Sound", isOn: $settings.renderSoundEnabled)
-                        .ghostFilledControlTint()
-                        .accessibilityHint("Plays a tone when a document is rendered")
-                } header: {
-                    Text("Sound")
-                } footer: {
-                    Text("The render sound follows your device's silent switch.")
-                }
-
-        }
-        .navigationTitle("Appearance and sound")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var aboutSettings: some View {
-        @Bindable var settings = settings
-        return Form {
-                Section {
-                    LabeledContent("Version", value: appVersion)
-                    Button("Why ghostWriter?") {
-                        showingWhyGhostWriter = true
-                    }
-                    .accessibilityHint("Opens the lore of ghostWriter")
-                    Button("Acknowledgements") {
-                        showingAcknowledgements = true
-                    }
-                    .accessibilityHint("Opens software acknowledgements and licenses")
-                    externalLink(
-                        title: "ghostWriter on the web",
-                        url: "https://marconius.com/fun/ghostWriter/"
-                    )
-                    externalLink(
-                        title: "Privacy Policy",
-                        url: "https://marconius.com/gwPrivacy/"
-                    )
-                    Button("Send Feedback", action: sendFeedback)
-                        .accessibilityHint("Opens an in-app email with app and system information included")
-                } header: {
-                    Text("About")
-                } footer: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Your documents are stored in the ghostWriter folder, which you can open in the Files app.")
-                        Text(copyright)
-                    }
-                }
-        }
-        .navigationTitle("About")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var supportSettings: some View {
-        @Bindable var settings = settings
-        return Form {
-                supportSection
-        }
-        .navigationTitle("Support")
-        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func supportPrice(for option: SupportStore.SupportOption) -> String {

@@ -81,7 +81,7 @@ Creating Word document before presenting the Share Sheet.
 [Compilation export instructions](Documentation/Compilation%20export.md) explain
 format-specific controls, braille metadata, and portable asset packages.
 
-Settings > Export > Use Word Stylesheet applies `word-theme.json` from the root of the active local or iCloud ghostWriter folder to every Word export. If the file is absent, standard styling is used. [Word export and JSON style sheet instructions](Documentation/Word%20export.md)
+Settings > Export > Use Word Stylesheet applies `word-theme.json` from the Word Stylesheets folder inside the active local or iCloud ghostWriter folder to every Word export. If the file is absent, standard styling is used. [Word export and JSON style sheet instructions](Documentation/Word%20export.md)
 explain the controls, heading limit, supported fields, units, and validation.
 [Download the complete example](Documentation/word-theme.json) and change or omit
 optional settings to create a theme.
@@ -414,4 +414,4 @@ Copyright © 2026 Marco Salsiccia.
 
 ## Settings and Help navigation
 
-Settings groups controls into Files and startup, Editing, Export, Accessibility, and Appearance and sound. Help has searchable topics with dedicated reading screens. New Document and naming screens activate their text field when opened. Command+N is available throughout the Library; the editor no longer dismisses the keyboard when navigating its controls.
+Settings presents its controls directly in a single form with section headings. Help topics expand in place using native disclosure controls. New Document and naming screens activate their text field when opened. Command+N is available throughout the Library; the editor no longer dismisses the keyboard when navigating its controls.

@@ -18,11 +18,13 @@ struct FolderCountView: View {
             List {
                 Section { Text(folder.displayName) }
                 if finished {
-                    Section(failures.isEmpty ? "Total" : "Partial total") {
+                    Section {
                         LabeledContent("Words", value: words.formatted())
                         LabeledContent("Characters", value: characters.formatted())
                         LabeledContent("Documents counted", value: counted.formatted())
                         Text("Counts Markdown source, including syntax, spaces, and line breaks. Includes all Markdown files in this folder and nested folders, regardless of compilation preferences.")
+                    } header: {
+                        if !failures.isEmpty { Text("Partial total") }
                     }
                 } else {
                     ProgressView(value: Double(processed), total: Double(max(1, total))) {

@@ -499,6 +499,7 @@ final class DocumentStore {
             : try fileAccess.regularFilesRecursively(at: scanDirectory)
         let localDocuments = urls.filter { url in
             guard Document.isMarkdown(url) else { return false }
+            guard !WordStylesheetLoader.contains(url, in: libraryRoot) else { return false }
             guard isLibraryRoot else { return true }
             return !isDescendant(url, of: recentlyDeletedDirectory)
         }.compactMap(Document.init(fileURL:))
@@ -511,6 +512,7 @@ final class DocumentStore {
         for snapshot in snapshots
         where snapshot.isRecentlyDeleted == isRecentlyDeleted {
             let url = snapshot.url.standardizedFileURL
+            guard !WordStylesheetLoader.contains(url, in: libraryRoot) else { continue }
             if let local = documentsByURL[url] {
                 documentsByURL[url] = Document(
                     url: url,
@@ -553,7 +555,7 @@ final class DocumentStore {
             }
         }
         var foldersByURL: [URL: LibraryFolder] = [:]
-        for url in urls {
+        for url in urls where !WordStylesheetLoader.contains(url, in: directory) {
             let standardizedURL = url.standardizedFileURL
             foldersByURL[standardizedURL] =
                 LibraryFolder(fileURL: standardizedURL)
@@ -577,7 +579,7 @@ final class DocumentStore {
             urls = try fileAccess.regularFilesRecursively(at: directory)
         }
         let localDocuments = urls.filter { url in
-            guard Document.isMarkdown(url) else { return false }
+            guard Document.isMarkdown(url), !WordStylesheetLoader.contains(url, in: self.directory) else { return false }
             guard isLibraryRoot else { return true }
             return !Self.isDescendant(url, of: recentlyDeletedDirectory)
         }.compactMap(Document.init(fileURL:))
@@ -593,6 +595,7 @@ final class DocumentStore {
         )
         for snapshot in relevantSnapshots {
             let url = snapshot.url.standardizedFileURL
+            guard !WordStylesheetLoader.contains(url, in: self.directory) else { continue }
             if let local = documentsByURL[url] {
                 documentsByURL[url] = Document(
                     url: url,
@@ -630,7 +633,7 @@ final class DocumentStore {
             }
         }
         var foldersByURL: [URL: LibraryFolder] = [:]
-        for url in urls {
+        for url in urls where !WordStylesheetLoader.contains(url, in: directory) {
             let standardizedURL = url.standardizedFileURL
             foldersByURL[standardizedURL] =
                 LibraryFolder(fileURL: standardizedURL)

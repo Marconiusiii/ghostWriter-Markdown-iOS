@@ -16,7 +16,7 @@ Word and PDF offer Start each document on a new page. Turn it off for continuous
 
 Word, PDF, HTML, Markdown, EPUB, and eBraille offer Preserve individual document heading structure. Turn it off to retain only the first document’s title as Heading 1 and move every other heading down one level. Heading 6 stays Heading 6; Heading 5 and Heading 6 can therefore both become Heading 6. Plain Text and BRF convey structure through text layout, while PowerPoint uses headings to divide slides.
 
-Settings > Export > Use Word Stylesheet reads word-theme.json from the root of the active ghostWriter storage folder for each Word export, using standard styling when the file is absent. The Word Export Help topic describes its JSON format, supported settings, and an example. The stylesheet affects Word output only.
+Settings > Export > Use Word Stylesheet reads word-theme.json from the Word Stylesheets folder inside the active ghostWriter storage folder for each Word export, using standard styling when the file is absent. The Word Export Help topic describes its JSON format, supported settings, and an example. The stylesheet affects Word output only.
 
 PDF retains tagged headings, lists, tables, and image descriptions. HTML creates document sections with headings and language information, and embeds supported local images. EPUB creates a reflowable publication with chapter sections and heading navigation.
 

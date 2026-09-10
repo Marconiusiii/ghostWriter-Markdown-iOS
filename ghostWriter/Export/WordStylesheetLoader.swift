@@ -1,11 +1,21 @@
 import Foundation
 
 nonisolated enum WordStylesheetLoader {
+    static let folderName = "Word Stylesheets"
+    static func directory(in root: URL) -> URL { root.appendingPathComponent(folderName, isDirectory: true) }
+    static func contains(_ url: URL, in root: URL) -> Bool {
+        let folder = directory(in: root).standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        return path == folder || path.hasPrefix(folder + "/")
+    }
     static let filename = "word-theme.json"
 
     static func load(in root: URL, enabled: Bool) async throws -> WordExportTheme? {
         guard enabled else { return nil }
-        let url = root.appendingPathComponent(filename)
+        try Task.checkCancellation()
+        let folder = directory(in: root)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent(filename)
         let values: URLResourceValues
         do { values = try url.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey]) }
         catch let error as NSError where error.domain == NSCocoaErrorDomain && [NSFileNoSuchFileError, NSFileReadNoSuchFileError].contains(error.code) { return nil }

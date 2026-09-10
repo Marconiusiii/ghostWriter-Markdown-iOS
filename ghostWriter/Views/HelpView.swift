@@ -7,51 +7,34 @@
 //
 
 import SwiftUI
-import UIKit
 
 struct HelpView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var search = ""
-    private let categories = ["Getting started", "Files and folders", "Editing", "Export", "Accessibility"]
 
     var body: some View {
         NavigationStack {
             List {
-                if !search.isEmpty && !HelpTopic.all.contains(where: { $0.title.localizedCaseInsensitiveContains(search) || $0.paragraphs.contains(where: { $0.localizedCaseInsensitiveContains(search) }) }) {
-                    Text("No matching Help topics.")
-                }
-                ForEach(categories, id: \.self) { category in
-                    let topics = HelpTopic.all.filter { topic in
-                        topic.category == category && (search.isEmpty || topic.title.localizedCaseInsensitiveContains(search) || topic.paragraphs.contains { $0.localizedCaseInsensitiveContains(search) })
-                    }
-                    if !topics.isEmpty {
-                        Section(category) {
-                            ForEach(topics) { topic in
-                                NavigationLink(topic.title) {
-                                    List {
-                                        ForEach(topic.paragraphs, id: \.self) { paragraph in
-                                            Text(paragraph).textSelection(.enabled)
-                                        }
-                                    }
-                                    .navigationTitle(topic.title)
-                                    .navigationBarTitleDisplayMode(.inline)
-                                }
+                ForEach(HelpTopic.all) { topic in
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(topic.paragraphs, id: \.self) { paragraph in
+                                Text(paragraph)
+                                    .textSelection(.enabled)
+                                    .font(.body)
+                                    .foregroundStyle(Color.ghostText)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
+                        .padding(.vertical, 4)
+                    } label: {
+                        Text(topic.title)
+                            .font(.headline)
                     }
                 }
             }
-            .searchable(text: $search, prompt: "Search Help")
             .navigationTitle("Help")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Dismiss") {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
-                    .accessibilityLabel("Dismiss keyboard")
-                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Back") { dismiss() }
                 }
@@ -63,19 +46,18 @@ struct HelpView: View {
 struct HelpTopic: Identifiable {
     let title: String
     let paragraphs: [String]
-    var category: String {
-        switch title {
-        case "Creating and Opening Documents": return "Getting started"
-        case "Saving and the Files App", "Searching, Sorting, and Document Actions", "Library Gestures", "Folder totals and compilation defaults": return "Files and folders"
-        case "VoiceOver Settings", "Keyboard Shortcuts": return "Accessibility"
-        case "Sharing and export formats", "Handling Word Documents", "Smart punctuation in exports", "Compilation Export", "Word Export Help", "PowerPoint Import", "PowerPoint Output": return "Export"
-        default: return "Editing"
-        }
-    }
-
     var id: String { title }
 
     static let all: [HelpTopic] = [
+        HelpTopic(
+            title: "Settings controls",
+            paragraphs: [
+                "Document Storage chooses the on-device or iCloud ghostWriter folder. When App Opens chooses the Library, a new document, or the last document. Starting a new document follows When Starting a New Document: ask for a title, or use today’s date.",
+                "Render Sound plays when rendering and follows the device’s silent switch. Status Bar shows the selected document information below the editor; Customize Status Bar chooses which counts and position information appear.",
+                "eBraille metadata defaults fill in new exports and can be edited before sharing. Use Word Stylesheet reveals its source location and status; Word Export Help explains the Word Stylesheets folder and JSON file. Smart punctuation in exports explains quote, apostrophe, and ellipsis conversion.",
+                "Support options are optional purchases that help fund future updates. Every option offers the same thank-you; the app has no ads or subscriptions."
+            ]
+        ),
         HelpTopic(
             title: "Folder totals and compilation defaults",
             paragraphs: [
@@ -119,7 +101,7 @@ struct HelpTopic: Identifiable {
         HelpTopic(
             title: "VoiceOver Settings",
             paragraphs: [
-                "Settings > Accessibility > VoiceOver Settings contains Verbosity and Heading Swipe Navigation. VoiceOver Verbosity controls Markdown editing announcements. Off makes no Markdown editing announcements. Light announces list changes, indentation levels, and Insert actions. Full also announces completed Markdown structures as you type.",
+                "Settings > VoiceOver Settings contains Verbosity and Heading Swipe Navigation. VoiceOver Verbosity controls Markdown editing announcements. Off makes no Markdown editing announcements. Light announces list changes, indentation levels, and Insert actions. Full also announces completed Markdown structures as you type.",
                 "Heading Swipe Navigation moves between headings in the editor. Swipe right with three fingers for the next heading, or left with three fingers for the previous heading. These gestures are not available while using Braille Screen Input or when assigned to other VoiceOver commands."
             ]
         ),

@@ -50,16 +50,54 @@ struct FeedbackFeatureTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let absent = try await WordStylesheetLoader.load(in: root, enabled: true)
         #expect(absent == nil)
-        let url = root.appendingPathComponent(WordStylesheetLoader.filename)
+        let folder = WordStylesheetLoader.directory(in: root)
+        #expect(FileManager.default.fileExists(atPath: folder.path))
+        let url = folder.appendingPathComponent(WordStylesheetLoader.filename)
         try Data(#"{"version":1,"body":{"font":"Georgia"}}"#.utf8).write(to: url)
         let first = try await WordStylesheetLoader.load(in: root, enabled: true)
         #expect(first != nil)
         let disabled = try await WordStylesheetLoader.load(in: root, enabled: false)
         #expect(disabled == nil)
+        #expect(FileManager.default.fileExists(atPath: url.path))
         try Data("invalid JSON".utf8).write(to: url)
         do { _ = try await WordStylesheetLoader.load(in: root, enabled: true); Issue.record("Invalid stylesheet accepted") }
         catch { }
     }
+
+    @Test func stylesheetFolderIsReservedOnlyAtStorageRoot() {
+        let root = URL(fileURLWithPath: "/Library")
+        #expect(WordStylesheetLoader.contains(root.appendingPathComponent("Word Stylesheets"), in: root))
+        #expect(WordStylesheetLoader.contains(root.appendingPathComponent("Word Stylesheets/notes.md"), in: root))
+        #expect(!WordStylesheetLoader.contains(root.appendingPathComponent("Book/Word Stylesheets/notes.md"), in: root))
+        #expect(!WordStylesheetLoader.contains(root.appendingPathComponent("Word Stylesheets draft/notes.md"), in: root))
+    }
+
+    @Test func disabledStylesheetDoesNotCreateFolderOrUseLegacyRootFile() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let disabled = try await WordStylesheetLoader.load(in: root, enabled: false)
+        #expect(disabled == nil)
+        #expect(!FileManager.default.fileExists(atPath: WordStylesheetLoader.directory(in: root).path))
+        try Data(#"{"version":1}"#.utf8).write(to: root.appendingPathComponent(WordStylesheetLoader.filename))
+        let enabled = try await WordStylesheetLoader.load(in: root, enabled: true)
+        #expect(enabled == nil)
+    }
+
+    #if os(iOS)
+    @Test func libraryScansExcludeStylesheetsAndTheirMarkdownContents() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = WordStylesheetLoader.directory(in: root)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("Hidden".utf8).write(to: folder.appendingPathComponent("Notes.md"))
+        try Data("Visible".utf8).write(to: root.appendingPathComponent("Chapter.md"))
+        let store = DocumentStore(directory: root)
+        store.refresh()
+        #expect(store.documents.map { $0.url.lastPathComponent } == ["Chapter.md"])
+        #expect(!store.folders.contains { $0.url == folder })
+    }
+    #endif
 
     @Test func ellipsesPreserveProtectedTextAndLongerRuns() {
         let values: [ExportInline] = [.text("Wait... "), .strong([.text("Really...")]), .text(" .... … "), .code("..."), .link(destination: "https://example.org/...", content: [.text("More...")])]
