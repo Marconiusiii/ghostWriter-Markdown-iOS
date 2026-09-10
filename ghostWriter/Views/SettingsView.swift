@@ -100,6 +100,8 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(.wheel)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("When App Opens")
                     }
                 } header: {
                     Text("App Launch")
@@ -118,6 +120,8 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(.wheel)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("When Starting a New Document")
                     }
                 } header: {
                     Text("New Documents")
@@ -141,6 +145,8 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(.wheel)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Indentation")
                     }
 
                     Toggle("Automatic Lists", isOn: $settings.smartListsEnabled)
@@ -189,6 +195,8 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(.wheel)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Theme")
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -200,6 +208,8 @@ struct SettingsView: View {
                             }
                         }
                         .pickerStyle(.wheel)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Editor Font")
                     }
                 }
 
@@ -335,6 +345,11 @@ struct SettingsView: View {
 
     private var supportSection: some View {
         Section("Support ghostWriter Markdown") {
+            Text(
+                "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you."
+            )
+            .fixedSize(horizontal: false, vertical: true)
+
             if let statusText = supportStatusText {
                 Text(statusText)
                     .foregroundStyle(.secondary)
