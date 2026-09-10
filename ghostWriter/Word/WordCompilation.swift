@@ -19,7 +19,7 @@ nonisolated enum WordCompilation {
     static func document(sources: [WordCompilationSource], options: WordExportOptions) -> WordDocumentModel {
         var result = WordDocumentModel()
         for (index, source) in sources.enumerated() {
-            var document = MarkdownToWordConverter.document(from: source.markdown, title: source.title)
+            var document = MarkdownToWordConverter.document(from: source.markdown)
             // Every source has a title paragraph, including empty documents.
             if document.blocks.isEmpty || !isTitle(document.blocks[0]) {
                 document.blocks.insert(.paragraph(WordParagraph(runs: [WordRun(text: source.title)], headingLevel: 1)), at: 0)

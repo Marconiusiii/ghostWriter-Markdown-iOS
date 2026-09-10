@@ -41,6 +41,27 @@ final class DocumentLibraryMetadataStore {
         }
     }
 
+    private(set) var folderSortPreferences: [String: [String: String]] {
+        didSet {
+            defaults.set(folderSortPreferences, forKey: "libraryFolderSortPreferences")
+            libraryPresentationRevision &+= 1
+        }
+    }
+
+    func sort(in directory: URL, fallback: DocumentSort) -> DocumentSort {
+        guard let saved = folderSortPreferences[manualKey(for: directory)],
+              let rawField = saved["field"], let field = DocumentSortField(rawValue: rawField),
+              let rawDirection = saved["direction"], let direction = SortDirection(rawValue: rawDirection)
+        else { return fallback }
+        return DocumentSort(field: field, direction: direction)
+    }
+
+    func setSort(_ sort: DocumentSort, in directory: URL) {
+        folderSortPreferences[manualKey(for: directory)] = [
+            "field": sort.field.rawValue, "direction": sort.direction.rawValue
+        ]
+    }
+
     /// Missing items append alphabetically. Filtering never rewrites the saved order.
     func manuallyOrdered(_ urls: [URL]) -> [URL] {
         guard let parent = urls.first?.deletingLastPathComponent() else { return [] }
@@ -85,6 +106,11 @@ final class DocumentLibraryMetadataStore {
             if let siblings = updated[parent], !siblings.contains(new) { updated[parent, default: []].append(new) }
         }
         manualOrders = updated
+        var migratedSorts: [String: [String: String]] = [:]
+        for (directory, sort) in folderSortPreferences {
+            migratedSorts[replacingRoot(directory)] = sort
+        }
+        folderSortPreferences = migratedSorts
     }
 
     private func manualKey(for url: URL) -> String {
@@ -103,6 +129,7 @@ final class DocumentLibraryMetadataStore {
         lastOpenedStorageKey: String = "documentLastOpened",
         languageStorageKey: String = "documentLanguageTags"
     ) {
+        self.folderSortPreferences = defaults.dictionary(forKey: "libraryFolderSortPreferences") as? [String: [String: String]] ?? [:]
         self.manualOrders = defaults.dictionary(forKey: "libraryManualOrders") as? [String: [String]] ?? [:]
         self.defaults = defaults
         self.pinnedStorageKey = pinnedStorageKey

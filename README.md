@@ -44,17 +44,29 @@ assistive technology users are especially welcome.
 ## Word export and compilation
 
 Use a folder’s Export Compilation… action in its long-press context menu or
-VoiceOver Actions to combine documents into one Word file. Choose which folders and
+VoiceOver Actions to combine documents into one Word file. Inside an open folder,
+the folder heading offers the same action. Choose which folders and
 documents to include, review their order, and choose whether to start each
 document on a new page and preserve its heading structure. Compilation ignores pinning.
 
 Manual Library ordering uses Edit/Done Editing after the item count. Pinned documents
 remain a separate first group; unpinned documents and folders can be mixed.
-Clear Search to reorder. Orders are saved per folder on this device.
+Clear Search to reorder. Manual positions, Sort By, and Sort Order are saved
+separately for the main Library and each folder on this device. Changing a
+folder’s sorting does not change its parent, and preferences survive restarts,
+folder renaming, and folder moves.
 
-Compilation displays nested folders with inclusion toggles for whole folders and
-individual documents. Edit hides those toggles while native reorder controls
+Compilation displays the selected project’s children directly, with inclusion
+toggles for nested folders and individual documents. Folder toggles use the
+folder name followed by Folder; disclosures use the folder name. Edit hides those toggles while native reorder controls
 change file and folder order; Done Editing restores them with their choices intact.
+Edit is named Edit Document Order for accessibility and accepts the Voice Control
+alternatives Edit, Edit Files, Edit Documents, Edit Document Order, and Edit File Order.
+
+Compilation uses each document’s opening Heading 1 as its title, falling back to
+the filename only when that heading is absent. Export progress identifies the
+document being prepared and shows the completed-document count, then displays
+Creating Word document before presenting the Share Sheet.
 
 Both single-document Word export and compilation accept an optional JSON style
 sheet. [Word export and JSON style sheet instructions](Documentation/Word%20export.md)

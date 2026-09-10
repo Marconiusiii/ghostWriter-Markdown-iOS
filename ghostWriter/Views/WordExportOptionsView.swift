@@ -9,7 +9,8 @@ struct WordThemeImportSection: View {
     @Binding var isLoading: Bool
 
     var body: some View {
-        Section {
+        Section("Word Stylesheet") {
+            Text("Outputs with standard Word styles by default, or import your own custom stylesheet.")
             if let themeName { Text(themeName) }
             Button("Import Word Stylesheet…") { showingImporter = true }
                 .disabled(isLoading)

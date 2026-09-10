@@ -136,7 +136,7 @@ struct LibraryView: View {
             }
         }
         .onChange(of: currentDirectory) { _, _ in libraryEditMode = .inactive }
-        .onChange(of: settings.sort) { _, _ in libraryEditMode = .inactive }
+        .onChange(of: currentSort) { _, _ in libraryEditMode = .inactive }
         .sheet(item: $compilationFolder) { folder in
             CompilationExportView(directory: folder.url)
         }
@@ -401,11 +401,11 @@ struct LibraryView: View {
                 .labelsHidden()
             }
 
-            if settings.sort.field != .manual {
+            if currentSort.field != .manual {
                 Section("Sort Order") {
                     Picker("Sort Order", selection: sortDirectionBinding) {
                         ForEach(SortDirection.allCases) { direction in
-                            Text(direction.label(for: settings.sort.field)).tag(direction)
+                            Text(direction.label(for: currentSort.field)).tag(direction)
                         }
                     }
                     .pickerStyle(.inline)
@@ -416,8 +416,7 @@ struct LibraryView: View {
             Label("Sort", systemImage: "arrow.up.arrow.down")
         }
         .buttonStyle(.bordered)
-        .accessibilityLabel("Sort")
-        .accessibilityValue(settings.sort.spokenDescription)
+        .accessibilityValue(currentSort.spokenDescription)
     }
 
     /// An ordinary text field rather than `.searchable`, so it stays where it is
@@ -512,11 +511,27 @@ struct LibraryView: View {
     /// "Documents" is the heading. The count is ordinary text beneath the
     /// search field, where it doubles as the search result announcement.
     private var documentArea: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // Separate native List rows keep Sort independent of changing headings,
+        // counts, and search content during a selection update.
+        Group {
             Text(currentFolderHeading)
                 .font(.title2.bold())
                 .foregroundStyle(Color.ghostAccent)
                 .accessibilityAddTraits(.isHeader)
+                .contextMenu {
+                    if let currentFolderURL {
+                        Button("Export Compilation…") {
+                            compilationFolder = LibraryFolder(url: currentFolderURL)
+                        }
+                    }
+                }
+                .accessibilityActions {
+                    if let currentFolderURL {
+                        Button("Export Compilation…") {
+                            compilationFolder = LibraryFolder(url: currentFolderURL)
+                        }
+                    }
+                }
 
             if currentFolderURL != nil {
                 Button("Back to \(parentFolderName)") {
@@ -554,7 +569,7 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var documentList: some View {
-        if settings.sort.field == .manual {
+        if currentSort.field == .manual {
             manualRows(pinnedManualItems)
             manualRows(unpinnedManualItems)
         } else {
@@ -580,7 +595,7 @@ struct LibraryView: View {
     }
 
     private var canReorder: Bool {
-        settings.sort.field == .manual && trimmedSearch.isEmpty
+        currentSort.field == .manual && trimmedSearch.isEmpty
             && libraryPresentation.currentItemCount > 1
     }
 
@@ -890,6 +905,10 @@ struct LibraryView: View {
         }
     }
 
+    private var currentSort: DocumentSort {
+        libraryMetadata.sort(in: currentDirectory, fallback: settings.sort)
+    }
+
     private var currentDirectory: URL {
         currentFolderURL ?? store.directory
     }
@@ -901,7 +920,7 @@ struct LibraryView: View {
             searchIndexRevision: searchIndexRevision,
             directory: currentDirectory,
             query: trimmedSearch,
-            sort: settings.sort,
+            sort: currentSort,
             calendarDay: Calendar.current.startOfDay(for: .now)
         )
     }
@@ -921,7 +940,7 @@ struct LibraryView: View {
             currentDirectory: currentDirectory,
             query: trimmedSearch,
             searchIndex: searchIndex,
-            sort: settings.sort,
+            sort: currentSort,
             metadata: libraryMetadata
         )
     }
@@ -1295,22 +1314,22 @@ struct LibraryView: View {
 
     private var sortFieldBinding: Binding<DocumentSortField> {
         Binding(
-            get: { settings.sort.field },
+            get: { currentSort.field },
             set: { field in
-                var updatedSort = settings.sort
+                var updatedSort = currentSort
                 updatedSort.field = field
-                settings.sort = updatedSort
+                libraryMetadata.setSort(updatedSort, in: currentDirectory)
             }
         )
     }
 
     private var sortDirectionBinding: Binding<SortDirection> {
         Binding(
-            get: { settings.sort.direction },
+            get: { currentSort.direction },
             set: { direction in
-                var updatedSort = settings.sort
+                var updatedSort = currentSort
                 updatedSort.direction = direction
-                settings.sort = updatedSort
+                libraryMetadata.setSort(updatedSort, in: currentDirectory)
             }
         )
     }

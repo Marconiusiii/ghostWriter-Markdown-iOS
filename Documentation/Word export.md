@@ -2,15 +2,15 @@
 
 To export the document you are editing, choose File Actions > Share > Word Document. Optionally choose Import Word Stylesheet…, then activate Export and share… and choose a sharing destination or Save to Files.
 
-To combine documents, use a folder’s Export Compilation… action in its long-press context menu or VoiceOver Actions. You can do this from the parent folder without opening the selected folder. The Exporter starts with that folder and its nested files and folders included.
+To combine documents, use a folder’s Export Compilation… action in its long-press context menu or VoiceOver Actions. When already inside the folder, use the same action on its heading. The Exporter shows the selected folder’s files and nested folders directly, with all items initially included. The selected folder itself is the export scope and has no inclusion switch.
 
 Files and folders shows the folder hierarchy in saved Manual order. Within each folder, items without saved positions follow the saved items alphabetically. Pinning and the current Library sort do not change compilation order. Documents are exported in order, including a folder’s selected contents where that folder occurs.
 
-Turn a folder’s Include toggle off to exclude all its contents. Turn it on again to restore the individual choices inside it. Expand Contents to show its files and nested folders, then use their toggles to choose what to include. Collapsing Contents does not change inclusion. Controls inside an excluded folder are unavailable until that folder is included again.
+Each folder has an inclusion switch labeled with its name followed by Folder, and a disclosure labeled with its name. Turn the switch off to exclude all its contents. Turn it on again to restore the individual choices inside it. Expand the disclosure to choose files and nested folders. Expanding or collapsing does not change inclusion. Switches inside an excluded folder are unavailable until that folder is included again. VoiceOver hints say Double-tap to exclude for selected items and Double-tap to include for unselected items.
 
-Choose Edit to change file and folder order using the system’s reorder controls. VoiceOver names this button Edit File Order. Inclusion toggles disappear while editing; their choices are retained. Expand a folder to reorder its contents, or move the folder to move its contents together. Choose Done Editing to return to the inclusion toggles. These changes affect this export only; Library files and saved Library order do not change.
+Choose Edit to change file and folder order using the system’s reorder controls. VoiceOver names this button Edit Document Order. With Voice Control, say Tap Edit, Tap Edit Files, Tap Edit Documents, Tap Edit Document Order, or Tap Edit File Order. Inclusion switches disappear while editing; their choices are retained. Expand a folder to reorder its contents, or move the folder to move its contents together. Choose Done Editing to return to the inclusion switches; Voice Control accepts Tap Done Editing or Tap Done. These changes affect this export only; Library files and saved Library order do not change.
 
-Enter the output name in Document name. Each source document begins with its own title. If its first paragraph is already a matching Heading 1, that heading supplies the title. The output name names the exported file; it does not insert an additional title page.
+Enter the output name in Document name. In a compilation, an existing opening Heading 1 supplies each document’s title, even when its text differs from the filename. The filename is used only when an opening Heading 1 is absent. The output name names the exported file; it does not insert an additional title page.
 
 Start each document on a new page is on by default. It begins every document after the first on a new page. Turn it off to let documents flow consecutively. Paragraphs, lists, tables, and images retain their boundaries. A long document can still occupy several pages.
 
@@ -18,7 +18,7 @@ Preserve individual document heading structure is on by default and retains the 
 
 Heading 6 remains Heading 6; it never becomes Heading 7. Heading 5 and Heading 6 can therefore both become Heading 6, losing the distinction between those two levels. The Exporter displays this warning when heading preservation is off.
 
-Activate Export and share… to create the Word file. Documents stored only in iCloud are downloaded first. If a document cannot be read, the Exporter identifies the problem so you can retry; it does not share a compilation with that document silently omitted.
+Activate Export and share… to create the Word file. Progress identifies the document being downloaded or read and shows how many documents have been prepared. Documents stored only in iCloud are downloaded as needed. Creating Word document… appears while the output is generated; this stage has no percentage or time estimate. The Share Sheet opens when the file is ready. Cancel closes the Exporter and cancels the export. If a document cannot be read, the Exporter identifies the problem so you can retry; it does not share a compilation with that document silently omitted.
 
 ## Word Stylesheet JSON format
 

@@ -14,6 +14,10 @@ struct CompilationExportView: View {
     @State private var editMode = EditMode.inactive
     @State private var initialized = false
     @State private var exporting = false
+    @State private var preparedDocumentCount = 0
+    @State private var documentTotal = 0
+    @State private var creatingWordDocument = false
+    @State private var exportStatus = "Preparing documents…"
     @State private var exportTask: Task<Void, Never>?
     @State private var errorMessage: String?
     @State private var sharedFile: CompilationSharedFile?
@@ -40,8 +44,9 @@ struct CompilationExportView: View {
                         Text(WordCompilation.headingWarning)
                     }
                 }
+                .disabled(exporting)
                 Section("Files and folders") {
-                    if editMode.isEditing || items.contains(where: \.hasReorderableContents) {
+                    if editMode.isEditing || items.count > 1 || items.contains(where: \.hasReorderableContents) {
                         FileOrderEditButton(editMode: $editMode)
                     }
                     CompilationRows(
@@ -50,15 +55,27 @@ struct CompilationExportView: View {
                         isEditing: editMode.isEditing
                     )
                 }
+                .disabled(exporting)
                 WordThemeImportSection(theme: $options.theme, isLoading: $themeIsLoading)
+                    .disabled(exporting)
                 Section {
-                    if exporting { ProgressView("Preparing compilation…") }
+                    if exporting {
+                        if creatingWordDocument {
+                            ProgressView("Creating Word document…")
+                        } else {
+                            ProgressView(value: Double(preparedDocumentCount), total: Double(max(1, documentTotal))) {
+                                Text(exportStatus)
+                            } currentValueLabel: {
+                                Text("\(preparedDocumentCount) of \(documentTotal) documents prepared")
+                            }
+                            .accessibilityValue("\(preparedDocumentCount) of \(documentTotal) documents prepared")
+                        }
+                    }
                     Button("Export and share…", action: export)
                         .disabled(includedDocuments.isEmpty || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || exporting || themeIsLoading)
                 }
             }
             .environment(\.editMode, $editMode)
-            .disabled(exporting)
             .navigationTitle("Export Compilation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -79,12 +96,11 @@ struct CompilationExportView: View {
                 guard !initialized else { return }
                 initialized = true
                 if directory.standardizedFileURL.path != store.directory.standardizedFileURL.path { title = directory.lastPathComponent }
-                let root = CompilationSelection.folder(
-                    at: directory, documents: store.documents,
+                items = CompilationSelection.items(
+                    in: directory, documents: store.documents,
                     folders: store.folders, metadata: metadata
                 )
-                items = [root]
-                expandedFolders = [root.id]
+                expandedFolders = []
             }
             .onDisappear { exportTask?.cancel() }
         }
@@ -101,6 +117,10 @@ struct CompilationExportView: View {
         exporting = true
         editMode = .inactive
         let selected = includedDocuments
+        preparedDocumentCount = 0
+        documentTotal = selected.count
+        creatingWordDocument = false
+        exportStatus = "Preparing documents…"
         let outputTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let exportOptions = options
         exportTask = Task {
@@ -111,16 +131,21 @@ struct CompilationExportView: View {
                     try Task.checkCancellation()
                     let current = store.documents.first { $0.url == document.url } ?? document
                     if !current.availability.isAvailable {
+                        exportStatus = "Downloading \(document.displayName)…"
                         guard await store.requestDownload(for: current) else {
                             throw WordThemeError.invalid("Could not download \(current.displayName). Try again when it is available in the Library.")
                         }
                     }
                     let available = store.documents.first { $0.url == document.url } ?? current
+                    exportStatus = "Reading \(document.displayName)…"
                     let markdown: String
                     do { markdown = try await store.textAsynchronously(for: available, reportFailure: false) }
                     catch { throw WordThemeError.invalid("Could not read \(document.displayName). \(error.localizedDescription)") }
                     sources.append(WordCompilationSource(title: document.displayName, markdown: markdown, sourceDirectory: document.url.deletingLastPathComponent(), language: DocumentLanguage.resolvedTag(metadata.documentLanguage(for: document.url))))
+                    preparedDocumentCount += 1
                 }
+                try Task.checkCancellation()
+                creatingWordDocument = true
                 let inputs = sources
                 let work = Task.detached(priority: .userInitiated) { () throws -> URL in
                     try Task.checkCancellation()
@@ -160,7 +185,8 @@ private struct CompilationRows: View {
         ForEach($items) { $entry in
             if entry.item.isFolder {
                 if !isEditing {
-                    Toggle("Include \(entry.item.displayName)", isOn: $entry.isIncluded)
+                    Toggle("\(entry.item.displayName) Folder", isOn: $entry.isIncluded)
+                        .accessibilityHint(entry.isIncluded ? "Double-tap to exclude" : "Double-tap to include")
                         .disabled(!parentIncluded)
                 }
                 DisclosureGroup(isExpanded: Binding(
@@ -177,7 +203,7 @@ private struct CompilationRows: View {
                         parentIncluded: parentIncluded && entry.isIncluded
                     ))
                 } label: {
-                    Text(isEditing ? entry.item.displayName : "Contents")
+                    Text(entry.item.displayName)
                 }
                 .moveDisabled(!isEditing || items.count < 2)
             } else if isEditing {
@@ -185,6 +211,7 @@ private struct CompilationRows: View {
                     .moveDisabled(items.count < 2)
             } else {
                 Toggle(entry.item.displayName, isOn: $entry.isIncluded)
+                    .accessibilityHint(entry.isIncluded ? "Double-tap to exclude" : "Double-tap to include")
                     .disabled(!parentIncluded)
             }
         }

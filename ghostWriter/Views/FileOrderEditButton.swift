@@ -8,7 +8,9 @@ struct FileOrderEditButton: View {
         Button(editMode.isEditing ? "Done Editing" : "Edit") {
             editMode = editMode.isEditing ? .inactive : .active
         }
-        .accessibilityLabel(editMode.isEditing ? "Done Editing" : "Edit File Order")
-        .accessibilityHint(editMode.isEditing ? "" : "Edits document output order")
+        .accessibilityLabel(editMode.isEditing ? "Done Editing" : "Edit Document Order")
+        .accessibilityInputLabels(editMode.isEditing
+            ? ["Done Editing", "Done"]
+            : ["Edit", "Edit Files", "Edit Documents", "Edit Document Order", "Edit File Order"])
     }
 }

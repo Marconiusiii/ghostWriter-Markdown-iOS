@@ -23,6 +23,16 @@ nonisolated struct CompilationItem: Identifiable, Equatable, Sendable {
 }
 
 extension CompilationSelection {
+    /// The export scope is implicit; only its children are selectable.
+    static func items(
+        in directory: URL,
+        documents: [Document],
+        folders: [LibraryFolder],
+        metadata: DocumentLibraryMetadataStore
+    ) -> [CompilationItem] {
+        folder(at: directory, documents: documents, folders: folders, metadata: metadata).children
+    }
+
     static func folder(
         at directory: URL,
         documents: [Document],

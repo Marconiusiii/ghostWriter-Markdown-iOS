@@ -26,6 +26,35 @@ struct WordCompilationTests {
         #expect(xml.components(separatedBy: "<w:pageBreakBefore/>").count - 1 == 1)
     }
 
+    @Test func existingOpeningTitlesReplaceFilenameHeadings() throws {
+        let sources = [source("title", "# My Fabulous Book\nBy the author"), source("001-chapter", "# Chapter 1\n## Beginning\nBody")]
+        for preserve in [true, false] {
+            var options = WordExportOptions()
+            options.preservesHeadingStructure = preserve
+            let model = WordCompilation.document(sources: sources, options: options)
+            let paragraphs = model.blocks.compactMap { if case .paragraph(let value) = $0 { return value }; return nil }
+            #expect(paragraphs.compactMap(\.headingLevel) == (preserve ? [1, 1, 2] : [1, 2, 3]))
+            #expect(paragraphs.filter(\.pageBreakBefore).count == 1)
+            let data = try WordCompilation.write(title: "Book", sources: sources, options: options)
+            let entries = try WordPackage.entries(from: data, paths: ["word/document.xml"])
+            let xml = String(decoding: try #require(entries["word/document.xml"]), as: UTF8.self)
+            #expect(xml.contains(">My Fabulous Book</w:t>"))
+            #expect(xml.contains(">Chapter 1</w:t>"))
+            #expect(!xml.contains(">title</w:t>"))
+            #expect(!xml.contains(">001-chapter</w:t>"))
+        }
+    }
+
+    @Test func missingOpeningTitleUsesFilenameWithoutReplacingLaterHeadings() throws {
+        let sources = [source("Introduction", "Body before a heading\n# Later heading")]
+        let data = try WordCompilation.write(title: "Book", sources: sources, options: WordExportOptions())
+        let entries = try WordPackage.entries(from: data, paths: ["word/document.xml"])
+        let xml = String(decoding: try #require(entries["word/document.xml"]), as: UTF8.self)
+        #expect(xml.contains(">Introduction</w:t>"))
+        #expect(xml.contains(">Later heading</w:t>"))
+        #expect(!xml.contains("pageBreakBefore"))
+    }
+
     @Test func continuousOutputKeepsBlocksAndIndependentLists() throws {
         var options = WordExportOptions()
         options.startsDocumentsOnNewPages = false

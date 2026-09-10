@@ -136,9 +136,6 @@
         }
       }
     },
-    "%lld documents" : {
-
-    },
     "%lld internal slide links were imported as plain text." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
@@ -287,9 +284,6 @@
         }
       }
     },
-    "Add" : {
-
-    },
     "Add a description to the tactile graphic %@ before exporting." : {
       "comment" : "EBrailleWriter.swift:834",
       "localizations" : {
@@ -311,12 +305,6 @@
           }
         }
       }
-    },
-    "Add documents or folders" : {
-
-    },
-    "Add documents or folders…" : {
-
     },
     "Additional options" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -1680,9 +1668,6 @@
         }
       }
     },
-    "Documents in export order" : {
-
-    },
     "Documents sync with iCloud Drive." : {
       "comment" : "DocumentStorage.swift:137",
       "localizations" : {
@@ -1704,6 +1689,9 @@
           }
         }
       }
+    },
+    "Done Editing" : {
+
     },
     "Download failed" : {
       "comment" : "DocumentAvailability.swift:63",
@@ -1782,6 +1770,9 @@
         }
       }
     },
+    "Edit" : {
+
+    },
     "Edit defaults" : {
       "comment" : "SettingsView.swift:213",
       "localizations" : {
@@ -1792,6 +1783,9 @@
           }
         }
       }
+    },
+    "Edit File Order" : {
+
     },
     "Editing" : {
       "comment" : "SettingsView.swift:109",
@@ -1825,6 +1819,9 @@
           }
         }
       }
+    },
+    "Edits document output order" : {
+
     },
     "Education level" : {
       "comment" : "EBrailleMetadataSettingsView.swift:145",
@@ -1938,6 +1935,7 @@
     },
     "Enter a new name for this document." : {
       "comment" : "EditorView.swift:296",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -1949,6 +1947,7 @@
     },
     "Enter a new name for this folder." : {
       "comment" : "LibraryView.swift:344",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -2037,6 +2036,7 @@
     },
     "es-MX" : {
       "comment" : "DocumentLanguageView.swift:76",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -2139,6 +2139,9 @@
           }
         }
       }
+    },
+    "Files and folders" : {
+
     },
     "Fills in new eBraille exports. You can edit these values before sharing." : {
       "comment" : "SettingsView.swift:219",
@@ -2304,9 +2307,6 @@
           }
         }
       }
-    },
-    "Go to parent folder" : {
-
     },
     "Headers and footers" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -2580,7 +2580,7 @@
         }
       }
     },
-    "Import JSON style sheet…" : {
+    "Import Word Stylesheet…" : {
 
     },
     "Importing documents…" : {
@@ -2590,6 +2590,9 @@
     "Include" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
+    },
+    "Include %@" : {
+
     },
     "Include braille page numbers" : {
       "comment" : "BRFOptionsView.swift",
@@ -2601,12 +2604,6 @@
           }
         }
       }
-    },
-    "Include document: %@" : {
-
-    },
-    "Include folder: %@" : {
-
     },
     "Indentation" : {
       "comment" : "SettingsView.swift:110",
@@ -2706,12 +2703,6 @@
           }
         }
       }
-    },
-    "JSON style sheet" : {
-
-    },
-    "JSON style sheets" : {
-
     },
     "Jump" : {
       "comment" : "EditorView.swift:304",
@@ -2822,9 +2813,6 @@
           }
         }
       }
-    },
-    "Library Actions" : {
-
     },
     "Light" : {
       "comment" : "AppSettings.swift:53",
@@ -3278,9 +3266,6 @@
         }
       }
     },
-    "Open folder: %@" : {
-
-    },
     "Open Last Document" : {
       "comment" : "AppLaunchBehavior.swift:24",
       "localizations" : {
@@ -3347,9 +3332,6 @@
         }
       }
     },
-    "Optional. Supplied settings override the standard Word appearance. Word Export Help describes the format and includes an example." : {
-
-    },
     "Other language tag…" : {
       "comment" : "DocumentLanguageView.swift:59",
       "localizations" : {
@@ -3371,9 +3353,6 @@
           }
         }
       }
-    },
-    "Output" : {
-
     },
     "Page numbers appear at the bottom right." : {
       "comment" : "BRFOptionsView.swift",
@@ -3455,9 +3434,6 @@
           }
         }
       }
-    },
-    "Pinning does not change this order. Removing a document here leaves its Library file unchanged." : {
-
     },
     "Plain Text" : {
       "comment" : "EditorView.swift:101",
@@ -3635,7 +3611,7 @@
         }
       }
     },
-    "Reading style sheet…" : {
+    "Reading Word Stylesheet…" : {
 
     },
     "Recently Deleted" : {
@@ -3671,10 +3647,7 @@
         }
       }
     },
-    "Remove from compilation" : {
-
-    },
-    "Remove style sheet" : {
+    "Remove Word Stylesheet" : {
 
     },
     "Rename" : {
@@ -3701,6 +3674,7 @@
     },
     "Rename Folder" : {
       "comment" : "LibraryView.swift:338",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4051,7 +4025,6 @@
     },
     "Sort" : {
       "comment" : "LibraryView.swift:488",
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4204,9 +4177,6 @@
           }
         }
       }
-    },
-    "Style sheet could not be imported" : {
-
     },
     "Subject" : {
       "comment" : "EBrailleMetadataSettingsView.swift:128",
@@ -5170,12 +5140,6 @@
     "Word export" : {
 
     },
-    "Word export and compilation" : {
-
-    },
-    "Word Export Help" : {
-
-    },
     "Word Import" : {
       "comment" : "LibraryView.swift:361",
       "extractionState" : "stale",
@@ -5187,6 +5151,9 @@
           }
         }
       }
+    },
+    "Word Stylesheet could not be imported" : {
+
     },
     "Your documents are stored in the ghostWriter folder, which you can open in the Files app." : {
       "comment" : "SettingsView.swift:257",

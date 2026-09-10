@@ -33,6 +33,67 @@ struct CompilationOrderingTests {
         #expect(DocumentSort(field: .manual).sorted([a, b], metadata: metadata).first?.url == a.url)
     }
 
+    @Test func projectScopeContainsOnlyChildrenWithIndependentSelection() throws {
+        let suite = "CompilationScopeTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let metadata = DocumentLibraryMetadataStore(defaults: defaults)
+        let root = URL(fileURLWithPath: "/library/Book")
+        metadata.useLibraryRoot(root.deletingLastPathComponent())
+        let folder = LibraryFolder(url: root.appendingPathComponent("Chapters"))
+        let title = document(root.appendingPathComponent("title.md"))
+        let chapter = document(folder.url.appendingPathComponent("chapter.md"))
+        metadata.setManualOrder([title.url, folder.url], in: root)
+        var items = CompilationSelection.items(in: root, documents: [chapter, title], folders: [folder], metadata: metadata)
+        #expect(items.map(\.id) == [title.url, folder.url])
+        #expect(!items.contains { $0.id == root })
+        #expect(items.flatMap(\.includedDocuments) == [title, chapter])
+        items[1].isIncluded = false
+        #expect(items.flatMap(\.includedDocuments) == [title])
+        items[1].isIncluded = true
+        items.swapAt(0, 1)
+        #expect(items.flatMap(\.includedDocuments) == [chapter, title])
+    }
+
+    @Test func sortPreferencesAreIndependentAndPersistThroughRenameAndMove() throws {
+        let suite = "FolderSortTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let root = URL(fileURLWithPath: "/library")
+        let folder = root.appendingPathComponent("Book")
+        let nested = folder.appendingPathComponent("Chapters")
+        let fallback = DocumentSort(field: .modified, direction: .descending)
+        let rootSort = DocumentSort(field: .created, direction: .ascending)
+        let folderSort = DocumentSort(field: .manual, direction: .descending)
+        let nestedSort = DocumentSort(field: .name, direction: .descending)
+        let metadata = DocumentLibraryMetadataStore(defaults: defaults)
+        metadata.useLibraryRoot(root)
+        #expect(metadata.sort(in: folder, fallback: fallback) == fallback)
+        metadata.setSort(rootSort, in: root)
+        metadata.setSort(folderSort, in: folder)
+        metadata.setSort(nestedSort, in: nested)
+        #expect(metadata.sort(in: root, fallback: fallback) == rootSort)
+        #expect(metadata.sort(in: folder, fallback: fallback) == folderSort)
+        #expect(metadata.sort(in: root.appendingPathComponent("Other"), fallback: fallback) == fallback)
+        let restored = DocumentLibraryMetadataStore(defaults: defaults)
+        restored.useLibraryRoot(root)
+        #expect(restored.sort(in: root, fallback: fallback) == rootSort)
+        #expect(restored.sort(in: folder, fallback: fallback) == folderSort)
+        let renamed = root.appendingPathComponent("Renamed")
+        restored.migrateManualOrder(from: folder, to: renamed)
+        #expect(restored.sort(in: folder, fallback: fallback) == fallback)
+        #expect(restored.sort(in: renamed, fallback: fallback) == folderSort)
+        #expect(restored.sort(in: renamed.appendingPathComponent("Chapters"), fallback: fallback) == nestedSort)
+        let moved = root.appendingPathComponent("Archive/Renamed")
+        restored.migrateManualOrder(from: renamed, to: moved)
+        #expect(restored.sort(in: moved, fallback: fallback) == folderSort)
+        #expect(restored.sort(in: moved.appendingPathComponent("Chapters"), fallback: fallback) == nestedSort)
+        #expect(restored.sort(in: root, fallback: fallback) == rootSort)
+        let reopened = DocumentLibraryMetadataStore(defaults: defaults)
+        reopened.useLibraryRoot(root)
+        #expect(reopened.sort(in: moved.appendingPathComponent("Chapters"), fallback: fallback) == nestedSort)
+    }
+
     @Test func folderInclusionRestoresDescendantChoicesAndMovesAsAUnit() {
         let root = URL(fileURLWithPath: "/library")
         let a = document(root.appendingPathComponent("Folder/A.md"))
