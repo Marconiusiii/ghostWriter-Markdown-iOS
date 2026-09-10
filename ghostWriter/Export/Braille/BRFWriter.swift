@@ -47,15 +47,16 @@ nonisolated enum BRFWriter {
         outputPurpose: OutputPurpose = .brailleDisplay,
         includeBraillePageNumbers: Bool = true,
         translator: BrailleTranslator,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        preparedDocument: ExportDocument? = nil
     ) async throws -> Data {
-        let document = MarkdownDocumentParser.parse(markdown)
+        let document = preparedDocument ?? MarkdownDocumentParser.parse(markdown)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
 
         var renderedBlocks: [RenderedBlock] = []
 
         // The title is set apart as a centered heading.
-        if !trimmedTitle.isEmpty {
+        if document.compilationSections.isEmpty, !trimmedTitle.isEmpty {
             let braille = try await translator.translate(trimmedTitle, grade: grade)
             var titleLines = centered(
                 try asciiBraille(braille),
@@ -66,7 +67,7 @@ nonisolated enum BRFWriter {
         }
 
         for (index, block) in document.blocks.enumerated() {
-            if index == 0,
+            if document.compilationSections.isEmpty, index == 0,
                !trimmedTitle.isEmpty,
                case .heading(_, let content) = block,
                content.plainText.trimmingCharacters(in: .whitespacesAndNewlines)

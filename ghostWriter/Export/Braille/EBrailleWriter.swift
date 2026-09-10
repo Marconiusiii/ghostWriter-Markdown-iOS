@@ -35,12 +35,13 @@ nonisolated enum EBrailleWriter {
         metadata: EBrailleMetadata,
         translator: BrailleTranslator,
         sourceDirectory: URL? = nil,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        preparedDocument: ExportDocument? = nil
     ) async throws -> Data {
         if let message = metadata.validationMessage {
             throw EBrailleExportError.invalidMetadata(message)
         }
-        let document = MarkdownDocumentParser.parse(markdown)
+        let document = preparedDocument ?? MarkdownDocumentParser.parse(markdown)
         for image in document.images where image.isTactile {
             guard image.alternativeText?.trimmingCharacters(in: .whitespacesAndNewlines)
                 .isEmpty == false else {
@@ -122,7 +123,7 @@ nonisolated enum EBrailleWriter {
             language: language,
             document: document,
             translations: translations,
-            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle)
+            includeTitleHeading: document.compilationSections.isEmpty && !startsWithMatchingHeading(document, title: bookTitle)
         ).utf8)
 
         entries["style.css"] = Data(stylesheet.utf8)
@@ -132,7 +133,7 @@ nonisolated enum EBrailleWriter {
             language: language,
             document: document,
             translations: translations,
-            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle),
+            includeTitleHeading: document.compilationSections.isEmpty && !startsWithMatchingHeading(document, title: bookTitle),
             imageResources: imageResources
         ).utf8)
 
@@ -140,6 +141,17 @@ nonisolated enum EBrailleWriter {
             entries[image.href] = image.data
         }
 
+        if let sourceDirectory, !document.compilationLinkedAssets.isEmpty {
+            var manifestItems = ""
+            for (index, path) in document.compilationLinkedAssets.enumerated() {
+                try Task.checkCancellation()
+                entries["" + path] = try Data(contentsOf: sourceDirectory.appendingPathComponent(path))
+                manifestItems += "<item id=\"linked-\(index)\" href=\"\(path)\" media-type=\"application/octet-stream\"/>"
+            }
+            if let opf = entries["package.opf"] {
+                entries["package.opf"] = Data(String(decoding: opf, as: UTF8.self).replacingOccurrences(of: "</manifest>", with: manifestItems + "</manifest>").utf8)
+            }
+        }
         return try EPUBPackage.create(entries: entries)
     }
 
@@ -592,7 +604,8 @@ nonisolated enum EBrailleWriter {
         var builder = ContentBuilder(
             translations: translations,
             imageResources: imageResources,
-            language: documentLanguageForBrailleTag(language)
+            language: documentLanguageForBrailleTag(language),
+            localTargets: EPUBWriter.compilationLinkTargets(document)
         )
         var body = ""
 
@@ -602,7 +615,15 @@ nonisolated enum EBrailleWriter {
                 + escape(translations(title)) + "</h1>\n"
         }
 
-        body += builder.render(document.blocks)
+        if document.compilationSections.isEmpty {
+            body += builder.render(document.blocks)
+        } else {
+            for (index, section) in document.compilationSections.enumerated() {
+                body += "<section id=\"document-\(index + 1)\" epub:type=\"chapter\">\n"
+                body += builder.render(Array(document.blocks[section.start..<section.end]))
+                body += "</section>\n"
+            }
+        }
 
         return """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -631,6 +652,7 @@ nonisolated enum EBrailleWriter {
         let translations: TranslationTable
         let imageResources: EPUBWriter.ImageResources
         let language: String
+        let localTargets: Set<String>
         var headingCounter = 0
 
         mutating func render(_ blocks: [ExportBlock]) -> String {
@@ -782,7 +804,7 @@ nonisolated enum EBrailleWriter {
                     // The href stays a real URL — it is machine-readable, not
                     // rendered text, and translating it would break the link.
                     let label = escape(translations(input))
-                    if let href = EPUBWriter.safeLinkHref(destination) {
+                    if let href = EPUBWriter.safeLinkHref(destination, localTargets: localTargets) {
                         output += "<a href=\"\(escape(href))\">" + label + "</a>"
                     } else {
                         output += label

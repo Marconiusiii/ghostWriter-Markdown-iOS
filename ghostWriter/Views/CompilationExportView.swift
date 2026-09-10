@@ -3,13 +3,14 @@ import SwiftUI
 struct CompilationExportView: View {
     let directory: URL
     @Environment(DocumentStore.self) private var store
+    @Environment(AppSettings.self) private var settings
     @Environment(DocumentLibraryMetadataStore.self) private var metadata
     @Environment(\.dismiss) private var dismiss
     @State private var items: [CompilationItem] = []
     @State private var expandedFolders: Set<URL> = []
-    @FocusState private var nameFieldFocused: Bool
+    @FocusState private var focusedField: CompilationTextField?
     @State private var title = "Compilation"
-    @State private var options = WordExportOptions()
+    @State private var options = CompilationExportSettings()
     @State private var themeIsLoading = false
     @State private var editMode = EditMode.inactive
     @State private var initialized = false
@@ -32,19 +33,21 @@ struct CompilationExportView: View {
                             .accessibilityHidden(true)
                         TextField("", text: $title)
                             .textFieldStyle(.roundedBorder)
-                            .focused($nameFieldFocused)
+                            .focused($focusedField, equals: .outputName)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.words)
                             .accessibilityLabel("Document name")
                     }
-                    Toggle("Start each document on a new page", isOn: $options.startsDocumentsOnNewPages)
-                    Toggle("Preserve individual document heading structure", isOn: $options.preservesHeadingStructure)
-                    if !options.preservesHeadingStructure {
-                        Text("The first document’s title is the only Heading 1. All other headings move down one level.")
-                        Text(WordCompilation.headingWarning)
+                    Picker("Export format", selection: $options.format) {
+                        ForEach(CompilationFormat.allCases) { format in
+                            Text(format.label).tag(format)
+                        }
                     }
+                    .pickerStyle(.menu)
                 }
                 .disabled(exporting)
+                CompilationFormatOptions(options: $options, themeIsLoading: $themeIsLoading, focusedField: $focusedField)
+                    .disabled(exporting)
                 Section("Files and folders") {
                     if editMode.isEditing || items.count > 1 || items.contains(where: \.hasReorderableContents) {
                         FileOrderEditButton(editMode: $editMode)
@@ -56,12 +59,10 @@ struct CompilationExportView: View {
                     )
                 }
                 .disabled(exporting)
-                WordThemeImportSection(theme: $options.theme, isLoading: $themeIsLoading)
-                    .disabled(exporting)
                 Section {
                     if exporting {
                         if creatingWordDocument {
-                            ProgressView("Creating Word document…")
+                            ProgressView("Creating \(options.format.label) compilation…")
                         } else {
                             ProgressView(value: Double(preparedDocumentCount), total: Double(max(1, documentTotal))) {
                                 Text(exportStatus)
@@ -72,7 +73,7 @@ struct CompilationExportView: View {
                         }
                     }
                     Button("Export and share…", action: export)
-                        .disabled(includedDocuments.isEmpty || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || exporting || themeIsLoading)
+                        .disabled(includedDocuments.isEmpty || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || exporting || themeIsLoading || (options.format == .eBraille && options.eBraille.validationMessage != nil))
                 }
             }
             .environment(\.editMode, $editMode)
@@ -84,7 +85,7 @@ struct CompilationExportView: View {
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("Dismiss") { nameFieldFocused = false }
+                    Button("Dismiss") { focusedField = nil }
                         .accessibilityLabel("Dismiss keyboard")
                 }
             }
@@ -95,6 +96,13 @@ struct CompilationExportView: View {
             .onAppear {
                 guard !initialized else { return }
                 initialized = true
+                options.powerPointTheme = settings.powerPointTheme
+                options.powerPointFont = settings.powerPointFont
+                options.eBraille = settings.eBrailleMetadataDefaults
+                options.brfGrade = settings.eBrailleGrade
+                options.brfCells = settings.brfCellsPerLine
+                options.brfLines = settings.brfLinesPerPage
+                options.brfCustomLayout = options.brfCells != 40 || options.brfLines != 25
                 if directory.standardizedFileURL.path != store.directory.standardizedFileURL.path { title = directory.lastPathComponent }
                 items = CompilationSelection.items(
                     in: directory, documents: store.documents,
@@ -113,7 +121,7 @@ struct CompilationExportView: View {
 
     private func export() {
         guard !exporting else { return }
-        nameFieldFocused = false
+        focusedField = nil
         exporting = true
         editMode = .inactive
         let selected = includedDocuments
@@ -141,23 +149,14 @@ struct CompilationExportView: View {
                     let markdown: String
                     do { markdown = try await store.textAsynchronously(for: available, reportFailure: false) }
                     catch { throw WordThemeError.invalid("Could not read \(document.displayName). \(error.localizedDescription)") }
-                    sources.append(WordCompilationSource(title: document.displayName, markdown: markdown, sourceDirectory: document.url.deletingLastPathComponent(), language: DocumentLanguage.resolvedTag(metadata.documentLanguage(for: document.url))))
+                    sources.append(WordCompilationSource(title: document.displayName, markdown: markdown, sourceDirectory: document.url.deletingLastPathComponent(), language: DocumentLanguage.resolvedTag(metadata.documentLanguage(for: document.url)), sourceURL: document.url))
                     preparedDocumentCount += 1
                 }
                 try Task.checkCancellation()
                 creatingWordDocument = true
                 let inputs = sources
                 let work = Task.detached(priority: .userInitiated) { () throws -> URL in
-                    try Task.checkCancellation()
-                    let data = try WordCompilation.write(title: outputTitle, sources: inputs, options: exportOptions)
-                    try Task.checkCancellation()
-                    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ghostWriter-Compilation-\(UUID().uuidString)", isDirectory: true)
-                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-                    let safeName = outputTitle.components(separatedBy: CharacterSet(charactersIn: "/:\\").union(.controlCharacters)).joined(separator: "-")
-                    let url = directory.appendingPathComponent(String(safeName.prefix(120))).appendingPathExtension("docx")
-                    do { try data.write(to: url, options: .atomic) }
-                    catch { try? FileManager.default.removeItem(at: directory); throw error }
-                    return url
+                    try await CompilationFileWriter.write(title: outputTitle, sources: inputs, settings: exportOptions)
                 }
                 let url = try await withTaskCancellationHandler { try await work.value } onCancel: { work.cancel() }
                 if Task.isCancelled { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()); return }

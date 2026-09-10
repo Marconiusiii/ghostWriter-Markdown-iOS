@@ -41,10 +41,12 @@ wording, image alternative text, and table design.
 Accessibility testing is an ongoing process. Reports from VoiceOver and other
 assistive technology users are especially welcome.
 
-## Word export and compilation
+## Compilation export
 
 Use a folder’s Export Compilation… action in its long-press context menu or
-VoiceOver Actions to combine documents into one Word file. Inside an open folder,
+VoiceOver Actions to combine documents into Word, PDF, HTML, Markdown, Plain Text,
+EPUB, PowerPoint, eBraille, or BRF. A native format picker reveals the relevant
+options while retaining inclusion choices and order. Inside an open folder,
 the folder heading offers the same action. Choose which folders and
 documents to include, review their order, and choose whether to start each
 document on a new page and preserve its heading structure. Compilation ignores pinning.
@@ -72,6 +74,9 @@ paragraphs and preserving additional source blanks. Export progress identifies t
 document being prepared and shows the completed-document count, then displays
 Creating Word document before presenting the Share Sheet.
 
+[Compilation export instructions](Documentation/Compilation%20export.md) explain
+format-specific controls, braille metadata, and portable asset packages.
+
 Both single-document Word export and compilation accept an optional JSON style
 sheet. [Word export and JSON style sheet instructions](Documentation/Word%20export.md)
 explain the controls, heading limit, supported fields, units, and validation.
@@ -89,7 +94,7 @@ optional settings to create a theme.
 - Pin important documents at the beginning of the Library
 - Use Sort to arrange documents by name, creation date, modification date, last opened date, or saved Manual order
 - Use Edit and Done Editing in Manual order to rearrange folders and files
-- Export ordered Word compilations from a folder’s Export Compilation action, with optional Word Stylesheets
+- Export ordered compilations in all nine supported formats, with options revealed for the selected format
 - Continue bulleted, numbered, and task lists automatically
 - Indent and outdent using tabs, two spaces, or four spaces
 - Navigate long documents through a heading-based Outline

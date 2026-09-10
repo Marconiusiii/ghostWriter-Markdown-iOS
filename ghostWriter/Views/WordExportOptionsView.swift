@@ -3,10 +3,18 @@ import UniformTypeIdentifiers
 
 struct WordThemeImportSection: View {
     @Binding var theme: WordExportTheme?
-    @State private var themeName: String?
+    @State private var localThemeName: String?
     @State private var showingImporter = false
     @State private var errorMessage: String?
     @Binding var isLoading: Bool
+    var name: Binding<String?>? = nil
+    private var themeName: String? {
+        get { name?.wrappedValue ?? localThemeName }
+        nonmutating set {
+            if let name { name.wrappedValue = newValue }
+            else { localThemeName = newValue }
+        }
+    }
 
     var body: some View {
         Section("Word Stylesheet") {

@@ -2,7 +2,7 @@
 
 To export the document you are editing, choose File Actions > Share > Word Document. Optionally choose Import Word Stylesheet…, then activate Export and share… and choose a sharing destination or Save to Files.
 
-To combine documents, use a folder’s Export Compilation… action in its long-press context menu or VoiceOver Actions. When already inside the folder, use the same action on its heading. The Exporter shows the selected folder’s files and nested folders directly, with all items initially included. The selected folder itself is the export scope and has no inclusion switch.
+For Word compilation, choose Word Document in Export format. To combine documents, use a folder’s Export Compilation… action in its long-press context menu or VoiceOver Actions. When already inside the folder, use the same action on its heading. The Exporter shows the selected folder’s files and nested folders directly, with all items initially included. The selected folder itself is the export scope and has no inclusion switch.
 
 Files and folders shows the folder hierarchy in saved Manual order. Within each folder, items without saved positions follow the saved items alphabetically. Pinning and the current Library sort do not change compilation order. Documents are exported in order, including a folder’s selected contents where that folder occurs.
 

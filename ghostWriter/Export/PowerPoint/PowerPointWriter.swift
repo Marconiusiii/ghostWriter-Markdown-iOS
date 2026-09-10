@@ -23,12 +23,15 @@ nonisolated enum PowerPointWriter {
         var titleContent: [ExportBlock]
         var titleNotes: [ExportBlock]
         var slides: [Slide]
+        var metadataTitle: String? = nil
+        var compilationLinks: [String: Int] = [:]
     }
 
     private struct Slide {
         var title: [ExportInline]
         var content: [ExportBlock]
         var notes: [ExportBlock]
+        var language: String? = nil
     }
 
     private struct TextRun {
@@ -140,15 +143,17 @@ nonisolated enum PowerPointWriter {
         var relationships: [Relationship] = []
         var media: [MediaPart] = []
         var nextRelationship = 10
+        var compilationLinks: [String: Int] = [:]
 
         mutating func addHyperlink(_ target: String) -> String {
             let id = "rId\(nextRelationship)"
             nextRelationship += 1
+            let slide = compilationLinks[target]
             relationships.append(Relationship(
                 id: id,
-                type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
-                target: target,
-                external: true
+                type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/" + (slide == nil ? "hyperlink" : "slide"),
+                target: slide.map { "slide\($0).xml" } ?? target,
+                external: slide == nil
             ))
             return id
         }
@@ -180,10 +185,11 @@ nonisolated enum PowerPointWriter {
         theme: PowerPointTheme = .warmPaper,
         font: PowerPointFont = .arial,
         sourceDirectory: URL? = nil,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        preparedDocument: ExportDocument? = nil
     ) async throws -> Data {
-        let deck = makeDeck(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-            document: MarkdownDocumentParser.parse(markdown))
+        let parsed = preparedDocument ?? MarkdownDocumentParser.parse(markdown)
+        let deck = compilationDeck(title: title, document: parsed)
         let visibleBlocks = deck.titleContent + deck.slides.flatMap(\.content)
         let images = try await PowerPointImageLoader.load(
             sources: collectImages(in: visibleBlocks).map(\.source),
@@ -201,10 +207,11 @@ nonisolated enum PowerPointWriter {
         font: PowerPointFont = .arial,
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
-        resolvedImages: [String: PowerPointImageLoader.Image]? = nil
+        resolvedImages: [String: PowerPointImageLoader.Image]? = nil,
+        preparedDocument: ExportDocument? = nil
     ) throws -> Data {
-        let parsed = MarkdownDocumentParser.parse(markdown)
-        let deck = makeDeck(
+        let parsed = preparedDocument ?? MarkdownDocumentParser.parse(markdown)
+        let deck = compilationDeck(
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             document: parsed
         )
@@ -231,7 +238,7 @@ nonisolated enum PowerPointWriter {
         }
 
         var entries = baseEntries(
-            title: deck.title,
+            title: deck.metadataTitle ?? deck.title,
             slideCount: allSlides.count,
             notesCount: noteSlideNumbers.count,
             theme: theme,
@@ -243,9 +250,10 @@ nonisolated enum PowerPointWriter {
 
         for (offset, slide) in allSlides.enumerated() {
             try Task.checkCancellation()
+            let documentLanguage = slide.language ?? documentLanguage
             let number = offset + 1
             let isTitleSlide = number == 1
-            var context = SlideContext(measurements: measurements)
+            var context = SlideContext(measurements: measurements, compilationLinks: deck.compilationLinks)
             let images = prepareImages(
                 collectImages(in: slide.content),
                 sourceDirectory: sourceDirectory,
@@ -327,6 +335,39 @@ nonisolated enum PowerPointWriter {
     }
 
     // MARK: - Markdown to slides
+
+    private static func compilationDeck(title: String, document: ExportDocument) -> Deck {
+        guard !document.compilationSections.isEmpty else { return makeDeck(title: title, document: document) }
+        var result: Deck?
+        var links: [String: Int] = [:]
+        var headingNumber = 0
+        for (index, section) in document.compilationSections.enumerated() {
+            var slideNumber = result.map { $0.slides.count + 2 } ?? 1
+            links["#document-\(index + 1)"] = slideNumber
+            for block in document.blocks[section.start..<section.end] {
+                if case .heading(2, _) = block { slideNumber += 1 }
+                for _ in ExportDocument(blocks: [block]).headings() {
+                    headingNumber += 1
+                    links["#heading-\(headingNumber)"] = slideNumber
+                }
+            }
+            let part = makeDeck(title: section.title, document: ExportDocument(blocks: Array(document.blocks[section.start..<section.end])))
+            let slides = part.slides.map { slide in
+                var slide = slide
+                slide.language = section.language
+                return slide
+            }
+            if result == nil {
+                result = Deck(title: part.title, titleContent: part.titleContent, titleNotes: part.titleNotes, slides: slides)
+            } else {
+                result?.slides.append(Slide(title: [.text(part.title)], content: part.titleContent, notes: part.titleNotes, language: section.language))
+                result?.slides += slides
+            }
+        }
+        result?.metadataTitle = title
+        result?.compilationLinks = links
+        return result ?? makeDeck(title: title, document: document)
+    }
 
     private static func makeDeck(title: String, document: ExportDocument) -> Deck {
         var deckTitle = title.isEmpty ? String(localized: "Presentation") : title
@@ -848,7 +889,8 @@ nonisolated enum PowerPointWriter {
             let color = run.hyperlink == nil ? paragraph.color : paragraph.linkColor
             let hyperlinkXML: String
             if let target = run.hyperlink, !target.isEmpty {
-                hyperlinkXML = "<a:hlinkClick r:id=\"\(context.addHyperlink(target))\"/>"
+                let action = context.compilationLinks[target] == nil ? "" : " action=\"ppaction://hlinksldjump\""
+                hyperlinkXML = "<a:hlinkClick r:id=\"\(context.addHyperlink(target))\"\(action)/>"
             } else {
                 hyperlinkXML = ""
             }

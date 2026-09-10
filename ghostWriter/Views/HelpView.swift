@@ -139,6 +139,10 @@ private struct HelpTopic: Identifiable {
             ]
         ),
         HelpTopic(
+            title: "Compilation Export",
+            paragraphs: CompilationHelp.paragraphs
+        ),
+        HelpTopic(
             title: "Word Export Help",
             paragraphs: WordExportHelp.workflow + WordExportHelp.theme + [WordExportHelp.example]
         ),

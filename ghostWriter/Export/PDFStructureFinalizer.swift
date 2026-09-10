@@ -14,12 +14,14 @@ nonisolated enum PDFStructureFinalizer {
     static func finalizing(
         _ data: Data,
         figureAlternativeTexts: [String],
-        actualTexts: [String]
+        actualTexts: [String],
+        sectionLanguages: [String] = []
     ) -> Data {
         incrementalUpdate(
             data,
             figureAlternativeTexts: figureAlternativeTexts,
-            actualTexts: actualTexts
+            actualTexts: actualTexts,
+            sectionLanguages: sectionLanguages
         ) ?? data
     }
 
@@ -38,7 +40,8 @@ nonisolated enum PDFStructureFinalizer {
     private static func incrementalUpdate(
         _ data: Data,
         figureAlternativeTexts: [String],
-        actualTexts: [String]
+        actualTexts: [String],
+        sectionLanguages: [String]
     ) -> Data? {
         let objects = dictionaryObjects(in: data)
         guard let structureRoot = objects.first(where: {
@@ -79,6 +82,11 @@ nonisolated enum PDFStructureFinalizer {
         }
 
         var replacements: [Replacement] = []
+        let sections = objects.filter { hasName("StructElem", for: "Type", in: $0.body) && hasName("Sect", for: "S", in: $0.body) }
+        for (section, language) in zip(sections, sectionLanguages) {
+            let safeLanguage = language.filter { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+            replacements.append(Replacement(number: section.number, generation: section.generation, body: replacingPDFString("/Lang", with: safeLanguage, in: section.body)))
+        }
         for (index, page) in pages.enumerated() {
             replacements.append(Replacement(
                 number: page.number,

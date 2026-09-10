@@ -22,6 +22,8 @@ import Foundation
 /// which may nest further.
 nonisolated struct ExportDocument: Equatable, Sendable {
     var blocks: [ExportBlock] = []
+    var compilationSections: [ExportCompilationSection] = []
+    var compilationLinkedAssets: [String] = []
 
     /// Every heading in render order, including headings nested in quotes or
     /// list items. The identifier is shared by the content and navigation

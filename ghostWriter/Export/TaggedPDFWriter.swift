@@ -45,9 +45,11 @@ nonisolated enum TaggedPDFWriter {
         title: String,
         markdown: String,
         sourceDirectory: URL? = nil,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        preparedDocument: ExportDocument? = nil,
+        startsDocumentsOnNewPages: Bool = false
     ) throws -> Data {
-        let document = MarkdownDocumentParser.parse(markdown)
+        let document = preparedDocument ?? MarkdownDocumentParser.parse(markdown)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let data = NSMutableData()
@@ -93,7 +95,7 @@ nonisolated enum TaggedPDFWriter {
             // A leading title heading gives the document an H1 even when the
             // body does not open with one, which is what a screen reader's
             // heading navigation lands on first.
-            if !trimmedTitle.isEmpty, !startsWithMatchingHeading(document, title: trimmedTitle) {
+            if document.compilationSections.isEmpty, !trimmedTitle.isEmpty, !startsWithMatchingHeading(document, title: trimmedTitle) {
                 drawHeading(
                     level: 1,
                     content: [.text(trimmedTitle)],
@@ -101,7 +103,21 @@ nonisolated enum TaggedPDFWriter {
                 )
             }
 
-            draw(document.blocks, state: &state)
+            if document.compilationSections.isEmpty {
+                draw(document.blocks, state: &state)
+            } else {
+                for (index, section) in document.compilationSections.enumerated() {
+                    if Task.isCancelled { break }
+                    if index > 0 {
+                        if startsDocumentsOnNewPages { newPage(&state) }
+                        else { state.cursor -= 12 }
+                    }
+                    state.pendingDocumentDestination = "document-\(index + 1)"
+                    tagged(.section, properties: [.languageText: section.language], state: &state) { state in
+                        draw(Array(document.blocks[section.start..<section.end]), state: &state)
+                    }
+                }
+            }
         }
 
         if state.pageIsOpen {
@@ -109,6 +125,7 @@ nonisolated enum TaggedPDFWriter {
         }
         context.closePDF()
 
+        try Task.checkCancellation()
         guard data.length > 0 else {
             throw PDFExportError.couldNotCreateDocument
         }
@@ -116,7 +133,8 @@ nonisolated enum TaggedPDFWriter {
         let completedStructure = PDFStructureFinalizer.finalizing(
             data as Data,
             figureAlternativeTexts: state.figureAlternativeTexts,
-            actualTexts: state.actualTexts
+            actualTexts: state.actualTexts,
+            sectionLanguages: state.sectionLanguages
         )
 
         // CGPDFContext writes no language attribute, and a tagged PDF without
@@ -164,6 +182,9 @@ nonisolated enum TaggedPDFWriter {
         var activeTags: [ActiveTag] = []
         var figureAlternativeTexts: [String] = []
         var actualTexts: [String] = []
+        var sectionLanguages: [String] = []
+        var headingCounter = 0
+        var pendingDocumentDestination: String?
 
         var availableWidth: CGFloat {
             contentWidth - leftInset
@@ -192,6 +213,9 @@ nonisolated enum TaggedPDFWriter {
         }
         state.context.beginPDFPage(pageAttributes())
         for tag in state.activeTags {
+            if tag.type == .section, let language = tag.properties[.languageText] {
+                state.sectionLanguages.append(language)
+            }
             CGPDFContextBeginTag(
                 state.context,
                 tag.type,
@@ -224,6 +248,9 @@ nonisolated enum TaggedPDFWriter {
         // The C function takes a nullable dictionary, but Swift imports the
         // parameter as non-optional, so an empty dictionary stands in for "no
         // properties" — it produces the same tag with no extra attributes.
+        if tag == .section, let language = properties[.languageText] {
+            state.sectionLanguages.append(language)
+        }
         CGPDFContextBeginTag(state.context, tag, properties as CFDictionary)
         state.activeTags.append(RenderState.ActiveTag(type: tag, properties: properties))
         body(&state)
@@ -457,6 +484,12 @@ nonisolated enum TaggedPDFWriter {
         let needed = PDFTextLayout.height(of: lines) + metrics.body * 2
         ensureSpace(needed, state: &state)
 
+        state.headingCounter += 1
+        state.context.addDestination("heading-\(state.headingCounter)" as CFString, at: CGPoint(x: state.originX, y: state.cursor))
+        if let destination = state.pendingDocumentDestination {
+            state.context.addDestination(destination as CFString, at: CGPoint(x: state.originX, y: state.cursor))
+            state.pendingDocumentDestination = nil
+        }
         tagged(headingTag(level: level), state: &state) { state in
             drawLines(lines, attributed: attributed, state: &state)
         }
@@ -665,7 +698,11 @@ nonisolated enum TaggedPDFWriter {
             )
             guard rect.width > 0 else { return }
 
-            context.setURL(destination as CFURL, for: rect)
+            if destination.relativeString.hasPrefix("#") {
+                context.setDestination(String(destination.relativeString.dropFirst()) as CFString, for: rect)
+            } else {
+                context.setURL(destination as CFURL, for: rect)
+            }
         }
     }
 

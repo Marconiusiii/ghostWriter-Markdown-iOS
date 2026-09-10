@@ -38,6 +38,7 @@ nonisolated enum EPUBPackage {
         // Remaining entries in a stable order, so two exports of the same
         // document produce byte-identical packages.
         for path in entries.keys.sorted() where path != "mimetype" {
+            try Task.checkCancellation()
             guard let data = entries[path] else { continue }
             try add(path: path, data: data, compression: .deflate, to: archive)
         }
@@ -61,13 +62,13 @@ nonisolated enum EPUBPackage {
                 uncompressedSize: Int64(data.count),
                 compressionMethod: compression,
                 provider: { position, size in
+                    try Task.checkCancellation()
                     let start = Int(position)
                     return data.subdata(in: start..<(start + size))
                 }
             )
-        } catch {
-            throw EPUBExportError.couldNotCreateDocument
-        }
+        } catch is CancellationError { throw CancellationError() }
+        catch { throw EPUBExportError.couldNotCreateDocument }
     }
 }
 

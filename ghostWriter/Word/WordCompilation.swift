@@ -11,6 +11,7 @@ nonisolated struct WordCompilationSource: Sendable {
     var markdown: String
     var sourceDirectory: URL?
     var language: String
+    var sourceURL: URL? = nil
 }
 
 nonisolated enum WordCompilation {

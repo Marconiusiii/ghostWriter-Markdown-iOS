@@ -21,15 +21,15 @@ nonisolated enum PlainTextWriter {
     /// itself, which is left unwrapped so the reader's own software can reflow.
     private static let ruleWidth = 72
 
-    static func write(title: String, markdown: String) -> String {
-        let document = MarkdownDocumentParser.parse(markdown)
+    static func write(title: String, markdown: String, preparedDocument: ExportDocument? = nil) -> String {
+        let document = preparedDocument ?? MarkdownDocumentParser.parse(markdown)
         var output: [String] = []
 
         // The document title is not part of the markdown body, so it is added
         // as a first heading. Without it a shared plain-text file arrives with
         // no indication of what it is.
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedTitle.isEmpty, !startsWithTopLevelHeading(document, matching: trimmedTitle) {
+        if document.compilationSections.isEmpty, !trimmedTitle.isEmpty, !startsWithTopLevelHeading(document, matching: trimmedTitle) {
             output.append(trimmedTitle)
             output.append(String(repeating: "=", count: min(trimmedTitle.count, ruleWidth)))
             output.append("")

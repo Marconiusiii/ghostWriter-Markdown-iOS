@@ -16,13 +16,23 @@ import Foundation
 
 nonisolated enum EPUBWriter {
 
+    static func compilationHTML(title: String, document: ExportDocument, sourceDirectory: URL, language: String) -> String {
+        let resources = collectImageResources(document, sourceDirectory: sourceDirectory)
+        var output = contentDocument(title: title, language: language, document: document, includeTitleHeading: false, imageResources: resources)
+        for image in resources.images {
+            output = output.replacingOccurrences(of: "src=\"\(image.href)\"", with: "src=\"data:\(image.mediaType);base64,\(image.data.base64EncodedString())\"")
+        }
+        return output.replacingOccurrences(of: "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\"/>", with: "<style>body { max-width: 48em; margin: auto; padding: 1em; line-height: 1.5; } section + section { margin-top: 2em; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; } th, td { border: 1px solid; padding: 0.4em; } pre { white-space: pre-wrap; }</style>")
+    }
+
     static func write(
         title: String,
         markdown: String,
         sourceDirectory: URL? = nil,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        preparedDocument: ExportDocument? = nil
     ) throws -> Data {
-        let document = MarkdownDocumentParser.parse(markdown)
+        let document = preparedDocument ?? MarkdownDocumentParser.parse(markdown)
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let bookTitle = trimmedTitle.isEmpty ? "Document" : trimmedTitle
 
@@ -55,7 +65,7 @@ nonisolated enum EPUBWriter {
             title: bookTitle,
             language: language,
             document: document,
-            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle)
+            includeTitleHeading: document.compilationSections.isEmpty && !startsWithMatchingHeading(document, title: bookTitle)
         ).utf8)
 
         entries["OEBPS/style.css"] = Data(stylesheet.utf8)
@@ -64,7 +74,7 @@ nonisolated enum EPUBWriter {
             title: bookTitle,
             language: language,
             document: document,
-            includeTitleHeading: !startsWithMatchingHeading(document, title: bookTitle),
+            includeTitleHeading: document.compilationSections.isEmpty && !startsWithMatchingHeading(document, title: bookTitle),
             imageResources: imageResources
         ).utf8)
 
@@ -72,6 +82,17 @@ nonisolated enum EPUBWriter {
             entries["OEBPS/\(image.href)"] = image.data
         }
 
+        if let sourceDirectory, !document.compilationLinkedAssets.isEmpty {
+            var manifestItems = ""
+            for (index, path) in document.compilationLinkedAssets.enumerated() {
+                try Task.checkCancellation()
+                entries["OEBPS/" + path] = try Data(contentsOf: sourceDirectory.appendingPathComponent(path))
+                manifestItems += "<item id=\"linked-\(index)\" href=\"\(path)\" media-type=\"application/octet-stream\"/>"
+            }
+            if let opf = entries["OEBPS/content.opf"] {
+                entries["OEBPS/content.opf"] = Data(String(decoding: opf, as: UTF8.self).replacingOccurrences(of: "</manifest>", with: manifestItems + "</manifest>").utf8)
+            }
+        }
         return try EPUBPackage.create(entries: entries)
     }
 
@@ -263,7 +284,7 @@ nonisolated enum EPUBWriter {
         includeTitleHeading: Bool,
         imageResources: ImageResources
     ) -> String {
-        var builder = ContentBuilder(imageResources: imageResources)
+        var builder = ContentBuilder(imageResources: imageResources, localTargets: compilationLinkTargets(document))
         var body = ""
 
         if includeTitleHeading {
@@ -271,7 +292,15 @@ nonisolated enum EPUBWriter {
             body += "<h1 id=\"heading-\(builder.headingCounter)\">\(escape(title))</h1>\n"
         }
 
-        body += builder.render(document.blocks)
+        if document.compilationSections.isEmpty {
+            body += builder.render(document.blocks)
+        } else {
+            for (index, section) in document.compilationSections.enumerated() {
+                body += "<section id=\"document-\(index + 1)\" epub:type=\"chapter\" lang=\"\(escape(section.language))\" xml:lang=\"\(escape(section.language))\">\n"
+                body += builder.render(Array(document.blocks[section.start..<section.end]))
+                body += "</section>\n"
+            }
+        }
 
         return """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -296,6 +325,7 @@ nonisolated enum EPUBWriter {
     private struct ContentBuilder {
         var headingCounter = 0
         let imageResources: ImageResources
+        let localTargets: Set<String>
 
         mutating func render(_ blocks: [ExportBlock]) -> String {
             var output = ""
@@ -420,7 +450,7 @@ nonisolated enum EPUBWriter {
                     output += "<code>" + escape(value) + "</code>"
                 case .link(let destination, let content):
                     let label = inline(content)
-                    if let href = EPUBWriter.safeLinkHref(destination) {
+                    if let href = EPUBWriter.safeLinkHref(destination, localTargets: localTargets) {
                         output += "<a href=\"\(escape(href))\">" + label + "</a>"
                     } else {
                         output += label
@@ -477,8 +507,16 @@ nonisolated enum EPUBWriter {
         let hrefBySource: [String: String]
     }
 
-    static func safeLinkHref(_ destination: String) -> String? {
+    static func compilationLinkTargets(_ document: ExportDocument) -> Set<String> {
+        guard !document.compilationSections.isEmpty else { return [] }
+        return Set(document.compilationLinkedAssets
+            + document.headings().map { "#" + $0.identifier }
+            + document.compilationSections.indices.map { "#document-\($0 + 1)" })
+    }
+
+    static func safeLinkHref(_ destination: String, localTargets: Set<String> = []) -> String? {
         let trimmed = destination.trimmingCharacters(in: .whitespacesAndNewlines)
+        if localTargets.contains(trimmed) { return trimmed }
         guard let url = URL(string: trimmed),
               let scheme = url.scheme?.lowercased(),
               ["https", "http", "mailto", "tel", "sms"].contains(scheme)
