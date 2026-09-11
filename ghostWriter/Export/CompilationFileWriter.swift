@@ -16,6 +16,7 @@ nonisolated enum CompilationFileWriter {
             if settings.format == .word {
                 var wordOptions = settings.word
                 wordOptions.usesSmartPunctuation = settings.usesSmartPunctuation
+                wordOptions.thematicSeparator = settings.thematicSeparator
                 data = try WordCompilation.write(title: title, sources: sources, options: wordOptions)
             } else {
                 let preserve = settings.format.supportsHeadingOptions ? settings.preservesHeadings : true
@@ -24,7 +25,7 @@ nonisolated enum CompilationFileWriter {
                 switch settings.format {
                 case .word: throw WordThemeError.invalid("Invalid export format.")
                 case .plainText:
-                    data = Data(PlainTextWriter.write(title: title, markdown: "", preparedDocument: document).utf8)
+                    data = Data(PlainTextWriter.write(title: title, markdown: "", preparedDocument: document, thematicSeparator: settings.thematicSeparator).utf8)
                 case .markdown:
                     data = Data(CompilationMarkdownWriter.write(document).utf8)
                 case .html:

@@ -129,6 +129,18 @@ struct SettingsView: View {
 
                 Section {
                     Toggle("Use smart punctuation", isOn: $settings.usesSmartPunctuation)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Thematic separator")
+                            .accessibilityHidden(true)
+                        Picker("Thematic separator", selection: $settings.thematicSeparator) {
+                            ForEach(ThematicSeparator.allCases) { separator in
+                                Text(separator.label).tag(separator)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Thematic separator")
+                    }
                     Toggle("Use Word Stylesheet", isOn: $settings.usesWordStylesheet)
                     if settings.usesWordStylesheet { WordStylesheetStatusView() }
                 } header: {

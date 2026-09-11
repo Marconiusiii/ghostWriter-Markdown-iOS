@@ -1,6 +1,7 @@
 import Foundation
 
 nonisolated struct WordExportOptions: Equatable, Sendable {
+    var thematicSeparator = ThematicSeparator.none
     var usesSmartPunctuation = false
     var startsDocumentsOnNewPages = true
     var preservesHeadingStructure = true
@@ -22,7 +23,7 @@ nonisolated enum WordCompilation {
         var result = WordDocumentModel()
         for (index, source) in sources.enumerated() {
             try Task.checkCancellation()
-            var document = try MarkdownToWordConverter.document(from: source.markdown, checkCancellation: { try Task.checkCancellation() })
+            var document = try MarkdownToWordConverter.document(from: source.markdown, thematicSeparator: options.thematicSeparator, checkCancellation: { try Task.checkCancellation() })
             // Leading blank paragraphs are content, but do not obscure the title.
             let titleIndex = document.blocks.firstIndex { !isEmptyParagraph($0) } ?? document.blocks.count
             if titleIndex == document.blocks.count || !isTitle(document.blocks[titleIndex]) {

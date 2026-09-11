@@ -4,6 +4,8 @@ To export the document you are editing, choose File Actions > Share > Word Docum
 
 For a compilation, use a folder’s Export Compilation… action and choose Word Document in Export format. Select and reorder the contents, then choose Export and share…. Compilation Export Help explains inclusion defaults, ordering, heading preservation, and page breaks.
 
+Settings > Export > Thematic separator selects a decoration for Markdown thematic breaks in Word and Plain Text output. None omits the separator. Word centers the decoration in its own paragraph; Plain Text centers it with spaces within 72 columns. This setting applies to individual and compilation exports and does not add separators between documents.
+
 Word compilation uses an opening Heading 1 as each document’s title, even after leading blank paragraphs. If there is no opening Heading 1, it uses the filename. The output name names the exported file without adding another title page.
 
 With Start each document on a new page off, Word inserts an actual empty paragraph between documents when neither boundary already has one. Existing blank paragraphs are preserved. With heading preservation off, only the first title remains Heading 1; Heading 6 stays Heading 6.

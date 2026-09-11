@@ -21,7 +21,7 @@ nonisolated enum PlainTextWriter {
     /// itself, which is left unwrapped so the reader's own software can reflow.
     private static let ruleWidth = 72
 
-    static func write(title: String, markdown: String, preparedDocument: ExportDocument? = nil) -> String {
+    static func write(title: String, markdown: String, preparedDocument: ExportDocument? = nil, thematicSeparator: ThematicSeparator = .none) -> String {
         let document = preparedDocument ?? MarkdownDocumentParser.parse(markdown)
         var output: [String] = []
 
@@ -35,12 +35,12 @@ nonisolated enum PlainTextWriter {
             output.append("")
         }
 
-        output += render(document.blocks, indent: "")
+        output += render(document.blocks, indent: "", thematicSeparator: thematicSeparator)
 
         return output
             .joined(separator: "\n")
             .replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
+            .trimmingCharacters(in: .newlines) + "\n"
     }
 
     /// Avoids repeating the title when the body already opens with it, which is
@@ -57,7 +57,7 @@ nonisolated enum PlainTextWriter {
 
     // MARK: - Blocks
 
-    private static func render(_ blocks: [ExportBlock], indent: String) -> [String] {
+    private static func render(_ blocks: [ExportBlock], indent: String, thematicSeparator: ThematicSeparator) -> [String] {
         var output: [String] = []
 
         for block in blocks {
@@ -87,7 +87,7 @@ nonisolated enum PlainTextWriter {
                 output.append("")
 
             case .list(let list):
-                output += renderList(list, indent: indent)
+                output += renderList(list, indent: indent, thematicSeparator: thematicSeparator)
                 output.append("")
 
             case .table(let table):
@@ -97,7 +97,7 @@ nonisolated enum PlainTextWriter {
             case .blockQuote(let children):
                 // Quoted text is marked with the email convention, which reads
                 // naturally and survives copy and paste.
-                let inner = render(children, indent: "")
+                let inner = render(children, indent: "", thematicSeparator: thematicSeparator)
                 let quoted = inner.reversed().drop { $0.isEmpty }.reversed()
                 output += quoted.map { line in
                     line.isEmpty ? indent + ">" : indent + "> " + line
@@ -111,15 +111,18 @@ nonisolated enum PlainTextWriter {
                 output.append("")
 
             case .thematicBreak:
-                output.append(indent + String(repeating: "-", count: ruleWidth))
-                output.append("")
+                if let decoration = thematicSeparator.text {
+                    let padding = max(0, (ruleWidth - indent.count - decoration.count) / 2)
+                    output.append(indent + String(repeating: " ", count: padding) + decoration)
+                    output.append("")
+                }
             }
         }
 
         return output
     }
 
-    private static func renderList(_ list: ExportList, indent: String) -> [String] {
+    private static func renderList(_ list: ExportList, indent: String, thematicSeparator: ThematicSeparator) -> [String] {
         var output: [String] = []
         var number = list.start
 
@@ -141,7 +144,7 @@ nonisolated enum PlainTextWriter {
             }
 
             if !item.children.isEmpty {
-                let nested = render(item.children, indent: continuation)
+                let nested = render(item.children, indent: continuation, thematicSeparator: thematicSeparator)
                 // Drop the trailing blank a nested block leaves behind, so
                 // items do not drift apart as nesting deepens.
                 output += nested.reversed().drop { $0.isEmpty }.reversed()

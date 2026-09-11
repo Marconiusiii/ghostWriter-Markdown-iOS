@@ -1261,7 +1261,8 @@ struct LibraryView: View {
                 title: document.displayName,
                 markdown: text,
                 format: .markdown,
-                usesSmartPunctuation: settings.usesSmartPunctuation
+                usesSmartPunctuation: settings.usesSmartPunctuation,
+                thematicSeparator: settings.thematicSeparator
             )
             shareItems = [url]
 

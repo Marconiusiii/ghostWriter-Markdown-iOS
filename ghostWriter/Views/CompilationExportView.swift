@@ -131,6 +131,7 @@ struct CompilationExportView: View {
         let outputTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         var exportOptions = options
         exportOptions.usesSmartPunctuation = settings.usesSmartPunctuation
+        exportOptions.thematicSeparator = settings.thematicSeparator
         let usesStylesheet = settings.usesWordStylesheet
         let libraryRoot = store.directory
         exportTask = Task {

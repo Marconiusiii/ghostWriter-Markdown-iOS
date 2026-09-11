@@ -144,7 +144,7 @@ nonisolated enum SmartPunctuation {
             try Task.checkCancellation()
             switch value {
             case .paragraph(var paragraph):
-                guard !paragraph.isCodeBlock else { return value }
+                guard !paragraph.isCodeBlock, !paragraph.isThematicSeparator else { return value }
                 let texts = convert(paragraph.runs.map { Chunk(text: $0.text, protected: $0.inlineCode || $0.image != nil) })
                 for index in paragraph.runs.indices { paragraph.runs[index].text = texts[index] }
                 return .paragraph(paragraph)

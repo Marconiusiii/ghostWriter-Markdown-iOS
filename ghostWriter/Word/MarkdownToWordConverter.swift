@@ -7,9 +7,10 @@ nonisolated enum MarkdownToWordConverter {
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
         theme: WordExportTheme? = nil,
-        usesSmartPunctuation: Bool = false
+        usesSmartPunctuation: Bool = false,
+        thematicSeparator: ThematicSeparator = .none
     ) throws -> Data {
-        var document = document(from: markdown, title: title)
+        var document = document(from: markdown, title: title, thematicSeparator: thematicSeparator)
         if usesSmartPunctuation { document.blocks = try SmartPunctuation.wordBlocks(document.blocks) }
         return try WordprocessingMLWriter.write(
             title: title,
@@ -20,8 +21,8 @@ nonisolated enum MarkdownToWordConverter {
         )
     }
 
-    static func document(from markdown: String, title: String) -> WordDocumentModel {
-        var document = document(from: markdown)
+    static func document(from markdown: String, title: String, thematicSeparator: ThematicSeparator = .none) -> WordDocumentModel {
+        var document = document(from: markdown, thematicSeparator: thematicSeparator)
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         if !cleanTitle.isEmpty, !startsWithMatchingTitle(document, title: cleanTitle) {
             document.blocks.insert(.paragraph(WordParagraph(
@@ -32,11 +33,11 @@ nonisolated enum MarkdownToWordConverter {
         return document
     }
 
-    static func document(from markdown: String) -> WordDocumentModel {
-        document(from: markdown, checkCancellation: {})
+    static func document(from markdown: String, thematicSeparator: ThematicSeparator = .none) -> WordDocumentModel {
+        document(from: markdown, thematicSeparator: thematicSeparator, checkCancellation: {})
     }
 
-    static func document(from markdown: String, checkCancellation: () throws -> Void) rethrows -> WordDocumentModel {
+    static func document(from markdown: String, thematicSeparator: ThematicSeparator = .none, checkCancellation: () throws -> Void) rethrows -> WordDocumentModel {
         try checkCancellation()
         var lines = markdown.components(separatedBy: "\n")
         let definitions = try extractLinkDefinitions(&lines, checkCancellation: checkCancellation)
@@ -112,6 +113,16 @@ nonisolated enum MarkdownToWordConverter {
                 continue
             }
 
+            if LineAnalyzer.isHorizontalRule(trimmed) {
+                if let decoration = thematicSeparator.text {
+                    blocks.append(.paragraph(WordParagraph(
+                        runs: [WordRun(text: decoration)], isThematicSeparator: true
+                    )))
+                }
+                index += 1
+                continue
+            }
+
             if let marker = ListMarker(line: line) {
                 let level = max(0, LineAnalyzer.indentColumns(of: line) / 4)
                 let style: ListSequenceKey.Style
@@ -160,10 +171,6 @@ nonisolated enum MarkdownToWordConverter {
                 continue
             }
 
-            if LineAnalyzer.isHorizontalRule(trimmed) {
-                index += 1
-                continue
-            }
 
             var paragraphLines = [line]
             index += 1

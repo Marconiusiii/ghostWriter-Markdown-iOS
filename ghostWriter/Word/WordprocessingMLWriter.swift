@@ -159,6 +159,7 @@ nonisolated enum WordprocessingMLWriter {
                 properties += "<w:numPr><w:ilvl w:val=\"\(max(0, min(8, list.level)))\"/><w:numId w:val=\"\(numberID)\"/></w:numPr>"
             }
         }
+        if paragraph.isThematicSeparator { properties += "<w:jc w:val=\"center\"/>" }
         let pPr = properties.isEmpty ? "" : "<w:pPr>\(properties)</w:pPr>"
         let runs = try paragraph.runs.map {
             try Task.checkCancellation()

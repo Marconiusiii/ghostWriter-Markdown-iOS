@@ -4,7 +4,8 @@ nonisolated enum WordExportHelp {
     static let workflow = [
         "To export your open document, choose File Actions > Share > Word Document. To combine documents, choose Export Compilation… on a folder and select Word Document. When the file is ready, share it or choose Save to Files.",
         "Headings become Word heading styles, lists become Word lists, and tables use their first row as column headings. Links and supported text formatting are retained. Quotes and code blocks receive paragraph styles.",
-        "Task items begin with Completed or Not completed rather than interactive checkboxes. Horizontal rules are omitted. Review the result in Word when preparing a document for publication.",
+        "Task items begin with Completed or Not completed rather than interactive checkboxes. Review the result in Word when preparing a document for publication.",
+        "Settings > Export > Thematic separator chooses a centered decoration for Markdown thematic breaks such as --- on their own line. None omits the separator. The same choice applies to Plain Text and to compilations.",
         "Word uses standard styling by default. For a custom theme, follow Word Stylesheet. Compilation Export explains document order, page breaks, and heading levels; Smart punctuation in exports explains optional punctuation conversion."
     ]
 

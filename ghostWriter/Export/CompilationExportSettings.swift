@@ -1,6 +1,7 @@
 import Foundation
 
 nonisolated struct CompilationExportSettings: Sendable {
+    var thematicSeparator = ThematicSeparator.none
     var usesSmartPunctuation = false
     var format = CompilationFormat.word
     var word = WordExportOptions()

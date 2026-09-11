@@ -210,6 +210,7 @@ struct EditorShareView: View {
         let libraryRoot = store.directory
         let powerPoint = powerPointOptions
         let usesSmartPunctuation = settings.usesSmartPunctuation
+        let thematicSeparator = settings.thematicSeparator
 
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
             do {
@@ -227,7 +228,8 @@ struct EditorShareView: View {
                         brfOptions: brf,
                         powerPointOptions: powerPoint,
                         wordOptions: word,
-                        usesSmartPunctuation: usesSmartPunctuation
+                        usesSmartPunctuation: usesSmartPunctuation,
+                        thematicSeparator: thematicSeparator
                     )
                 )
             } catch {
@@ -258,7 +260,8 @@ nonisolated enum EditorShareFileWriter {
         brfOptions: BRFExportOptions? = nil,
         powerPointOptions: PowerPointExportOptions? = nil,
         wordOptions: WordExportOptions? = nil,
-        usesSmartPunctuation: Bool = false
+        usesSmartPunctuation: Bool = false,
+        thematicSeparator: ThematicSeparator = .none
     ) async throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -295,7 +298,7 @@ nonisolated enum EditorShareFileWriter {
             // the name that promised the most readable.
             let url = directory.appendingPathComponent(safeName)
                 .appendingPathExtension("txt")
-            let contents = PlainTextWriter.write(title: title, markdown: markdown, preparedDocument: preparedDocument)
+            let contents = PlainTextWriter.write(title: title, markdown: markdown, preparedDocument: preparedDocument, thematicSeparator: thematicSeparator)
             try contents.write(to: url, atomically: true, encoding: .utf8)
             return url
         case .html:
@@ -319,7 +322,8 @@ nonisolated enum EditorShareFileWriter {
                 sourceDirectory: sourceDirectory,
                 documentLanguage: documentLanguage,
                 theme: wordOptions?.theme,
-                usesSmartPunctuation: usesSmartPunctuation
+                usesSmartPunctuation: usesSmartPunctuation,
+                thematicSeparator: thematicSeparator
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -447,14 +451,16 @@ enum ShareItemBuilder {
         format: Format,
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
-        usesSmartPunctuation: Bool = false
+        usesSmartPunctuation: Bool = false,
+        thematicSeparator: ThematicSeparator = .none
     ) throws -> URL {
         let contents = contents(
             title: title,
             markdown: usesSmartPunctuation ? try SmartPunctuation.markdown(markdown) : markdown,
             format: format,
             sourceDirectory: sourceDirectory,
-            documentLanguage: documentLanguage
+            documentLanguage: documentLanguage,
+            thematicSeparator: thematicSeparator
         )
 
         let safeName = DocumentStore.sanitize(title)
@@ -474,13 +480,14 @@ enum ShareItemBuilder {
         markdown: String,
         format: Format,
         sourceDirectory: URL? = nil,
-        documentLanguage: String = DocumentLanguage.resolvedTag("")
+        documentLanguage: String = DocumentLanguage.resolvedTag(""),
+        thematicSeparator: ThematicSeparator = .none
     ) -> String {
         switch format {
         case .markdown:
             return markdown
         case .plainText:
-            return PlainTextWriter.write(title: title, markdown: markdown)
+            return PlainTextWriter.write(title: title, markdown: markdown, thematicSeparator: thematicSeparator)
         case .html:
             return HTMLTemplate.exportDocument(
                 title: title,
@@ -553,6 +560,7 @@ nonisolated struct HTMLShareFile: Transferable {
 }
 
 nonisolated struct WordShareFile: Transferable {
+    var thematicSeparator = ThematicSeparator.none
     let fileName: String
     let title: String
     let markdown: String
@@ -563,7 +571,8 @@ nonisolated struct WordShareFile: Transferable {
             let data = try MarkdownToWordConverter.convert(
                 title: item.title,
                 markdown: item.markdown,
-                sourceDirectory: item.sourceDirectory
+                sourceDirectory: item.sourceDirectory,
+                thematicSeparator: item.thematicSeparator
             )
             let directory = FileManager.default.temporaryDirectory
                 .appendingPathComponent(

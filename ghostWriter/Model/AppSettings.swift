@@ -332,6 +332,10 @@ final class AppSettings {
         didSet { defaults.set(usesWordStylesheet, forKey: "usesWordStylesheet") }
     }
 
+    var thematicSeparator: ThematicSeparator {
+        didSet { defaults.set(thematicSeparator.rawValue, forKey: "thematicSeparator") }
+    }
+
     var usesSmartPunctuation: Bool {
         didSet { defaults.set(usesSmartPunctuation, forKey: "usesSmartPunctuation") }
     }
@@ -340,6 +344,7 @@ final class AppSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.thematicSeparator = ThematicSeparator(rawValue: defaults.string(forKey: "thematicSeparator") ?? "") ?? .none
         self.usesWordStylesheet = defaults.bool(forKey: "usesWordStylesheet")
         self.usesSmartPunctuation = defaults.bool(forKey: "usesSmartPunctuation")
 

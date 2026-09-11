@@ -4,11 +4,13 @@ Use Export Compilation… from a folder’s context menu or VoiceOver Actions. W
 
 Enter Document name and choose Export format. Available formats are Word Document, PDF, HTML, Markdown, Plain Text, EPUB, PowerPoint, eBraille, and Braille Ready Format. Only options relevant to that format appear. Changing format keeps your inclusion choices and document order, and remembers each format’s choices for the current export session.
 
+Settings > Export > Thematic separator selects a decoration for Markdown thematic breaks in Word and Plain Text output. None omits the separator. Word centers the decoration in its own paragraph; Plain Text centers it with spaces within 72 columns. This setting applies to individual and compilation exports and does not add separators between documents.
+
 Settings > Export > Use smart punctuation applies to compilation exports as well as single-document exports. See Smart punctuation in exports in Help for examples and limitations.
 
 The selected folder is the export scope, so only its children appear in Files and folders. A folder’s switch is labeled with its name followed by Folder; its separate disclosure uses the folder name. Excluding a folder excludes everything inside it while retaining individual choices. Including it again restores those choices. Expanding or collapsing a folder does not change inclusion.
 
-Choose Edit to reorder files and folders. VoiceOver names the button Edit Document Order. Voice Control accepts Tap Edit, Tap Edit Files, Tap Edit Documents, Tap Edit Document Order, and Tap Edit File Order. Inclusion switches disappear while editing and return after Done Editing. Voice Control also accepts Tap Done. Moving a folder moves its contents together. Reordering and inclusion changes here apply only to this compilation. To change future defaults, use Exclude from Compilations or Include in Compilations on files and folders in the Library or on the open document in File Actions. An excluded folder suppresses its contents without changing their individual defaults.
+Choose Edit to reorder files and folders. VoiceOver names the button Edit Document Order. Inclusion switches disappear while editing and return after Done Editing. Moving a folder moves its contents together. Reordering and inclusion changes here apply only to this compilation. To change future defaults, use Exclude from Compilations or Include in Compilations on files and folders in the Library or on the open document in File Actions. An excluded folder suppresses its contents without changing their individual defaults.
 
 Compilation starts in saved Manual order and ignores pinning and the current Library sort. Within each folder, new items follow saved items alphabetically. Each document uses its opening Heading 1 as its title; otherwise its filename supplies the title. The output name identifies the exported file and does not add another title to the compiled content.
 
@@ -16,7 +18,7 @@ Word and PDF offer Start each document on a new page. Turn it off for continuous
 
 Word, PDF, HTML, Markdown, EPUB, and eBraille offer Preserve individual document heading structure. Turn it off to retain only the first document’s title as Heading 1 and move every other heading down one level. Heading 6 stays Heading 6; Heading 5 and Heading 6 can therefore both become Heading 6. Plain Text and BRF convey structure through text layout, while PowerPoint uses headings to divide slides.
 
-Settings > Export > Use Word Stylesheet reads word-theme.json from the Word Stylesheets folder inside the active ghostWriter storage folder for each Word export, using standard styling when the file is absent. The Word Export Help topic describes its JSON format, supported settings, and an example. The stylesheet affects Word output only.
+Settings > Export > Use Word Stylesheet reads word-theme.json from the Word Stylesheets folder inside the active ghostWriter storage folder for each Word export, using standard styling when the file is absent. The Word Export topic describes its JSON format, supported settings, and an example. The stylesheet affects Word output only.
 
 PDF retains tagged headings, lists, tables, and image descriptions. HTML creates document sections with headings and language information, and embeds supported local images. EPUB creates a reflowable publication with chapter sections and heading navigation.
 

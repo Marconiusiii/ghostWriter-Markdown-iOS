@@ -67,8 +67,7 @@ Compilation displays the selected project’s children directly, with inclusion
 toggles for nested folders and individual documents. Folder toggles use the
 folder name followed by Folder; disclosures use the folder name. Edit hides those toggles while native reorder controls
 change file and folder order; Done Editing restores them with their choices intact.
-Edit is named Edit Document Order for accessibility and accepts the Voice Control
-alternatives Edit, Edit Files, Edit Documents, Edit Document Order, and Edit File Order.
+Edit is named Edit Document Order for accessibility.
 
 Compilation uses each document’s opening Heading 1 as its title, falling back to
 the filename only when that heading is absent. Leading blank paragraphs are

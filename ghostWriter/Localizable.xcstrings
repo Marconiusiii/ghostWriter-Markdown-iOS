@@ -1,12 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%@ excluded" : {
-      "comment" : "Spoken confirmation after excluding a file or folder from future compilations."
-    },
-    "%@ included" : {
-      "comment" : "Spoken confirmation after including a file or folder in future compilations."
-    },
     "" : {
 
     },
@@ -21,8 +15,14 @@
         }
       }
     },
+    "%@ excluded" : {
+      "comment" : "Spoken confirmation after excluding a file or folder from future compilations."
+    },
     "%@ Folder" : {
 
+    },
+    "%@ included" : {
+      "comment" : "Spoken confirmation after including a file or folder in future compilations."
     },
     "%@ is not yet available on this device." : {
       "comment" : "DocumentStore.swift:715",
@@ -363,12 +363,6 @@
           }
         }
       }
-    },
-    "Exclude from Compilations" : {
-
-    },
-    "Include in Compilations" : {
-
     },
     "An image exceeds the 10 MiB limit." : {
       "comment" : "PowerPoint import introduction or specific safety limit.",
@@ -2143,6 +2137,9 @@
         }
       }
     },
+    "Exclude from Compilations" : {
+
+    },
     "Explore Welcome Document" : {
       "comment" : "WelcomeView.swift:40",
       "localizations" : {
@@ -2683,6 +2680,9 @@
           }
         }
       }
+    },
+    "Include in Compilations" : {
+
     },
     "Indentation" : {
       "comment" : "SettingsView.swift:110",
@@ -3287,6 +3287,9 @@
     "No slides match the selected import options." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
+    },
+    "None" : {
+
     },
     "Numbered list created." : {
       "comment" : "MarkdownInsertion.swift:57",
@@ -4891,6 +4894,9 @@
         }
       }
     },
+    "Thematic separator" : {
+
+    },
     "Theme" : {
       "comment" : "SettingsView.swift:167",
       "localizations" : {
@@ -4934,6 +4940,21 @@
           }
         }
       }
+    },
+    "Three asterisks" : {
+
+    },
+    "Three spaced asterisks" : {
+
+    },
+    "Three spaced bullets" : {
+
+    },
+    "Three spaced hyphens" : {
+
+    },
+    "Three spaced periods" : {
+
     },
     "Title" : {
       "comment" : "EBrailleOptionsView.swift:146",
