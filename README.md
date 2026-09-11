@@ -43,7 +43,7 @@ assistive technology users are especially welcome.
 
 ## Compilation export
 
-Folder actions include Total Word Count, which reads all nested Markdown files and reports words, characters, and documents counted. Always Exclude and Always Include set persistent compilation defaults for files and folders. These preferences follow renames, moves, and restoration.
+Folder actions include Total Word Count, which reads all nested Markdown files and reports words, characters, and documents counted. Exclude from Compilations and Include in Compilations set persistent compilation defaults for files and folders. These preferences follow renames, moves, and restoration.
 
 Settings > Export > Use smart punctuation optionally converts straight quotes, apostrophes, and three periods in exported prose to curly marks without editing source files. It is off by default; Compilation Export Help explains ambiguous cases and language limitations.
 

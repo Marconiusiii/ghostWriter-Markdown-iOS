@@ -333,12 +333,12 @@ struct EditorView: View {
             Text(displayTitle)
                 .contextMenu {
                     if let url = fileURL ?? saveController.currentURL {
-                        Button(libraryMetadata.inclusionActionLabel(for: url)) { libraryMetadata.toggleDefaultInclusion(for: url) }
+                        Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
                     }
                 }
                 .accessibilityActions {
                     if let url = fileURL ?? saveController.currentURL {
-                        Button(libraryMetadata.inclusionActionLabel(for: url)) { libraryMetadata.toggleDefaultInclusion(for: url) }
+                        Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
                     }
                 }
                 .font(.title2.bold())
@@ -475,7 +475,7 @@ struct EditorView: View {
             .keyboardShortcut(shortcut("s", modifiers: .command))
 
             if let url = fileURL ?? saveController.currentURL {
-                Button(libraryMetadata.inclusionActionLabel(for: url)) { libraryMetadata.toggleDefaultInclusion(for: url) }
+                Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
             }
 
             Menu {
@@ -502,7 +502,7 @@ struct EditorView: View {
         .accessibilityLabel("File actions")
         .accessibilityActions {
             if let url = fileURL ?? saveController.currentURL {
-                Button(libraryMetadata.inclusionActionLabel(for: url)) { libraryMetadata.toggleDefaultInclusion(for: url) }
+                Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
             }
         }
         .accessibilityFocused($focusedElement, equals: .fileActions)
@@ -1035,6 +1035,11 @@ struct EditorView: View {
         case .duplicate:
             finishDuplicate()
         }
+    }
+
+    private func toggleCompilationInclusion(for url: URL) {
+        let confirmation = libraryMetadata.toggleDefaultInclusion(for: url)
+        UIAccessibility.post(notification: .announcement, argument: confirmation)
     }
 
     private func announce(_ message: String) {

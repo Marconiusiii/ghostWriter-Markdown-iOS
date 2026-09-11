@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ excluded" : {
+      "comment" : "Spoken confirmation after excluding a file or folder from future compilations."
+    },
+    "%@ included" : {
+      "comment" : "Spoken confirmation after including a file or folder in future compilations."
+    },
     "" : {
 
     },
@@ -358,10 +364,10 @@
         }
       }
     },
-    "Always Exclude" : {
+    "Exclude from Compilations" : {
 
     },
-    "Always Include" : {
+    "Include in Compilations" : {
 
     },
     "An image exceeds the 10 MiB limit." : {
@@ -2323,7 +2329,6 @@
     },
     "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you." : {
       "comment" : "SettingsView.swift: optional support introduction",
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {

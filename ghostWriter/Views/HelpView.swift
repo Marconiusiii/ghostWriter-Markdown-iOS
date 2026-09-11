@@ -2,8 +2,7 @@
 //  HelpView.swift
 //  ghostWriter
 //
-//  A plain-language guide to the app itself. Markdown syntax has its own
-//  reference in the editor; this sheet explains the surrounding workflow.
+//  A guide from Markdown basics and everyday tasks to export references.
 //
 
 import SwiftUI
@@ -50,125 +49,166 @@ struct HelpTopic: Identifiable {
 
     static let all: [HelpTopic] = [
         HelpTopic(
-            title: "Settings controls",
+            title: "Getting started with Markdown",
             paragraphs: [
-                "Document Storage chooses the on-device or iCloud ghostWriter folder. When App Opens chooses the Library, a new document, or the last document. Starting a new document follows When Starting a New Document: ask for a title, or use today’s date.",
-                "Render Sound plays when rendering and follows the device’s silent switch. Status Bar shows the selected document information below the editor; Customize Status Bar chooses which counts and position information appear.",
-                "eBraille metadata defaults fill in new exports and can be edited before sharing. Use Word Stylesheet reveals its source location and status; Word Export Help explains the Word Stylesheets folder and JSON file. Smart punctuation in exports explains quote, apostrophe, and ellipsis conversion.",
-                "Support options are optional purchases that help fund future updates. Every option offers the same thank-you; the app has no ads or subscriptions."
+                "Markdown lets you write a formatted document using plain text. You type simple marks for headings, lists, and emphasis, then use Render to read the formatted result.",
+                "Press Return twice to start a new paragraph. This leaves one empty line between paragraphs. Pressing Return once usually continues the same paragraph in rendered or exported output; you do not need two empty lines.",
+                "Begin a heading with a number sign and a space, such as # My title. Use ## for a subsection and ### for a section within it. Heading levels run from 1 to 6 and give your document a structure readers can navigate.",
+                "Put **two asterisks** around bold text or *one asterisk* around italic text. Begin a bulleted item with a hyphen and a space, or a numbered item with 1. and a space. Insert can add formatting for you.",
+                "Open File Actions > Markdown Reference in the editor for explanations and examples you can copy, including links, images, tables, and code."
             ]
         ),
         HelpTopic(
-            title: "Folder totals and compilation defaults",
+            title: "Creating and opening documents",
             paragraphs: [
-                "Choose Total Word Count from a folder’s context menu or accessibility actions, or from its heading when the folder is open. The result includes all Markdown files in that folder and nested folders, regardless of compilation inclusion preferences.",
-                "Words use the same whitespace-based count as the editor. Characters include Markdown syntax, spaces, and line breaks. Counts are summed per file. Progress appears while files are read or downloaded. Cancel closes the count. Any unreadable files are listed and the result is labeled Partial total.",
-                "Files and folders are included in new compilations by default. Choose Always Exclude to start future compilations with that item unchecked. The action then becomes Always Include, which restores the default. Find these actions in Library context menus and accessibility actions, folder heading actions, and an open document’s File Actions or heading actions.",
-                "Excluding a folder also excludes its contents from the output, but retains each child’s preference. Including the folder again restores those individual choices. You can override inclusion for a single compilation without changing saved defaults. Preferences follow items when renamed, moved, or restored from Recently Deleted."
+                "Choose New in the Library to create a document. Depending on When Starting a New Document in Settings, you will be asked for a name or the document will use today’s date. Choose a document in the Library to open it.",
+                "Choose New Folder to create a folder in your current location. Open a folder to work inside it, and use Back to return to its parent.",
+                "Import copies Markdown, plain-text, Word, or PowerPoint files from Files into your current folder. Word and PowerPoint documents are converted to Markdown. If a name is already in use, the copy receives a numbered name. See the format-specific topics for conversion options and limitations."
             ]
         ),
         HelpTopic(
-            title: "Creating and Opening Documents",
+            title: "Writing and editing",
             paragraphs: [
-                "New creates a named markdown file and opens it for editing.",
-                "New Folder creates a folder in your current location. Open a folder to see what is inside, and use Back to return to its parent folder.",
-                "Import copies one or more markdown, plain-text, Word, or PowerPoint documents from Files into your current folder. Word and PowerPoint documents are converted to markdown. PowerPoint Import lets you choose which content to include. Name conflicts receive a safe numbered name.",
-                "Choose any document in the library to open it. Folders appear before documents with automatic sorting. Manual sorting lets you arrange folders and unpinned documents together."
+                "Write and revise your Markdown in the editor. File Actions provides saving, sharing, Find and Replace, Jump to Line, and the Markdown Reference.",
+                "Use Insert to add formatting at the cursor or apply supported formatting to selected text. For a link, selected text becomes the suggested link text. Enter a destination such as https://example.com or mailto:name@example.com.",
+                "Headings organize sections; lists organize related items or steps. Use a block quote for quoted material, inline code for short literal text, and a code block for several preformatted lines. A horizontal rule marks a thematic break.",
+                "Table asks for the number of columns and rows. The first row contains column headings and counts toward the number of rows. Give each row a clear first entry if it needs a label.",
+                "Choose Jump to Line in File Actions, enter a line number starting at 1, and choose Jump to place the cursor at that line. Use Dismiss above the on-screen keyboard when you want to hide it."
             ]
         ),
         HelpTopic(
-            title: "The Markdown Editor",
-            paragraphs: [
-                "The Markdown Editor is where you write and revise the document’s plain-text markdown.",
-                "Markdown punctuation is kept exactly as typed. Smart quotes and smart dashes are disabled so they cannot silently change links, code, or other syntax.",
-                "Markdown Reference in File Actions provides examples of supported syntax. Moving to editor controls does not ask the app to dismiss the keyboard. Use Dismiss when you want to hide it."
-            ]
-        ),
-        HelpTopic(
-            title: "Saving and the Files App",
-            paragraphs: [
-                "ghostWriter saves changes automatically after you pause typing and when the app moves into the background. Save Now requests an immediate save.",
-                "Documents are ordinary markdown files in the ghostWriter folder, available through the Files app."
-            ]
-        ),
-        HelpTopic(
-            title: "Automatic Lists and Indentation",
+            title: "Lists and indentation",
             paragraphs: [
                 "When Automatic Lists is enabled, pressing Return after a bullet, numbered item, or task continues that list. Press Return on an empty list item to end the list.",
                 "Use Indent and Outdent above the on-screen keyboard to change the nesting level of the current line or selected lines. Choose tabs, two spaces, or four spaces in Settings > Editing."
             ]
         ),
         HelpTopic(
-            title: "VoiceOver Settings",
+            title: "Outline and formatted preview",
+            paragraphs: [
+                "Outline lists your headings in document order and identifies their levels. Choose a heading to move to that part of the document.",
+                "Render opens a formatted HTML preview. Use it to read your work with its headings, paragraphs, lists, and other formatting applied. Choose Done to return to the editor."
+            ]
+        ),
+        HelpTopic(
+            title: "Saving and storage",
+            paragraphs: [
+                "ghostWriter saves automatically after you pause typing and when the app moves into the background. Choose Save Now in File Actions to request an immediate save.",
+                "Your documents are ordinary Markdown files in the ghostWriter folder, which you can also open in Files. Settings > Files > Document Storage chooses on-device or iCloud storage. Follow the prompts when changing locations."
+            ]
+        ),
+        HelpTopic(
+            title: "Images and descriptions",
+            paragraphs: [
+                "Choose Insert, then Image from Files or Image from Photo Library to attach a picture. Enter alternative text describing what the image communicates, or mark it decorative if it adds no information. The image is stored with the document and referenced in its Markdown.",
+                "Image from Web inserts a link to an image at an http:// or https:// address. Rendering may contact that website to load the image, and the image remains dependent on its availability.",
+                "Choose Tactile Graphic for an SVG, PNG, or JPG prepared for tactile presentation. Supply a description so readers can understand its purpose."
+            ]
+        ),
+        HelpTopic(
+            title: "Finding and organizing documents",
+            paragraphs: [
+                "Search in the Library checks document names and contents. Clear Search returns to the full list.",
+                "Use Sort to choose Sort By and Sort Order. The Library and each folder remember their own sorting choices. Last Opened sorts by when documents were most recently opened in the editor.",
+                "Choose Manual sorting to arrange items yourself. With Search cleared and at least two items available, choose Edit, move items with the reorder controls, then choose Done Editing. Folders and unpinned documents can be arranged together.",
+                "Pin keeps documents at the beginning of the document group. In Manual order, pinned documents can be reordered within their own group. Pinning does not affect compilation exports.",
+                "Touch and hold a file or folder to open its actions, or use its VoiceOver Actions. These include renaming, moving, and deleting; files also offer actions such as duplication and sharing.",
+                "Delete moves an item to Deleted. Restore returns it to its previous folder if that folder still exists, or to Documents otherwise. Deleting and restoring a folder keeps its contents together. Permanent deletion cannot be undone."
+            ]
+        ),
+        HelpTopic(
+            title: "Folder word and character counts",
+            paragraphs: [
+                "Use Total Word Count to check the length of a folder’s Markdown documents, including nested folders. Find it in the folder’s context menu or accessibility actions, or in its heading actions when the folder is open.",
+                "The result reports words, characters, and documents counted. It includes files excluded from compilations. Words use the same count as the editor; characters include Markdown marks, spaces, and line breaks.",
+                "Progress appears while documents are read or downloaded. If a file cannot be read, the result is marked Partial total and identifies the omitted files. Cancel stops the count."
+            ]
+        ),
+        HelpTopic(
+            title: "VoiceOver and Voice Control",
             paragraphs: [
                 "Settings > VoiceOver Settings contains Verbosity and Heading Swipe Navigation. VoiceOver Verbosity controls Markdown editing announcements. Off makes no Markdown editing announcements. Light announces list changes, indentation levels, and Insert actions. Full also announces completed Markdown structures as you type.",
-                "Heading Swipe Navigation moves between headings in the editor. Swipe right with three fingers for the next heading, or left with three fingers for the previous heading. These gestures are not available while using Braille Screen Input or when assigned to other VoiceOver commands."
+                "Heading Swipe Navigation moves between headings in the editor. Swipe right with three fingers for the next heading, or left with three fingers for the previous heading. These gestures are not available while using Braille Screen Input or when assigned to other VoiceOver commands.",
+                "Use VoiceOver Actions on Library files and folders to reach their available commands. An open folder’s heading also offers folder actions.",
+                "The Edit control for reordering is named Edit Document Order for VoiceOver. With Voice Control, say Tap Edit Document Order to begin and Tap Done Editing to finish."
             ]
         ),
         HelpTopic(
-            title: "Navigating with Outline",
+            title: "Touch gestures",
             paragraphs: [
-                "Outline lists every markdown heading in document order and identifies its heading level.",
-                "Choose a heading to jump directly to that location in the document."
+                "Without VoiceOver, swipe on Library items to reveal common actions. Swipe left on a document for Share and Delete, or right for Pin or Unpin. A failed download also offers Retry Download.",
+                "For folders, swipe left for Move and Delete, or right for Rename. Touch and hold either kind of item for its full actions menu."
             ]
         ),
         HelpTopic(
-            title: "Rendering Documents",
+            title: "Keyboard shortcuts",
             paragraphs: [
-                "Render opens a formatted HTML version of the current document. Headings, lists, links, tables, quotes, code, and tasks retain their document structure.",
-                "Done closes the rendered document and returns to the editor."
+                "Enable Keyboard Shortcuts under Editing in Settings to use the app’s hardware keyboard commands.",
+                "In the Library, Command-N creates a document, Command-O imports files, and Command-comma opens Settings.",
+                "In the editor, use Command-S for Save Now, Command-F for Find and Replace, Command-R for Render, Command-Shift-O for Outline, Command-Shift-I for Insert, Command-J for Jump to Line, and Command-W to close the editor.",
+                "Press Escape to dismiss the editor keyboard."
             ]
         ),
         HelpTopic(
-            title: "Sharing and export formats",
+            title: "Settings",
             paragraphs: [
-                "Open File Actions, choose Share, and select Markdown, Plain Text, HTML, Word Document, PowerPoint, PDF, EPUB, eBraille, or Braille Ready Format.",
-                "Markdown preserves the original syntax with a .md filename.",
-                "Plain Text removes the markdown syntax and leaves readable text with a .txt filename. Level 1 and level 2 headings are underlined, and deeper headings state their level. Lists keep their bullets and numbers, tables become aligned columns, and quoted text begins with a greater-than sign.",
-                "HTML creates a complete, rendered web document. Headings, lists, links, tables, quotes, code, and tasks retain their document structure. Attached images are included in the file, and images retain their descriptions. Text size follows the application the document is opened in.",
-                "Word Document converts markdown structure into a .docx file. Handling Word Documents describes what is preserved in each direction.",
-                "PowerPoint creates a widescreen .pptx presentation. PowerPoint Output describes supported markdown elements and export limits.",
-                "PDF creates a tagged PDF with fixed pages. Headings, lists, tables, quotes, code, and images are marked as document structure, so a screen reader moves through the document by heading and reads a table cell by cell with its column headings. Pages are US Letter with one-inch margins. A table row stays whole on one page, and a heading stays with the text that follows it.",
-                "EPUB creates a reflowable ebook with a table of contents built from the document’s headings. Headings, lists, links, tables, quotes, code, tasks, and images retain their document structure.",
-                "eBraille creates a reflowable Unified English Braille document with a .ebrl filename. It includes a table of contents and retains headings, lists, links, tables, quotes, tasks, and images.",
-                "For eBraille, select grade 1 or grade 2 and enter the author, producer, copyright date, and whether the export contains the complete document. Enter the date as a year, year and month, or full date, such as 2026, 2026-04, or 2026-04-17.",
-                "Additional eBraille details include source work, publisher, rights, subject, description, and education level.",
-                "Choose Insert Actions, then Image from Files or Image from Photo Library to attach an ordinary image. Enter alternative text or mark the image decorative. ghostWriter stores the image with the document and inserts its relative Markdown reference.",
-                "Choose Tactile Graphic to attach an SVG, PNG, or JPG prepared for tactile presentation. A tactile graphic has a description and the Markdown title tactile.",
-                "Braille Ready Format creates fixed-layout Unified English Braille with a .brf filename. Choose Braille display or Emboss on paper. Common page uses 40 cells by 25 lines. Select Custom braille page to choose another number of cells and lines. Lists use braille bullets, tables become labeled rows, tasks state Completed or Not completed, and images become labeled descriptions.",
-                "For embossed pages, Include braille page numbers places each number at the bottom right and reserves the final line. Turn it off to use every selected line for document content. Set paper size, physical margins, binding margins, and single-sided or interpoint output in the embossing software.",
-                "Braille Ready Format writes a link label followed by its address in parentheses. A link whose label is already the address appears once. Internal document links include the link text without the fragment address. eBraille and EPUB retain active links.",
-                "Grade 1 is uncontracted Unified English Braille. Grade 2 is contracted Unified English Braille. Code blocks keep their line breaks and spacing and use uncontracted braille.",
-                "The app remembers the braille grade, producer name, and last Braille Ready Format layout."
+                "When App Opens chooses whether to begin in the Library, a new document, or your last document. When Starting a New Document chooses whether to ask for a name or use today’s date.",
+                "Editing contains Indentation, Automatic Lists, and Keyboard Shortcuts. VoiceOver Settings controls editing feedback and heading navigation; see VoiceOver and Voice Control for details.",
+                "Appearance contains Theme and Editor Font. Status Bar displays document information below the editor; Customize Status Bar chooses what it shows. Render Sound plays when rendering and follows the device’s silent switch.",
+                "Export contains Use smart punctuation and Use Word Stylesheet. Their Help topics explain what they change. Edit defaults under eBraille metadata supplies information for new exports.",
+                "About provides app information and Send Feedback. Support ghostWriter Markdown offers optional purchases to help fund updates; no purchase is required to use the app."
             ]
         ),
         HelpTopic(
-            title: "Handling Word Documents",
+            title: "Sharing a document",
             paragraphs: [
-                "ghostWriter reads and writes Word .docx files by converting between Word’s structure and markdown. Markdown and Word describe documents differently, so a conversion keeps meaning and structure rather than visual appearance.",
-                "Importing a Word document brings across headings, paragraphs, bulleted and numbered lists including nested levels and custom starting numbers, tables, block quotes, code blocks, and links. Bold, italic, underline, strikethrough, and inline code are preserved. Underline becomes a <u> tag, because markdown has no underline syntax of its own.",
-                "Images in an imported Word document are saved alongside the markdown file and referenced by name. Alternative text is carried across, and images marked decorative in Word import with empty alternative text. An image without alternative text is reported after import so you can add a description.",
-                "Footnotes are imported as markdown footnote references with their text collected at the end of the document. Tracked insertions are imported as ordinary text, and tracked deletions are discarded. Comments are not imported.",
-                "Exporting to Word converts headings to Word heading styles, so they appear in Word’s Navigation pane and are announced as headings by screen readers. Lists become real Word lists, tables become Word tables with the first row marked as a header row, and block quotes and code blocks receive their own paragraph styles.",
-                "Task list items export as text beginning with Completed or Not completed, because Word has no checkbox equivalent in an ordinary paragraph. Horizontal rules are not exported, as markdown’s thematic break has no direct Word counterpart.",
-                "Word import does not retain fonts, colors, text size, alignment, columns, headers and footers, page breaks, merged table cells, or embedded objects such as charts. On export, an optional JSON style sheet sets Word appearance, and compilation can add page breaks. These export settings are not restored if the Word file is imported again.",
-                "Import copies Word documents from Files and converts them. File Actions > Share > Word Document exports the document you are editing."
+                "In the editor, choose File Actions > Share, then an export format. When the output is ready, choose an app or Save to Files from the Share Sheet. Library file actions also offer sharing.",
+                "Choose Markdown to continue editing the source, Plain Text for text without Markdown marks, HTML for a web document, Word Document for a Word file, or PDF for fixed pages. EPUB is a reflowable ebook, PowerPoint is a presentation, and eBraille and Braille Ready Format provide braille output.",
+                "To combine several documents into one output, use Export Compilation… on their folder. The following topics explain compilation choices and the details of each format."
             ]
-        ),
-        HelpTopic(
-            title: "Smart punctuation in exports",
-            paragraphs: CompilationHelp.smartPunctuation
         ),
         HelpTopic(
             title: "Compilation Export",
             paragraphs: CompilationHelp.paragraphs
         ),
         HelpTopic(
-            title: "Word Export Help",
-            paragraphs: WordExportHelp.workflow + WordExportHelp.theme + [WordExportHelp.example]
+            title: "Smart punctuation in exports",
+            paragraphs: CompilationHelp.smartPunctuation
         ),
         HelpTopic(
-            title: "PowerPoint Import",
+            title: "Text, PDF, and ebook formats",
+            paragraphs: [
+                "Markdown retains editable Markdown syntax. A compilation combines the sources into normalized Markdown, which can change syntax and spacing. If assets are included in a ZIP, extract it and keep the files together.",
+                "Plain Text removes Markdown syntax while retaining readable structure. Level 1 and 2 headings are underlined, deeper headings state their level, lists keep bullets and numbers, and tables become aligned columns.",
+                "HTML preserves document structure, embeds supported attached images, and retains image descriptions. Its text size follows the app used to open it.",
+                "PDF produces tagged, fixed pages with headings, lists, tables, and image descriptions. Pages use US Letter with one-inch margins. Headings stay with the following text, and table rows stay together.",
+                "EPUB produces a reflowable ebook with heading navigation and active links. For braille publications, see Braille exports."
+            ]
+        ),
+        HelpTopic(
+            title: "Importing Word documents",
+            paragraphs: [
+                "Choose Import in the Library and select a .docx file. ghostWriter converts it into a Markdown copy. Review the converted document before continuing: Markdown preserves structure but cannot reproduce every Word feature.",
+                "Importing a Word document brings across headings, paragraphs, bulleted and numbered lists including nested levels and custom starting numbers, tables, block quotes, code blocks, and links. Bold, italic, underline, strikethrough, and inline code are preserved. Underline becomes a <u> tag, because markdown has no underline syntax of its own.",
+                "Images in an imported Word document are saved alongside the markdown file and referenced by name. Alternative text is carried across, and images marked decorative in Word import with empty alternative text. An image without alternative text is reported after import so you can add a description.",
+                "Footnotes are imported as markdown footnote references with their text collected at the end of the document. Tracked insertions are imported as ordinary text, and tracked deletions are discarded. Comments are not imported.",
+                "Fonts, colors, text size, alignment, columns, headers and footers, page breaks, merged table cells, and embedded objects such as charts are not retained."
+            ]
+        ),
+        HelpTopic(
+            title: "Word Export Help",
+            paragraphs: WordExportHelp.workflow
+        ),
+        HelpTopic(
+            title: "Word Stylesheet",
+            paragraphs: WordExportHelp.theme
+        ),
+        HelpTopic(
+            title: "Word Stylesheet reference",
+            paragraphs: WordExportHelp.reference + [WordExportHelp.example]
+        ),
+        HelpTopic(
+            title: "PowerPoint import",
             paragraphs: [
                 "Choose Import and select one or more .pptx presentations from Files. Choose the content to include, then activate Import as Markdown. Each presentation becomes a separate document in the current folder. The original files are unchanged.",
                 "Slide text, tables, images, speaker notes, text formatting, and links are included by default. Hidden slides are excluded. Additional options include decorative images, slide numbers, dates, and headers and footers. Your choices are remembered and apply to every presentation in the selected batch.",
@@ -182,66 +222,27 @@ struct HelpTopic: Identifiable {
             ]
         ),
         HelpTopic(
-            title: "PowerPoint Output",
+            title: "PowerPoint export",
             paragraphs: [
                 "PowerPoint creates a widescreen .pptx presentation. A level 1 heading before the first slide titles the presentation. Content before the first level 2 heading appears on the title slide. Each level 2 heading begins and titles a new slide. Deeper headings and paragraphs become slide text. Put three asterisks on a line by themselves to begin speaker notes, which continue until the next level 2 heading.",
                 "PowerPoint keeps bulleted and numbered lists, including nested levels. Task lists become list items beginning with Completed or Not completed, not interactive checkboxes. Links remain clickable, including links inside table cells. Quotes become paragraphs introduced by Quote, and code blocks become monospaced text without syntax highlighting.",
                 "PowerPoint tables become editable tables with a header row. Column alignment, supported text formatting, and links are retained. Tables use the selected theme, and text wraps inside cells. Tables and surrounding text stay in Markdown order. Images referenced inside cells appear as separate slide pictures. Tables in speaker notes remain labeled text rows.",
                 "PowerPoint includes attached images from Files or the Photo Library and PNG, JPEG, or SVG images linked with HTTPS addresses. Images retain their alternative text. SVG images become high-resolution PNG pictures, preserving their colors and transparency. Unavailable, invalid, or oversized images are skipped while the rest of the presentation exports.",
                 "PowerPoint allows up to four included images per slide. If a slide contains too much text, too many images, or a table that is too wide or tall, divide the content with another level 2 heading. Tables keep readable text sizes. The exporter does not automatically split crowded slides.",
-                "The selected theme applies to the whole presentation, and the app remembers your choice. Themes set the slide background, text, and link colors. They do not change the colors inside images.",
-                "Use Font family to choose the font for your presentation. The app remembers your choice for future exports.",
-                "Warm paper: Warm cream background, dark brown text, deep green headings, and dark blue links.",
-                "Midnight: Near-black brown background, warm ivory text, pale sage-green headings, and light blue links.",
-                "High contrast light: White background, black text, navy headings, and dark blue links.",
-                "High contrast dark: Black background, white text, bright yellow headings, and light blue links."
+                "Choose Presentation theme and Font family to set the presentation’s appearance. These choices are remembered for future exports. Themes affect slide backgrounds, text, and links; image colors are unchanged."
             ]
         ),
         HelpTopic(
-            title: "Searching, Sorting, and Document Actions",
+            title: "Braille exports",
             paragraphs: [
-                "The library Search field checks document names and contents. The result count updates beneath the field. Activate Clear Search to return to the full library.",
-                "Sort contains Sort By and Sort Order. Choose Manual under Sort By to use your saved order. Sort Order appears only for automatic sorting. The main Library and each folder remember their own Sort By and Sort Order on this device, including after restarting the app. Changing a folder’s sorting does not change its parent or sibling folders. Renaming or moving a folder preserves its sorting preferences and those of its nested folders. Activate a document to open it.",
-                "Pin keeps an important document at the beginning of the document group with automatic sorting. In Manual order, pinned documents appear first and can be reordered within their group. Pinning never changes compilation order. Last Opened sorts documents by the most recent time they were opened in the editor.",
-                "With Manual sorting and at least two items, Edit appears after the item count and before the rows. VoiceOver names Edit as Edit Document Order. Voice Control accepts Tap Edit, Tap Edit Files, Tap Edit Documents, Tap Edit Document Order, or Tap Edit File Order. Activate Edit, use the system’s reorder controls to move items within their group, then activate Done Editing. Voice Control also accepts Tap Done. Unpinned documents and folders can be mixed. Clear Search before reordering. Each folder remembers its order on this device; new items follow saved items alphabetically. Renaming preserves positions, and moving an item to another folder appends it to that folder’s saved order.",
-                "Deleting a folder keeps everything inside it together, including its saved sorting preferences and manual order. These preferences follow the folder and its nested folders when restored, even under a different name or location. Permanent deletion removes the saved folder preferences.",
-                "Delete moves a document or folder to Deleted. Restoring returns it to its previous folder when that folder still exists, or to Documents when it does not.",
-                "Choose Jump to Line in File Actions, enter a line number, then activate Jump to move the cursor to the beginning of that line. Line numbers begin at 1. If the number is invalid, correct it in the open sheet and activate Jump again. Cancel returns to the editor without moving the cursor."
-            ]
-        ),
-        HelpTopic(
-            title: "Library Gestures",
-            paragraphs: [
-                "For non-VoiceOver users, swipe left or right on a document or folder to reveal common actions. Touch and hold a document or folder to open its complete actions menu.",
-                "On a document, swipe left for Share and Delete. Swipe right for Pin or Unpin. If a download failed, swiping right also provides Retry Download.",
-                "On a folder, swipe left for Move and Delete. Swipe right for Rename.",
-                "Touch and hold a document for Always Exclude or Always Include, Pin or Unpin, Render, Share, Rename, Move, Duplicate, and Delete. Touch and hold a folder for Total Word Count, Always Exclude or Always Include, Export Compilation…, Rename, Move, and Delete. Export Compilation… is also available in the folder’s VoiceOver Actions."
-            ]
-        ),
-        HelpTopic(
-            title: "Keyboard Shortcuts",
-            paragraphs: [
-                "Keyboard Shortcuts can be turned on or off under Editing in Settings.",
-                "Use Command-N for New throughout the Library, including the files list and folder views. Use Command-O for Import and Command-comma for Settings.",
-                "While editing, use Command-S for Save Now, Command-F for Find and Replace, Command-R for Render, Command-Shift-O for Outline, Command-Shift-I for Insert, Command-J for Jump to Line, and Command-W to close the editor.",
-                "Press Escape to dismiss the editor keyboard."
-            ]
-        ),
-        HelpTopic(
-            title: "Inserting Markdown",
-            paragraphs: [
-                "Insert adds new markdown at the current position or applies compatible formatting and structure to selected text.",
-                "Headings create sections using levels 1 through 6. Level 1 is the highest level, and the remaining levels describe subsections.",
-                "Link turns text into a destination that can be opened. If text is selected, it becomes the suggested link text.",
-                "A link address begins with a scheme, which is the part before the colon that tells iOS what kind of destination to open. Use https://example.com for a secure website, http://example.com for a website without encrypted transport, mailto:name@example.com for email, tel:+15551234567 for a telephone number, or sms:+15551234567 for a text message.",
-                "Image from Files attaches an SVG, PNG, or JPG selected with the system file picker. Image from Photo Library attaches a photo selected with the system photo picker. Enter alternative text or mark the image decorative.",
-                "Image from Web inserts an externally hosted image. Provide the image address and alternative text, or leave the alternative text empty when the image is decorative. Image addresses must begin with http:// or https://.",
-                "Bold adds strong emphasis. Italic adds ordinary emphasis. Strikethrough marks text as removed or no longer applicable.",
-                "Inline Code marks a short piece of code or literal text within a paragraph. Code Block creates a separate preformatted block for multiple lines.",
-                "Bulleted List creates an unordered list. Numbered List creates an ordered sequence. Task List creates items that Render identifies as Completed or Not completed.",
-                "Table asks for the number of columns and rows. The first row names each column and counts toward the number of rows you choose. Markdown does not have a standard way to identify row headings, so give each row a clear first entry when it needs a label.",
-                "Block Quote identifies quoted material. Horizontal Rule adds a thematic break between sections.",
-                "Rendering a document that contains an external image may contact the server that hosts that image. ghostWriter does not control the availability or privacy practices of an outside server."
+                "Choose eBraille for a reflowable braille publication with heading navigation and active links, or Braille Ready Format for fixed-layout braille. The output filenames end in .ebrl and .brf respectively.",
+                "For eBraille, select grade 1 or grade 2 and enter the author, producer, copyright date, and whether the export contains the complete document. Enter the date as a year, year and month, or full date, such as 2026, 2026-04, or 2026-04-17.",
+                "Additional eBraille details include source work, publisher, rights, subject, description, and education level.",
+                "Braille Ready Format creates fixed-layout Unified English Braille with a .brf filename. Choose Braille display or Emboss on paper. Common page uses 40 cells by 25 lines. Select Custom braille page to choose another number of cells and lines. Lists use braille bullets, tables become labeled rows, tasks state Completed or Not completed, and images become labeled descriptions.",
+                "For embossed pages, Include braille page numbers places each number at the bottom right and reserves the final line. Turn it off to use every selected line for document content. Set paper size, physical margins, binding margins, and single-sided or interpoint output in the embossing software.",
+                "Braille Ready Format writes a link label followed by its address in parentheses. A link whose label is already the address appears once. Internal document links include the link text without the fragment address. eBraille and EPUB retain active links.",
+                "Grade 1 is uncontracted Unified English Braille. Grade 2 is contracted Unified English Braille. Code blocks keep their line breaks and spacing and use uncontracted braille.",
+                "The app remembers your braille grade, producer name, and last Braille Ready Format layout. A compilation uses one selected braille code for the entire output, including documents whose source languages differ. Page numbering continues across the combined BRF output."
             ]
         )
     ]

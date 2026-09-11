@@ -20,11 +20,16 @@ final class DocumentLibraryMetadataStore {
 
     func isIncludedByDefault(_ url: URL) -> Bool { !excludedCompilationKeys.contains(manualKey(for: url)) }
     func inclusionActionLabel(for url: URL) -> String {
-        isIncludedByDefault(url) ? String(localized: "Always Exclude") : String(localized: "Always Include")
+        isIncludedByDefault(url) ? String(localized: "Exclude from Compilations") : String(localized: "Include in Compilations")
     }
-    func toggleDefaultInclusion(for url: URL) {
+    @discardableResult
+    func toggleDefaultInclusion(for url: URL) -> String {
         let key = manualKey(for: url)
         if !excludedCompilationKeys.insert(key).inserted { excludedCompilationKeys.remove(key) }
+        let format = isIncludedByDefault(url)
+            ? String(localized: "%@ included")
+            : String(localized: "%@ excluded")
+        return String(format: format, url.lastPathComponent)
     }
 
     private(set) var libraryPresentationRevision = 0

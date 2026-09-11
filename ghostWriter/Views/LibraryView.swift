@@ -502,6 +502,11 @@ struct LibraryView: View {
         }
     }
 
+    private func toggleCompilationInclusion(for url: URL) {
+        let confirmation = libraryMetadata.toggleDefaultInclusion(for: url)
+        UIAccessibility.post(notification: .announcement, argument: confirmation)
+    }
+
     private func announceCount(prefix: String) {
         let count = visibleDocuments.count + visibleFolders.count
         let noun = count == 1 ? "item" : "items"
@@ -523,7 +528,7 @@ struct LibraryView: View {
                 .contextMenu {
                     if let currentFolderURL {
                         Button("Total Word Count") { countFolder = LibraryFolder(url: currentFolderURL) }
-                        Button(libraryMetadata.inclusionActionLabel(for: currentFolderURL)) { libraryMetadata.toggleDefaultInclusion(for: currentFolderURL) }
+                        Button(libraryMetadata.inclusionActionLabel(for: currentFolderURL)) { toggleCompilationInclusion(for: currentFolderURL) }
                         Button("Export Compilation…") {
                             compilationFolder = LibraryFolder(url: currentFolderURL)
                         }
@@ -532,7 +537,7 @@ struct LibraryView: View {
                 .accessibilityActions {
                     if let currentFolderURL {
                         Button("Total Word Count") { countFolder = LibraryFolder(url: currentFolderURL) }
-                        Button(libraryMetadata.inclusionActionLabel(for: currentFolderURL)) { libraryMetadata.toggleDefaultInclusion(for: currentFolderURL) }
+                        Button(libraryMetadata.inclusionActionLabel(for: currentFolderURL)) { toggleCompilationInclusion(for: currentFolderURL) }
                         Button("Export Compilation…") {
                             compilationFolder = LibraryFolder(url: currentFolderURL)
                         }
@@ -667,7 +672,7 @@ struct LibraryView: View {
 
         let accessibleRow = primaryRow
             .accessibilityAction(named: "Total Word Count") { countFolder = folder }
-            .accessibilityAction(named: libraryMetadata.inclusionActionLabel(for: folder.url)) { libraryMetadata.toggleDefaultInclusion(for: folder.url) }
+            .accessibilityAction(named: libraryMetadata.inclusionActionLabel(for: folder.url)) { toggleCompilationInclusion(for: folder.url) }
             .accessibilityAction(named: "Export Compilation…") {
                 compilationFolder = folder
             }
@@ -709,7 +714,7 @@ struct LibraryView: View {
 
         return swipeRow.contextMenu {
             Button("Total Word Count") { countFolder = folder }
-            Button(libraryMetadata.inclusionActionLabel(for: folder.url)) { libraryMetadata.toggleDefaultInclusion(for: folder.url) }
+            Button(libraryMetadata.inclusionActionLabel(for: folder.url)) { toggleCompilationInclusion(for: folder.url) }
             Button("Export Compilation…") { compilationFolder = folder }
             Button {
                 beginRename(folder)
@@ -751,7 +756,7 @@ struct LibraryView: View {
                     }
                 }
             }
-            .accessibilityAction(named: libraryMetadata.inclusionActionLabel(for: document.url)) { libraryMetadata.toggleDefaultInclusion(for: document.url) }
+            .accessibilityAction(named: libraryMetadata.inclusionActionLabel(for: document.url)) { toggleCompilationInclusion(for: document.url) }
             .accessibilityAction(named: "Render") {
                 render(document)
             }
@@ -812,7 +817,7 @@ struct LibraryView: View {
             }
 
         return swipeRow.contextMenu {
-            Button(libraryMetadata.inclusionActionLabel(for: document.url)) { libraryMetadata.toggleDefaultInclusion(for: document.url) }
+            Button(libraryMetadata.inclusionActionLabel(for: document.url)) { toggleCompilationInclusion(for: document.url) }
             if store.usesICloudStorage {
                 Button {
                     synchronize(document)
