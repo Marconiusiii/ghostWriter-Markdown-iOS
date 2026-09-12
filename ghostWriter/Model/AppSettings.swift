@@ -328,6 +328,10 @@ final class AppSettings {
         }
     }
 
+    var wordStylesheetFilename: String {
+        didSet { defaults.set(wordStylesheetFilename, forKey: "wordStylesheetFilename") }
+    }
+
     var usesWordStylesheet: Bool {
         didSet { defaults.set(usesWordStylesheet, forKey: "usesWordStylesheet") }
     }
@@ -346,6 +350,8 @@ final class AppSettings {
         self.defaults = defaults
         self.thematicSeparator = ThematicSeparator(rawValue: defaults.string(forKey: "thematicSeparator") ?? "") ?? .none
         self.usesWordStylesheet = defaults.bool(forKey: "usesWordStylesheet")
+        self.wordStylesheetFilename = defaults.string(forKey: "wordStylesheetFilename")
+            ?? (defaults.bool(forKey: "usesWordStylesheet") ? "word-theme.json" : "")
         self.usesSmartPunctuation = defaults.bool(forKey: "usesSmartPunctuation")
 
         // `object(forKey:)` distinguishes "never set" from "set to false", which

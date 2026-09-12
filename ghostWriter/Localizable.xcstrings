@@ -961,6 +961,9 @@
         }
       }
     },
+    "Copy JSON to Clipboard" : {
+
+    },
     "Copyright date" : {
       "comment" : "EBrailleMetadataSettingsView.swift:90",
       "localizations" : {

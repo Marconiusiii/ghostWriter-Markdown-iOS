@@ -1,26 +1,34 @@
-# Word export and compilation
+# Word export
 
-To export the document you are editing, choose File Actions > Share > Word Document, then choose a sharing destination or Save to Files when the file is ready. Word export uses your saved Export settings without an extra options screen.
+To export your open document, choose File Actions > Share > Word Document. To combine documents, choose Export Compilation… on a folder and select Word Document. When the file is ready, share it or choose Save to Files.
 
-For a compilation, use a folder’s Export Compilation… action and choose Word Document in Export format. Select and reorder the contents, then choose Export and share…. Compilation Export Help explains inclusion defaults, ordering, heading preservation, and page breaks.
+Headings become Word heading styles, lists become Word lists, and tables use their first row as column headings. Links and supported text formatting are retained. Quotes and code blocks receive paragraph styles.
 
-Settings > Export > Thematic separator selects a decoration for Markdown thematic breaks in Word and Plain Text output. None omits the separator. Word centers the decoration in its own paragraph; Plain Text centers it with spaces within 72 columns. This setting applies to individual and compilation exports and does not add separators between documents.
+Task items begin with Completed or Not completed rather than interactive checkboxes. Review the result in Word when preparing a document for publication.
 
-Word compilation uses an opening Heading 1 as each document’s title, even after leading blank paragraphs. If there is no opening Heading 1, it uses the filename. The output name names the exported file without adding another title page.
+Settings > Export > Thematic separator chooses a centered decoration for Markdown thematic breaks such as --- on their own line. None omits the separator. The same choice applies to Plain Text and to compilations unless the selected Word stylesheet specifies thematicBreak.
 
-With Start each document on a new page off, Word inserts an actual empty paragraph between documents when neither boundary already has one. Existing blank paragraphs are preserved. With heading preservation off, only the first title remains Heading 1; Heading 6 stays Heading 6.
+Word uses standard styling by default. For a custom theme, follow Word Stylesheet. Compilation Export explains document order, page breaks, and heading levels; Smart punctuation in exports explains optional punctuation conversion.
 
-Settings > Export > Use smart punctuation optionally converts straight quotes, apostrophes, and three periods in exported prose. It does not change source files. Smart punctuation in exports in Help explains its limitations.
+## Named stylesheets
 
-## Word Stylesheet JSON format
+Choose a stylesheet with the wheel picker when exporting a Word document or compilation. Standard Word output uses normal formatting. Your selection is remembered for the next Word export.
 
-Enable Settings > Export > Use Word Stylesheet to create the Word Stylesheets folder and reveal its source location and file status. Then place a plain-text JSON file named word-theme.json inside the Word Stylesheets folder in your active ghostWriter folder in Files. Use the on-device folder or iCloud folder selected in Settings > Files > Document Storage. Every single-document and compilation Word export reads that file again, so edits apply to the next export. If the file is absent or the setting is off, Word uses standard styling. An iCloud file is downloaded when needed; an invalid or unreadable file reports an error. Turning the setting off keeps the folder and file. The folder is reserved for stylesheets and does not appear in the Library, compilation selection, or folder counts. If you previously kept word-theme.json at the storage root, move it into Word Stylesheets. Other export formats are unaffected.
+In Files, add named JSON files to Word Stylesheets in your active ghostWriter storage location. The folder is created when you open Word export options. A Large Print stylesheet is supplied once. Existing word-theme.json files are supported. The folder is reserved for stylesheets and does not appear among writing documents.
 
-The theme applies across the output, including every document in a compilation. Only supplied settings override the standard styles. The theme does not change Markdown source files, image colors, heading levels, or the page-break and heading-structure toggles. Explicit bold and italic formatting in the source is retained.
+The exporter checks the files and explains invalid or unavailable choices. Correct the reported problem or choose Standard Word output. A selected file is read again at export time so changes apply to the next export.
 
-Every style sheet must contain version with the number 1. Optional top-level fields are body, headings, quote, code, list, table, and page. Use the exact field names and capitalization. The headings object accepts keys 1 through 6, written in quotes, to style the resulting Word heading levels after any compilation heading changes.
+Optional title and subtitle definitions format only an opening Heading 1 immediately followed by Heading 2, allowing blank lines. Both definitions must be present. When the pair qualifies, its Heading 1 supplies the title even if the filename is different. Any intervening content, a missing definition, or a missing heading leaves both headings with standard formatting. Later pairs do not qualify. They remain Word Heading 1 and Heading 2 for structure and heading navigation.
 
-The body, each heading, quote, code, list, and table objects accept font, size, color, bold, italic, spaceBefore, spaceAfter, lineSpacing, and alignment. Font is a name such as Georgia or Arial, with 1 to 128 characters and no control characters. Fonts are not embedded; Word substitutes a font if the named font is unavailable. Size is 1 to 200 points and is rounded to the nearest half point. Color is six hexadecimal digits without #, such as 203864. Bold and italic are true or false, without quotes.
+In compilations, only the first source document can supply the opening title and subtitle pair. Preserve individual document heading structure must be on. Generated filename headings do not create a pair.
+
+A stylesheet can override the global thematic separator for Word, add paragraph indentation and pagination, and supply headers, footers, and page numbers. Plain Text continues using the global thematic separator. Fonts are not embedded, so Word may substitute an unavailable font.
+
+## JSON specification
+
+Every style sheet must contain version with the number 1. Existing version 1 files remain supported; older app builds may reject files containing the new optional properties. Optional top-level fields are body, headings, quote, code, list, table, page, title, subtitle, thematicBreak, header, footer, and differentFirstPage. Use the exact field names and capitalization. The headings object accepts keys 1 through 6, written in quotes, to style the resulting Word heading levels after any compilation heading changes.
+
+The body, each heading, quote, code, list, and table objects accept font, size, color, bold, italic, spaceBefore, spaceAfter, lineSpacing, and alignment. Font is a name such as Georgia or Arial, with 1 to 128 characters and no control characters. Size is 1 to 200 points and is rounded to the nearest half point. Color is six hexadecimal digits without #, such as 203864. Bold and italic are true or false, without quotes.
 
 SpaceBefore and spaceAfter set paragraph spacing from 0 to 720 points. Use the JSON spellings spaceBefore and spaceAfter, starting with a lowercase s. LineSpacing is a multiplier from 0.5 to 5, such as 1.5 for one-and-a-half spacing; its JSON spelling is lineSpacing. Alignment is left, center, right, or justify, in quotes. Spacing and alignment in code apply to code-block paragraphs; inline code uses only the font, size, color, bold, and italic settings.
 
@@ -28,9 +36,21 @@ The page object accepts width, height, top, right, bottom, and left, all in poin
 
 Body settings are inherited by paragraph styles unless a more specific style supplies its own setting. Standard heading sizes, bold headings, and monospaced code remain unless overridden in their respective objects. List settings style list text and paragraphs; numbering, starting numbers, and nesting still follow the source. Table settings style table text and paragraphs; table borders and header-row structure retain the standard output.
 
-Keep the JSON file at or below 64 KiB. Omit settings you do not want to change rather than writing null. Unknown fields, unsupported versions, incorrect value types, and out-of-range values prevent Word export and produce an error. Correct the named setting in word-theme.json and export again, or turn off Use Word Stylesheet for standard styling. JSON requires double quotes around field names and text values; comments and trailing commas are not allowed.
+Keep the JSON file at or below 64 KiB. Omit settings you do not want to change rather than writing null. Unknown fields, unsupported versions, incorrect value types, and out-of-range values prevent Word export and produce an error. Correct the named setting in word-theme.json and export again, or choose Standard Word output. JSON requires double quotes around field names and text values; comments and trailing commas are not allowed.
 
-The following complete example can be copied into a plain-text file named word-theme.json. Change or omit optional settings to suit your document.
+### Additional paragraph and document settings
+
+Paragraph styles accept firstLineIndent in points from 0 to 720, plus true or false for pageBreakBefore, pageBreakAfter, and keepWithNext. Omit a property to inherit its value. Page break after inserts a page break after the paragraph. The table object does not accept pageBreakBefore or pageBreakAfter; page breaks are not inserted inside table cells. Heading styles can use keepWithNext to stay with the following paragraph.
+
+Optional title and subtitle objects accept the same properties as other paragraph styles. Define both to enable opening-pair formatting. The default example and Large Print stylesheet omit both.
+
+thematicBreak accepts behavior set to separator, omit, or pageBreak. For separator, supply text containing 1 to 128 characters on one line. Omit text for the other behaviors. If thematicBreak is absent, the global thematic separator applies.
+
+header and footer each accept text, pageNumber, and alignment. Text is literal text of at most 1024 characters on one line. pageNumber is true or false and appends an automatic Word page number after the text. Include any wanted space in the text, such as Page followed by a space. Alignment is left, center, or right; the default is left.
+
+Set differentFirstPage to true to leave the first page's header and footer blank. Headers, footers, and page numbering apply to the whole exported document, including compilations. Header and footer distances are 18 points from the page edge; leave sufficient page margins for their text. Chapter-specific headers, odd/even layouts, and numbering restarts are not supported.
+
+## Default stylesheet example
 
 ```json
 {

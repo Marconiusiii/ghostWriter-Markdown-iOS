@@ -59,6 +59,7 @@ struct LibraryView: View {
     @State private var appLaunchActionGate = AppLaunchActionGate()
     @State private var welcomeExperience = WelcomeExperience()
     @State private var showingWelcome = false
+    @State private var showingHelpManual = false
     @State private var welcomeDocumentURL: URL?
     @State private var welcomePreparationFailed = false
     @State private var isPreparingWelcomeDocument = false
@@ -104,6 +105,11 @@ struct LibraryView: View {
                 header
                 if isImporting { ProgressView("Importing documents…") }
                 documentArea
+                if currentFolderURL == nil,
+                   trimmedSearch.isEmpty || "Help Manual".localizedCaseInsensitiveContains(trimmedSearch) {
+                    Button("Help Manual") { showingHelpManual = true }
+                        .accessibilityLabel("Help Manual in Markdown")
+                }
                 if canReorder || libraryEditMode.isEditing {
                     FileOrderEditButton(editMode: $libraryEditMode)
                 }
@@ -139,6 +145,7 @@ struct LibraryView: View {
         .onChange(of: currentDirectory) { _, _ in libraryEditMode = .inactive }
         .onChange(of: currentSort) { _, _ in libraryEditMode = .inactive }
         .focusedSceneValue(\.newLibraryDocument, canCreateUsingCommand ? { newDocument() } : nil)
+        .sheet(isPresented: $showingHelpManual) { HelpManualView() }
         .sheet(item: $countFolder) { folder in FolderCountView(folder: folder) }
         .sheet(item: $compilationFolder) { folder in
             CompilationExportView(directory: folder.url)
@@ -1047,7 +1054,7 @@ struct LibraryView: View {
         settings.keyboardShortcutsEnabled && store.storageAvailable && openedDocument == nil
             && !showingNewDocument && !showingNewFolder && !showingSettings
             && !showingRecentlyDeleted && !showingImporter && !showingPowerPointImportOptions
-            && !showingWelcome && !showingShare && !isImporting
+            && !showingWelcome && !showingHelpManual && !showingShare && !isImporting
             && countFolder == nil && compilationFolder == nil && renderingSession == nil
             && renamingDocument == nil && renamingFolder == nil && movingItem == nil
             && pendingDeletion == nil && pendingFolderDeletion == nil

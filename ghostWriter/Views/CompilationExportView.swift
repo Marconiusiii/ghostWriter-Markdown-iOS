@@ -12,6 +12,7 @@ struct CompilationExportView: View {
     @State private var title = "Compilation"
     @State private var options = CompilationExportSettings()
     @State private var editMode = EditMode.inactive
+    @State private var wordStylesheet = ""
     @State private var initialized = false
     @State private var exporting = false
     @State private var preparedDocumentCount = 0
@@ -47,6 +48,9 @@ struct CompilationExportView: View {
                 .disabled(exporting)
                 CompilationFormatOptions(options: $options, focusedField: $focusedField)
                     .disabled(exporting)
+                if options.format == .word {
+                    WordStylesheetPicker(selection: $wordStylesheet).disabled(exporting)
+                }
                 Section("Files and folders") {
                     if editMode.isEditing || items.count > 1 || items.contains(where: \.hasReorderableContents) {
                         FileOrderEditButton(editMode: $editMode)
@@ -95,6 +99,7 @@ struct CompilationExportView: View {
             .onAppear {
                 guard !initialized else { return }
                 initialized = true
+                wordStylesheet = settings.wordStylesheetFilename
                 options.powerPointTheme = settings.powerPointTheme
                 options.powerPointFont = settings.powerPointFont
                 options.eBraille = settings.eBrailleMetadataDefaults
@@ -132,7 +137,8 @@ struct CompilationExportView: View {
         var exportOptions = options
         exportOptions.usesSmartPunctuation = settings.usesSmartPunctuation
         exportOptions.thematicSeparator = settings.thematicSeparator
-        let usesStylesheet = settings.usesWordStylesheet
+        let stylesheet = wordStylesheet
+        if options.format == .word { settings.wordStylesheetFilename = stylesheet }
         let libraryRoot = store.directory
         exportTask = Task {
             defer { exporting = false }
@@ -161,7 +167,7 @@ struct CompilationExportView: View {
                 let work = Task.detached(priority: .userInitiated) { () throws -> URL in
                     var resolvedOptions = exportOptions
                     if resolvedOptions.format == .word {
-                        resolvedOptions.word.theme = try await WordStylesheetLoader.load(in: libraryRoot, enabled: usesStylesheet)
+                        resolvedOptions.word.theme = try await WordStylesheetLoader.loadSelection(stylesheet, in: libraryRoot)
                     }
                     return try await CompilationFileWriter.write(title: outputTitle, sources: inputs, settings: resolvedOptions)
                 }

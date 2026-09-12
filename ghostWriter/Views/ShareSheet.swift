@@ -113,6 +113,8 @@ struct EditorShareView: View {
     /// eBraille leaves to the reading system.
     @State private var eBrailleMetadata: EBrailleMetadata?
     @State private var brfOptions: BRFExportOptions?
+    @State private var wordConfirmed = false
+    @State private var wordStylesheet = ""
     @State private var powerPointOptions: PowerPointExportOptions?
 
     var body: some View {
@@ -138,6 +140,20 @@ struct EditorShareView: View {
                     }
                 }
 
+            } else if format == .word, !wordConfirmed {
+                NavigationStack {
+                    Form {
+                        WordStylesheetPicker(selection: $wordStylesheet)
+                        Button("Export and share…") {
+                            settings.wordStylesheetFilename = wordStylesheet
+                            wordConfirmed = true
+                        }
+                    }
+                    .navigationTitle("Word export")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onClose) } }
+                    .onAppear { wordStylesheet = settings.wordStylesheetFilename }
+                }
             } else if format == .eBraille, eBrailleMetadata == nil {
                 EBrailleOptionsView(
                     settings: settings,
@@ -183,6 +199,7 @@ struct EditorShareView: View {
 
     private var isReadyToPrepare: Bool {
         switch format {
+        case .word: return wordConfirmed
         case .eBraille: return eBrailleMetadata != nil
         case .brf: return brfOptions != nil
         case .powerPoint: return powerPointOptions != nil
@@ -206,7 +223,7 @@ struct EditorShareView: View {
         let documentLanguage = documentLanguage
         let metadata = eBrailleMetadata
         let brf = brfOptions
-        let usesStylesheet = settings.usesWordStylesheet
+        let stylesheet = wordStylesheet
         let libraryRoot = store.directory
         let powerPoint = powerPointOptions
         let usesSmartPunctuation = settings.usesSmartPunctuation
@@ -215,7 +232,7 @@ struct EditorShareView: View {
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
             do {
                 var word = WordExportOptions()
-                if format == .word { word.theme = try await WordStylesheetLoader.load(in: libraryRoot, enabled: usesStylesheet) }
+                if format == .word { word.theme = try await WordStylesheetLoader.loadSelection(stylesheet, in: libraryRoot) }
                 return .success(
                     try await EditorShareFileWriter.write(
                         format: format,

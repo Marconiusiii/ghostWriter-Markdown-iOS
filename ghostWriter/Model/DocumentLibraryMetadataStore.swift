@@ -19,6 +19,19 @@ final class DocumentLibraryMetadataStore {
     }
 
     func isIncludedByDefault(_ url: URL) -> Bool { !excludedCompilationKeys.contains(manualKey(for: url)) }
+    /// The same saved exclusion applies to compilations and folder statistics.
+    func isIncludedInStatistics(_ url: URL) -> Bool {
+        var current = url.standardizedFileURL
+        let root = libraryRoot?.standardizedFileURL
+        while true {
+            if !isIncludedByDefault(current) { return false }
+            if current.path == root?.path { return true }
+            let parent = current.deletingLastPathComponent()
+            if parent.path == current.path { return true }
+            current = parent
+        }
+    }
+
     func inclusionActionLabel(for url: URL) -> String {
         isIncludedByDefault(url) ? String(localized: "Exclude from Compilations") : String(localized: "Include in Compilations")
     }

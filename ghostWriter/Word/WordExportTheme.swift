@@ -10,6 +10,12 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
     var list: WordThemeStyle?
     var table: WordThemeStyle?
     var page: WordThemePage?
+    var title: WordThemeStyle?
+    var subtitle: WordThemeStyle?
+    var thematicBreak: WordThemeBreak?
+    var header: WordThemePageContent?
+    var footer: WordThemePageContent?
+    var differentFirstPage: Bool?
 
     static let maximumBytes = 65_536
 
@@ -28,10 +34,10 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
             guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 throw WordThemeError.invalid("The Word Stylesheet must contain an object.")
             }
-            try checkKeys(object, allowed: ["version", "body", "headings", "quote", "code", "list", "table", "page"], path: "theme")
-            let styleKeys: Set<String> = ["font", "size", "color", "bold", "italic", "spaceBefore", "spaceAfter", "lineSpacing", "alignment"]
-            for name in ["body", "quote", "code", "list", "table"] where object[name] != nil {
-                try checkKeys(try dictionary(object[name], path: name), allowed: styleKeys, path: name)
+            try checkKeys(object, allowed: ["version", "body", "headings", "quote", "code", "list", "table", "page", "title", "subtitle", "thematicBreak", "header", "footer", "differentFirstPage"], path: "theme")
+            let styleKeys: Set<String> = ["font", "size", "color", "bold", "italic", "spaceBefore", "spaceAfter", "lineSpacing", "alignment", "firstLineIndent", "pageBreakBefore", "pageBreakAfter", "keepWithNext"]
+            for name in ["body", "quote", "code", "list", "table", "title", "subtitle"] where object[name] != nil {
+                try checkKeys(try dictionary(object[name], path: name), allowed: name == "table" ? styleKeys.subtracting(["pageBreakBefore", "pageBreakAfter"]) : styleKeys, path: name)
             }
             if let headings = object["headings"] {
                 let values = try dictionary(headings, path: "headings")
@@ -43,13 +49,24 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
             if let page = object["page"] {
                 try checkKeys(try dictionary(page, path: "page"), allowed: ["width", "height", "top", "right", "bottom", "left"], path: "page")
             }
+            if let value = object["thematicBreak"] {
+                try checkKeys(try dictionary(value, path: "thematicBreak"), allowed: ["behavior", "text"], path: "thematicBreak")
+            }
+            for key in ["header", "footer"] {
+                if let value = object[key] {
+                    try checkKeys(try dictionary(value, path: key), allowed: ["text", "pageNumber", "alignment"], path: key)
+                }
+            }
             let theme = try JSONDecoder().decode(Self.self, from: data)
             guard theme.version == 1 else { throw WordThemeError.invalid("version must be 1.") }
-            for (path, style) in [("body", theme.body), ("quote", theme.quote), ("code", theme.code), ("list", theme.list), ("table", theme.table)] {
+            for (path, style) in [("body", theme.body), ("quote", theme.quote), ("code", theme.code), ("list", theme.list), ("table", theme.table), ("title", theme.title), ("subtitle", theme.subtitle)] {
                 try style?.validate(path: path)
             }
             for (key, style) in theme.headings ?? [:] { try style.validate(path: "headings.\(key)") }
             try theme.page?.validate()
+            try theme.thematicBreak?.validate()
+            try theme.header?.validate(path: "header")
+            try theme.footer?.validate(path: "footer")
             return theme
         } catch let error as WordThemeError { throw error }
         catch let error as DecodingError {
@@ -88,6 +105,10 @@ nonisolated struct WordThemeStyle: Codable, Equatable, Sendable {
     var spaceAfter: Double?
     var lineSpacing: Double?
     var alignment: String?
+    var firstLineIndent: Double?
+    var pageBreakBefore: Bool?
+    var pageBreakAfter: Bool?
+    var keepWithNext: Bool?
 
     func validate(path: String) throws {
         if let font, font.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -100,7 +121,7 @@ nonisolated struct WordThemeStyle: Codable, Equatable, Sendable {
         if let alignment, !["left", "center", "right", "justify"].contains(alignment) {
             throw WordThemeError.invalid("\(path).alignment must be left, center, right, or justify.")
         }
-        for (name, value, range) in [("size", size, 1.0...200.0), ("spaceBefore", spaceBefore, 0.0...720.0), ("spaceAfter", spaceAfter, 0.0...720.0), ("lineSpacing", lineSpacing, 0.5...5.0)] {
+        for (name, value, range) in [("firstLineIndent", firstLineIndent, 0.0...720.0), ("size", size, 1.0...200.0), ("spaceBefore", spaceBefore, 0.0...720.0), ("spaceAfter", spaceAfter, 0.0...720.0), ("lineSpacing", lineSpacing, 0.5...5.0)] {
             if let value, !value.isFinite || !range.contains(value) {
                 throw WordThemeError.invalid("\(path).\(name) must be between \(range.lowerBound) and \(range.upperBound).")
             }
@@ -133,5 +154,39 @@ nonisolated enum WordThemeError: LocalizedError {
     case invalid(String)
     var errorDescription: String? {
         switch self { case .invalid(let message): message }
+    }
+}
+
+nonisolated struct WordThemeBreak: Codable, Equatable, Sendable {
+    var behavior: String
+    var text: String?
+
+    func validate() throws {
+        guard ["separator", "omit", "pageBreak"].contains(behavior) else {
+            throw WordThemeError.invalid("thematicBreak.behavior must be separator, omit, or pageBreak.")
+        }
+        if behavior == "separator" {
+            guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  text.count <= 128, !text.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
+                throw WordThemeError.invalid("thematicBreak.text must contain 1 to 128 characters on one line.")
+            }
+        } else if text != nil {
+            throw WordThemeError.invalid("Omit thematicBreak.text unless behavior is separator.")
+        }
+    }
+}
+
+nonisolated struct WordThemePageContent: Codable, Equatable, Sendable {
+    var text: String?
+    var pageNumber: Bool?
+    var alignment: String?
+
+    func validate(path: String) throws {
+        if let alignment, !["left", "center", "right"].contains(alignment) {
+            throw WordThemeError.invalid("\(path).alignment must be left, center, or right.")
+        }
+        if let text, text.count > 1024 || text.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
+            throw WordThemeError.invalid("\(path).text must be at most 1024 characters on one line.")
+        }
     }
 }

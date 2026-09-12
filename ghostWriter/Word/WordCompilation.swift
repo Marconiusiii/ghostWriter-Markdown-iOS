@@ -24,6 +24,7 @@ nonisolated enum WordCompilation {
         for (index, source) in sources.enumerated() {
             try Task.checkCancellation()
             var document = try MarkdownToWordConverter.document(from: source.markdown, thematicSeparator: options.thematicSeparator, checkCancellation: { try Task.checkCancellation() })
+            document = MarkdownToWordConverter.applyingTheme(options.theme, to: document)
             // Leading blank paragraphs are content, but do not obscure the title.
             let titleIndex = document.blocks.firstIndex { !isEmptyParagraph($0) } ?? document.blocks.count
             if titleIndex == document.blocks.count || !isTitle(document.blocks[titleIndex]) {
@@ -39,6 +40,9 @@ nonisolated enum WordCompilation {
                     try Task.checkCancellation()
                     switch block {
                     case .paragraph(var paragraph):
+                        // Only the first source can supply the compilation's opening pair.
+                        // Heading shifting disables the pair because its H2 becomes H3.
+                        if index > 0 || !options.preservesHeadingStructure { paragraph.openingStyle = nil }
                         if !options.preservesHeadingStructure, let level = paragraph.headingLevel,
                            !(index == 0 && topLevel && offset == titleIndex) {
                             paragraph.headingLevel = min(6, level + 1)

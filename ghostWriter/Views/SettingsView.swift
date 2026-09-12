@@ -141,8 +141,7 @@ struct SettingsView: View {
                         .accessibilityElement(children: .contain)
                         .accessibilityLabel("Thematic separator")
                     }
-                    Toggle("Use Word Stylesheet", isOn: $settings.usesWordStylesheet)
-                    if settings.usesWordStylesheet { WordStylesheetStatusView() }
+                    Text("Choose a Word stylesheet when exporting a document or compilation.")
                 } header: {
                     Text("Export")
                 }

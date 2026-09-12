@@ -1,17 +1,24 @@
 import SwiftUI
+import UIKit
 
 struct HelpView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var showingManual = false
 
     var body: some View {
         NavigationStack {
-            List(HelpCategory.all) { category in
-                NavigationLink {
-                    HelpCategoryView(category: category)
-                } label: {
-                    Text(category.title)
+            List {
+                Button("Help Manual") { showingManual = true }
+                    .accessibilityLabel("Help Manual in Markdown")
+                ForEach(HelpCategory.all) { category in
+                    NavigationLink {
+                        HelpCategoryView(category: category)
+                    } label: {
+                        Text(category.title)
+                    }
                 }
             }
+            .sheet(isPresented: $showingManual) { HelpManualView() }
             .navigationTitle("Help")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -62,6 +69,12 @@ private struct HelpCategoryView: View {
                                 .foregroundStyle(Color.ghostText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
+                        if subtopic.offersStylesheetCopy {
+                            Button("Copy JSON to Clipboard") {
+                                UIPasteboard.general.string = WordExportHelp.example
+                                UIAccessibility.post(notification: .announcement, argument: String(localized: "JSON copied to clipboard."))
+                            }
+                        }
                     }
                     .padding(.vertical, 4)
                 } label: {
@@ -78,6 +91,7 @@ struct HelpTopic: Identifiable {
     let title: String
     let paragraphs: [String]
     var subtopics: [HelpTopic] = []
+    var offersStylesheetCopy = false
     var id: String { title }
 }
 
@@ -93,10 +107,10 @@ struct HelpCategory: Identifiable {
                 HelpTopic(
                     title: "Getting started with Markdown",
                     paragraphs: [
-                        "Markdown lets you write a formatted document using plain text. You type simple marks for headings, lists, and emphasis, then use Render to read the formatted result.",
-                        "Press Return twice to start a new paragraph. This leaves one empty line between paragraphs. Pressing Return once usually continues the same paragraph in rendered or exported output; you do not need two empty lines.",
+                        "Markdown lets you write a formatted document using plain text. You type simple punctuation marks for headings, lists, and emphasis, then use Render to read the formatted result.",
+                        "Press Return twice to start a new paragraph. This leaves one empty line between paragraphs. Lines without an empty line separating them will get parsed as a single paragraph when rendered or exported.",
                         "Begin a heading with a number sign and a space, such as # My title. Use ## for a subsection and ### for a section within it. Heading levels run from 1 to 6 and give your document a structure readers can navigate.",
-                        "Put **two asterisks** around bold text or *one asterisk* around italic text. Begin a bulleted item with a hyphen and a space, or a numbered item with 1. and a space. Insert can add formatting for you.",
+                        "Put **two asterisks** around bold text or *one asterisk* around italic text. Begin a bulleted item with a hyphen and a space, or a numbered item with 1. and a space. The Insert feature can add formatting for you when working in the Editor.",
                         "Open File Actions > Markdown Reference in the editor for explanations and examples you can copy, including links, images, tables, and code."
                     ]
                 ),
@@ -149,13 +163,14 @@ struct HelpCategory: Identifiable {
                     title: "Saving and storage",
                     paragraphs: [
                         "ghostWriter saves automatically after you pause typing and when the app moves into the background. Choose Save Now in File Actions to request an immediate save.",
-                        "Your documents are ordinary Markdown files in the ghostWriter folder, which you can also open in Files. Settings > Files > Document Storage chooses on-device or iCloud storage. Follow the prompts when changing locations."
+                        "Your documents are ordinary Markdown files in the ghostWriter folder, which you can also open in Files. Settings > Files > Document Storage chooses on-device or iCloud storage. Follow the prompts when changing locations.",
+                        "Files can be accessed through whatever storage apps you have available through the iOS Files app, so OneDrive, Google Drive, Dropbox, and more can be used. Files imported from there will be copied into the currently selected ghostWriter storage location, either iCloud or on-device."
                     ]
                 ),
                 HelpTopic(
                     title: "Finding and organizing documents",
                     paragraphs: [
-                        "Search in the Library checks document names and contents. Clear Search returns to the full list.",
+                        "Search in the Library checks document names and contents.",
                         "Use Sort to choose Sort By and Sort Order. The Library and each folder remember their own sorting choices. Last Opened sorts by when documents were most recently opened in the editor.",
                         "Choose Manual sorting to arrange items yourself. With Search cleared and at least two items available, choose Edit, move items with the reorder controls, then choose Done Editing. Folders and unpinned documents can be arranged together.",
                         "Pin keeps documents at the beginning of the document group. In Manual order, pinned documents can be reordered within their own group. Pinning does not affect compilation exports.",
@@ -164,10 +179,10 @@ struct HelpCategory: Identifiable {
                     ]
                 ),
                 HelpTopic(
-                    title: "Folder word and character counts",
+                    title: "Folder statistics",
                     paragraphs: [
-                        "Use Total Word Count to check the length of a folder’s Markdown documents, including nested folders. Find it in the folder’s context menu or accessibility actions, or in its heading actions when the folder is open.",
-                        "The result reports words, characters, and documents counted. It includes files excluded from compilations. Words use the same count as the editor; characters include Markdown marks, spaces, and line breaks.",
+                        "Use Total Word Count to check the length of a folder’s Markdown documents, including nested folders. Totals include words, sentences, characters, and the number of documents counted. Saved compilation exclusions also exclude files and folders from all these totals. Find it in the folder’s context menu or accessibility actions, or in its heading actions when the folder is open.",
+                        "The result reports words, sentences, characters, and documents counted out of all Markdown documents in the folder and nested folders. Words use the same count as the editor; characters include Markdown marks, spaces, and line breaks. Sentences use automatic language analysis of the source; headings and list fragments can count as sentences.",
                         "Progress appears while documents are read or downloaded. If a file cannot be read, the result is marked Partial total and identifies the omitted files. Cancel stops the count."
                     ]
                 ),
@@ -188,8 +203,7 @@ struct HelpCategory: Identifiable {
                     paragraphs: [
                         "Settings > VoiceOver Settings contains Verbosity and Heading Swipe Navigation. VoiceOver Verbosity controls Markdown editing announcements. Off makes no Markdown editing announcements. Light announces list changes, indentation levels, and Insert actions. Full also announces completed Markdown structures as you type.",
                         "Heading Swipe Navigation moves between headings in the editor. Swipe right with three fingers for the next heading, or left with three fingers for the previous heading. These gestures are not available while using Braille Screen Input or when assigned to other VoiceOver commands.",
-                        "Use VoiceOver Actions on Library files and folders to reach their available commands. An open folder’s heading also offers folder actions.",
-                        "The Edit control for reordering is named Edit Document Order for VoiceOver."
+                        "Use VoiceOver Actions on Library files and folders to reach their available commands. An open folder’s heading also offers folder actions."
                     ]
                 ),
                 HelpTopic(
@@ -207,8 +221,7 @@ struct HelpCategory: Identifiable {
                         "When App Opens chooses whether to begin in the Library, a new document, or your last document. When Starting a New Document chooses whether to ask for a name or use today’s date.",
                         "Editing contains Indentation, Automatic Lists, and Keyboard Shortcuts. VoiceOver Settings controls editing feedback and heading navigation; see VoiceOver for details.",
                         "Appearance contains Theme and Editor Font. Status Bar displays document information below the editor; Customize Status Bar chooses what it shows. Render Sound plays when rendering and follows the device’s silent switch.",
-                        "Export contains Use smart punctuation, Thematic separator, and Use Word Stylesheet. Their Help topics explain what they change. Edit defaults under eBraille metadata supplies information for new exports.",
-                        "About provides app information and Send Feedback. Support ghostWriter Markdown offers optional purchases to help fund updates; no purchase is required to use the app."
+                        "Export contains Use smart punctuation and Thematic separator. Choose a Word stylesheet in the Word export flow. Their Help topics explain what they change. Edit defaults under eBraille metadata supplies information for new exports."
                     ]
                 )
             ]
@@ -268,7 +281,8 @@ struct HelpCategory: Identifiable {
                     subtopics: [
                         HelpTopic(
                             title: "Word Stylesheet reference",
-                            paragraphs: WordExportHelp.reference + [WordExportHelp.example]
+                            paragraphs: WordExportHelp.reference + WordExportHelp.advanced,
+                            offersStylesheetCopy: true
                         )
                     ]
                 ),

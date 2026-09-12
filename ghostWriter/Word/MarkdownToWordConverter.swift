@@ -10,7 +10,8 @@ nonisolated enum MarkdownToWordConverter {
         usesSmartPunctuation: Bool = false,
         thematicSeparator: ThematicSeparator = .none
     ) throws -> Data {
-        var document = document(from: markdown, title: title, thematicSeparator: thematicSeparator)
+        var document = document(from: markdown, title: title, thematicSeparator: thematicSeparator, usesOpeningPair: theme?.title != nil && theme?.subtitle != nil)
+        document = applyingTheme(theme, to: document)
         if usesSmartPunctuation { document.blocks = try SmartPunctuation.wordBlocks(document.blocks) }
         return try WordprocessingMLWriter.write(
             title: title,
@@ -21,10 +22,14 @@ nonisolated enum MarkdownToWordConverter {
         )
     }
 
-    static func document(from markdown: String, title: String, thematicSeparator: ThematicSeparator = .none) -> WordDocumentModel {
+    static func document(from markdown: String, title: String, thematicSeparator: ThematicSeparator = .none, usesOpeningPair: Bool = false) -> WordDocumentModel {
         var document = document(from: markdown, thematicSeparator: thematicSeparator)
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !cleanTitle.isEmpty, !startsWithMatchingTitle(document, title: cleanTitle) {
+        let hasOpeningPair = document.blocks.contains {
+            if case .paragraph(let paragraph) = $0 { return paragraph.openingStyle == "title" }
+            return false
+        }
+        if !cleanTitle.isEmpty, !startsWithMatchingTitle(document, title: cleanTitle), !(usesOpeningPair && hasOpeningPair) {
             document.blocks.insert(.paragraph(WordParagraph(
                 runs: [WordRun(text: cleanTitle)],
                 headingLevel: 1
@@ -114,11 +119,9 @@ nonisolated enum MarkdownToWordConverter {
             }
 
             if LineAnalyzer.isHorizontalRule(trimmed) {
-                if let decoration = thematicSeparator.text {
-                    blocks.append(.paragraph(WordParagraph(
-                        runs: [WordRun(text: decoration)], isThematicSeparator: true
-                    )))
-                }
+                blocks.append(.paragraph(WordParagraph(
+                    runs: thematicSeparator.text.map { [WordRun(text: $0)] } ?? [], isThematicSeparator: true
+                )))
                 index += 1
                 continue
             }
@@ -183,6 +186,7 @@ nonisolated enum MarkdownToWordConverter {
                     || candidateTrimmed.hasPrefix(">")
                     || candidateTrimmed.hasPrefix("```")
                     || candidateTrimmed.hasPrefix("~~~")
+                    || LineAnalyzer.isHorizontalRule(candidateTrimmed)
                     || ListMarker(line: candidate) != nil
                     || tableStarts(lines, at: index) {
                     break
@@ -211,7 +215,50 @@ nonisolated enum MarkdownToWordConverter {
             blocks.removeLast()
         }
 
+        let content = markdown.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        func heading(at index: Int) -> (level: Int, next: Int)? {
+            guard index < content.count else { return nil }
+            let line = content[index].trimmingCharacters(in: .whitespaces)
+            if let level = LineAnalyzer.headingLevel(line) { return (level, index + 1) }
+            if index + 1 < content.count {
+                let underline = content[index + 1].trimmingCharacters(in: .whitespaces)
+                if !underline.isEmpty, underline.allSatisfy({ $0 == "=" }) { return (1, index + 2) }
+                if !underline.isEmpty, underline.allSatisfy({ $0 == "-" }) { return (2, index + 2) }
+            }
+            return nil
+        }
+        if let first = heading(at: 0), first.level == 1,
+           let second = heading(at: first.next), second.level == 2 {
+            let indices = blocks.indices.filter {
+                if case .paragraph(let p) = blocks[$0] {
+                    return p.headingLevel != nil || p.isThematicSeparator || p.isCodeBlock || p.isBlockQuote || p.list != nil || !p.runs.isEmpty
+                }
+                return true
+            }
+            if indices.count >= 2,
+               case .paragraph(let firstBlock) = blocks[indices[0]], firstBlock.headingLevel == 1,
+               case .paragraph(let secondBlock) = blocks[indices[1]], secondBlock.headingLevel == 2 {
+                for (index, name) in zip(indices.prefix(2), ["title", "subtitle"]) {
+                    if case .paragraph(var p) = blocks[index] { p.openingStyle = name; blocks[index] = .paragraph(p) }
+                }
+            }
+        }
         return WordDocumentModel(blocks: blocks)
+    }
+
+    static func applyingTheme(_ theme: WordExportTheme?, to document: WordDocumentModel) -> WordDocumentModel {
+        var result = document
+        result.blocks = document.blocks.map { block in
+            guard case .paragraph(var p) = block, p.isThematicSeparator,
+                  let rule = theme?.thematicBreak else { return block }
+            switch rule.behavior {
+            case "separator": p.runs = [WordRun(text: rule.text ?? "")]
+            case "pageBreak": p.runs = []; p.pageBreakBefore = true
+            default: p.runs = []
+            }
+            return .paragraph(p)
+        }
+        return result
     }
 
     static func inlineRuns(

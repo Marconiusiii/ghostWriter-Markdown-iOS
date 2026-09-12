@@ -17,6 +17,7 @@ import UIKit
 
 struct MarkdownTextView: UIViewRepresentable {
     let session: EditorTextSession
+    var isReadOnly = false
 
     var smartListsEnabled: Bool
     var voiceOverVerbosity: VoiceOverVerbosity
@@ -45,6 +46,8 @@ struct MarkdownTextView: UIViewRepresentable {
     func makeUIView(context: Context) -> MarkdownEditorTextView {
         let textView = MarkdownEditorTextView.makeTextKit1()
         textView.delegate = context.coordinator
+        textView.isEditable = !isReadOnly
+        textView.activatesOnFirstAppearance = !isReadOnly
         textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
         textView.headingSwipeNavigationEnabled = headingSwipeNavigationEnabled
 
@@ -85,7 +88,7 @@ struct MarkdownTextView: UIViewRepresentable {
         textView.accessibilityLabel = "Markdown Editor"
 
         session.attach(textView)
-        textView.inputAccessoryView = makeAccessoryToolbar(coordinator: context.coordinator)
+        textView.inputAccessoryView = isReadOnly ? nil : makeAccessoryToolbar(coordinator: context.coordinator)
         context.coordinator.textView = textView
         textView.onCommittedTextInput = {
             [weak textView, weak coordinator = context.coordinator] committedText in
@@ -145,6 +148,10 @@ struct MarkdownTextView: UIViewRepresentable {
 
     func updateUIView(_ textView: MarkdownEditorTextView, context: Context) {
         context.coordinator.parent = self
+        if textView.isEditable == isReadOnly {
+            textView.isEditable = !isReadOnly
+            textView.inputAccessoryView = isReadOnly ? nil : makeAccessoryToolbar(coordinator: context.coordinator)
+        }
         if textView.appKeyboardShortcutsEnabled != keyboardShortcutsEnabled {
             textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
         }
@@ -167,7 +174,7 @@ struct MarkdownTextView: UIViewRepresentable {
                 if !textView.isFirstResponder {
                     textView.becomeFirstResponder()
                 }
-                textView.findInteraction?.presentFindNavigator(showingReplace: true)
+                textView.findInteraction?.presentFindNavigator(showingReplace: !isReadOnly)
             }
         }
 
@@ -264,6 +271,21 @@ struct MarkdownTextView: UIViewRepresentable {
 }
 
 final class MarkdownEditorTextView: UITextView {
+    var activatesOnFirstAppearance = false
+    private var hasActivatedOnAppearance = false
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil, activatesOnFirstAppearance, !hasActivatedOnAppearance else { return }
+        // A new editor may be attached before SwiftUI finishes presenting it.
+        // Request native editing once it belongs to a window, regardless of
+        // whether a saved cursor position exists. Never assign VoiceOver focus.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.window != nil, self.isEditable, !self.hasActivatedOnAppearance else { return }
+            self.hasActivatedOnAppearance = self.becomeFirstResponder()
+        }
+    }
+
     static let headingFeedbackNotification: UIAccessibility.Notification = .announcement
 
     /// Builds the editor on TextKit 1 instead of the TextKit 2 stack that

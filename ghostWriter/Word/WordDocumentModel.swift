@@ -19,6 +19,7 @@ nonisolated struct WordParagraph: Equatable, Sendable {
     var isCodeBlock = false
     var isThematicSeparator = false
     var pageBreakBefore = false
+    var openingStyle: String?
     var sourceDirectory: URL?
     var language: String?
 }

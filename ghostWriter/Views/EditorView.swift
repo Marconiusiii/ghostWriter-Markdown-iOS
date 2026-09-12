@@ -65,6 +65,9 @@ struct EditorView: View {
     /// rename the file as the first heading is typed.
     @State private var savedName: String?
 
+    private var isReadOnlyManual: Bool { HelpManualDocument.isBundled(fileURL) }
+    @State private var copyingManual = false
+
     private let draftName: String
     private let onDocumentURLChange: (URL) -> Void
     private let onClose: (URL) -> Void
@@ -228,7 +231,7 @@ struct EditorView: View {
             DocumentLanguageView(
                 initialTag: currentDocumentLanguage,
                 onSave: { tag in
-                    if let url = fileURL ?? saveController.currentURL {
+                    if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
                         libraryMetadata.setDocumentLanguage(tag, for: url)
                     }
                     showingDocumentLanguage = false
@@ -332,12 +335,12 @@ struct EditorView: View {
 
             Text(displayTitle)
                 .contextMenu {
-                    if let url = fileURL ?? saveController.currentURL {
+                    if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
                         Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
                     }
                 }
                 .accessibilityActions {
-                    if let url = fileURL ?? saveController.currentURL {
+                    if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
                         Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
                     }
                 }
@@ -346,6 +349,10 @@ struct EditorView: View {
                 .accessibilityAddTraits(.isHeader)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+            if isReadOnlyManual {
+                Button("Make a Copy") { makeManualCopy() }.disabled(copyingManual)
+                Text("This Help Manual is read-only. Make a copy to edit or add notes.")
+            }
             editorActions
 
             if !statusMessage.isEmpty {
@@ -367,7 +374,7 @@ struct EditorView: View {
             VStack(alignment: .leading, spacing: 12) {
                 renderButton
                 outlineButton
-                insertButton
+                if !isReadOnlyManual { insertButton }
                 fileActionsMenu
             }
         } else {
@@ -378,7 +385,7 @@ struct EditorView: View {
                     Spacer(minLength: 0)
                 }
                 HStack(spacing: 12) {
-                    insertButton
+                    if !isReadOnlyManual { insertButton }
                     fileActionsMenu
                     Spacer(minLength: 0)
                 }
@@ -428,11 +435,13 @@ struct EditorView: View {
         Menu {
             // Each item puts the keyboard away before presenting, so nothing
             // appears underneath it.
-            Button {
-                renameText = displayTitle
-                present { showingRename = true }
-            } label: {
-                Label("Rename Document", systemImage: "pencil")
+            if !isReadOnlyManual {
+                Button {
+                    renameText = displayTitle
+                    present { showingRename = true }
+                } label: {
+                    Label("Rename Document", systemImage: "pencil")
+                }
             }
 
             Button {
@@ -444,7 +453,7 @@ struct EditorView: View {
             Button {
                 pendingFindRequest = UUID()
             } label: {
-                Label("Find and Replace", systemImage: "magnifyingglass")
+                Label(isReadOnlyManual ? "Find" : "Find and Replace", systemImage: "magnifyingglass")
             }
             .keyboardShortcut(shortcut("f", modifiers: .command))
 
@@ -458,24 +467,27 @@ struct EditorView: View {
             }
             .keyboardShortcut(shortcut("j", modifiers: .command))
 
-            Button {
-                present { showingDocumentLanguage = true }
-            } label: {
-                Label("Document Language…", systemImage: "character.book.closed")
-            }
+            if !isReadOnlyManual {
+                Button {
+                    present { showingDocumentLanguage = true }
+                } label: {
+                    Label("Document Language…", systemImage: "character.book.closed")
+                }
 
-            Divider()
+                Divider()
 
-            Button {
-                captureCurrentEditorState()
-                requestSave(announce: true)
-            } label: {
-                Label("Save Now", systemImage: "arrow.down.doc")
-            }
-            .keyboardShortcut(shortcut("s", modifiers: .command))
+                Button {
+                    captureCurrentEditorState()
+                    requestSave(announce: true)
+                } label: {
+                    Label("Save Now", systemImage: "arrow.down.doc")
+                }
+                .keyboardShortcut(shortcut("s", modifiers: .command))
 
-            if let url = fileURL ?? saveController.currentURL {
-                Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
+                if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
+                    Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
+                }
+
             }
 
             Menu {
@@ -490,10 +502,12 @@ struct EditorView: View {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
 
-            Button {
-                duplicate()
-            } label: {
-                Label("Duplicate", systemImage: "doc.on.doc")
+            if !isReadOnlyManual {
+                Button {
+                    duplicate()
+                } label: {
+                    Label("Duplicate", systemImage: "doc.on.doc")
+                }
             }
         } label: {
             Label("File Actions", systemImage: "ellipsis.circle")
@@ -501,7 +515,7 @@ struct EditorView: View {
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
         .accessibilityActions {
-            if let url = fileURL ?? saveController.currentURL {
+            if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
                 Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
             }
         }
@@ -519,6 +533,7 @@ struct EditorView: View {
     private var editor: some View {
         MarkdownTextView(
             session: editorSession,
+            isReadOnly: isReadOnlyManual,
             smartListsEnabled: settings.smartListsEnabled,
             voiceOverVerbosity: settings.voiceOverVerbosity,
             editorFontDesign: settings.editorFontDesign,
@@ -634,6 +649,7 @@ struct EditorView: View {
     }
 
     private func applyIndent(outdent: Bool) {
+        guard !isReadOnlyManual else { return }
         captureCurrentEditorState()
         let result = outdent
             ? Indentation.outdent(text: text, selection: selection, unit: settings.indentUnit)
@@ -652,6 +668,7 @@ struct EditorView: View {
     }
 
     private func beginInsertion() {
+        guard !isReadOnlyManual else { return }
         captureCurrentEditorState()
         insertionSelection = selection
         insertionInitialText = MarkdownInsertion.selectedText(
@@ -786,6 +803,7 @@ struct EditorView: View {
     /// snapshot comes from the serial background buffer so saving never needs
     /// to copy the complete native text view on the main actor.
     private func requestSave(announce shouldAnnounce: Bool) {
+        guard !isReadOnlyManual else { return }
         Task {
             let snapshot = await editorSession.documentBuffer.snapshot()
             saveController.submit(
@@ -807,6 +825,7 @@ struct EditorView: View {
     /// returns. Keep a finite background task alive until the off-main save
     /// transaction completes so responsiveness does not trade away durability.
     private func requestBackgroundSave() {
+        guard !isReadOnlyManual else { return }
         if backgroundSaveIdentifier == .invalid {
             backgroundSaveIdentifier = UIApplication.shared.beginBackgroundTask(
                 withName: "Save open document"
@@ -847,6 +866,7 @@ struct EditorView: View {
     /// Checks as soon as the app returns from Files, rather than waiting for a
     /// later explicit save to reveal the conflict.
     private func checkForExternalChanges() async {
+        guard !isReadOnlyManual else { return }
         guard externalConflict == nil,
               !saveController.isSaving,
               !saveController.hasUnsavedChanges(
@@ -968,6 +988,7 @@ struct EditorView: View {
     }
 
     private func commitRename() {
+        guard !isReadOnlyManual else { return }
         let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -996,6 +1017,25 @@ struct EditorView: View {
             announce("Renamed to \(savedName ?? trimmed).")
         } else {
             announce("Could not rename.")
+        }
+    }
+
+    private func makeManualCopy() {
+        guard isReadOnlyManual, !copyingManual else { return }
+        copyingManual = true
+        Task {
+            defer { copyingManual = false }
+            guard let url = await store.createDocument(named: "Help Manual Copy", contents: text) else {
+                announce("Could not create a copy of the Help Manual.")
+                return
+            }
+            fileURL = url
+            savedName = url.deletingPathExtension().lastPathComponent
+            saveController.currentURL = url
+            saveController.resetSaved(text: text, revision: editorSession.revision)
+            onDocumentURLChange(url)
+            pendingCursorOffset = 0
+            announce("Help Manual copy created. You can now edit it.")
         }
     }
 
