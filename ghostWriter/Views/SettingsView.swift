@@ -13,6 +13,7 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
+    var onReturnToLibrary: () -> Void = {}
     @Environment(DocumentStorage.self) private var storage
     @Environment(DocumentStore.self) private var store
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
@@ -309,7 +310,7 @@ struct SettingsView: View {
             }
         }
         .sheet(isPresented: $showingHelp) {
-            HelpView()
+            HelpView(onReturnToLibrary: onReturnToLibrary)
         }
         .sheet(item: $requestedStorageLocation) { destination in
             ICloudMigrationView(

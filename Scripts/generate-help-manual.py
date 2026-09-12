@@ -12,8 +12,8 @@ source = 'import Foundation\n' + model
 for path in ['ghostWriter/Word/WordExportHelpContent.swift', 'ghostWriter/Export/CompilationHelp.swift']:
     source += '\n' + (root / path).read_text()
 source += r'''
-var manual = "# ghostWriter Markdown Help\n\n"
-manual += "Open Help Manual in the library or use the Help Manual button at the top of Help. The included manual is read-only and stays current with app updates. Choose Make a Copy to create an editable document for your notes. Your copy is separate from this manual.\n\n"
+var manual = "# ghostWriter Help Manual\n\n"
+manual += "Open ghostWriter Help Manual in the library or from the button at the top of Help. The manual is editable immediately, but changes are not saved automatically. When you go Back with changes, choose Save to keep them, Don’t Save to discard them and return to the Library, or Cancel to continue editing. File Actions > Save Now explicitly saves your changes. Previously saved changes remain when you reopen the manual.\n\n"
 func appendTopic(_ topic: HelpTopic, level: Int) {
     manual += String(repeating: "#", count: level) + " " + topic.title + "\n\n"
     manual += topic.paragraphs.joined(separator: "\n\n") + "\n\n"
@@ -39,6 +39,6 @@ with tempfile.TemporaryDirectory(prefix='ghostwriter-manual-') as temporary:
     swift = Path(temporary) / 'main.swift'
     swift.write_text(source)
     output = json.loads(subprocess.check_output(['swift', '-module-cache-path', str(Path(temporary) / 'cache'), str(swift)], text=True))
-for path in ['Documentation/Help.md', 'ghostWriter/Resources/ghostWriter Help.md']:
+for path in ['Documentation/Help.md', 'ghostWriter/Resources/ghostWriter Help Manual.md']:
     (root / path).write_text(output['manual'])
 (root / 'Documentation/Word export.md').write_text(output['word'])

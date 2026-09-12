@@ -26,6 +26,7 @@ final class EditorSaveController {
         let url: URL
     }
 
+    private let requiresExplicitSave: Bool
     private var saveOperation: SaveOperation?
     private var pendingRequest: Request?
     private var saving = false
@@ -40,7 +41,8 @@ final class EditorSaveController {
     var onFailure: ((_ explicitSave: Bool) -> Void)?
     var onExplicitSave: (() -> Void)?
 
-    init(initialText: String, initialRevision: Int = 0, url: URL?) {
+    init(initialText: String, initialRevision: Int = 0, url: URL?, requiresExplicitSave: Bool = false) {
+        self.requiresExplicitSave = requiresExplicitSave
         lastSavedText = initialText
         lastSavedRevision = initialRevision
         latestSubmittedRevision = initialRevision
@@ -59,6 +61,7 @@ final class EditorSaveController {
         announce: Bool,
         whenSettled: (() -> Void)? = nil
     ) {
+        guard HelpManualEditing.permitsSave(isManual: requiresExplicitSave, explicit: announce) else { return }
         if announce { announcementRequested = true }
         if let whenSettled { settlementCallbacks.append(whenSettled) }
 

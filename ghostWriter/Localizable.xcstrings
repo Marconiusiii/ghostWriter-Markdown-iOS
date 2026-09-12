@@ -4,6 +4,9 @@
     "" : {
 
     },
+    "%@ — unavailable" : {
+
+    },
     "%@ and everything inside it will move to Recently Deleted." : {
       "comment" : "LibraryView.swift:352",
       "localizations" : {
@@ -86,6 +89,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@, encabezado de nivel %lld"
+          }
+        }
+      }
+    },
+    "%@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
           }
         }
       }
@@ -334,6 +347,9 @@
           }
         }
       }
+    },
+    "Add JSON files to Word Stylesheets in your library. Standard Word output uses no custom stylesheet." : {
+
     },
     "Additional options" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -699,7 +715,13 @@
         }
       }
     },
+    "Checking stylesheets…" : {
+
+    },
     "Checking Word Stylesheet…" : {
+
+    },
+    "Choose a Word stylesheet when exporting a document or compilation." : {
 
     },
     "Choose an SVG, PNG, or JPG file that was prepared for tactile presentation." : {
@@ -1349,7 +1371,7 @@
         }
       }
     },
-    "Counts Markdown source, including syntax, spaces, and line breaks. Includes all Markdown files in this folder and nested folders, regardless of compilation preferences." : {
+    "Counts Markdown source, including syntax, spaces, and line breaks. Files and folders excluded from compilations are also excluded from these totals. Sentence counts use automatic language analysis of the Markdown source." : {
 
     },
     "Create" : {
@@ -2239,6 +2261,9 @@
         }
       }
     },
+    "Find" : {
+
+    },
     "Find and Replace" : {
       "comment" : "EditorView.swift:488",
       "localizations" : {
@@ -2473,6 +2498,12 @@
           }
         }
       }
+    },
+    "Help Manual" : {
+
+    },
+    "Help Manual in Markdown" : {
+
     },
     "Hidden slides" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -2786,6 +2817,9 @@
         }
       }
     },
+    "JSON copied to clipboard." : {
+
+    },
     "Jump" : {
       "comment" : "EditorView.swift:304",
       "localizations" : {
@@ -3004,6 +3038,9 @@
           }
         }
       }
+    },
+    "Make a Copy" : {
+
     },
     "Manual" : {
 
@@ -3371,6 +3408,9 @@
           }
         }
       }
+    },
+    "Opening Help Manual…" : {
+
     },
     "Opens an in-app email with app and system information included" : {
       "comment" : "SettingsView.swift:251",
@@ -4008,6 +4048,9 @@
         }
       }
     },
+    "Sentences" : {
+
+    },
     "Serif" : {
       "comment" : "AppSettings.swift:83",
       "localizations" : {
@@ -4211,6 +4254,9 @@
           }
         }
       }
+    },
+    "Standard Word output" : {
+
     },
     "Start a New Document" : {
       "comment" : "AppLaunchBehavior.swift:22",
@@ -4933,6 +4979,9 @@
         }
       }
     },
+    "This Help Manual is read-only. Make a copy to edit or add notes." : {
+
+    },
     "This setting describes the document, not the app interface. It is added to exports that support language metadata. Enter a BCP 47 tag, such as es-MX, for a language or regional form not listed." : {
       "comment" : "DocumentLanguageView.swift:83",
       "localizations" : {
@@ -5108,9 +5157,6 @@
         }
       }
     },
-    "Use Word Stylesheet" : {
-
-    },
     "Use YYYY, YYYY-MM, or YYYY-MM-DD for the copyright date." : {
 
     },
@@ -5271,6 +5317,9 @@
         }
       }
     },
+    "Word export" : {
+
+    },
     "Word Import" : {
       "comment" : "LibraryView.swift:361",
       "extractionState" : "stale",
@@ -5282,6 +5331,9 @@
           }
         }
       }
+    },
+    "Word stylesheet" : {
+
     },
     "Words" : {
 

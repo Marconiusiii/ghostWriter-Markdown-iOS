@@ -106,9 +106,10 @@ struct LibraryView: View {
                 if isImporting { ProgressView("Importing documents…") }
                 documentArea
                 if currentFolderURL == nil,
-                   trimmedSearch.isEmpty || "Help Manual".localizedCaseInsensitiveContains(trimmedSearch) {
-                    Button("Help Manual") { showingHelpManual = true }
-                        .accessibilityLabel("Help Manual in Markdown")
+                   !store.documents.contains(where: { $0.url.standardizedFileURL == HelpManualDocument.libraryURL(in: store.directory).standardizedFileURL }),
+                   trimmedSearch.isEmpty || "ghostWriter Help Manual".localizedCaseInsensitiveContains(trimmedSearch) {
+                    Button("ghostWriter Help Manual") { showingHelpManual = true }
+                        .accessibilityLabel("ghostWriter Help Manual")
                 }
                 if canReorder || libraryEditMode.isEditing {
                     FileOrderEditButton(editMode: $libraryEditMode)
@@ -145,7 +146,7 @@ struct LibraryView: View {
         .onChange(of: currentDirectory) { _, _ in libraryEditMode = .inactive }
         .onChange(of: currentSort) { _, _ in libraryEditMode = .inactive }
         .focusedSceneValue(\.newLibraryDocument, canCreateUsingCommand ? { newDocument() } : nil)
-        .sheet(isPresented: $showingHelpManual) { HelpManualView() }
+        .sheet(isPresented: $showingHelpManual) { HelpManualView(onReturnToLibrary: { showingHelpManual = false }) }
         .sheet(item: $countFolder) { folder in FolderCountView(folder: folder) }
         .sheet(item: $compilationFolder) { folder in
             CompilationExportView(directory: folder.url)
@@ -223,7 +224,7 @@ struct LibraryView: View {
             )
         }
         .sheet(isPresented: $showingSettings) {
-            SettingsView()
+            SettingsView(onReturnToLibrary: { showingSettings = false })
         }
         .sheet(isPresented: $showingRecentlyDeleted) {
             RecentlyDeletedView()
@@ -1558,6 +1559,10 @@ struct LibraryView: View {
     }
 
     private func prepareWelcomeDocumentIfNeeded() async {
+        if store.storageAvailable {
+            do { _ = try await HelpManualDocument.installIfNeeded(in: store) }
+            catch { store.lastError = error.localizedDescription }
+        }
         guard !isPreparingWelcomeDocument else { return }
         guard !welcomeExperience.hasInstalledDocument
                 || welcomeExperience.shouldPresent else {

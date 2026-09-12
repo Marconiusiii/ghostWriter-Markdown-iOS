@@ -1,6 +1,6 @@
-# ghostWriter Markdown Help
+# ghostWriter Help Manual
 
-Open Help Manual in the library or use the Help Manual button at the top of Help. The included manual is read-only and stays current with app updates. Choose Make a Copy to create an editable document for your notes. Your copy is separate from this manual.
+Open ghostWriter Help Manual in the library or from the button at the top of Help. The manual is editable immediately, but changes are not saved automatically. When you go Back with changes, choose Save to keep them, Don’t Save to discard them and return to the Library, or Cancel to continue editing. File Actions > Save Now explicitly saves your changes. Previously saved changes remain when you reopen the manual.
 
 ## Markdown and writing
 

@@ -17,7 +17,6 @@ import UIKit
 
 struct MarkdownTextView: UIViewRepresentable {
     let session: EditorTextSession
-    var isReadOnly = false
 
     var smartListsEnabled: Bool
     var voiceOverVerbosity: VoiceOverVerbosity
@@ -46,8 +45,8 @@ struct MarkdownTextView: UIViewRepresentable {
     func makeUIView(context: Context) -> MarkdownEditorTextView {
         let textView = MarkdownEditorTextView.makeTextKit1()
         textView.delegate = context.coordinator
-        textView.isEditable = !isReadOnly
-        textView.activatesOnFirstAppearance = !isReadOnly
+        textView.isEditable = true
+        textView.activatesOnFirstAppearance = true
         textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
         textView.headingSwipeNavigationEnabled = headingSwipeNavigationEnabled
 
@@ -88,7 +87,7 @@ struct MarkdownTextView: UIViewRepresentable {
         textView.accessibilityLabel = "Markdown Editor"
 
         session.attach(textView)
-        textView.inputAccessoryView = isReadOnly ? nil : makeAccessoryToolbar(coordinator: context.coordinator)
+        textView.inputAccessoryView = makeAccessoryToolbar(coordinator: context.coordinator)
         context.coordinator.textView = textView
         textView.onCommittedTextInput = {
             [weak textView, weak coordinator = context.coordinator] committedText in
@@ -148,10 +147,6 @@ struct MarkdownTextView: UIViewRepresentable {
 
     func updateUIView(_ textView: MarkdownEditorTextView, context: Context) {
         context.coordinator.parent = self
-        if textView.isEditable == isReadOnly {
-            textView.isEditable = !isReadOnly
-            textView.inputAccessoryView = isReadOnly ? nil : makeAccessoryToolbar(coordinator: context.coordinator)
-        }
         if textView.appKeyboardShortcutsEnabled != keyboardShortcutsEnabled {
             textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
         }
@@ -174,7 +169,7 @@ struct MarkdownTextView: UIViewRepresentable {
                 if !textView.isFirstResponder {
                     textView.becomeFirstResponder()
                 }
-                textView.findInteraction?.presentFindNavigator(showingReplace: !isReadOnly)
+                textView.findInteraction?.presentFindNavigator(showingReplace: true)
             }
         }
 

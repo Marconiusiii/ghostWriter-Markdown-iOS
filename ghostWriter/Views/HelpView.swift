@@ -2,14 +2,15 @@ import SwiftUI
 import UIKit
 
 struct HelpView: View {
+    var onReturnToLibrary: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
     @State private var showingManual = false
 
     var body: some View {
         NavigationStack {
             List {
-                Button("Help Manual") { showingManual = true }
-                    .accessibilityLabel("Help Manual in Markdown")
+                Button("ghostWriter Help Manual") { showingManual = true }
+                    .accessibilityLabel("ghostWriter Help Manual")
                 ForEach(HelpCategory.all) { category in
                     NavigationLink {
                         HelpCategoryView(category: category)
@@ -18,7 +19,7 @@ struct HelpView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingManual) { HelpManualView() }
+            .sheet(isPresented: $showingManual) { HelpManualView(onReturnToLibrary: onReturnToLibrary) }
             .navigationTitle("Help")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

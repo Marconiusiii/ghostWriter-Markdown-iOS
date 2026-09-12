@@ -65,8 +65,10 @@ struct EditorView: View {
     /// rename the file as the first heading is typed.
     @State private var savedName: String?
 
-    private var isReadOnlyManual: Bool { HelpManualDocument.isBundled(fileURL) }
-    @State private var copyingManual = false
+    private let isHelpManual: Bool
+    @State private var showingManualSavePrompt = false
+    @State private var manualSaveFailed = false
+    @State private var manualSaveInProgress = false
 
     private let draftName: String
     private let onDocumentURLChange: (URL) -> Void
@@ -130,6 +132,7 @@ struct EditorView: View {
         onDocumentURLChange: @escaping (URL) -> Void = { _ in },
         onClose: @escaping (URL) -> Void = { _ in }
     ) {
+        self.isHelpManual = HelpManualDocument.isManual(document.url)
         let documentBuffer = EditorDocumentBuffer(initialText: initialText)
         _fileURL = State(initialValue: document.url)
         _text = State(initialValue: initialText)
@@ -142,7 +145,8 @@ struct EditorView: View {
         _saveController = State(
             initialValue: EditorSaveController(
                 initialText: initialText,
-                url: document.url
+                url: document.url,
+                requiresExplicitSave: HelpManualDocument.isManual(document.url)
             )
         )
         _statusIndex = State(initialValue: nil)
@@ -158,13 +162,31 @@ struct EditorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            editor
+            editor.disabled(manualSaveInProgress)
             if settings.statusBarEnabled, statusIndex != nil {
                 statusBar
             }
         }
         .background(Color.editorBackground)
         .navigationBarHidden(true)
+        .navigationBarBackButtonHidden(isHelpManual)
+        .interactiveDismissDisabled(isHelpManual)
+        .accessibilityAction(.escape) { closeEditor() }
+        .alert("Save changes to ghostWriter Help Manual?", isPresented: $showingManualSavePrompt) {
+            Button("Save") {
+                pendingFileAction = .close
+                requestSave(announce: true)
+            }
+            Button("Don’t Save", role: .destructive) { discardManualChangesAndClose() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Save your changes to the Help document, or choose Don’t Save to discard them and return to the Library.")
+        }
+        .alert("Help Manual could not be saved", isPresented: $manualSaveFailed) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Your changes are still open. Try Save again, or go Back and choose Don’t Save.")
+        }
         .onAppear {
             configureEditorPipelines()
             scheduleStatusUpdate(immediately: true)
@@ -231,7 +253,7 @@ struct EditorView: View {
             DocumentLanguageView(
                 initialTag: currentDocumentLanguage,
                 onSave: { tag in
-                    if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
+                    if !isHelpManual, let url = fileURL ?? saveController.currentURL {
                         libraryMetadata.setDocumentLanguage(tag, for: url)
                     }
                     showingDocumentLanguage = false
@@ -335,12 +357,12 @@ struct EditorView: View {
 
             Text(displayTitle)
                 .contextMenu {
-                    if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
+                    if !isHelpManual, let url = fileURL ?? saveController.currentURL {
                         Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
                     }
                 }
                 .accessibilityActions {
-                    if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
+                    if !isHelpManual, let url = fileURL ?? saveController.currentURL {
                         Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
                     }
                 }
@@ -349,10 +371,6 @@ struct EditorView: View {
                 .accessibilityAddTraits(.isHeader)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            if isReadOnlyManual {
-                Button("Make a Copy") { makeManualCopy() }.disabled(copyingManual)
-                Text("This Help Manual is read-only. Make a copy to edit or add notes.")
-            }
             editorActions
 
             if !statusMessage.isEmpty {
@@ -374,7 +392,7 @@ struct EditorView: View {
             VStack(alignment: .leading, spacing: 12) {
                 renderButton
                 outlineButton
-                if !isReadOnlyManual { insertButton }
+                insertButton
                 fileActionsMenu
             }
         } else {
@@ -385,7 +403,7 @@ struct EditorView: View {
                     Spacer(minLength: 0)
                 }
                 HStack(spacing: 12) {
-                    if !isReadOnlyManual { insertButton }
+                    insertButton
                     fileActionsMenu
                     Spacer(minLength: 0)
                 }
@@ -435,7 +453,7 @@ struct EditorView: View {
         Menu {
             // Each item puts the keyboard away before presenting, so nothing
             // appears underneath it.
-            if !isReadOnlyManual {
+            if !isHelpManual {
                 Button {
                     renameText = displayTitle
                     present { showingRename = true }
@@ -453,7 +471,7 @@ struct EditorView: View {
             Button {
                 pendingFindRequest = UUID()
             } label: {
-                Label(isReadOnlyManual ? "Find" : "Find and Replace", systemImage: "magnifyingglass")
+                Label("Find and Replace", systemImage: "magnifyingglass")
             }
             .keyboardShortcut(shortcut("f", modifiers: .command))
 
@@ -467,7 +485,7 @@ struct EditorView: View {
             }
             .keyboardShortcut(shortcut("j", modifiers: .command))
 
-            if !isReadOnlyManual {
+            if !isHelpManual {
                 Button {
                     present { showingDocumentLanguage = true }
                 } label: {
@@ -484,10 +502,19 @@ struct EditorView: View {
                 }
                 .keyboardShortcut(shortcut("s", modifiers: .command))
 
-                if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
+                if !isHelpManual, let url = fileURL ?? saveController.currentURL {
                     Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
                 }
 
+            }
+
+            if isHelpManual {
+                Button("Save Now") {
+                    captureCurrentEditorState()
+                    requestSave(announce: true)
+                }
+                .keyboardShortcut(shortcut("s", modifiers: .command))
+                .disabled(manualSaveInProgress)
             }
 
             Menu {
@@ -502,7 +529,7 @@ struct EditorView: View {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
 
-            if !isReadOnlyManual {
+            if !isHelpManual {
                 Button {
                     duplicate()
                 } label: {
@@ -515,7 +542,7 @@ struct EditorView: View {
         .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
         .accessibilityActions {
-            if !isReadOnlyManual, let url = fileURL ?? saveController.currentURL {
+            if !isHelpManual, let url = fileURL ?? saveController.currentURL {
                 Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
             }
         }
@@ -533,7 +560,6 @@ struct EditorView: View {
     private var editor: some View {
         MarkdownTextView(
             session: editorSession,
-            isReadOnly: isReadOnlyManual,
             smartListsEnabled: settings.smartListsEnabled,
             voiceOverVerbosity: settings.voiceOverVerbosity,
             editorFontDesign: settings.editorFontDesign,
@@ -649,7 +675,6 @@ struct EditorView: View {
     }
 
     private func applyIndent(outdent: Bool) {
-        guard !isReadOnlyManual else { return }
         captureCurrentEditorState()
         let result = outdent
             ? Indentation.outdent(text: text, selection: selection, unit: settings.indentUnit)
@@ -668,7 +693,6 @@ struct EditorView: View {
     }
 
     private func beginInsertion() {
-        guard !isReadOnlyManual else { return }
         captureCurrentEditorState()
         insertionSelection = selection
         insertionInitialText = MarkdownInsertion.selectedText(
@@ -763,6 +787,7 @@ struct EditorView: View {
             )
         }
         saveController.onConflict = { conflict in
+            manualSaveInProgress = false
             switch conflict {
             case .changed(let externalText):
                 showExternalConflict(.changed(externalText))
@@ -771,6 +796,8 @@ struct EditorView: View {
             }
         }
         saveController.onFailure = { explicitSave in
+            manualSaveInProgress = false
+            if isHelpManual { manualSaveFailed = true }
             pendingFileAction = nil
             finishBackgroundSave()
             if explicitSave { announce("Could not save.") }
@@ -803,13 +830,18 @@ struct EditorView: View {
     /// snapshot comes from the serial background buffer so saving never needs
     /// to copy the complete native text view on the main actor.
     private func requestSave(announce shouldAnnounce: Bool) {
-        guard !isReadOnlyManual else { return }
+        guard HelpManualEditing.permitsSave(isManual: isHelpManual, explicit: shouldAnnounce) else { return }
+        if isHelpManual {
+            guard !manualSaveInProgress else { return }
+            manualSaveInProgress = true
+        }
         Task {
             let snapshot = await editorSession.documentBuffer.snapshot()
             saveController.submit(
                 snapshot,
                 announce: shouldAnnounce
             ) {
+                manualSaveInProgress = false
                 performPendingFileAction()
                 finishBackgroundSave()
 
@@ -825,7 +857,7 @@ struct EditorView: View {
     /// returns. Keep a finite background task alive until the off-main save
     /// transaction completes so responsiveness does not trade away durability.
     private func requestBackgroundSave() {
-        guard !isReadOnlyManual else { return }
+        guard !isHelpManual else { return }
         if backgroundSaveIdentifier == .invalid {
             backgroundSaveIdentifier = UIApplication.shared.beginBackgroundTask(
                 withName: "Save open document"
@@ -866,7 +898,7 @@ struct EditorView: View {
     /// Checks as soon as the app returns from Files, rather than waiting for a
     /// later explicit save to reveal the conflict.
     private func checkForExternalChanges() async {
-        guard !isReadOnlyManual else { return }
+        guard !isHelpManual else { return }
         guard externalConflict == nil,
               !saveController.isSaving,
               !saveController.hasUnsavedChanges(
@@ -958,7 +990,14 @@ struct EditorView: View {
     /// still has local work outstanding. That would make Cancel on a conflict
     /// alert meaningless and discard the in-memory version when the view closes.
     private func closeEditor() {
-        captureCurrentEditorState(publishingChanges: false)
+        guard !manualSaveInProgress else { return }
+        let current = captureCurrentEditorState(publishingChanges: false)
+        if isHelpManual {
+            if HelpManualEditing.needsSavePrompt(current: current.text, saved: saveController.lastSavedText) {
+                showingManualSavePrompt = true
+            } else { finishClosingEditor() }
+            return
+        }
         pendingFileAction = .close
         guard saveController.isSaving
                 || saveController.hasUnsavedChanges(
@@ -988,7 +1027,7 @@ struct EditorView: View {
     }
 
     private func commitRename() {
-        guard !isReadOnlyManual else { return }
+        guard !isHelpManual else { return }
         let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -1020,23 +1059,13 @@ struct EditorView: View {
         }
     }
 
-    private func makeManualCopy() {
-        guard isReadOnlyManual, !copyingManual else { return }
-        copyingManual = true
-        Task {
-            defer { copyingManual = false }
-            guard let url = await store.createDocument(named: "Help Manual Copy", contents: text) else {
-                announce("Could not create a copy of the Help Manual.")
-                return
-            }
-            fileURL = url
-            savedName = url.deletingPathExtension().lastPathComponent
-            saveController.currentURL = url
-            saveController.resetSaved(text: text, revision: editorSession.revision)
-            onDocumentURLChange(url)
-            pendingCursorOffset = 0
-            announce("Help Manual copy created. You can now edit it.")
-        }
+    private func discardManualChangesAndClose() {
+        saveController.cancelPending()
+        pendingFileAction = nil
+        editorSession.replaceText(saveController.lastSavedText, selection: TextSelection(location: 0, length: 0))
+        acceptSnapshot(editorSession.snapshot())
+        saveController.resetSaved(text: text, revision: editorSession.revision)
+        finishClosingEditor()
     }
 
     private func duplicate() {
@@ -1069,7 +1098,12 @@ struct EditorView: View {
 
         switch action {
         case .close:
-            finishClosingEditor()
+            // If typing continued while the explicit write was completing,
+            // keep those newer edits open rather than dismissing them.
+            if isHelpManual,
+               HelpManualEditing.needsSavePrompt(current: editorSession.snapshot().text, saved: saveController.lastSavedText) {
+                showingManualSavePrompt = true
+            } else { finishClosingEditor() }
         case .rename(let name):
             finishRename(name)
         case .duplicate:
