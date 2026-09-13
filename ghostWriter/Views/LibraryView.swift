@@ -17,9 +17,6 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
-#if DEBUG
-import OSLog
-#endif
 
 struct LibraryView: View {
     @Environment(DocumentStorage.self) private var storage
@@ -29,7 +26,6 @@ struct LibraryView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
-    @AccessibilityFocusState(for: .voiceOver) private var focusedDocumentURL: URL?
 
     @State private var iCloudMonitor = ICloudDocumentMonitor()
     @State private var searchText = ""
@@ -144,24 +140,17 @@ struct LibraryView: View {
                 }
             }
 
-            .onChange(of: documentPath) { oldPath, path in
-                traceRenderFocus("navigation-path-changed", documentURL: (path.last ?? oldPath.last)?.documentURL)
+            .onChange(of: documentPath) { _, path in
                 if !path.isEmpty {
                     suspendLibraryActivityForDocumentPresentation()
                 } else {
                     openedDocument = nil
-                    if case .editor(let url)? = oldPath.last {
-                        restoreDocumentRowFocus(to: url)
-                    }
                     libraryActivityTask = Task {
                         await resumeLibraryActivityAfterDocumentPresentation()
                         guard !Task.isCancelled else { return }
                         guard libraryIsActive else { return }
                     }
                 }
-            }
-            .onChange(of: focusedDocumentURL) { oldURL, newURL in
-                traceRenderFocus("focus-state-changed", documentURL: newURL, previousFocusURL: oldURL)
             }
             .onChange(of: searchText) { _, _ in
                 libraryEditMode = .inactive
@@ -775,16 +764,13 @@ struct LibraryView: View {
         _ presentation: LibraryDocumentPresentation
     ) -> some View {
         let document = presentation.document
-        let primaryRow = Button {
-            open(document)
-        } label: {
+        let primaryRow = NavigationLink(value: LibraryDocumentDestination.editor(document.url)) {
             DocumentRow(presentation: presentation)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(presentation.accessibilityLabel)
         .accessibilityHint(presentation.accessibilityHint)
-        .accessibilityFocused($focusedDocumentURL, equals: document.url)
 
         let commonActions = primaryRow
             .accessibilityActions {
@@ -1104,12 +1090,10 @@ struct LibraryView: View {
     }
 
     private func render(_ document: Document) {
-        traceRenderFocus("render-command", documentURL: document.url)
         perform(.render, with: document)
     }
 
     private func renderAvailable(_ document: Document) {
-        traceRenderFocus("render-load-start", documentURL: document.url)
         guard libraryIsActive else { return }
         Task {
             guard let text = try? await store.textAsynchronously(for: document) else {
@@ -1128,43 +1112,7 @@ struct LibraryView: View {
                 documentURL: document.url
             )
             documentPath.append(.render(session))
-            traceRenderFocus("render-present-requested", documentURL: document.url)
         }
-    }
-
-    private func restoreDocumentRowFocus(to url: URL) {
-        if voiceOverEnabled, libraryIsActive,
-           visibleDocuments.contains(where: { $0.url == url }) {
-            traceRenderFocus("return-focus-request", documentURL: url)
-            focusedDocumentURL = url
-            traceRenderFocus("return-focus-assigned", documentURL: url)
-        } else {
-            traceRenderFocus("return-focus-skipped", documentURL: url)
-        }
-    }
-
-    private func traceRenderFocus(
-        _ event: String,
-        documentURL: URL? = nil,
-        previousFocusURL: URL? = nil
-    ) {
-        #if DEBUG
-        let describe = LibraryRenderFocusDiagnostics.documentID
-        let details = [
-            "event=\(event)",
-            "document=\(describe(documentURL))",
-            "origin=\(describe(renderingSession?.documentURL))",
-            "session=\(describe(renderingSession?.documentURL))",
-            "focus=\(describe(focusedDocumentURL))",
-            "previousFocus=\(describe(previousFocusURL))",
-            "navigationPath=\(describe(documentPath.last?.documentURL))",
-            "preparedEditor=\(describe(openedDocument?.document.url))",
-            "rowPresent=\(visibleDocuments.contains(where: { $0.url == documentURL }))",
-            "voiceOver=\(voiceOverEnabled)",
-            "libraryActive=\(libraryIsActive)"
-        ].joined(separator: " ")
-        LibraryRenderFocusDiagnostics.log(details)
-        #endif
     }
 
     /// Uses the writer's selected New Document flow. Asking for a title remains
@@ -1625,7 +1573,6 @@ struct LibraryView: View {
     /// Keep Library updates and announcements paused while a document is open
     /// for editing or rendering, preserving the originating rows.
     private func beginEditing(_ session: DocumentSession) {
-        focusedDocumentURL = nil
         suspendLibraryActivityForDocumentPresentation()
         openedDocument = session
         documentPath = [.editor(session.document.url)]
@@ -1863,31 +1810,3 @@ private enum LibraryDocumentDestination: Hashable {
         }
     }
 }
-
-#if DEBUG
-/// Diagnostic IDs persist for this app process without changing SwiftUI state.
-/// No document names, paths, or contents are written to the log.
-@MainActor
-private enum LibraryRenderFocusDiagnostics {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "ghostWriter",
-        category: "LibraryRenderFocus"
-    )
-    private static var documentIDs: [URL: Int] = [:]
-    private static var sequence = 0
-
-    static func documentID(_ url: URL?) -> String {
-        guard let url else { return "none" }
-        let key = url.standardizedFileURL
-        if let id = documentIDs[key] { return "doc-\(id)" }
-        let id = documentIDs.count + 1
-        documentIDs[key] = id
-        return "doc-\(id)"
-    }
-
-    static func log(_ details: String) {
-        sequence += 1
-        logger.debug("[LibraryRenderFocus] #\(sequence) \(details, privacy: .public)")
-    }
-}
-#endif
