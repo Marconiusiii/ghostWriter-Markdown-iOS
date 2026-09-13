@@ -41,6 +41,7 @@ struct LibraryView: View {
     @State private var shareItems: [Any] = []
     @State private var showingShare = false
     @State private var openedDocument: DocumentSession?
+    @State private var documentPath: [URL] = []
     @State private var showingNewDocument = false
     @State private var showingNewFolder = false
     @State private var showingImporter = false
@@ -59,7 +60,8 @@ struct LibraryView: View {
     @State private var appLaunchActionGate = AppLaunchActionGate()
     @State private var welcomeExperience = WelcomeExperience()
     @State private var showingWelcome = false
-    @State private var showingHelpManual = false
+    @State private var pendingHelpManual = false
+    @State private var preparingHelpManual = false
     @State private var welcomeDocumentURL: URL?
     @State private var welcomePreparationFailed = false
     @State private var isPreparingWelcomeDocument = false
@@ -100,7 +102,7 @@ struct LibraryView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $documentPath) {
             List {
                 header
                 if isImporting { ProgressView("Importing documents…") }
@@ -108,7 +110,8 @@ struct LibraryView: View {
                 if currentFolderURL == nil,
                    !store.documents.contains(where: { $0.url.standardizedFileURL == HelpManualDocument.libraryURL(in: store.directory).standardizedFileURL }),
                    trimmedSearch.isEmpty || "ghostWriter Help Manual".localizedCaseInsensitiveContains(trimmedSearch) {
-                    Button("ghostWriter Help Manual") { showingHelpManual = true }
+                    Button("ghostWriter Help Manual") { openHelpManualFromLibrary() }
+                        .disabled(preparingHelpManual)
                         .accessibilityLabel("ghostWriter Help Manual")
                 }
                 if canReorder || libraryEditMode.isEditing {
@@ -123,18 +126,19 @@ struct LibraryView: View {
             // The heading below is the screen's title, so the bar is hidden
             // rather than duplicating it above the content.
             .navigationBarHidden(true)
-            .navigationDestination(item: $openedDocument) { session in
-                EditorView(document: session.document, initialText: session.text)
+            .navigationDestination(for: URL.self) { url in
+                LibraryEditorDestination(url: url, preparedSession: openedDocument)
             }
 
-            .onChange(of: openedDocument) { _, value in
-                if value != nil {
+            .onChange(of: documentPath) { _, path in
+                if !path.isEmpty {
                     suspendLibraryActivityForEditing()
                 } else {
+                    openedDocument = nil
                     libraryActivityTask = Task {
                         await resumeLibraryActivityAfterEditing()
                         guard !Task.isCancelled else { return }
-                        guard openedDocument == nil else { return }
+                        guard documentPath.isEmpty else { return }
                     }
                 }
             }
@@ -146,7 +150,6 @@ struct LibraryView: View {
         .onChange(of: currentDirectory) { _, _ in libraryEditMode = .inactive }
         .onChange(of: currentSort) { _, _ in libraryEditMode = .inactive }
         .focusedSceneValue(\.newLibraryDocument, canCreateUsingCommand ? { newDocument() } : nil)
-        .sheet(isPresented: $showingHelpManual) { HelpManualView(onReturnToLibrary: { showingHelpManual = false }) }
         .sheet(item: $countFolder) { folder in FolderCountView(folder: folder) }
         .sheet(item: $compilationFolder) { folder in
             CompilationExportView(directory: folder.url)
@@ -168,18 +171,18 @@ struct LibraryView: View {
             await configureSelectedStorage()
         }
         .task(id: libraryPresentationIdentity) {
-            guard openedDocument == nil else { return }
+            guard documentPath.isEmpty else { return }
             rebuildLibraryPresentation()
         }
         .onChange(of: iCloudMonitor.revision) { _, _ in
-            guard openedDocument == nil,
+            guard documentPath.isEmpty,
                   storage.selectedLocation == .iCloud else { return }
             libraryActivityTask?.cancel()
             libraryActivityTask = Task {
                 await store.applyICloudSnapshotAsynchronously(
                     iCloudMonitor.snapshots
                 )
-                guard !Task.isCancelled, openedDocument == nil else { return }
+                guard !Task.isCancelled, documentPath.isEmpty else { return }
                 await prepareWelcomeDocumentIfNeeded()
                 performAppLaunchBehaviorIfReady()
             }
@@ -187,8 +190,8 @@ struct LibraryView: View {
         .onChange(of: store.documents) { _, _ in
             completePendingDocumentActions()
         }
-        .task(id: openedDocument == nil ? searchSources : []) {
-            guard openedDocument == nil else { return }
+        .task(id: documentPath.isEmpty ? searchSources : []) {
+            guard documentPath.isEmpty else { return }
             let sources = searchSources
             let buildTask = Task.detached(priority: .utility) {
                 DocumentSearchIndex.build(from: sources)
@@ -198,7 +201,7 @@ struct LibraryView: View {
             } onCancel: {
                 buildTask.cancel()
             }
-            guard !Task.isCancelled, openedDocument == nil else { return }
+            guard !Task.isCancelled, documentPath.isEmpty else { return }
             searchIndex = rebuilt
             searchIndexRevision &+= 1
             if !trimmedSearch.isEmpty {
@@ -206,7 +209,7 @@ struct LibraryView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active, openedDocument == nil {
+            if phase == .active, documentPath.isEmpty {
                 libraryActivityTask?.cancel()
                 libraryActivityTask = Task {
                     await configureSelectedStorage()
@@ -223,8 +226,13 @@ struct LibraryView: View {
                 onContinue: continueFromWelcome
             )
         }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView(onReturnToLibrary: { showingSettings = false })
+        .sheet(isPresented: $showingSettings, onDismiss: {
+            if pendingHelpManual {
+                pendingHelpManual = false
+                openHelpManualFromLibrary()
+            }
+        }) {
+            SettingsView(onOpenHelpManual: { pendingHelpManual = true })
         }
         .sheet(isPresented: $showingRecentlyDeleted) {
             RecentlyDeletedView()
@@ -748,9 +756,7 @@ struct LibraryView: View {
         _ presentation: LibraryDocumentPresentation
     ) -> some View {
         let document = presentation.document
-        let primaryRow = Button {
-            open(document)
-        } label: {
+        let primaryRow = NavigationLink(value: document.url) {
             DocumentRow(presentation: presentation)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -959,7 +965,7 @@ struct LibraryView: View {
     }
 
     private func rebuildLibraryPresentation() {
-        libraryPresentation = LibraryPresentationSnapshot.build(
+        let updated = LibraryPresentationSnapshot.build(
             documents: store.documents,
             folders: store.folders,
             currentDirectory: currentDirectory,
@@ -968,6 +974,7 @@ struct LibraryView: View {
             sort: currentSort,
             metadata: libraryMetadata
         )
+        if updated != libraryPresentation { libraryPresentation = updated }
     }
 
     private var currentFolderHeading: String {
@@ -996,6 +1003,27 @@ struct LibraryView: View {
     }
 
     // MARK: - Actions
+
+    private func openHelpManualFromLibrary() {
+        guard !preparingHelpManual else { return }
+        preparingHelpManual = true
+        Task {
+            defer { preparingHelpManual = false }
+            do {
+                let url = try await HelpManualDocument.installIfNeeded(in: store)
+                await store.refreshAsynchronously()
+                guard let document = store.documents.first(where: { $0.url == url }) ?? Document(fileURL: url) else {
+                    throw WordThemeError.invalid("The ghostWriter Help Manual could not be opened.")
+                }
+                currentFolderURL = nil
+                searchText = ""
+                searchFocused = false
+                libraryEditMode = .inactive
+                rebuildLibraryPresentation()
+                open(document)
+            } catch { store.lastError = error.localizedDescription }
+        }
+    }
 
     private func open(_ document: Document) {
         perform(.open, with: document)
@@ -1052,10 +1080,10 @@ struct LibraryView: View {
     /// the default; the date option skips the naming sheet and uses the same
     /// safe creation path directly.
     private var canCreateUsingCommand: Bool {
-        settings.keyboardShortcutsEnabled && store.storageAvailable && openedDocument == nil
+        settings.keyboardShortcutsEnabled && store.storageAvailable && documentPath.isEmpty
             && !showingNewDocument && !showingNewFolder && !showingSettings
             && !showingRecentlyDeleted && !showingImporter && !showingPowerPointImportOptions
-            && !showingWelcome && !showingHelpManual && !showingShare && !isImporting
+            && !showingWelcome && !preparingHelpManual && !showingShare && !isImporting
             && countFolder == nil && compilationFolder == nil && renderingSession == nil
             && renamingDocument == nil && renamingFolder == nil && movingItem == nil
             && pendingDeletion == nil && pendingFolderDeletion == nil
@@ -1464,14 +1492,14 @@ struct LibraryView: View {
 
     private func configureSelectedStorage() async {
         iCloudMonitor.stop()
-        guard openedDocument == nil else { return }
+        guard documentPath.isEmpty else { return }
         if configuredStorageLocation != storage.selectedLocation {
             currentFolderURL = nil
             configuredStorageLocation = storage.selectedLocation
         }
 
         let directory = await storage.prepareCurrentLocation()
-        guard openedDocument == nil else {
+        guard documentPath.isEmpty else {
             iCloudMonitor.stop()
             return
         }
@@ -1509,6 +1537,7 @@ struct LibraryView: View {
     private func beginEditing(_ session: DocumentSession) {
         suspendLibraryActivityForEditing()
         openedDocument = session
+        documentPath = [session.document.url]
     }
 
     private func suspendLibraryActivityForEditing() {
@@ -1521,8 +1550,16 @@ struct LibraryView: View {
     }
 
     private func resumeLibraryActivityAfterEditing() async {
-        guard openedDocument == nil else { return }
-        await configureSelectedStorage()
+        guard documentPath.isEmpty else { return }
+        // Returning through a native link keeps the existing Library and rows.
+        // Reconfigure storage only if the storage choice actually changed.
+        if configuredStorageLocation != storage.selectedLocation {
+            await configureSelectedStorage()
+        } else {
+            if storage.selectedLocation == .iCloud { iCloudMonitor.start(rootDirectory: store.directory) }
+            await store.refreshAsynchronously()
+        }
+        guard documentPath.isEmpty else { return }
         rebuildLibraryPresentation()
     }
 

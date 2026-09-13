@@ -348,9 +348,6 @@
         }
       }
     },
-    "Add JSON files to Word Stylesheets in your library. Standard Word output uses no custom stylesheet." : {
-
-    },
     "Additional options" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
       "extractionState" : "manual"
@@ -719,9 +716,6 @@
 
     },
     "Checking Word Stylesheet…" : {
-
-    },
-    "Choose a Word stylesheet when exporting a document or compilation." : {
 
     },
     "Choose an SVG, PNG, or JPG file that was prepared for tactile presentation." : {
@@ -1758,6 +1752,9 @@
         }
       }
     },
+    "Don’t Save" : {
+
+    },
     "Done" : {
       "comment" : "MarkdownReferenceView.swift:42",
       "localizations" : {
@@ -2261,9 +2258,6 @@
         }
       }
     },
-    "Find" : {
-
-    },
     "Find and Replace" : {
       "comment" : "EditorView.swift:488",
       "localizations" : {
@@ -2362,6 +2356,9 @@
           }
         }
       }
+    },
+    "ghostWriter Help Manual" : {
+
     },
     "ghostWriter includes a Welcome document in your Library. Open it to read, edit, and render examples of the Markdown supported by the app." : {
       "comment" : "WelcomeView.swift:29",
@@ -2499,10 +2496,7 @@
         }
       }
     },
-    "Help Manual" : {
-
-    },
-    "Help Manual in Markdown" : {
+    "Help Manual could not be saved" : {
 
     },
     "Hidden slides" : {
@@ -3039,9 +3033,6 @@
         }
       }
     },
-    "Make a Copy" : {
-
-    },
     "Manual" : {
 
     },
@@ -3409,7 +3400,7 @@
         }
       }
     },
-    "Opening Help Manual…" : {
+    "Opening document…" : {
 
     },
     "Opens an in-app email with app and system information included" : {
@@ -3959,6 +3950,9 @@
         }
       }
     },
+    "Save changes to ghostWriter Help Manual?" : {
+
+    },
     "Save Mine as a Copy" : {
       "comment" : "EditorView.swift:343",
       "localizations" : {
@@ -3980,6 +3974,9 @@
           }
         }
       }
+    },
+    "Save your changes to the Help document, or choose Don’t Save to discard them and return to the Library." : {
+
     },
     "Search" : {
       "comment" : "LibraryView.swift:503",
@@ -4979,9 +4976,6 @@
         }
       }
     },
-    "This Help Manual is read-only. Make a copy to edit or add notes." : {
-
-    },
     "This setting describes the document, not the app interface. It is added to exports that support language metadata. Enter a BCP 47 tag, such as es-MX, for a language or regional form not listed." : {
       "comment" : "DocumentLanguageView.swift:83",
       "localizations" : {
@@ -5336,6 +5330,9 @@
 
     },
     "Words" : {
+
+    },
+    "Your changes are still open. Try Save again, or go Back and choose Don’t Save." : {
 
     },
     "Your documents are stored in the ghostWriter folder, which you can open in the Files app." : {

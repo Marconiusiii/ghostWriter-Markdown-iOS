@@ -13,7 +13,7 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
-    var onReturnToLibrary: () -> Void = {}
+    var onOpenHelpManual: () -> Void = {}
     @Environment(DocumentStorage.self) private var storage
     @Environment(DocumentStore.self) private var store
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
@@ -21,6 +21,7 @@ struct SettingsView: View {
     @Environment(SupportStore.self) private var supportStore
     @Environment(\.dismiss) private var dismiss
     @State private var showingHelp = false
+    @State private var openingHelpManual = false
     @State private var showingWhyGhostWriter = false
     @State private var showingAcknowledgements = false
     @State private var showingStatusBarSettings = false
@@ -142,7 +143,7 @@ struct SettingsView: View {
                         .accessibilityElement(children: .contain)
                         .accessibilityLabel("Thematic separator")
                     }
-                    Text("Choose a Word stylesheet when exporting a document or compilation.")
+                    WordStylesheetPicker(selection: $settings.wordStylesheetFilename)
                 } header: {
                     Text("Export")
                 }
@@ -309,8 +310,14 @@ struct SettingsView: View {
                 )
             }
         }
-        .sheet(isPresented: $showingHelp) {
-            HelpView(onReturnToLibrary: onReturnToLibrary)
+        .sheet(isPresented: $showingHelp, onDismiss: {
+            if openingHelpManual {
+                openingHelpManual = false
+                onOpenHelpManual()
+                dismiss()
+            }
+        }) {
+            HelpView(onOpenHelpManual: { openingHelpManual = true })
         }
         .sheet(item: $requestedStorageLocation) { destination in
             ICloudMigrationView(

@@ -15,7 +15,7 @@
 import SwiftUI
 import UIKit
 
-struct MarkdownTextView: UIViewRepresentable {
+struct MarkdownTextView: UIViewControllerRepresentable {
     let session: EditorTextSession
 
     var smartListsEnabled: Bool
@@ -33,7 +33,7 @@ struct MarkdownTextView: UIViewRepresentable {
 
     /// Keyboard accessory actions. These are supplied by the editor screen and
     /// attached to the text view as its input accessory view, which is the only
-    /// placement that reliably reaches a UIViewRepresentable — SwiftUI's
+    /// placement that reliably reaches this hosted UIKit editor — SwiftUI's
     /// `.keyboard` toolbar placement does not apply to a hosted UIKit view.
     var onIndent: () -> Void = {}
     var onOutdent: () -> Void = {}
@@ -42,11 +42,14 @@ struct MarkdownTextView: UIViewRepresentable {
         EditorCoordinator(self)
     }
 
-    func makeUIView(context: Context) -> MarkdownEditorTextView {
+    func makeUIViewController(context: Context) -> MarkdownEditorViewController {
+        MarkdownEditorViewController(textView: makeTextView(context: context))
+    }
+
+    private func makeTextView(context: Context) -> MarkdownEditorTextView {
         let textView = MarkdownEditorTextView.makeTextKit1()
         textView.delegate = context.coordinator
         textView.isEditable = true
-        textView.activatesOnFirstAppearance = true
         textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
         textView.headingSwipeNavigationEnabled = headingSwipeNavigationEnabled
 
@@ -145,7 +148,8 @@ struct MarkdownTextView: UIViewRepresentable {
         return toolbar
     }
 
-    func updateUIView(_ textView: MarkdownEditorTextView, context: Context) {
+    func updateUIViewController(_ controller: MarkdownEditorViewController, context: Context) {
+        let textView = controller.textView
         context.coordinator.parent = self
         if textView.appKeyboardShortcutsEnabled != keyboardShortcutsEnabled {
             textView.appKeyboardShortcutsEnabled = keyboardShortcutsEnabled
@@ -185,8 +189,9 @@ struct MarkdownTextView: UIViewRepresentable {
             )
             let target = NSRange(location: utf16Offset, length: 0)
 
-            // A deliberate cursor command resumes editing at the requested position.
-            if !textView.isFirstResponder {
+            // Initial restoration sets selection before presentation. Later
+            // cursor commands resume editing only after the controller appeared.
+            if controller.hasAppeared, !textView.isFirstResponder {
                 textView.becomeFirstResponder()
             }
 
@@ -265,22 +270,29 @@ struct MarkdownTextView: UIViewRepresentable {
     }
 }
 
-final class MarkdownEditorTextView: UITextView {
-    var activatesOnFirstAppearance = false
-    private var hasActivatedOnAppearance = false
+/// Native controller lifecycle separates becoming visible from joining a window.
+final class MarkdownEditorViewController: UIViewController {
+    let textView: MarkdownEditorTextView
+    private(set) var hasAppeared = false
 
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        guard window != nil, activatesOnFirstAppearance, !hasActivatedOnAppearance else { return }
-        // A new editor may be attached before SwiftUI finishes presenting it.
-        // Request native editing once it belongs to a window, regardless of
-        // whether a saved cursor position exists. Never assign VoiceOver focus.
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.window != nil, self.isEditable, !self.hasActivatedOnAppearance else { return }
-            self.hasActivatedOnAppearance = self.becomeFirstResponder()
-        }
+    init(textView: MarkdownEditorTextView) {
+        self.textView = textView
+        super.init(nibName: nil, bundle: nil)
     }
 
+    required init?(coder: NSCoder) { fatalError("Use init(textView:)") }
+
+    override func loadView() { view = textView }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !hasAppeared else { return }
+        hasAppeared = true
+        textView.becomeFirstResponder()
+    }
+}
+
+final class MarkdownEditorTextView: UITextView {
     static let headingFeedbackNotification: UIAccessibility.Notification = .announcement
 
     /// Builds the editor on TextKit 1 instead of the TextKit 2 stack that

@@ -2,7 +2,7 @@
 //  DocumentRow.swift
 //  ghostWriter
 //
-//  One file in the library. LibraryView places this content inside one button
+//  One file in the library. LibraryView places this content inside a native NavigationLink
 //  that opens the editor and carries the document's accessibility actions.
 //
 //  The accessibility label is written as a single sentence rather than letting
