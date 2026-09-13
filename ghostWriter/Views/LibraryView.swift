@@ -25,6 +25,7 @@ struct LibraryView: View {
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     @State private var iCloudMonitor = ICloudDocumentMonitor()
     @State private var searchText = ""
@@ -704,28 +705,32 @@ struct LibraryView: View {
 
         let leadingSwipeRow = accessibleRow
             .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                Button {
-                    beginRename(folder)
-                } label: {
-                    Label("Rename", systemImage: "pencil")
+                if !voiceOverEnabled {
+                    Button {
+                        beginRename(folder)
+                    } label: {
+                        Label("Rename", systemImage: "pencil")
+                    }
+                    .tint(Color.controlFill)
                 }
-                .tint(Color.controlFill)
             }
 
         let swipeRow = leadingSwipeRow
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                Button(role: .destructive) {
-                    beginDelete(folder)
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
+                if !voiceOverEnabled {
+                    Button(role: .destructive) {
+                        beginDelete(folder)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
 
-                Button {
-                    beginMove(.folder(folder))
-                } label: {
-                    Label("Move", systemImage: "folder")
+                    Button {
+                        beginMove(.folder(folder))
+                    } label: {
+                        Label("Move", systemImage: "folder")
+                    }
+                    .tint(Color.controlFill)
                 }
-                .tint(Color.controlFill)
             }
 
         return swipeRow.contextMenu {
@@ -764,6 +769,16 @@ struct LibraryView: View {
 
         let commonActions = primaryRow
             .accessibilityActions {
+                if voiceOverEnabled {
+                    Button(presentation.isPinned ? "Unpin" : "Pin") {
+                        togglePin(document)
+                    }
+                    if case .failed = document.availability {
+                        Button("Retry Download") {
+                            retryDownload(document)
+                        }
+                    }
+                }
                 if store.usesICloudStorage {
                     Button("Sync") {
                         synchronize(document)
@@ -794,40 +809,44 @@ struct LibraryView: View {
 
         let leadingSwipeRow = accessibleRow
             .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                Button {
-                    togglePin(document)
-                } label: {
-                    Label(
-                        presentation.isPinned ? "Unpin" : "Pin",
-                        systemImage: presentation.isPinned ? "pin.slash" : "pin"
-                    )
-                }
-                .tint(Color.controlFill)
-
-                if case .failed = document.availability {
+                if !voiceOverEnabled {
                     Button {
-                        retryDownload(document)
+                        togglePin(document)
                     } label: {
-                        Label("Retry Download", systemImage: "arrow.clockwise")
+                        Label(
+                            presentation.isPinned ? "Unpin" : "Pin",
+                            systemImage: presentation.isPinned ? "pin.slash" : "pin"
+                        )
                     }
                     .tint(Color.controlFill)
+
+                    if case .failed = document.availability {
+                        Button {
+                            retryDownload(document)
+                        } label: {
+                            Label("Retry Download", systemImage: "arrow.clockwise")
+                        }
+                        .tint(Color.controlFill)
+                    }
                 }
             }
 
         let swipeRow = leadingSwipeRow
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                Button(role: .destructive) {
-                    beginDelete(document)
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
+                if !voiceOverEnabled {
+                    Button(role: .destructive) {
+                        beginDelete(document)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
 
-                Button {
-                    share(document)
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
+                    Button {
+                        share(document)
+                    } label: {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                    .tint(Color.controlFill)
                 }
-                .tint(Color.controlFill)
             }
 
         return swipeRow.contextMenu {

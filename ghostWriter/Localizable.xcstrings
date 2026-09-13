@@ -1860,6 +1860,7 @@
     },
     "Edit defaults" : {
       "comment" : "SettingsView.swift:213",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -3577,6 +3578,7 @@
     },
     "Plays a tone when a document is rendered" : {
       "comment" : "SettingsView.swift:205",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4058,6 +4060,9 @@
           }
         }
       }
+    },
+    "Set eBraille Defaults" : {
+
     },
     "Settings" : {
       "comment" : "LibraryView.swift:386",
