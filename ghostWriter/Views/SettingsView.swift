@@ -177,9 +177,8 @@ struct SettingsView: View {
                 }
 
                 Section("VoiceOver Settings") {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text("Verbosity")
-                            .font(.headline)
                             .accessibilityHidden(true)
 
                         Picker(
@@ -190,10 +189,10 @@ struct SettingsView: View {
                                 Text(verbosity.label).tag(verbosity)
                             }
                         }
-                        .pickerStyle(.segmented)
+                        .pickerStyle(.wheel)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Verbosity")
                     }
-                    .accessibilityElement(children: .contain)
-                    .accessibilityLabel("Verbosity")
                     Toggle("Heading Swipe Navigation", isOn: $settings.headingSwipeNavigationEnabled)
                         .ghostFilledControlTint()
                 }
@@ -243,13 +242,12 @@ struct SettingsView: View {
                 Section {
                     Toggle("Render Sound", isOn: $settings.renderSoundEnabled)
                         .ghostFilledControlTint()
-                        .accessibilityHint("Plays a tone when a document is rendered")
                 } header: {
                     Text("Sound")
                 }
 
                 Section {
-                    NavigationLink("Edit defaults") {
+                    NavigationLink("Set eBraille Defaults") {
                         EBrailleMetadataSettingsView()
                     }
                 } header: {

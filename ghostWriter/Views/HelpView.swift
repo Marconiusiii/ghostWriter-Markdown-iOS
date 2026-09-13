@@ -223,7 +223,7 @@ struct HelpCategory: Identifiable {
                         "When App Opens chooses whether to begin in the Library, a new document, or your last document. When Starting a New Document chooses whether to ask for a name or use today’s date.",
                         "Editing contains Indentation, Automatic Lists, and Keyboard Shortcuts. VoiceOver Settings controls editing feedback and heading navigation; see VoiceOver for details.",
                         "Appearance contains Theme and Editor Font. Status Bar displays document information below the editor; Customize Status Bar chooses what it shows. Render Sound plays when rendering and follows the device’s silent switch.",
-                        "Export contains Use smart punctuation and Thematic separator. Choose a Word stylesheet in the Word export flow. Their Help topics explain what they change. Edit defaults under eBraille metadata supplies information for new exports."
+                        "Export contains Use smart punctuation and Thematic separator. Choose a Word stylesheet in the Word export flow. Their Help topics explain what they change. Set eBraille Defaults under eBraille metadata supplies information for new exports."
                     ]
                 )
             ]

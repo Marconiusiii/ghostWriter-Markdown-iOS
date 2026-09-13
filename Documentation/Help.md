@@ -122,7 +122,7 @@ Editing contains Indentation, Automatic Lists, and Keyboard Shortcuts. VoiceOver
 
 Appearance contains Theme and Editor Font. Status Bar displays document information below the editor; Customize Status Bar chooses what it shows. Render Sound plays when rendering and follows the device’s silent switch.
 
-Export contains Use smart punctuation and Thematic separator. Choose a Word stylesheet in the Word export flow. Their Help topics explain what they change. Edit defaults under eBraille metadata supplies information for new exports.
+Export contains Use smart punctuation and Thematic separator. Choose a Word stylesheet in the Word export flow. Their Help topics explain what they change. Set eBraille Defaults under eBraille metadata supplies information for new exports.
 
 ## Sharing and compilations
 
