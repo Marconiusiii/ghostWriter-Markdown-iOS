@@ -41,7 +41,8 @@ struct LibraryView: View {
     @State private var shareItems: [Any] = []
     @State private var showingShare = false
     @State private var openedDocument: DocumentSession?
-    @State private var documentPath: [LibraryDocumentDestination] = []
+    @State private var renderingSession: RenderedDocumentSession?
+    @State private var documentPath: [URL] = []
     @State private var showingNewDocument = false
     @State private var showingNewFolder = false
     @State private var showingImporter = false
@@ -126,18 +127,12 @@ struct LibraryView: View {
             // The heading below is the screen's title, so the bar is hidden
             // rather than duplicating it above the content.
             .navigationBarHidden(true)
-            .navigationDestination(for: LibraryDocumentDestination.self) { destination in
-                switch destination {
-                case .editor(let url):
-                    LibraryEditorDestination(url: url, preparedSession: openedDocument)
-                case .render(let session):
-                    RenderedHTMLView(
-                        title: session.title,
-                        markdown: session.markdown,
-                        documentURL: session.documentURL,
-                        presentation: .navigation
-                    )
-                }
+            .navigationDestination(for: URL.self) { url in
+                LibraryDocumentDestination(
+                    url: url,
+                    preparedSession: openedDocument,
+                    renderingSession: renderingSession
+                )
             }
 
             .onChange(of: documentPath) { _, path in
@@ -145,6 +140,7 @@ struct LibraryView: View {
                     suspendLibraryActivityForDocumentPresentation()
                 } else {
                     openedDocument = nil
+                    renderingSession = nil
                     libraryActivityTask = Task {
                         await resumeLibraryActivityAfterDocumentPresentation()
                         guard !Task.isCancelled else { return }
@@ -764,7 +760,7 @@ struct LibraryView: View {
         _ presentation: LibraryDocumentPresentation
     ) -> some View {
         let document = presentation.document
-        let primaryRow = NavigationLink(value: LibraryDocumentDestination.editor(document.url)) {
+        let primaryRow = NavigationLink(value: document.url) {
             DocumentRow(presentation: presentation)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -927,11 +923,6 @@ struct LibraryView: View {
 
     private var libraryIsActive: Bool {
         documentPath.isEmpty
-    }
-
-    private var renderingSession: RenderedDocumentSession? {
-        if case .render(let session)? = documentPath.last { return session }
-        return nil
     }
 
     private var unavailableLibrary: some View {
@@ -1111,7 +1102,8 @@ struct LibraryView: View {
                 markdown: text,
                 documentURL: document.url
             )
-            documentPath.append(.render(session))
+            renderingSession = session
+            documentPath.append(document.url)
         }
     }
 
@@ -1575,7 +1567,8 @@ struct LibraryView: View {
     private func beginEditing(_ session: DocumentSession) {
         suspendLibraryActivityForDocumentPresentation()
         openedDocument = session
-        documentPath = [.editor(session.document.url)]
+        renderingSession = nil
+        documentPath = [session.document.url]
     }
 
     private func suspendLibraryActivityForDocumentPresentation() {
@@ -1789,24 +1782,42 @@ struct DocumentSession: Identifiable, Hashable {
     var id: URL { document.url }
 }
 
-struct RenderedDocumentSession: Identifiable, Hashable {
-    let id = UUID()
+struct RenderedDocumentSession {
     let title: String
     let markdown: String
     let documentURL: URL
-
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
-private enum LibraryDocumentDestination: Hashable {
-    case editor(URL)
-    case render(RenderedDocumentSession)
+/// Both entry points navigate to the file URL. The destination captures the
+/// requested content for its lifetime, including the Back transition while
+/// LibraryView clears its pending presentation data.
+private struct LibraryDocumentDestination: View {
+    let url: URL
+    let preparedSession: DocumentSession?
+    @State private var renderingSession: RenderedDocumentSession?
 
-    var documentURL: URL {
-        switch self {
-        case .editor(let url): return url
-        case .render(let session): return session.documentURL
+    init(
+        url: URL,
+        preparedSession: DocumentSession?,
+        renderingSession: RenderedDocumentSession?
+    ) {
+        self.url = url
+        self.preparedSession = preparedSession
+        _renderingSession = State(initialValue:
+            renderingSession?.documentURL == url ? renderingSession : nil
+        )
+    }
+
+    var body: some View {
+        if let renderingSession {
+            RenderedHTMLView(
+                title: renderingSession.title,
+                markdown: renderingSession.markdown,
+                documentURL: renderingSession.documentURL,
+                presentation: .navigation
+            )
+        } else {
+            LibraryEditorDestination(url: url, preparedSession: preparedSession)
         }
     }
 }
