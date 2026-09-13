@@ -35,6 +35,8 @@ struct LibraryView: View {
     @State private var showingSettings = false
     @State private var showingRecentlyDeleted = false
     @State private var renderingSession: RenderedDocumentSession?
+    // Keep the originating row stable through the native dismissal transition.
+    @State private var renderingDocumentURL: URL?
     @State private var renamingDocument: Document?
     @State private var pendingDeletion: Document?
     @State private var pendingRename: LibraryItem?
@@ -133,13 +135,13 @@ struct LibraryView: View {
 
             .onChange(of: documentPath) { _, path in
                 if !path.isEmpty {
-                    suspendLibraryActivityForEditing()
+                    suspendLibraryActivityForDocumentPresentation()
                 } else {
                     openedDocument = nil
                     libraryActivityTask = Task {
-                        await resumeLibraryActivityAfterEditing()
+                        await resumeLibraryActivityAfterDocumentPresentation()
                         guard !Task.isCancelled else { return }
-                        guard documentPath.isEmpty else { return }
+                        guard libraryIsActive else { return }
                     }
                 }
             }
@@ -172,18 +174,18 @@ struct LibraryView: View {
             await configureSelectedStorage()
         }
         .task(id: libraryPresentationIdentity) {
-            guard documentPath.isEmpty else { return }
+            guard libraryIsActive else { return }
             rebuildLibraryPresentation()
         }
         .onChange(of: iCloudMonitor.revision) { _, _ in
-            guard documentPath.isEmpty,
+            guard libraryIsActive,
                   storage.selectedLocation == .iCloud else { return }
             libraryActivityTask?.cancel()
             libraryActivityTask = Task {
                 await store.applyICloudSnapshotAsynchronously(
                     iCloudMonitor.snapshots
                 )
-                guard !Task.isCancelled, documentPath.isEmpty else { return }
+                guard !Task.isCancelled, libraryIsActive else { return }
                 await prepareWelcomeDocumentIfNeeded()
                 performAppLaunchBehaviorIfReady()
             }
@@ -191,8 +193,8 @@ struct LibraryView: View {
         .onChange(of: store.documents) { _, _ in
             completePendingDocumentActions()
         }
-        .task(id: documentPath.isEmpty ? searchSources : []) {
-            guard documentPath.isEmpty else { return }
+        .task(id: libraryIsActive ? searchSources : []) {
+            guard libraryIsActive else { return }
             let sources = searchSources
             let buildTask = Task.detached(priority: .utility) {
                 DocumentSearchIndex.build(from: sources)
@@ -202,7 +204,7 @@ struct LibraryView: View {
             } onCancel: {
                 buildTask.cancel()
             }
-            guard !Task.isCancelled, documentPath.isEmpty else { return }
+            guard !Task.isCancelled, libraryIsActive else { return }
             searchIndex = rebuilt
             searchIndexRevision &+= 1
             if !trimmedSearch.isEmpty {
@@ -210,7 +212,7 @@ struct LibraryView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active, documentPath.isEmpty {
+            if phase == .active, libraryIsActive {
                 libraryActivityTask?.cancel()
                 libraryActivityTask = Task {
                     await configureSelectedStorage()
@@ -255,13 +257,6 @@ struct LibraryView: View {
                 folders: store.folders,
                 excludedURLs: excludedMoveDestinations(for: item),
                 onMove: { destination in move(item, to: destination) }
-            )
-        }
-        .fullScreenCover(item: $renderingSession) { session in
-            RenderedHTMLView(
-                title: session.title,
-                markdown: session.markdown,
-                documentURL: session.documentURL
             )
         }
         .sheet(isPresented: $showingShare) {
@@ -512,9 +507,10 @@ struct LibraryView: View {
     /// on every keystroke would talk over the letters being typed.
     private func scheduleSearchAnnouncement() {
         searchAnnounceTask?.cancel()
+        guard libraryIsActive else { return }
         searchAnnounceTask = Task {
             try? await Task.sleep(for: .milliseconds(900))
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, libraryIsActive else { return }
             announceCount(prefix: "Showing")
         }
     }
@@ -918,6 +914,25 @@ struct LibraryView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+        .fullScreenCover(item: Binding(
+            get: { renderingDocumentURL == document.url ? renderingSession : nil },
+            set: { session in
+                guard renderingDocumentURL == document.url else { return }
+                renderingSession = session
+            }
+        ), onDismiss: {
+            finishLibraryRendering(from: document.url)
+        }) { session in
+            RenderedHTMLView(
+                title: session.title,
+                markdown: session.markdown,
+                documentURL: session.documentURL
+            )
+        }
+    }
+
+    private var libraryIsActive: Bool {
+        documentPath.isEmpty && renderingDocumentURL == nil
     }
 
     private var unavailableLibrary: some View {
@@ -984,6 +999,7 @@ struct LibraryView: View {
     }
 
     private func rebuildLibraryPresentation() {
+        guard libraryIsActive else { return }
         let updated = LibraryPresentationSnapshot.build(
             documents: store.documents,
             folders: store.folders,
@@ -1079,11 +1095,16 @@ struct LibraryView: View {
     }
 
     private func renderAvailable(_ document: Document) {
+        guard libraryIsActive else { return }
         Task {
             guard let text = try? await store.textAsynchronously(for: document) else {
                 return
             }
 
+            guard !Task.isCancelled, libraryIsActive,
+                  visibleDocuments.contains(where: { $0.url == document.url }) else { return }
+            renderingDocumentURL = document.url
+            suspendLibraryActivityForDocumentPresentation()
             if settings.renderSoundEnabled {
                 RenderSound.shared.play()
             }
@@ -1095,11 +1116,20 @@ struct LibraryView: View {
         }
     }
 
+    private func finishLibraryRendering(from url: URL) {
+        guard renderingDocumentURL == url else { return }
+        renderingSession = nil
+        renderingDocumentURL = nil
+        libraryActivityTask = Task {
+            await resumeLibraryActivityAfterDocumentPresentation()
+        }
+    }
+
     /// Uses the writer's selected New Document flow. Asking for a title remains
     /// the default; the date option skips the naming sheet and uses the same
     /// safe creation path directly.
     private var canCreateUsingCommand: Bool {
-        settings.keyboardShortcutsEnabled && store.storageAvailable && documentPath.isEmpty
+        settings.keyboardShortcutsEnabled && store.storageAvailable && libraryIsActive
             && !showingNewDocument && !showingNewFolder && !showingSettings
             && !showingRecentlyDeleted && !showingImporter && !showingPowerPointImportOptions
             && !showingWelcome && !preparingHelpManual && !showingShare && !isImporting
@@ -1511,14 +1541,14 @@ struct LibraryView: View {
 
     private func configureSelectedStorage() async {
         iCloudMonitor.stop()
-        guard documentPath.isEmpty else { return }
+        guard libraryIsActive else { return }
         if configuredStorageLocation != storage.selectedLocation {
             currentFolderURL = nil
             configuredStorageLocation = storage.selectedLocation
         }
 
         let directory = await storage.prepareCurrentLocation()
-        guard documentPath.isEmpty else {
+        guard libraryIsActive else {
             iCloudMonitor.stop()
             return
         }
@@ -1550,16 +1580,15 @@ struct LibraryView: View {
         performAppLaunchBehaviorIfReady()
     }
 
-    /// The editor is a protected interaction mode. The library remains in the
-    /// navigation stack, but none of its metadata, refresh, search, or delayed
-    /// announcement work may compete with native text entry.
+    /// Keep Library updates and announcements paused while a document is open
+    /// for editing or rendering, preserving the originating rows.
     private func beginEditing(_ session: DocumentSession) {
-        suspendLibraryActivityForEditing()
+        suspendLibraryActivityForDocumentPresentation()
         openedDocument = session
         documentPath = [session.document.url]
     }
 
-    private func suspendLibraryActivityForEditing() {
+    private func suspendLibraryActivityForDocumentPresentation() {
         iCloudMonitor.stop()
         libraryActivityTask?.cancel()
         libraryActivityTask = nil
@@ -1568,8 +1597,8 @@ struct LibraryView: View {
         searchAnnounceTask = nil
     }
 
-    private func resumeLibraryActivityAfterEditing() async {
-        guard documentPath.isEmpty else { return }
+    private func resumeLibraryActivityAfterDocumentPresentation() async {
+        guard libraryIsActive else { return }
         // Returning through a native link keeps the existing Library and rows.
         // Reconfigure storage only if the storage choice actually changed.
         if configuredStorageLocation != storage.selectedLocation {
@@ -1578,7 +1607,7 @@ struct LibraryView: View {
             if storage.selectedLocation == .iCloud { iCloudMonitor.start(rootDirectory: store.directory) }
             await store.refreshAsynchronously()
         }
-        guard documentPath.isEmpty else { return }
+        guard libraryIsActive else { return }
         rebuildLibraryPresentation()
     }
 
