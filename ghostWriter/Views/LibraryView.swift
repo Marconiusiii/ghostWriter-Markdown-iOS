@@ -158,7 +158,6 @@ struct LibraryView: View {
         .onChange(of: currentSort) { _, _ in libraryEditMode = .inactive }
         .focusedSceneValue(\.newLibraryDocument, canCreateUsingCommand ? { newDocument() } : nil)
         .sheet(item: $countFolder) { folder in FolderCountView(folder: folder) }
-        .sheet(item: $countDocument) { document in DocumentCountView(document: document) }
         .sheet(item: $compilationFolder) { folder in
             CompilationExportView(directory: folder.url)
         }
@@ -923,6 +922,18 @@ struct LibraryView: View {
             } label: {
                 Label("Delete", systemImage: "trash")
             }
+        }
+        .sheet(item: Binding(
+            get: { countDocument?.url == document.url ? countDocument : nil },
+            set: { selection in
+                if let selection {
+                    countDocument = selection
+                } else if countDocument?.url == document.url {
+                    countDocument = nil
+                }
+            }
+        )) { selectedDocument in
+            DocumentCountView(document: selectedDocument)
         }
     }
 

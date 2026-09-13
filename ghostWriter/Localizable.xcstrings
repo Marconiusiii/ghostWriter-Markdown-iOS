@@ -5043,6 +5043,9 @@
         }
       }
     },
+    "Unable to count document" : {
+
+    },
     "Unified English Braille, grade 1 (uncontracted)" : {
       "comment" : "BrailleTranslator.swift:68",
       "localizations" : {
