@@ -19,25 +19,41 @@ struct RenderedHTMLView: View {
     let title: String
     let markdown: String
     var documentURL: URL?
+    var presentation: Presentation = .standalone
+
+    enum Presentation {
+        case standalone
+        case navigation
+    }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        NavigationStack {
-            HTMLWebView(
-                html: html,
-                baseURL: documentURL?.deletingLastPathComponent()
-            )
-                .ignoresSafeArea(edges: .bottom)
-                .navigationTitle("Rendered")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Back") { dismiss() }
+        switch presentation {
+        case .navigation:
+            renderedContent
+                .toolbar(.visible, for: .navigationBar)
+        case .standalone:
+            NavigationStack {
+                renderedContent
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Back") { dismiss() }
+                        }
                     }
-                }
+            }
         }
+    }
+
+    private var renderedContent: some View {
+        HTMLWebView(
+            html: html,
+            baseURL: documentURL?.deletingLastPathComponent()
+        )
+        .ignoresSafeArea(edges: .bottom)
+        .navigationTitle("Rendered")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var html: String {

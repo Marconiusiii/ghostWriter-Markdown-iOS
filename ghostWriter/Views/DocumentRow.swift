@@ -161,10 +161,7 @@ struct DocumentRow: View {
             }
         }
         .padding(.vertical, 4)
-        // Collapse the row into one element with one coherent sentence.
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(presentation.accessibilityLabel)
-        .accessibilityHint(presentation.accessibilityHint)
+        // LibraryView supplies the label and hint on the native NavigationLink.
     }
 
     private var metadataLayout: AnyLayout {

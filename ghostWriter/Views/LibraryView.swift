@@ -17,6 +17,9 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+#if DEBUG
+import OSLog
+#endif
 
 struct LibraryView: View {
     @Environment(DocumentStorage.self) private var storage
@@ -26,6 +29,7 @@ struct LibraryView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @AccessibilityFocusState(for: .voiceOver) private var focusedDocumentURL: URL?
 
     @State private var iCloudMonitor = ICloudDocumentMonitor()
     @State private var searchText = ""
@@ -34,9 +38,6 @@ struct LibraryView: View {
     @State private var compilationFolder: LibraryFolder?
     @State private var showingSettings = false
     @State private var showingRecentlyDeleted = false
-    @State private var renderingSession: RenderedDocumentSession?
-    // Keep the originating row stable through the native dismissal transition.
-    @State private var renderingDocumentURL: URL?
     @State private var renamingDocument: Document?
     @State private var pendingDeletion: Document?
     @State private var pendingRename: LibraryItem?
@@ -44,7 +45,7 @@ struct LibraryView: View {
     @State private var shareItems: [Any] = []
     @State private var showingShare = false
     @State private var openedDocument: DocumentSession?
-    @State private var documentPath: [URL] = []
+    @State private var documentPath: [LibraryDocumentDestination] = []
     @State private var showingNewDocument = false
     @State private var showingNewFolder = false
     @State private var showingImporter = false
@@ -129,21 +130,38 @@ struct LibraryView: View {
             // The heading below is the screen's title, so the bar is hidden
             // rather than duplicating it above the content.
             .navigationBarHidden(true)
-            .navigationDestination(for: URL.self) { url in
-                LibraryEditorDestination(url: url, preparedSession: openedDocument)
+            .navigationDestination(for: LibraryDocumentDestination.self) { destination in
+                switch destination {
+                case .editor(let url):
+                    LibraryEditorDestination(url: url, preparedSession: openedDocument)
+                case .render(let session):
+                    RenderedHTMLView(
+                        title: session.title,
+                        markdown: session.markdown,
+                        documentURL: session.documentURL,
+                        presentation: .navigation
+                    )
+                }
             }
 
-            .onChange(of: documentPath) { _, path in
+            .onChange(of: documentPath) { oldPath, path in
+                traceRenderFocus("navigation-path-changed", documentURL: (path.last ?? oldPath.last)?.documentURL)
                 if !path.isEmpty {
                     suspendLibraryActivityForDocumentPresentation()
                 } else {
                     openedDocument = nil
+                    if case .editor(let url)? = oldPath.last {
+                        restoreDocumentRowFocus(to: url)
+                    }
                     libraryActivityTask = Task {
                         await resumeLibraryActivityAfterDocumentPresentation()
                         guard !Task.isCancelled else { return }
                         guard libraryIsActive else { return }
                     }
                 }
+            }
+            .onChange(of: focusedDocumentURL) { oldURL, newURL in
+                traceRenderFocus("focus-state-changed", documentURL: newURL, previousFocusURL: oldURL)
             }
             .onChange(of: searchText) { _, _ in
                 libraryEditMode = .inactive
@@ -757,11 +775,16 @@ struct LibraryView: View {
         _ presentation: LibraryDocumentPresentation
     ) -> some View {
         let document = presentation.document
-        let primaryRow = NavigationLink(value: document.url) {
+        let primaryRow = Button {
+            open(document)
+        } label: {
             DocumentRow(presentation: presentation)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(presentation.accessibilityLabel)
+        .accessibilityHint(presentation.accessibilityHint)
+        .accessibilityFocused($focusedDocumentURL, equals: document.url)
 
         let commonActions = primaryRow
             .accessibilityActions {
@@ -914,25 +937,15 @@ struct LibraryView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
-        .fullScreenCover(item: Binding(
-            get: { renderingDocumentURL == document.url ? renderingSession : nil },
-            set: { session in
-                guard renderingDocumentURL == document.url else { return }
-                renderingSession = session
-            }
-        ), onDismiss: {
-            finishLibraryRendering(from: document.url)
-        }) { session in
-            RenderedHTMLView(
-                title: session.title,
-                markdown: session.markdown,
-                documentURL: session.documentURL
-            )
-        }
     }
 
     private var libraryIsActive: Bool {
-        documentPath.isEmpty && renderingDocumentURL == nil
+        documentPath.isEmpty
+    }
+
+    private var renderingSession: RenderedDocumentSession? {
+        if case .render(let session)? = documentPath.last { return session }
+        return nil
     }
 
     private var unavailableLibrary: some View {
@@ -1091,10 +1104,12 @@ struct LibraryView: View {
     }
 
     private func render(_ document: Document) {
+        traceRenderFocus("render-command", documentURL: document.url)
         perform(.render, with: document)
     }
 
     private func renderAvailable(_ document: Document) {
+        traceRenderFocus("render-load-start", documentURL: document.url)
         guard libraryIsActive else { return }
         Task {
             guard let text = try? await store.textAsynchronously(for: document) else {
@@ -1103,26 +1118,53 @@ struct LibraryView: View {
 
             guard !Task.isCancelled, libraryIsActive,
                   visibleDocuments.contains(where: { $0.url == document.url }) else { return }
-            renderingDocumentURL = document.url
             suspendLibraryActivityForDocumentPresentation()
             if settings.renderSoundEnabled {
                 RenderSound.shared.play()
             }
-            renderingSession = RenderedDocumentSession(
+            let session = RenderedDocumentSession(
                 title: document.displayName,
                 markdown: text,
                 documentURL: document.url
             )
+            documentPath.append(.render(session))
+            traceRenderFocus("render-present-requested", documentURL: document.url)
         }
     }
 
-    private func finishLibraryRendering(from url: URL) {
-        guard renderingDocumentURL == url else { return }
-        renderingSession = nil
-        renderingDocumentURL = nil
-        libraryActivityTask = Task {
-            await resumeLibraryActivityAfterDocumentPresentation()
+    private func restoreDocumentRowFocus(to url: URL) {
+        if voiceOverEnabled, libraryIsActive,
+           visibleDocuments.contains(where: { $0.url == url }) {
+            traceRenderFocus("return-focus-request", documentURL: url)
+            focusedDocumentURL = url
+            traceRenderFocus("return-focus-assigned", documentURL: url)
+        } else {
+            traceRenderFocus("return-focus-skipped", documentURL: url)
         }
+    }
+
+    private func traceRenderFocus(
+        _ event: String,
+        documentURL: URL? = nil,
+        previousFocusURL: URL? = nil
+    ) {
+        #if DEBUG
+        let describe = LibraryRenderFocusDiagnostics.documentID
+        let details = [
+            "event=\(event)",
+            "document=\(describe(documentURL))",
+            "origin=\(describe(renderingSession?.documentURL))",
+            "session=\(describe(renderingSession?.documentURL))",
+            "focus=\(describe(focusedDocumentURL))",
+            "previousFocus=\(describe(previousFocusURL))",
+            "navigationPath=\(describe(documentPath.last?.documentURL))",
+            "preparedEditor=\(describe(openedDocument?.document.url))",
+            "rowPresent=\(visibleDocuments.contains(where: { $0.url == documentURL }))",
+            "voiceOver=\(voiceOverEnabled)",
+            "libraryActive=\(libraryIsActive)"
+        ].joined(separator: " ")
+        LibraryRenderFocusDiagnostics.log(details)
+        #endif
     }
 
     /// Uses the writer's selected New Document flow. Asking for a title remains
@@ -1583,9 +1625,10 @@ struct LibraryView: View {
     /// Keep Library updates and announcements paused while a document is open
     /// for editing or rendering, preserving the originating rows.
     private func beginEditing(_ session: DocumentSession) {
+        focusedDocumentURL = nil
         suspendLibraryActivityForDocumentPresentation()
         openedDocument = session
-        documentPath = [session.document.url]
+        documentPath = [.editor(session.document.url)]
     }
 
     private func suspendLibraryActivityForDocumentPresentation() {
@@ -1599,8 +1642,8 @@ struct LibraryView: View {
 
     private func resumeLibraryActivityAfterDocumentPresentation() async {
         guard libraryIsActive else { return }
-        // Returning through a native link keeps the existing Library and rows.
-        // Reconfigure storage only if the storage choice actually changed.
+        // Preserve existing Library rows; reconfigure storage only if the
+        // storage choice actually changed.
         if configuredStorageLocation != storage.selectedLocation {
             await configureSelectedStorage()
         } else {
@@ -1799,9 +1842,52 @@ struct DocumentSession: Identifiable, Hashable {
     var id: URL { document.url }
 }
 
-struct RenderedDocumentSession: Identifiable {
+struct RenderedDocumentSession: Identifiable, Hashable {
     let id = UUID()
     let title: String
     let markdown: String
     let documentURL: URL
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
+
+private enum LibraryDocumentDestination: Hashable {
+    case editor(URL)
+    case render(RenderedDocumentSession)
+
+    var documentURL: URL {
+        switch self {
+        case .editor(let url): return url
+        case .render(let session): return session.documentURL
+        }
+    }
+}
+
+#if DEBUG
+/// Diagnostic IDs persist for this app process without changing SwiftUI state.
+/// No document names, paths, or contents are written to the log.
+@MainActor
+private enum LibraryRenderFocusDiagnostics {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "ghostWriter",
+        category: "LibraryRenderFocus"
+    )
+    private static var documentIDs: [URL: Int] = [:]
+    private static var sequence = 0
+
+    static func documentID(_ url: URL?) -> String {
+        guard let url else { return "none" }
+        let key = url.standardizedFileURL
+        if let id = documentIDs[key] { return "doc-\(id)" }
+        let id = documentIDs.count + 1
+        documentIDs[key] = id
+        return "doc-\(id)"
+    }
+
+    static func log(_ details: String) {
+        sequence += 1
+        logger.debug("[LibraryRenderFocus] #\(sequence) \(details, privacy: .public)")
+    }
+}
+#endif

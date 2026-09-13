@@ -124,6 +124,7 @@ struct EditorView: View {
     @Environment(DocumentLibraryMetadataStore.self) private var libraryMetadata
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
         document: Document,
@@ -160,32 +161,15 @@ struct EditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            header
             editor.disabled(manualSaveInProgress)
-            if settings.statusBarEnabled, statusIndex != nil { statusBar }
-            if !statusMessage.isEmpty {
-                Text(statusMessage).font(.footnote).padding(.horizontal, 16)
+            if settings.statusBarEnabled, statusIndex != nil {
+                statusBar
             }
         }
         .background(Color.editorBackground)
-        .navigationTitle(displayTitle)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Back", action: closeEditor)
-                    .keyboardShortcut(shortcut("w", modifiers: .command))
-            }
-            ToolbarItemGroup(placement: .bottomBar) {
-                renderButton
-                Spacer()
-                outlineButton
-                Spacer()
-                insertButton
-                Spacer()
-                fileActionsMenu
-            }
-        }
+        .navigationBarHidden(true)
+        .navigationBarBackButtonHidden(isHelpManual)
         .interactiveDismissDisabled(isHelpManual)
         .accessibilityAction(.escape) { closeEditor() }
         .alert("Save changes to ghostWriter Help Manual?", isPresented: $showingManualSavePrompt) {
@@ -358,7 +342,74 @@ struct EditorView: View {
         }
     }
 
-    // MARK: - Native toolbar actions
+    // MARK: - Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                closeEditor()
+            } label: {
+                Label("Documents", systemImage: "chevron.left")
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Back")
+            .keyboardShortcut(shortcut("w", modifiers: .command))
+
+            Text(displayTitle)
+                .contextMenu {
+                    if !isHelpManual, let url = fileURL ?? saveController.currentURL {
+                        Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
+                    }
+                }
+                .accessibilityActions {
+                    if !isHelpManual, let url = fileURL ?? saveController.currentURL {
+                        Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
+                    }
+                }
+                .font(.title2.bold())
+                .foregroundStyle(Color.ghostAccent)
+                .accessibilityAddTraits(.isHeader)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            editorActions
+
+            if !statusMessage.isEmpty {
+                Text(statusMessage)
+                    .font(.footnote)
+                    .foregroundStyle(Color.ghostMuted)
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .background(Color.panelBackground)
+    }
+
+    @ViewBuilder
+    private var editorActions: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 12) {
+                renderButton
+                outlineButton
+                insertButton
+                fileActionsMenu
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    renderButton
+                    outlineButton
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 12) {
+                    insertButton
+                    fileActionsMenu
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
 
     private var renderButton: some View {
         Button {
@@ -366,6 +417,7 @@ struct EditorView: View {
         } label: {
             Label("Render", systemImage: "doc.richtext")
         }
+        .ghostProminentButtonStyle()
         .accessibilityHint("Shows this document as formatted HTML")
         .keyboardShortcut(shortcut("r", modifiers: .command))
     }
@@ -377,6 +429,7 @@ struct EditorView: View {
         } label: {
             Label("Outline", systemImage: "list.bullet.indent")
         }
+        .buttonStyle(.bordered)
         .accessibilityHint("Shows a list of document headings")
         .keyboardShortcut(
             shortcut("o", modifiers: [.command, .shift])
@@ -389,6 +442,7 @@ struct EditorView: View {
         } label: {
             Label("Insert…", systemImage: "plus")
         }
+        .buttonStyle(.bordered)
         .accessibilityHint("Opens list of insertable Markdown elements")
         .keyboardShortcut(
             shortcut("i", modifiers: [.command, .shift])
@@ -485,6 +539,7 @@ struct EditorView: View {
         } label: {
             Label("File Actions", systemImage: "ellipsis.circle")
         }
+        .buttonStyle(.bordered)
         .accessibilityLabel("File actions")
         .accessibilityActions {
             if !isHelpManual, let url = fileURL ?? saveController.currentURL {
