@@ -80,6 +80,12 @@ Touch and hold a file or folder to open its actions, or use its VoiceOver Action
 
 Delete moves an item to Deleted. Restore returns it to its previous folder if that folder still exists, or to Documents otherwise. Deleting and restoring a folder keeps its contents together. Permanent deletion cannot be undone.
 
+### File word count
+
+Use Word Count in a file’s context menu or VoiceOver actions to check its words, sentences, and characters without opening the editor. Words use the editor’s counting rules. Characters include Markdown syntax, spaces, and line breaks; sentence counts use automatic language analysis of the source. A file can be counted individually even when it is excluded from compilation totals.
+
+Progress appears while the file is read or downloaded. Cancel stops the count. If the file cannot be read, the screen explains the problem.
+
 ### Folder statistics
 
 Use Total Word Count to check the length of a folder’s Markdown documents, including nested folders. Totals include words, sentences, characters, and the number of documents counted. Saved compilation exclusions also exclude files and folders from all these totals. Find it in the folder’s context menu or accessibility actions, or in its heading actions when the folder is open.

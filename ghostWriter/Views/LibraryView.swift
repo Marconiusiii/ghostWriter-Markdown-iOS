@@ -31,6 +31,7 @@ struct LibraryView: View {
     @State private var searchText = ""
     @State private var libraryEditMode = EditMode.inactive
     @State private var countFolder: LibraryFolder?
+    @State private var countDocument: Document?
     @State private var compilationFolder: LibraryFolder?
     @State private var showingSettings = false
     @State private var showingRecentlyDeleted = false
@@ -157,6 +158,7 @@ struct LibraryView: View {
         .onChange(of: currentSort) { _, _ in libraryEditMode = .inactive }
         .focusedSceneValue(\.newLibraryDocument, canCreateUsingCommand ? { newDocument() } : nil)
         .sheet(item: $countFolder) { folder in FolderCountView(folder: folder) }
+        .sheet(item: $countDocument) { document in DocumentCountView(document: document) }
         .sheet(item: $compilationFolder) { folder in
             CompilationExportView(directory: folder.url)
         }
@@ -790,6 +792,7 @@ struct LibraryView: View {
             .accessibilityAction(named: "Render") {
                 render(document)
             }
+            .accessibilityAction(named: "Word Count") { countDocument = document }
             .accessibilityAction(named: "Share") {
                 share(document)
             }
@@ -888,6 +891,8 @@ struct LibraryView: View {
             } label: {
                 Label("Render", systemImage: "doc.richtext")
             }
+
+            Button("Word Count") { countDocument = document }
 
             Button {
                 share(document)
@@ -1115,7 +1120,7 @@ struct LibraryView: View {
             && !showingNewDocument && !showingNewFolder && !showingSettings
             && !showingRecentlyDeleted && !showingImporter && !showingPowerPointImportOptions
             && !showingWelcome && !preparingHelpManual && !showingShare && !isImporting
-            && countFolder == nil && compilationFolder == nil && renderingSession == nil
+            && countFolder == nil && countDocument == nil && compilationFolder == nil && renderingSession == nil
             && renamingDocument == nil && renamingFolder == nil && movingItem == nil
             && pendingDeletion == nil && pendingFolderDeletion == nil
     }
