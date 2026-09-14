@@ -289,6 +289,13 @@ final class MarkdownEditorViewController: UIViewController {
         guard !hasAppeared else { return }
         hasAppeared = true
         textView.becomeFirstResponder()
+        if #available(iOS 26.0, *) {
+            // EditorView declares the default VoiceOver target for the screen.
+        } else if UIAccessibility.isVoiceOverRunning {
+            // Text input focus and VoiceOver focus are separate. Set the
+            // initial accessibility target once, on this screen's appearance.
+            UIAccessibility.post(notification: .screenChanged, argument: textView)
+        }
     }
 }
 

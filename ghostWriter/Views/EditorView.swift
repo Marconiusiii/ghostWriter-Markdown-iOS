@@ -61,6 +61,7 @@ struct EditorView: View {
     @State private var statusMessage = ""
     // Observes native focus only; never assigns a VoiceOver focus destination.
     @AccessibilityFocusState private var focusedElement: EditorFocus?
+    @AccessibilityFocusState(for: .voiceOver) private var editorHasVoiceOverFocus: Bool
     /// The name the file was last saved under, so ordinary editing does not
     /// rename the file as the first heading is typed.
     @State private var savedName: String?
@@ -75,7 +76,6 @@ struct EditorView: View {
     private let onClose: (URL) -> Void
 
     private enum EditorFocus: Hashable {
-        case fileActions
         case status
     }
 
@@ -163,10 +163,12 @@ struct EditorView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             editor.disabled(manualSaveInProgress)
+                .accessibilityFocused($editorHasVoiceOverFocus)
             if settings.statusBarEnabled, statusIndex != nil {
                 statusBar
             }
         }
+        .modifier(EditorDefaultAccessibilityFocus(focus: $editorHasVoiceOverFocus))
         .background(Color.editorBackground)
         .navigationBarHidden(true)
         .navigationBarBackButtonHidden(isHelpManual)
@@ -205,9 +207,7 @@ struct EditorView: View {
         }
         .onChange(of: focusedElement) { _, element in
             // Capture the live editor state without changing keyboard focus.
-            if element == .fileActions {
-                prepareFileActions()
-            } else if element == .status {
+            if element == .status {
                 captureCurrentEditorState()
             }
         }
@@ -450,109 +450,92 @@ struct EditorView: View {
     }
 
     private var fileActionsMenu: some View {
-        Menu {
-            // Each item puts the keyboard away before presenting, so nothing
-            // appears underneath it.
-            if !isHelpManual {
-                Button {
-                    renameText = displayTitle
-                    present { showingRename = true }
-                } label: {
-                    Label("Rename Document", systemImage: "pencil")
-                }
-            }
-
-            Button {
-                present { showingReference = true }
-            } label: {
-                Label("Markdown Reference", systemImage: "questionmark.circle")
-            }
-
-            Button {
-                pendingFindRequest = UUID()
-            } label: {
-                Label("Find and Replace", systemImage: "magnifyingglass")
-            }
-            .keyboardShortcut(shortcut("f", modifiers: .command))
-
-            Button {
-                jumpLineText = ""
-                jumpLineError = nil
-                navigationCursorOffset = nil
-                present { showingJumpToLine = true }
-            } label: {
-                Label("Jump to Line…", systemImage: "arrow.down.to.line")
-            }
-            .keyboardShortcut(shortcut("j", modifiers: .command))
-
-            if !isHelpManual {
-                Button {
-                    present { showingDocumentLanguage = true }
-                } label: {
-                    Label("Document Language…", systemImage: "character.book.closed")
-                }
-
-                Divider()
-
-                Button {
-                    captureCurrentEditorState()
-                    requestSave(announce: true)
-                } label: {
-                    Label("Save Now", systemImage: "arrow.down.doc")
-                }
-                .keyboardShortcut(shortcut("s", modifiers: .command))
-
-                if !isHelpManual, let url = fileURL ?? saveController.currentURL {
-                    Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
-                }
-
-            }
-
-            if isHelpManual {
-                Button("Save Now") {
-                    captureCurrentEditorState()
-                    requestSave(announce: true)
-                }
-                .keyboardShortcut(shortcut("s", modifiers: .command))
-                .disabled(manualSaveInProgress)
-            }
-
-            Menu {
-                // Driven from the enum so a new export format cannot be added
-                // without appearing here.
-                ForEach(EditorShareFormat.allCases) { format in
-                    Button(format.label) {
-                        present { sharingFormat = format }
-                    }
-                }
-            } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
-            }
-
-            if !isHelpManual {
-                Button {
-                    duplicate()
-                } label: {
-                    Label("Duplicate", systemImage: "doc.on.doc")
-                }
-            }
-        } label: {
-            Label("File Actions", systemImage: "ellipsis.circle")
+        FileActionsMenuButton(makeMenu: makeFileActionsMenu, onMenuOpening: {
+            editorSession.dismissKeyboard()
+            captureCurrentEditorState()
+        })
+        .fixedSize(horizontal: false, vertical: true)
+        .background {
+            // SwiftUI registers these commands with the hosting controller,
+            // so they remain available while the text view is first responder.
+            fileActionKeyboardShortcuts.hidden()
         }
-        .buttonStyle(.bordered)
-        .accessibilityLabel("File actions")
-        .accessibilityActions {
-            if !isHelpManual, let url = fileURL ?? saveController.currentURL {
-                Button(libraryMetadata.inclusionActionLabel(for: url)) { toggleCompilationInclusion(for: url) }
+    }
+
+    private var fileActionKeyboardShortcuts: some View {
+        Group {
+            Button("Find and Replace") { pendingFindRequest = UUID() }
+                .keyboardShortcut(shortcut("f", modifiers: .command))
+            Button("Jump to Line…", action: showJumpToLine)
+                .keyboardShortcut(shortcut("j", modifiers: .command))
+            Button("Save Now", action: saveFromFileActions)
+                .keyboardShortcut(shortcut("s", modifiers: .command))
+                .disabled(isHelpManual && manualSaveInProgress)
+        }
+    }
+
+    private func showJumpToLine() {
+        jumpLineText = ""
+        jumpLineError = nil
+        navigationCursorOffset = nil
+        present { showingJumpToLine = true }
+    }
+
+    private func saveFromFileActions() {
+        captureCurrentEditorState()
+        requestSave(announce: true)
+    }
+
+    private func makeFileActionsMenu(onCommandSelected: @escaping () -> Void) -> UIMenu {
+        func action(_ title: String, image: String? = nil, disabled: Bool = false,
+                    perform: @escaping () -> Void) -> UIAction {
+            UIAction(title: title, image: image.flatMap(UIImage.init(systemName:)),
+                     attributes: disabled ? .disabled : []) { _ in
+                onCommandSelected()
+                perform()
             }
         }
-        .accessibilityFocused($focusedElement, equals: .fileActions)
-        .simultaneousGesture(
-            TapGesture().onEnded {
-                // Capture the live editor state without changing keyboard focus.
-                prepareFileActions()
-            }
-        )
+        var documentActions: [UIMenuElement] = []
+        if !isHelpManual {
+            documentActions.append(action(String(localized: "Rename Document"), image: "pencil") {
+                renameText = displayTitle
+                present { showingRename = true }
+            })
+        }
+        documentActions.append(action(String(localized: "Markdown Reference"), image: "questionmark.circle") {
+            present { showingReference = true }
+        })
+        documentActions.append(action(String(localized: "Find and Replace"), image: "magnifyingglass") {
+            pendingFindRequest = UUID()
+        })
+        documentActions.append(action(String(localized: "Jump to Line…"), image: "arrow.down.to.line",
+                                      perform: showJumpToLine))
+        if !isHelpManual {
+            documentActions.append(action(String(localized: "Document Language…"), image: "character.book.closed") {
+                present { showingDocumentLanguage = true }
+            })
+        }
+        var saveActions: [UIMenuElement] = [
+            action(String(localized: "Save Now"), image: "arrow.down.doc",
+                   disabled: isHelpManual && manualSaveInProgress, perform: saveFromFileActions)
+        ]
+        if !isHelpManual, let url = fileURL ?? saveController.currentURL {
+            saveActions.append(action(libraryMetadata.inclusionActionLabel(for: url)) {
+                toggleCompilationInclusion(for: url)
+            })
+        }
+        let sharing = UIMenu(title: String(localized: "Share"), image: UIImage(systemName: "square.and.arrow.up"),
+                             children: EditorShareFormat.allCases.map { format in
+            action(format.label) { present { sharingFormat = format } }
+        })
+        var children: [UIMenuElement] = [
+            UIMenu(options: .displayInline, children: documentActions),
+            UIMenu(options: .displayInline, children: saveActions), sharing
+        ]
+        if !isHelpManual {
+            children.append(action(String(localized: "Duplicate"), image: "doc.on.doc", perform: duplicate))
+        }
+        return UIMenu(children: children)
     }
 
     // MARK: - Editor
@@ -661,10 +644,6 @@ struct EditorView: View {
     private func applyEditorReplacement(_ result: MarkdownInsertionResult) {
         editorSession.replaceText(result.text, selection: result.selection)
         acceptSnapshot(editorSession.snapshot())
-    }
-
-    private func prepareFileActions() {
-        captureCurrentEditorState()
     }
 
     private func render() {
@@ -1179,6 +1158,20 @@ private enum ExternalConflict {
             return String(localized: "This document changed outside ghostWriter. Save your current work as a copy or reload the external version.")
         case .missing:
             return String(localized: "This document was removed outside ghostWriter. Save your current work as a new document or close without saving.")
+        }
+    }
+}
+
+/// Declares the screen's default target without issuing a second focus request.
+private struct EditorDefaultAccessibilityFocus: ViewModifier {
+    let focus: AccessibilityFocusState<Bool>.Binding
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.accessibilityDefaultFocus(focus, true)
+        } else {
+            content
         }
     }
 }

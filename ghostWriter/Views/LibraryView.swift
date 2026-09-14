@@ -32,6 +32,7 @@ struct LibraryView: View {
     @State private var libraryEditMode = EditMode.inactive
     @State private var countFolder: LibraryFolder?
     @State private var countDocument: Document?
+    @State private var wordCountReturnURL: URL?
     @State private var compilationFolder: LibraryFolder?
     @State private var showingSettings = false
     @State private var showingRecentlyDeleted = false
@@ -80,6 +81,7 @@ struct LibraryView: View {
     @State private var downloadTasks:
         [URL: Task<Void, Never>] = [:]
     @FocusState private var searchFocused: Bool
+    @AccessibilityFocusState(for: .voiceOver) private var focusedLibraryDocument: URL?
 
     private enum PendingDocumentAction {
         case open
@@ -158,6 +160,9 @@ struct LibraryView: View {
         .onChange(of: currentSort) { _, _ in libraryEditMode = .inactive }
         .focusedSceneValue(\.newLibraryDocument, canCreateUsingCommand ? { newDocument() } : nil)
         .sheet(item: $countFolder) { folder in FolderCountView(folder: folder) }
+        .sheet(item: $countDocument, onDismiss: finishWordCountPresentation) { document in
+            DocumentCountView(document: document)
+        }
         .sheet(item: $compilationFolder) { folder in
             CompilationExportView(directory: folder.url)
         }
@@ -768,6 +773,7 @@ struct LibraryView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(presentation.accessibilityLabel)
         .accessibilityHint(presentation.accessibilityHint)
+        .accessibilityFocused($focusedLibraryDocument, equals: document.url)
 
         let commonActions = primaryRow
             .accessibilityActions {
@@ -791,7 +797,7 @@ struct LibraryView: View {
             .accessibilityAction(named: "Render") {
                 render(document)
             }
-            .accessibilityAction(named: "Word Count") { countDocument = document }
+            .accessibilityAction(named: "Word Count") { showWordCount(document) }
             .accessibilityAction(named: "Share") {
                 share(document)
             }
@@ -891,7 +897,7 @@ struct LibraryView: View {
                 Label("Render", systemImage: "doc.richtext")
             }
 
-            Button("Word Count") { countDocument = document }
+            Button("Word Count") { showWordCount(document) }
 
             Button {
                 share(document)
@@ -923,18 +929,22 @@ struct LibraryView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
-        .sheet(item: Binding(
-            get: { countDocument?.url == document.url ? countDocument : nil },
-            set: { selection in
-                if let selection {
-                    countDocument = selection
-                } else if countDocument?.url == document.url {
-                    countDocument = nil
-                }
-            }
-        )) { selectedDocument in
-            DocumentCountView(document: selectedDocument)
-        }
+    }
+
+    private func showWordCount(_ document: Document) {
+        guard libraryIsActive, wordCountReturnURL == nil else { return }
+        // Capture the action's document independently of navigation and focus
+        // state. Keep it through dismissal, after SwiftUI clears countDocument.
+        wordCountReturnURL = document.url
+        countDocument = document
+    }
+
+    private func finishWordCountPresentation() {
+        guard let returnURL = wordCountReturnURL else { return }
+        defer { wordCountReturnURL = nil }
+        guard voiceOverEnabled, libraryIsActive,
+              visibleDocuments.contains(where: { $0.url == returnURL }) else { return }
+        focusedLibraryDocument = returnURL
     }
 
     private var libraryIsActive: Bool {
@@ -1131,7 +1141,7 @@ struct LibraryView: View {
             && !showingNewDocument && !showingNewFolder && !showingSettings
             && !showingRecentlyDeleted && !showingImporter && !showingPowerPointImportOptions
             && !showingWelcome && !preparingHelpManual && !showingShare && !isImporting
-            && countFolder == nil && countDocument == nil && compilationFolder == nil && renderingSession == nil
+            && countFolder == nil && wordCountReturnURL == nil && compilationFolder == nil && renderingSession == nil
             && renamingDocument == nil && renamingFolder == nil && movingItem == nil
             && pendingDeletion == nil && pendingFolderDeletion == nil
     }

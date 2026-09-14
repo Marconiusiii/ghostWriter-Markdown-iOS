@@ -40,6 +40,11 @@ final class EditorTextSession {
         storedSelectedRange = textView.selectedRange
     }
 
+    /// Ends native text entry while retaining the installed input accessory.
+    func dismissKeyboard() {
+        textView?.resignFirstResponder()
+    }
+
     /// Called before UIKit applies an accepted native edit. A revision counter
     /// is the only app-owned work on the ordinary typing path.
     func willApplyEdit(
