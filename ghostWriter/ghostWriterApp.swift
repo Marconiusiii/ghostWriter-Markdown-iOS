@@ -40,6 +40,9 @@ struct ghostWriterApp: App {
                 // the system, which is the default.
                 .preferredColorScheme(settings.appearance.colorScheme)
         }
-        .commands { LibraryCommands() }
+        .commands {
+            LibraryCommands()
+            EditorFileCommands()
+        }
     }
 }

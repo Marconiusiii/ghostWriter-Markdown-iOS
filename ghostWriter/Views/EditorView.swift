@@ -43,6 +43,9 @@ struct EditorView: View {
     @State private var showingJumpToLine = false
     @State private var showingDocumentLanguage = false
     @State private var showingInsertActions = false
+    @State private var showingFileActions = false
+    @State private var selectedFileCommand: EditorFileCommand?
+    @AccessibilityFocusState(for: .voiceOver) private var fileActionsHasFocus: Bool
     @State private var sharingFormat: EditorShareFormat?
     @State private var insertionSelection = TextSelection(location: 0, length: 0)
     @State private var insertionInitialText = ""
@@ -189,6 +192,9 @@ struct EditorView: View {
         } message: {
             Text("Your changes are still open. Try Save again, or go Back and choose Don’t Save.")
         }
+        .focusedSceneValue(\.editorFileShortcuts, settings.keyboardShortcutsEnabled
+            && !showingFileActions && !manualSaveInProgress
+            ? EditorFileShortcuts(perform: performFileCommand) : nil)
         .onAppear {
             configureEditorPipelines()
             scheduleStatusUpdate(immediately: true)
@@ -450,92 +456,68 @@ struct EditorView: View {
     }
 
     private var fileActionsMenu: some View {
-        FileActionsMenuButton(makeMenu: makeFileActionsMenu, onMenuOpening: {
-            editorSession.dismissKeyboard()
+        Button {
+            editorSession.endTextEntry()
             captureCurrentEditorState()
-        })
-        .fixedSize(horizontal: false, vertical: true)
-        .background {
-            // SwiftUI registers these commands with the hosting controller,
-            // so they remain available while the text view is first responder.
-            fileActionKeyboardShortcuts.hidden()
+            selectedFileCommand = nil
+            showingFileActions = true
+        } label: {
+            Label("File Actions", systemImage: "ellipsis.circle")
         }
-    }
-
-    private var fileActionKeyboardShortcuts: some View {
-        Group {
-            Button("Find and Replace") { pendingFindRequest = UUID() }
-                .keyboardShortcut(shortcut("f", modifiers: .command))
-            Button("Jump to Line…", action: showJumpToLine)
-                .keyboardShortcut(shortcut("j", modifiers: .command))
-            Button("Save Now", action: saveFromFileActions)
-                .keyboardShortcut(shortcut("s", modifiers: .command))
-                .disabled(isHelpManual && manualSaveInProgress)
-        }
-    }
-
-    private func showJumpToLine() {
-        jumpLineText = ""
-        jumpLineError = nil
-        navigationCursorOffset = nil
-        present { showingJumpToLine = true }
-    }
-
-    private func saveFromFileActions() {
-        captureCurrentEditorState()
-        requestSave(announce: true)
-    }
-
-    private func makeFileActionsMenu(onCommandSelected: @escaping () -> Void) -> UIMenu {
-        func action(_ title: String, image: String? = nil, disabled: Bool = false,
-                    perform: @escaping () -> Void) -> UIAction {
-            UIAction(title: title, image: image.flatMap(UIImage.init(systemName:)),
-                     attributes: disabled ? .disabled : []) { _ in
-                onCommandSelected()
-                perform()
+        .buttonStyle(.bordered)
+        .accessibilityLabel("File actions")
+        .accessibilityFocused($fileActionsHasFocus)
+        .sheet(isPresented: $showingFileActions, onDismiss: finishFileActions) {
+            EditorFileActionsView(
+                isHelpManual: isHelpManual,
+                saving: manualSaveInProgress,
+                inclusionLabel: (fileURL ?? saveController.currentURL).map {
+                    libraryMetadata.inclusionActionLabel(for: $0)
+                }
+            ) { command in
+                selectedFileCommand = command
+                showingFileActions = false
             }
         }
-        var documentActions: [UIMenuElement] = []
-        if !isHelpManual {
-            documentActions.append(action(String(localized: "Rename Document"), image: "pencil") {
-                renameText = displayTitle
-                present { showingRename = true }
-            })
+    }
+
+    private func finishFileActions() {
+        guard let command = selectedFileCommand else {
+            fileActionsHasFocus = true
+            return
         }
-        documentActions.append(action(String(localized: "Markdown Reference"), image: "questionmark.circle") {
-            present { showingReference = true }
-        })
-        documentActions.append(action(String(localized: "Find and Replace"), image: "magnifyingglass") {
+        selectedFileCommand = nil
+        performFileCommand(command)
+    }
+
+    private func performFileCommand(_ command: EditorFileCommand) {
+        captureCurrentEditorState()
+        switch command {
+        case .rename:
+            renameText = displayTitle
+            showingRename = true
+        case .reference:
+            showingReference = true
+        case .find:
             pendingFindRequest = UUID()
-        })
-        documentActions.append(action(String(localized: "Jump to Line…"), image: "arrow.down.to.line",
-                                      perform: showJumpToLine))
-        if !isHelpManual {
-            documentActions.append(action(String(localized: "Document Language…"), image: "character.book.closed") {
-                present { showingDocumentLanguage = true }
-            })
-        }
-        var saveActions: [UIMenuElement] = [
-            action(String(localized: "Save Now"), image: "arrow.down.doc",
-                   disabled: isHelpManual && manualSaveInProgress, perform: saveFromFileActions)
-        ]
-        if !isHelpManual, let url = fileURL ?? saveController.currentURL {
-            saveActions.append(action(libraryMetadata.inclusionActionLabel(for: url)) {
+        case .jump:
+            jumpLineText = ""
+            jumpLineError = nil
+            navigationCursorOffset = nil
+            showingJumpToLine = true
+        case .language:
+            showingDocumentLanguage = true
+        case .save:
+            requestSave(announce: true)
+        case .inclusion:
+            if let url = fileURL ?? saveController.currentURL {
                 toggleCompilationInclusion(for: url)
-            })
+            }
+        case .share(let format):
+            sharingFormat = format
+        case .duplicate:
+            duplicate()
         }
-        let sharing = UIMenu(title: String(localized: "Share"), image: UIImage(systemName: "square.and.arrow.up"),
-                             children: EditorShareFormat.allCases.map { format in
-            action(format.label) { present { sharingFormat = format } }
-        })
-        var children: [UIMenuElement] = [
-            UIMenu(options: .displayInline, children: documentActions),
-            UIMenu(options: .displayInline, children: saveActions), sharing
-        ]
-        if !isHelpManual {
-            children.append(action(String(localized: "Duplicate"), image: "doc.on.doc", perform: duplicate))
-        }
-        return UIMenu(children: children)
     }
 
     // MARK: - Editor

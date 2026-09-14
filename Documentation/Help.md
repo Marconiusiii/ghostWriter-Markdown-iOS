@@ -26,7 +26,7 @@ Import copies Markdown, plain-text, Word, or PowerPoint files from Files into yo
 
 ### Writing and editing
 
-Write and revise your Markdown in the editor. File Actions provides saving, sharing, Find and Replace, Jump to Line, and the Markdown Reference.
+Write and revise your Markdown in the editor. File Actions dismisses the keyboard and opens a sheet with saving, sharing, Find and Replace, Jump to Line, and the Markdown Reference. Choose Cancel to return to File Actions without selecting a command.
 
 Use Insert to add formatting at the cursor or apply supported formatting to selected text. For a link, selected text becomes the suggested link text. Enter a destination such as https://example.com or mailto:name@example.com.
 
