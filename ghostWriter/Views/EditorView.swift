@@ -45,6 +45,7 @@ struct EditorView: View {
     @State private var showingInsertActions = false
     @State private var showingFileActions = false
     @State private var selectedFileCommand: EditorFileCommand?
+    @State private var fileShortcutRequest = EditorFileShortcutRequest.idle
     @AccessibilityFocusState(for: .voiceOver) private var fileActionsHasFocus: Bool
     @State private var sharingFormat: EditorShareFormat?
     @State private var insertionSelection = TextSelection(location: 0, length: 0)
@@ -194,7 +195,12 @@ struct EditorView: View {
         }
         .focusedSceneValue(\.editorFileShortcuts, settings.keyboardShortcutsEnabled
             && !showingFileActions && !manualSaveInProgress
-            ? EditorFileShortcuts(perform: performFileCommand) : nil)
+            ? $fileShortcutRequest : nil)
+        .onChange(of: fileShortcutRequest) { _, request in
+            guard let command = request.command else { return }
+            fileShortcutRequest = .idle
+            performFileCommand(command)
+        }
         .onAppear {
             configureEditorPipelines()
             scheduleStatusUpdate(immediately: true)

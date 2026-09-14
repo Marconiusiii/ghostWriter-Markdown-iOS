@@ -51,37 +51,46 @@ struct EditorFileActionsView: View {
     }
 }
 
-struct EditorFileShortcuts {
-    let perform: (EditorFileCommand) -> Void
+enum EditorFileShortcutRequest: Equatable {
+    case idle, save, find, jump
+
+    var command: EditorFileCommand? {
+        switch self {
+        case .idle: nil
+        case .save: .save
+        case .find: .find
+        case .jump: .jump
+        }
+    }
 }
 
 private struct EditorFileShortcutsKey: FocusedValueKey {
-    typealias Value = EditorFileShortcuts
+    typealias Value = Binding<EditorFileShortcutRequest>
 }
 
 extension FocusedValues {
-    var editorFileShortcuts: EditorFileShortcuts? {
+    var editorFileShortcuts: Binding<EditorFileShortcutRequest>? {
         get { self[EditorFileShortcutsKey.self] }
         set { self[EditorFileShortcutsKey.self] = newValue }
     }
 }
 
 struct EditorFileCommands: Commands {
-    @FocusedValue(\.editorFileShortcuts) private var shortcuts
+    @FocusedBinding(\.editorFileShortcuts) private var shortcutRequest
 
     var body: some Commands {
         CommandGroup(after: .newItem) {
-            Button("Save Now") { shortcuts?.perform(.save) }
+            Button("Save Now") { shortcutRequest = .save }
                 .keyboardShortcut("s", modifiers: .command)
-                .disabled(shortcuts == nil)
+                .disabled(shortcutRequest == nil)
         }
         CommandGroup(after: .textEditing) {
-            Button("Find and Replace") { shortcuts?.perform(.find) }
+            Button("Find and Replace") { shortcutRequest = .find }
                 .keyboardShortcut("f", modifiers: .command)
-                .disabled(shortcuts == nil)
-            Button("Jump to Line…") { shortcuts?.perform(.jump) }
+                .disabled(shortcutRequest == nil)
+            Button("Jump to Line…") { shortcutRequest = .jump }
                 .keyboardShortcut("j", modifiers: .command)
-                .disabled(shortcuts == nil)
+                .disabled(shortcutRequest == nil)
         }
     }
 }
