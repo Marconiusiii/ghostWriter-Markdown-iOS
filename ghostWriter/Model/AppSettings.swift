@@ -187,6 +187,10 @@ final class AppSettings {
         didSet { defaults.set(statusShowsWordCount, forKey: Keys.statusWordCount) }
     }
 
+    var statusShowsSentenceCount: Bool {
+        didSet { defaults.set(statusShowsSentenceCount, forKey: Keys.statusSentenceCount) }
+    }
+
     var statusShowsCharacterCount: Bool {
         didSet { defaults.set(statusShowsCharacterCount, forKey: Keys.statusCharacterCount) }
     }
@@ -381,6 +385,7 @@ final class AppSettings {
         self.statusShowsLineAndColumn = defaults.object(forKey: Keys.statusLineAndColumn) as? Bool ?? true
         self.statusShowsLineCount = defaults.object(forKey: Keys.statusLineCount) as? Bool ?? true
         self.statusShowsWordCount = defaults.object(forKey: Keys.statusWordCount) as? Bool ?? true
+        self.statusShowsSentenceCount = defaults.object(forKey: Keys.statusSentenceCount) as? Bool ?? false
         self.statusShowsCharacterCount = defaults.object(forKey: Keys.statusCharacterCount) as? Bool ?? true
         self.statusShowsHeadingLevel = defaults.object(forKey: Keys.statusHeadingLevel) as? Bool ?? false
         self.statusShowsSelectedWordCount = defaults.object(forKey: Keys.statusSelectedWordCount) as? Bool ?? false
@@ -443,6 +448,7 @@ final class AppSettings {
         static let statusLineAndColumn = "statusShowsLineAndColumn"
         static let statusLineCount = "statusShowsLineCount"
         static let statusWordCount = "statusShowsWordCount"
+        static let statusSentenceCount = "statusShowsSentenceCount"
         static let statusCharacterCount = "statusShowsCharacterCount"
         static let statusHeadingLevel = "statusShowsHeadingLevel"
         static let statusSelectedWordCount = "statusShowsSelectedWordCount"

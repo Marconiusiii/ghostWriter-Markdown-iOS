@@ -576,6 +576,7 @@ struct EditorView: View {
             lineAndColumn: settings.statusShowsLineAndColumn,
             lineCount: settings.statusShowsLineCount,
             wordCount: settings.statusShowsWordCount,
+            sentenceCount: settings.statusShowsSentenceCount,
             characterCount: settings.statusShowsCharacterCount,
             headingLevel: settings.statusShowsHeadingLevel,
             selectedWordCount: settings.statusShowsSelectedWordCount,

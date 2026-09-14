@@ -8,6 +8,32 @@ import Testing
 
 struct DocumentStatusTests {
 
+    @Test func sentencesMatchLibraryCountsAndRemainStableAcrossCursorMovement() throws {
+        for text in ["", "   ", "...", "One sentence.", "First sentence. Second sentence! Third sentence?"] {
+            let index = DocumentStatusIndex(text: text)
+            let start = index.status(selection: TextSelection(location: 0, length: 0))
+            let end = index.status(selection: TextSelection(location: text.count, length: 0))
+            #expect(start.sentenceCount == (try FolderTextCount.count(text)).sentences)
+            #expect(end.sentenceCount == start.sentenceCount)
+        }
+    }
+
+    @Test func sentencesAreOptionalAndUseSingularAndPluralLabels() {
+        var options = DocumentStatusOptions(
+            lineAndColumn: false, lineCount: false, wordCount: false,
+            characterCount: false
+        )
+        #expect(!options.sentenceCount)
+        let one = DocumentStatus.calculate(text: "One sentence.", selection: TextSelection(location: 0, length: 0))
+        #expect(!one.description(options: options).contains("sentence"))
+        options.sentenceCount = true
+        #expect(one.description(options: options) == "1 sentence")
+        let two = DocumentStatus.calculate(text: "One sentence. Another sentence.", selection: TextSelection(location: 0, length: 0))
+        #expect(two.description(options: options) == "2 sentences")
+        let empty = DocumentStatus.calculate(text: "", selection: TextSelection(location: 0, length: 0))
+        #expect(empty.description(options: options) == "0 sentences")
+    }
+
     @Test func emptyDocumentHasOneLineAndFirstColumn() {
         let status = DocumentStatus.calculate(
             text: "",

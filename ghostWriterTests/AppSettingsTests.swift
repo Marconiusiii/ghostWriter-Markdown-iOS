@@ -106,6 +106,7 @@ struct AppSettingsTests {
         #expect(settings.statusShowsLineAndColumn)
         #expect(settings.statusShowsLineCount)
         #expect(settings.statusShowsWordCount)
+        #expect(!settings.statusShowsSentenceCount)
         #expect(settings.statusShowsCharacterCount)
         #expect(!settings.statusShowsHeadingLevel)
         #expect(!settings.statusShowsSelectedWordCount)
@@ -121,12 +122,14 @@ struct AppSettingsTests {
         // storing true would pass even if nothing were persisted at all.
         settings.statusBarEnabled = false
         settings.statusShowsLineCount = false
+        settings.statusShowsSentenceCount = true
         settings.statusShowsHeadingLevel = true
         settings.statusShowsSelectedCharacterCount = true
 
         let restored = AppSettings(defaults: testDefaults.defaults)
         #expect(!restored.statusBarEnabled)
         #expect(!restored.statusShowsLineCount)
+        #expect(restored.statusShowsSentenceCount)
         #expect(restored.statusShowsHeadingLevel)
         #expect(restored.statusShowsSelectedCharacterCount)
     }

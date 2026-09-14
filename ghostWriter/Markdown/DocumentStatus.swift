@@ -8,11 +8,13 @@
 //
 
 import Foundation
+import NaturalLanguage
 
 nonisolated struct DocumentStatusOptions: Equatable, Sendable {
     var lineAndColumn = true
     var lineCount = true
     var wordCount = true
+    var sentenceCount = false
     var characterCount = true
     var headingLevel = false
     var selectedWordCount = false
@@ -29,6 +31,7 @@ nonisolated struct DocumentStatusIndex: Sendable {
 
     let lineCount: Int
     let wordCount: Int
+    let sentenceCount: Int
     let characterCount: Int
 
     init(text: String) {
@@ -36,6 +39,7 @@ nonisolated struct DocumentStatusIndex: Sendable {
         let lines = text.components(separatedBy: "\n")
         self.lineCount = lines.count
         self.wordCount = Self.countWords(in: text)
+        self.sentenceCount = Self.countSentences(in: text)
         self.characterCount = text.count
 
         var starts: [Int] = []
@@ -91,6 +95,7 @@ nonisolated struct DocumentStatusIndex: Sendable {
             currentColumn: safeLocation - lineStartOffsets[lineIndex] + 1,
             lineCount: lineCount,
             wordCount: wordCount,
+            sentenceCount: sentenceCount,
             characterCount: characterCount,
             headingLevel: headingLevels[lineIndex],
             selectedWordCount: Self.countWords(in: selectedText),
@@ -114,6 +119,20 @@ nonisolated struct DocumentStatusIndex: Sendable {
         return lowerBound
     }
 
+    // Use the same sentence boundaries and nonempty-content rule as Library Word Count.
+    private static func countSentences(in text: String) -> Int {
+        let tokenizer = NLTokenizer(unit: .sentence)
+        tokenizer.string = text
+        var count = 0
+        tokenizer.enumerateTokens(in: text.startIndex..<text.endIndex) { range, _ in
+            if text[range].unicodeScalars.contains(where: { CharacterSet.alphanumerics.contains($0) }) {
+                count += 1
+            }
+            return true
+        }
+        return count
+    }
+
     private static func countWords(in text: String) -> Int {
         text.split(whereSeparator: { $0.isWhitespace }).count
     }
@@ -124,6 +143,7 @@ nonisolated struct DocumentStatus: Equatable, Sendable {
     let currentColumn: Int
     let lineCount: Int
     let wordCount: Int
+    let sentenceCount: Int
     let characterCount: Int
     let headingLevel: Int?
     let selectedWordCount: Int
@@ -145,6 +165,9 @@ nonisolated struct DocumentStatus: Equatable, Sendable {
         }
         if options.wordCount {
             parts.append(countDescription(wordCount, singular: "word", plural: "words"))
+        }
+        if options.sentenceCount {
+            parts.append(countDescription(sentenceCount, singular: "sentence", plural: "sentences"))
         }
         if options.characterCount {
             parts.append(countDescription(characterCount, singular: "character", plural: "characters"))

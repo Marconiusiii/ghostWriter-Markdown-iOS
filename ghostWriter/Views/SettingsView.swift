@@ -539,6 +539,8 @@ private struct StatusBarSettingsView: View {
                         .ghostFilledControlTint()
                     Toggle("Word Count", isOn: $settings.statusShowsWordCount)
                         .ghostFilledControlTint()
+                    Toggle("Sentences", isOn: $settings.statusShowsSentenceCount)
+                        .ghostFilledControlTint()
                     Toggle("Character Count", isOn: $settings.statusShowsCharacterCount)
                         .ghostFilledControlTint()
                     Toggle("Heading Level", isOn: $settings.statusShowsHeadingLevel)
@@ -578,6 +580,7 @@ private struct StatusBarSettingsView: View {
                 lineAndColumn: settings.statusShowsLineAndColumn,
                 lineCount: settings.statusShowsLineCount,
                 wordCount: settings.statusShowsWordCount,
+                sentenceCount: settings.statusShowsSentenceCount,
                 characterCount: settings.statusShowsCharacterCount,
                 headingLevel: settings.statusShowsHeadingLevel,
                 selectedWordCount: settings.statusShowsSelectedWordCount,

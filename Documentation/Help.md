@@ -126,7 +126,7 @@ When App Opens chooses whether to begin in the Library, a new document, or your 
 
 Editing contains Indentation, Automatic Lists, and Keyboard Shortcuts. VoiceOver Settings controls editing feedback and heading navigation; see VoiceOver for details.
 
-Appearance contains Theme and Editor Font. Status Bar displays document information below the editor; Customize Status Bar chooses what it shows. Render Sound plays when rendering and follows the device’s silent switch.
+Appearance contains Theme and Editor Font. Status Bar displays document information below the editor; Customize Status Bar chooses what it shows. Turn on Sentences to include the document’s sentence count; this option is off by default. Render Sound plays when rendering and follows the device’s silent switch.
 
 Export contains Use smart punctuation and Thematic separator. Choose a Word stylesheet in the Word export flow. Their Help topics explain what they change. Set eBraille Defaults under eBraille metadata supplies information for new exports.
 
