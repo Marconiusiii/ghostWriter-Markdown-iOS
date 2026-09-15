@@ -10,6 +10,52 @@ import Testing
 @MainActor
 struct DocumentLibraryMetadataStoreTests {
 
+    @Test func fileListVerbosityControlsDatesAndSavedInclusionForFilesAndFolders() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let metadata = makeStore(testDefaults.defaults)
+        let root = URL(fileURLWithPath: "/library", isDirectory: true)
+        metadata.useLibraryRoot(root)
+        let document = Document(url: root.appendingPathComponent("Chapter.md"),
+                                created: Date(timeIntervalSince1970: 100),
+                                modified: Date(timeIntervalSince1970: 200), byteCount: 10)
+        let folder = LibraryFolder(url: root.appendingPathComponent("Notes", isDirectory: true))
+        for included in [true, false] {
+            if !included {
+                metadata.toggleDefaultInclusion(for: document.url)
+                metadata.toggleDefaultInclusion(for: folder.url)
+            }
+            for creation in [true, false] {
+                for modified in [true, false] {
+                    for status in [true, false] {
+                        let options = FileListVerbosity(creationDates: creation,
+                                                       modifiedDates: modified,
+                                                       compilationStatus: status)
+                        let snapshot = LibraryPresentationSnapshot.build(
+                            documents: [document], folders: [folder], currentDirectory: root,
+                            query: "", searchIndex: .empty,
+                            sort: DocumentSort(field: .modified, direction: .descending),
+                            metadata: metadata, verbosity: options
+                        )
+                        let row = snapshot.documents[0]
+                        #expect(row.verbosity == options)
+                        #expect(row.accessibilityLabel.contains(", created ") == creation)
+                        #expect(row.accessibilityLabel.contains(", modified ") == modified)
+                        let expected: LibraryCompilationStatus? = status ? (included ? .included : .excluded) : nil
+                        #expect(row.compilationStatus == expected)
+                        #expect(snapshot.folders[0].compilationStatus == expected)
+                        #expect(row.accessibilityLabel.contains("Compilations") == status)
+                        #expect(row.accessibilityLabel.contains("Chapter"))
+                        if let expected {
+                            #expect(row.accessibilityLabel.contains(expected.label))
+                            #expect(expected.symbol == (included ? "checkmark.circle" : "minus.circle"))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @Test func libraryPresentationCachesSortedRowsAndFolderCounts() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }

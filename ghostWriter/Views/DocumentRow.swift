@@ -13,9 +13,29 @@
 
 import SwiftUI
 
+struct FileListVerbosity: Equatable {
+    var creationDates = true
+    var modifiedDates = true
+    var compilationStatus = true
+}
+
+enum LibraryCompilationStatus: Equatable {
+    case included, excluded
+
+    var label: String {
+        self == .included ? String(localized: "Included in Compilations") : String(localized: "Excluded from Compilations")
+    }
+
+    var symbol: String {
+        self == .included ? "checkmark.circle" : "minus.circle"
+    }
+}
+
 struct LibraryDocumentPresentation: Identifiable, Equatable {
     let document: Document
     let isPinned: Bool
+    let verbosity: FileListVerbosity
+    let compilationStatus: LibraryCompilationStatus?
     let modifiedDescription: String
     let createdDescription: String
     let accessibilityLabel: String
@@ -23,7 +43,9 @@ struct LibraryDocumentPresentation: Identifiable, Equatable {
 
     var id: URL { document.url }
 
-    init(document: Document, isPinned: Bool) {
+    init(document: Document, isPinned: Bool, verbosity: FileListVerbosity = .init(), included: Bool = true) {
+        self.verbosity = verbosity
+        self.compilationStatus = verbosity.compilationStatus ? (included ? .included : .excluded) : nil
         self.document = document
         self.isPinned = isPinned
         self.modifiedDescription = DateFormatting.short(document.modified)
@@ -32,7 +54,11 @@ struct LibraryDocumentPresentation: Identifiable, Equatable {
         let pinDescription = isPinned ? "Pinned, " : ""
         let statusDescription = document.availability.statusDescription
             .map { ", \($0)" } ?? ""
-        self.accessibilityLabel = "\(pinDescription)\(document.displayName), modified \(DateFormatting.spoken(document.modified)), created \(DateFormatting.spoken(document.created))\(statusDescription)"
+        var label = "\(pinDescription)\(document.displayName)"
+        if verbosity.modifiedDates { label += ", modified \(DateFormatting.spoken(document.modified))" }
+        if verbosity.creationDates { label += ", created \(DateFormatting.spoken(document.created))" }
+        if let compilationStatus { label += ", \(compilationStatus.label)" }
+        self.accessibilityLabel = label + statusDescription
         self.accessibilityHint = document.availability.isAvailable
             ? "Opens in the editor"
             : "Downloads this document and opens it when ready"
@@ -42,6 +68,7 @@ struct LibraryDocumentPresentation: Identifiable, Equatable {
 struct LibraryFolderPresentation: Identifiable, Equatable {
     let folder: LibraryFolder
     let itemCount: Int
+    var compilationStatus: LibraryCompilationStatus? = nil
 
     var id: URL { folder.url }
 }
@@ -64,7 +91,8 @@ struct LibraryPresentationSnapshot: Equatable {
         query: String,
         searchIndex: DocumentSearchIndex,
         sort: DocumentSort,
-        metadata: DocumentLibraryMetadataStore
+        metadata: DocumentLibraryMetadataStore,
+        verbosity: FileListVerbosity = .init()
     ) -> LibraryPresentationSnapshot {
         let standardizedDirectory = currentDirectory.standardizedFileURL
         let currentDocuments = documents.filter {
@@ -95,7 +123,9 @@ struct LibraryPresentationSnapshot: Equatable {
         ).map { document in
             LibraryDocumentPresentation(
                 document: document,
-                isPinned: metadata.isPinned(document.url)
+                isPinned: metadata.isPinned(document.url),
+                verbosity: verbosity,
+                included: metadata.isIncludedByDefault(document.url)
             )
         }
 
@@ -116,7 +146,9 @@ struct LibraryPresentationSnapshot: Equatable {
             LibraryFolderPresentation(
                 folder: folder,
                 itemCount: documentCounts[folder.url.standardizedFileURL, default: 0]
-                    + folderCounts[folder.url.standardizedFileURL, default: 0]
+                    + folderCounts[folder.url.standardizedFileURL, default: 0],
+                compilationStatus: verbosity.compilationStatus
+                    ? (metadata.isIncludedByDefault(folder.url) ? .included : .excluded) : nil
             )
         }
 
@@ -147,8 +179,16 @@ struct DocumentRow: View {
             }
 
             metadataLayout {
-                Label(presentation.modifiedDescription, systemImage: "pencil")
-                Label(presentation.createdDescription, systemImage: "calendar")
+                if presentation.verbosity.modifiedDates {
+                    Label(presentation.modifiedDescription, systemImage: "pencil")
+                }
+                if presentation.verbosity.creationDates {
+                    Label(presentation.createdDescription, systemImage: "calendar")
+                }
+                if let status = presentation.compilationStatus {
+                    Image(systemName: status.symbol)
+                        .accessibilityHidden(true)
+                }
             }
             .font(.caption)
             .foregroundStyle(Color.ghostMuted)

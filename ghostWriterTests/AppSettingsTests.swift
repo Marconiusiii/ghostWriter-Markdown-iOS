@@ -96,6 +96,22 @@ struct AppSettingsTests {
         #expect(settings.editorFontDesign == .monospaced)
     }
 
+    @Test func fileListVerbosityDefaultsToOnAndPersistsEachPreference() {
+        let testDefaults = makeDefaults()
+        defer { cleanUp(testDefaults) }
+        let settings = AppSettings(defaults: testDefaults.defaults)
+        #expect(settings.fileListShowsCreationDates)
+        #expect(settings.fileListShowsModifiedDates)
+        #expect(settings.fileListShowsCompilationStatus)
+        settings.fileListShowsCreationDates = false
+        settings.fileListShowsModifiedDates = false
+        settings.fileListShowsCompilationStatus = false
+        let restored = AppSettings(defaults: testDefaults.defaults)
+        #expect(!restored.fileListShowsCreationDates)
+        #expect(!restored.fileListShowsModifiedDates)
+        #expect(!restored.fileListShowsCompilationStatus)
+    }
+
     @Test func statusBarIsOnByDefaultWithUsefulMetrics() {
         let testDefaults = makeDefaults()
         defer { cleanUp(testDefaults) }

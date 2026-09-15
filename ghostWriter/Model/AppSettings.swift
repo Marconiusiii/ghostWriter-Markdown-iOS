@@ -175,6 +175,18 @@ final class AppSettings {
         didSet { defaults.set(statusBarEnabled, forKey: Keys.statusBarEnabled) }
     }
 
+    var fileListShowsCreationDates: Bool {
+        didSet { defaults.set(fileListShowsCreationDates, forKey: "fileListShowsCreationDates") }
+    }
+
+    var fileListShowsModifiedDates: Bool {
+        didSet { defaults.set(fileListShowsModifiedDates, forKey: "fileListShowsModifiedDates") }
+    }
+
+    var fileListShowsCompilationStatus: Bool {
+        didSet { defaults.set(fileListShowsCompilationStatus, forKey: "fileListShowsCompilationStatus") }
+    }
+
     var statusShowsLineAndColumn: Bool {
         didSet { defaults.set(statusShowsLineAndColumn, forKey: Keys.statusLineAndColumn) }
     }
@@ -381,6 +393,9 @@ final class AppSettings {
             ?? PowerPointImportOptions()
         self.editorFontDesign = (defaults.string(forKey: Keys.editorFontDesign)
             .flatMap(EditorFontDesign.init(rawValue:))) ?? .monospaced
+        self.fileListShowsCreationDates = defaults.object(forKey: "fileListShowsCreationDates") as? Bool ?? true
+        self.fileListShowsModifiedDates = defaults.object(forKey: "fileListShowsModifiedDates") as? Bool ?? true
+        self.fileListShowsCompilationStatus = defaults.object(forKey: "fileListShowsCompilationStatus") as? Bool ?? true
         self.statusBarEnabled = defaults.object(forKey: Keys.statusBarEnabled) as? Bool ?? true
         self.statusShowsLineAndColumn = defaults.object(forKey: Keys.statusLineAndColumn) as? Bool ?? true
         self.statusShowsLineCount = defaults.object(forKey: Keys.statusLineCount) as? Bool ?? true

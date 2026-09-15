@@ -108,6 +108,8 @@ Settings > VoiceOver Settings contains Verbosity and Heading Swipe Navigation. V
 
 Heading Swipe Navigation moves between headings in the editor. Swipe right with three fingers for the next heading, or left with three fingers for the previous heading. These gestures are not available while using Braille Screen Input or when assigned to other VoiceOver commands.
 
+Settings > VoiceOver Settings > File List Verbosity controls the information shown and spoken in Library rows. Creation Dates and Modified Dates independently show or hide file dates. Compilation Status shows a checkmark-in-circle for included files and folders or a minus-in-circle for excluded ones. VoiceOver speaks “Included in Compilations” or “Excluded from Compilations” as part of the row. These reflect each item’s saved inclusion preference. All three options are on by default.
+
 Use VoiceOver Actions on Library files and folders to reach their available commands. An open folder’s heading also offers folder actions.
 
 ### Keyboard shortcuts

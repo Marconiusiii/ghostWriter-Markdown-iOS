@@ -154,14 +154,34 @@ nonisolated final class CoordinatedFileAccess {
 
     func write(_ text: String, to url: URL) throws {
         try write(at: url, options: .forReplacing) { coordinatedURL in
-            try text.write(to: coordinatedURL, atomically: true, encoding: .utf8)
+            try replaceContents(Data(text.utf8), at: coordinatedURL)
         }
     }
 
     func write(_ data: Data, to url: URL) throws {
         try write(at: url, options: .forReplacing) { coordinatedURL in
-            try data.write(to: coordinatedURL, options: .atomic)
+            try replaceContents(data, at: coordinatedURL)
         }
+    }
+
+    /// Called inside the destination's write coordination. Replacement preserves
+    /// the original creation date and permissions; new files get new metadata.
+    private func replaceContents(_ data: Data, at url: URL) throws {
+        let manager = FileManager.default
+        guard manager.fileExists(atPath: url.path) else {
+            try data.write(to: url, options: .atomic)
+            return
+        }
+        let stagingDirectory = try manager.url(
+            for: .itemReplacementDirectory,
+            in: .userDomainMask,
+            appropriateFor: url,
+            create: true
+        )
+        defer { try? manager.removeItem(at: stagingDirectory) }
+        let stagedFile = stagingDirectory.appendingPathComponent(url.lastPathComponent)
+        try data.write(to: stagedFile)
+        _ = try manager.replaceItemAt(url, withItemAt: stagedFile, options: [])
     }
 
     /// Checks the expected version and replaces it inside one coordination
@@ -187,11 +207,7 @@ nonisolated final class CoordinatedFileAccess {
                     return .changedOnDisk(currentContents)
                 }
 
-                try text.write(
-                    to: coordinatedURL,
-                    atomically: true,
-                    encoding: .utf8
-                )
+                try replaceContents(Data(text.utf8), at: coordinatedURL)
                 return .saved
             }
         } catch {

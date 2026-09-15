@@ -8,6 +8,37 @@ import Testing
 @testable import ghostWriter
 
 struct CoordinatedFileAccessTests {
+    @Test func savesPreserveCreationDateAndAdvanceModificationDate() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try manager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: root) }
+        let access = CoordinatedFileAccess()
+        for mode in 0..<3 {
+            let url = root.appendingPathComponent("Date-\(mode).md")
+            try access.write("Original", to: url)
+            let created = Date(timeIntervalSince1970: 1_600_000_000)
+            let modified = created.addingTimeInterval(86_400)
+            try manager.setAttributes([.creationDate: created, .modificationDate: modified], ofItemAtPath: url.path)
+            let before = try manager.attributesOfItem(atPath: url.path)
+            _ = try access.string(at: url)
+            let loaded = try #require(Document(fileURL: url))
+            #expect(loaded.created == before[.creationDate] as? Date)
+            #expect(loaded.modified == before[.modificationDate] as? Date)
+            if mode == 0 {
+                try access.write("Changed", to: url)
+            } else if mode == 1 {
+                #expect(access.guardedWrite("Changed", to: url, ifUnchangedFrom: "Original") == .saved)
+            } else {
+                try access.write(Data("Changed".utf8), to: url)
+            }
+            let after = try manager.attributesOfItem(atPath: url.path)
+            #expect(after[.creationDate] as? Date == before[.creationDate] as? Date)
+            #expect(try #require(after[.modificationDate] as? Date) > modified)
+            #expect(try access.string(at: url) == "Changed")
+        }
+    }
+
     @Test func guardedWriteChecksAndSavesInOneTransaction() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(

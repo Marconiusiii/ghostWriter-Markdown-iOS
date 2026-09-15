@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var showingWhyGhostWriter = false
     @State private var showingAcknowledgements = false
     @State private var showingStatusBarSettings = false
+    @State private var showingFileListVerbosity = false
     @State private var showingMailComposer = false
     @State private var showingMailUnavailable = false
     @State private var requestedStorageLocation: DocumentStorageChoice?
@@ -177,6 +178,7 @@ struct SettingsView: View {
                 }
 
                 Section("VoiceOver Settings") {
+                    Button("File List Verbosity") { showingFileListVerbosity = true }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Verbosity")
                             .accessibilityHidden(true)
@@ -332,6 +334,9 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingAcknowledgements) {
             AcknowledgementsView()
+        }
+        .sheet(isPresented: $showingFileListVerbosity) {
+            FileListVerbosityView()
         }
         .sheet(isPresented: $showingStatusBarSettings) {
             StatusBarSettingsView()
@@ -587,5 +592,31 @@ private struct StatusBarSettingsView: View {
                 selectedCharacterCount: settings.statusShowsSelectedCharacterCount
             )
         )
+    }
+}
+
+private struct FileListVerbosityView: View {
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        @Bindable var settings = settings
+        NavigationStack {
+            Form {
+                Toggle("Creation Dates", isOn: $settings.fileListShowsCreationDates)
+                    .ghostFilledControlTint()
+                Toggle("Modified Dates", isOn: $settings.fileListShowsModifiedDates)
+                    .ghostFilledControlTint()
+                Toggle("Compilation Status", isOn: $settings.fileListShowsCompilationStatus)
+                    .ghostFilledControlTint()
+            }
+            .navigationTitle("File List Verbosity")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Back") { dismiss() }
+                }
+            }
+        }
     }
 }

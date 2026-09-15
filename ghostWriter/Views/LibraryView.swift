@@ -103,6 +103,7 @@ struct LibraryView: View {
         let query: String
         let sort: DocumentSort
         let calendarDay: Date
+        let verbosity: FileListVerbosity
     }
 
     var body: some View {
@@ -686,7 +687,8 @@ struct LibraryView: View {
         } label: {
             FolderRow(
                 folder: folder,
-                itemCount: presentation.itemCount
+                itemCount: presentation.itemCount,
+                compilationStatus: presentation.compilationStatus
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -1002,7 +1004,8 @@ struct LibraryView: View {
             directory: currentDirectory,
             query: trimmedSearch,
             sort: currentSort,
-            calendarDay: Calendar.current.startOfDay(for: .now)
+            calendarDay: Calendar.current.startOfDay(for: .now),
+            verbosity: fileListVerbosity
         )
     }
 
@@ -1014,6 +1017,14 @@ struct LibraryView: View {
         libraryPresentation.folders.map(\.folder)
     }
 
+    private var fileListVerbosity: FileListVerbosity {
+        FileListVerbosity(
+            creationDates: settings.fileListShowsCreationDates,
+            modifiedDates: settings.fileListShowsModifiedDates,
+            compilationStatus: settings.fileListShowsCompilationStatus
+        )
+    }
+
     private func rebuildLibraryPresentation() {
         guard libraryIsActive else { return }
         let updated = LibraryPresentationSnapshot.build(
@@ -1023,7 +1034,8 @@ struct LibraryView: View {
             query: trimmedSearch,
             searchIndex: searchIndex,
             sort: currentSort,
-            metadata: libraryMetadata
+            metadata: libraryMetadata,
+            verbosity: fileListVerbosity
         )
         if updated != libraryPresentation { libraryPresentation = updated }
     }
