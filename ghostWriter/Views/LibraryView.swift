@@ -135,7 +135,8 @@ struct LibraryView: View {
                 LibraryDocumentDestination(
                     url: url,
                     preparedSession: openedDocument,
-                    renderingSession: renderingSession
+                    renderingSession: renderingSession,
+                    prepareForClose: prepareLibraryRowForEditorReturn
                 )
             }
 
@@ -1618,6 +1619,13 @@ struct LibraryView: View {
         searchAnnounceTask = nil
     }
 
+    private func prepareLibraryRowForEditorReturn(_ url: URL) async {
+        guard let document = await store.refreshDocumentMetadata(at: url) else { return }
+        // Update the existing row in place while the editor still covers it.
+        // The normal Library refresh handles sorting and other files afterward.
+        libraryPresentation = libraryPresentation.replacingDocument(document)
+    }
+
     private func resumeLibraryActivityAfterDocumentPresentation() async {
         guard libraryIsActive else { return }
         // Preserve existing Library rows; reconfigure storage only if the
@@ -1831,14 +1839,17 @@ struct RenderedDocumentSession {
 /// LibraryView clears its pending presentation data.
 private struct LibraryDocumentDestination: View {
     let url: URL
+    let prepareForClose: (URL) async -> Void
     let preparedSession: DocumentSession?
     @State private var renderingSession: RenderedDocumentSession?
 
     init(
         url: URL,
         preparedSession: DocumentSession?,
-        renderingSession: RenderedDocumentSession?
+        renderingSession: RenderedDocumentSession?,
+        prepareForClose: @escaping (URL) async -> Void
     ) {
+        self.prepareForClose = prepareForClose
         self.url = url
         self.preparedSession = preparedSession
         _renderingSession = State(initialValue:
@@ -1855,7 +1866,8 @@ private struct LibraryDocumentDestination: View {
                 presentation: .navigation
             )
         } else {
-            LibraryEditorDestination(url: url, preparedSession: preparedSession)
+            LibraryEditorDestination(url: url, preparedSession: preparedSession,
+                                     prepareForClose: prepareForClose)
         }
     }
 }

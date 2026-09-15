@@ -953,6 +953,23 @@ final class DocumentStore {
         }
     }
 
+    /// Refresh only the closing document before its Library row is revealed.
+    /// Filesystem coordination stays off the main actor.
+    func refreshDocumentMetadata(at url: URL) async -> Document? {
+        let originalDirectory = directory
+        let document = await Task.detached(priority: .userInitiated) {
+            try? CoordinatedFileAccess().read(at: url) { coordinatedURL in
+                Document(fileURL: coordinatedURL)
+            }
+        }.value
+        guard directory == originalDirectory, let document else { return nil }
+        if let index = documents.firstIndex(where: { $0.url == url }),
+           documents[index] != document {
+            documents[index] = document
+        }
+        return document
+    }
+
     /// Performs the complete guarded-save transaction on a dedicated actor.
     /// NSFileCoordinator is synchronous and can wait for iCloud, so calling the
     /// synchronous save path from the editor would block all text input.

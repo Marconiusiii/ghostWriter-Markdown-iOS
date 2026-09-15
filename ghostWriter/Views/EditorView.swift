@@ -78,6 +78,8 @@ struct EditorView: View {
     private let draftName: String
     private let onDocumentURLChange: (URL) -> Void
     private let onClose: (URL) -> Void
+    private let prepareForClose: (URL) async -> Void
+    @State private var preparingToClose = false
 
     private enum EditorFocus: Hashable {
         case status
@@ -134,7 +136,8 @@ struct EditorView: View {
         document: Document,
         initialText: String,
         onDocumentURLChange: @escaping (URL) -> Void = { _ in },
-        onClose: @escaping (URL) -> Void = { _ in }
+        onClose: @escaping (URL) -> Void = { _ in },
+        prepareForClose: @escaping (URL) async -> Void = { _ in }
     ) {
         self.isHelpManual = HelpManualDocument.isManual(document.url)
         let documentBuffer = EditorDocumentBuffer(initialText: initialText)
@@ -161,6 +164,7 @@ struct EditorView: View {
         self.draftName = document.displayName
         self.onDocumentURLChange = onDocumentURLChange
         self.onClose = onClose
+        self.prepareForClose = prepareForClose
     }
 
     var body: some View {
@@ -958,7 +962,7 @@ struct EditorView: View {
     /// still has local work outstanding. That would make Cancel on a conflict
     /// alert meaningless and discard the in-memory version when the view closes.
     private func closeEditor() {
-        guard !manualSaveInProgress else { return }
+        guard !preparingToClose, !manualSaveInProgress else { return }
         let current = captureCurrentEditorState(publishingChanges: false)
         if isHelpManual {
             if HelpManualEditing.needsSavePrompt(current: current.text, saved: saveController.lastSavedText) {
@@ -978,20 +982,30 @@ struct EditorView: View {
     }
 
     private func finishClosingEditor() {
-        if let fileURL {
-            onClose(fileURL)
+        guard !preparingToClose else { return }
+        preparingToClose = true
+        let closingRevision = editorSession.revision
+        Task { @MainActor in
+            if let fileURL {
+                await prepareForClose(fileURL)
+                // If writing continued during the metadata read, settle those
+                // edits before leaving rather than dismissing newer content.
+                guard editorSession.revision == closingRevision else {
+                    preparingToClose = false
+                    closeEditor()
+                    return
+                }
+                onClose(fileURL)
+            }
+            dismiss()
         }
-        dismiss()
     }
 
     private func closeWithoutSaving() {
         saveController.cancelPending()
         pendingFileAction = nil
         externalConflict = nil
-        if let fileURL {
-            onClose(fileURL)
-        }
-        dismiss()
+        finishClosingEditor()
     }
 
     private func commitRename() {

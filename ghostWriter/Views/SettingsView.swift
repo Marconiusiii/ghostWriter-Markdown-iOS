@@ -179,12 +179,13 @@ struct SettingsView: View {
 
                 Section("VoiceOver Settings") {
                     Button("File List Verbosity") { showingFileListVerbosity = true }
+                        .accessibilityHint("Changes the file list information")
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Verbosity")
+                        Text("Editor Verbosity")
                             .accessibilityHidden(true)
 
                         Picker(
-                            "Verbosity",
+                            "Editor Verbosity",
                             selection: $settings.voiceOverVerbosity
                         ) {
                             ForEach(VoiceOverVerbosity.allCases) { verbosity in
@@ -193,7 +194,7 @@ struct SettingsView: View {
                         }
                         .pickerStyle(.wheel)
                         .accessibilityElement(children: .contain)
-                        .accessibilityLabel("Verbosity")
+                        .accessibilityLabel("Editor Verbosity")
                     }
                     Toggle("Heading Swipe Navigation", isOn: $settings.headingSwipeNavigationEnabled)
                         .ghostFilledControlTint()

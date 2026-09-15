@@ -84,6 +84,19 @@ struct LibraryPresentationSnapshot: Equatable {
     let folders: [LibraryFolderPresentation]
     let currentItemCount: Int
 
+    func replacingDocument(_ document: Document) -> Self {
+        let updatedRows = documents.map { row in
+            guard row.id == document.url else { return row }
+            return LibraryDocumentPresentation(
+                document: document,
+                isPinned: row.isPinned,
+                verbosity: row.verbosity,
+                included: row.compilationStatus != .excluded
+            )
+        }
+        return Self(documents: updatedRows, folders: folders, currentItemCount: currentItemCount)
+    }
+
     static func build(
         documents: [Document],
         folders: [LibraryFolder],

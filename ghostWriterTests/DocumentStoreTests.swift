@@ -13,6 +13,34 @@ import Testing
 
 @MainActor
 struct DocumentStoreTests {
+    @Test func closingDocumentRefreshesItsCachedRowBeforeReturn() async throws {
+        let store = makeStore()
+        defer { cleanUp(store) }
+        let url = try #require(store.createDocument(named: "Edited", contents: "Original"))
+        _ = await store.createDocument(named: "Other", contents: "Untouched")
+        let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
+        try FileManager.default.setAttributes([.modificationDate: oldDate], ofItemAtPath: url.path)
+        store.refresh()
+        let oldDocuments = store.documents
+        let old = try #require(oldDocuments.first(where: { $0.url == url }))
+        let row = LibraryDocumentPresentation(document: old, isPinned: true,
+                                             verbosity: .init(), included: false)
+        let snapshot = LibraryPresentationSnapshot(documents: [row], folders: [], currentItemCount: 1)
+        #expect(await store.saveAsynchronously(text: "Updated text", to: url, ifUnchangedFrom: "Original") == .saved)
+        #expect(store.documents == oldDocuments)
+        let updated = try #require(await store.refreshDocumentMetadata(at: url))
+        let ready = snapshot.replacingDocument(updated)
+        #expect(updated.modified > old.modified)
+        #expect(ready.documents[0].id == row.id)
+        #expect(ready.documents[0].isPinned)
+        #expect(ready.documents[0].compilationStatus == .excluded)
+        #expect(ready.documents[0].accessibilityLabel != row.accessibilityLabel)
+        #expect(store.documents.first(where: { $0.url == url }) == updated)
+        #expect(store.documents.filter { $0.url != url } == oldDocuments.filter { $0.url != url })
+        #expect(store.documents.map(\.url) == oldDocuments.map(\.url))
+        #expect(ready.replacingDocument(updated) == ready)
+    }
+
 
     @Test func asynchronousDocumentReadReturnsCompleteContents() async throws {
         let store = makeStore()

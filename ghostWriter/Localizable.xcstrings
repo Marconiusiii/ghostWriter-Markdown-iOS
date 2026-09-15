@@ -73,6 +73,7 @@
     },
     "%@, folder, %lld %@" : {
       "comment" : "FolderRow.swift:18",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -687,6 +688,9 @@
         }
       }
     },
+    "Changes the file list information" : {
+
+    },
     "Character Count" : {
       "comment" : "SettingsView.swift:419",
       "localizations" : {
@@ -912,6 +916,9 @@
       }
     },
     "Compilation could not be exported" : {
+
+    },
+    "Compilation Status" : {
 
     },
     "Complete document" : {
@@ -1391,6 +1398,9 @@
       }
     },
     "Creating %@ compilation…" : {
+
+    },
+    "Creation Dates" : {
 
     },
     "Current" : {
@@ -1915,6 +1925,9 @@
         }
       }
     },
+    "Editor Verbosity" : {
+
+    },
     "Education level" : {
       "comment" : "EBrailleMetadataSettingsView.swift:145",
       "localizations" : {
@@ -2163,6 +2176,9 @@
     "Exclude from Compilations" : {
 
     },
+    "Excluded from Compilations" : {
+
+    },
     "Explore Welcome Document" : {
       "comment" : "WelcomeView.swift:40",
       "localizations" : {
@@ -2229,6 +2245,9 @@
           }
         }
       }
+    },
+    "File List Verbosity" : {
+
     },
     "Files" : {
       "comment" : "SettingsView.swift:64",
@@ -2713,6 +2732,9 @@
     "Include in Compilations" : {
 
     },
+    "Included in Compilations" : {
+
+    },
     "Indentation" : {
       "comment" : "SettingsView.swift:110",
       "localizations" : {
@@ -3105,6 +3127,9 @@
           }
         }
       }
+    },
+    "Modified Dates" : {
+
     },
     "Monospaced" : {
       "comment" : "AppSettings.swift:80",
@@ -5178,6 +5203,7 @@
     },
     "Verbosity" : {
       "comment" : "SettingsView.swift:149",
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {

@@ -3,13 +3,16 @@ import SwiftUI
 /// One destination for row links, new documents, launch shortcuts, and Help.
 struct LibraryEditorDestination: View {
     let url: URL
+    let prepareForClose: (URL) async -> Void
     var preparedSession: DocumentSession?
     @Environment(DocumentStore.self) private var store
     @Environment(DocumentLibraryMetadataStore.self) private var metadata
     @State private var session: DocumentSession?
     @State private var failure: String?
 
-    init(url: URL, preparedSession: DocumentSession? = nil) {
+    init(url: URL, preparedSession: DocumentSession? = nil,
+         prepareForClose: @escaping (URL) async -> Void = { _ in }) {
+        self.prepareForClose = prepareForClose
         self.url = url
         self.preparedSession = preparedSession
         _session = State(initialValue: preparedSession?.document.url == url ? preparedSession : nil)
@@ -18,7 +21,8 @@ struct LibraryEditorDestination: View {
     var body: some View {
         Group {
             if let session {
-                EditorView(document: session.document, initialText: session.text)
+                EditorView(document: session.document, initialText: session.text,
+                           prepareForClose: prepareForClose)
             } else {
                 Group {
                     if let failure {
