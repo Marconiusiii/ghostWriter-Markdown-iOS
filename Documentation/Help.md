@@ -182,7 +182,7 @@ Settings > Export > Thematic separator replaces Markdown thematic breaks with yo
 
 HTML preserves document structure, embeds supported attached images, and retains image descriptions. Its text size follows the app used to open it.
 
-When exporting HTML or PDF, turn on Table of Contents before choosing Export and share…. The toggle is off by default and is also available for compilations. The contents uses all nonempty heading levels in their final exported order, omits the opening title, and is omitted if no entries remain. HTML places a Table of Contents level 2 heading and a nested list of links after the opening title. PDF adds linked entries with final page numbers and begins the remaining content on a new page after the contents. A following Heading 2 is an ordinary contents entry in these formats.
+When exporting HTML or PDF, turn on Table of Contents before choosing Export and share…. The toggle is off by default and is also available for compilations. The contents uses all nonempty heading levels in their final exported order, omits the opening title, and is omitted if no entries remain. HTML places a collapsed Table of Contents disclosure after the opening title. Activate its summary to show or hide the nested heading links. PDF adds linked entries with final page numbers and begins the remaining content on a new page after the contents. A following Heading 2 is an ordinary contents entry in these formats.
 
 PDF produces tagged, fixed pages with headings, lists, tables, and image descriptions. Pages use US Letter with one-inch margins. Headings stay with the following text, and table rows stay together.
 

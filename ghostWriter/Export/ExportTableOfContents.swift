@@ -35,7 +35,7 @@ nonisolated enum ExportTableOfContents {
                     + (node.children.isEmpty ? "" : list(node.children)) + "</li>"
             }.joined() + "</ul>"
         }
-        return "<h2>Table of Contents</h2>" + list(tree(headings))
+        return "<details><summary><h2>Table of Contents</h2></summary>" + list(tree(headings)) + "</details>"
     }
 
     static func list(_ headings: [ExportHeading], pages: [String: Int]) -> ExportBlock {

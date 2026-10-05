@@ -3,9 +3,9 @@
 //  ghostWriter
 //
 //  Completes structure information that Core Graphics references but does not
-//  serialize: the parent tree, each page's StructParents key, and Figure alt
-//  text. The update is appended using PDF's incremental-update mechanism, so
-//  the original page content and byte offsets remain untouched.
+//  serialize: the parent tree, page and link annotation parent keys, Link
+//  object references, and Figure alt text. The update uses PDF's incremental
+//  update mechanism, leaving original page content and byte offsets untouched.
 //
 
 import Foundation
@@ -95,13 +95,49 @@ nonisolated enum PDFStructureFinalizer {
             ))
         }
 
-        let numberTree = parentEntries.enumerated().map { pageIndex, entries in
+        // CGPDFContext emits one Link leaf for each linked text fragment and
+        // appends its annotation in drawing order. Match within each page,
+        // using MCID order for the leaves and Annots order for the annotations.
+        // Never guess a pairing if the page has a different number of each.
+        let objectsByNumber = Dictionary(uniqueKeysWithValues: objects.map { ($0.number, $0) })
+        var annotationParents: [String] = []
+        for page in pages {
+            let pageReference = "\(page.number) \(page.generation) R"
+            let links = objects.filter {
+                hasName("StructElem", for: "Type", in: $0.body)
+                    && hasName("Link", for: "S", in: $0.body)
+                    && indirectReference("/Pg", in: $0.body) == pageReference
+                    && integerValue("/K", in: $0.body) != nil
+            }.sorted { integerValue("/K", in: $0.body)! < integerValue("/K", in: $1.body)! }
+            let annotations = annotationReferences(in: page.body, documentText: text).compactMap { number in
+                objectsByNumber[number]
+            }.filter { hasName("Link", for: "Subtype", in: $0.body) }
+            guard links.count == annotations.count else { continue }
+            for (link, annotation) in zip(links, annotations) {
+                guard let mcid = integerValue("/K", in: link.body) else { continue }
+                let key = pages.count + annotationParents.count
+                let reference = "\(annotation.number) \(annotation.generation) R"
+                let children = "/K [ \(mcid) << /Type /OBJR /Obj \(reference) /Pg \(pageReference) >> ]"
+                let body = link.body.replacingOccurrences(
+                    of: #"/K\s+\d+"#, with: children, options: .regularExpression
+                )
+                replacements.append(Replacement(number: link.number, generation: link.generation, body: body))
+                replacements.append(Replacement(
+                    number: annotation.number, generation: annotation.generation,
+                    body: replacingInteger("/StructParent", with: key, in: annotation.body)
+                ))
+                annotationParents.append("\(key) \(link.number) \(link.generation) R")
+            }
+        }
+
+        let pageNumberTree = parentEntries.enumerated().map { pageIndex, entries in
             let maximum = entries.keys.max() ?? -1
             let references = maximum >= 0
                 ? (0...maximum).map { entries[$0] ?? "null" }.joined(separator: " ")
                 : ""
             return "\(pageIndex) [ \(references) ]"
         }.joined(separator: " ")
+        let numberTree = ([pageNumberTree] + annotationParents).joined(separator: " ")
         replacements.append(Replacement(
             number: parentTreeNumber,
             generation: 0,
@@ -116,7 +152,7 @@ nonisolated enum PDFStructureFinalizer {
         )
         rootBody = replacingInteger(
             "/ParentTreeNextKey",
-            with: pages.count,
+            with: pages.count + annotationParents.count,
             in: rootBody
         )
         rootBody = removingReference("/IDTree", from: rootBody)
@@ -244,6 +280,26 @@ nonisolated enum PDFStructureFinalizer {
         }
 
         return objects.values.sorted { $0.number < $1.number }
+    }
+
+    private static func annotationReferences(in pageBody: String, documentText: String) -> [Int] {
+        let array: String?
+        if let reference = indirectReference("/Annots", in: pageBody) {
+            let parts = reference.split(separator: " ")
+            array = captureGroups(
+                "(?m)^\(parts[0])\\s+\(parts[1])\\s+obj\\s*\\[([^\\]]*)\\]",
+                in: documentText
+            )?.first
+        } else {
+            array = captureGroups(#"/Annots\s*\[([^\]]*)\]"#, in: pageBody)?.first
+        }
+        guard let array,
+              let expression = try? NSRegularExpression(pattern: #"(\d+)\s+\d+\s+R"#)
+        else { return [] }
+        return expression.matches(in: array, range: NSRange(array.startIndex..., in: array)).compactMap {
+            guard let range = Range($0.range(at: 1), in: array) else { return nil }
+            return Int(array[range])
+        }
     }
 
     private static func isPDFWhitespace(_ byte: UInt8) -> Bool {

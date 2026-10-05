@@ -6,11 +6,13 @@ import Testing
 struct TableOfContentsTests {
     @Test func htmlContentsHasHeadingAndNestedListsAfterTitle() throws {
         let html = MarkdownRenderer.html(from: "# Book\n\n## Chapter & one\n\n#### Deep\n\n## Chapter & one", includesTableOfContents: true)
-        #expect(html.hasPrefix("<h1 id=\"heading-1\">Book</h1><h2>Table of Contents</h2><ul>"))
+        #expect(html.hasPrefix("<h1 id=\"heading-1\">Book</h1><details><summary><h2>Table of Contents</h2></summary><ul>"))
         #expect(html.contains("<li><a href=\"#heading-2\">Chapter &amp; one</a><ul><li><a href=\"#heading-3\">Deep</a></li></ul></li>"))
         #expect(html.contains("href=\"#heading-4\""))
         #expect(!html.contains("href=\"#heading-1\""))
         #expect(!html.contains("aria-"))
+        #expect(!html.contains("<details open"))
+        #expect(html.contains("</ul></details><h2 id=\"heading-2\">"))
         let parser = XMLParser(data: Data(("<root>" + html + "</root>").utf8))
         #expect(parser.parse())
     }
@@ -39,7 +41,7 @@ struct TableOfContentsTests {
         let url = try await CompilationFileWriter.write(title: "Compilation", sources: sources, settings: options)
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         let html = try String(contentsOf: url, encoding: .utf8)
-        #expect(html.contains("<h2>Table of Contents</h2><ul>"))
+        #expect(html.contains("<details><summary><h2>Table of Contents</h2></summary><ul>"))
         #expect(html.contains("<h2 id=\"heading-3\">Next</h2>"))
         #expect(html.contains("href=\"#heading-3\">Next</a><ul><li><a href=\"#heading-4\">Repeated</a>"))
         #expect(html.contains("lang=\"es\""))
@@ -84,7 +86,7 @@ struct TableOfContentsTests {
             let url = try await EditorShareFileWriter.write(format: format, title: "Book", fileName: "Book", markdown: "# Book\n\n## Chapter", sourceDirectory: nil, includesTableOfContents: true)
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
             if format == .html {
-                #expect(try String(contentsOf: url, encoding: .utf8).contains("<h2>Table of Contents</h2><ul>"))
+                #expect(try String(contentsOf: url, encoding: .utf8).contains("<details><summary><h2>Table of Contents</h2></summary><ul>"))
             } else {
                 #expect(PDFDocument(url: url)?.string?.contains("Table of Contents") == true)
             }
@@ -159,6 +161,7 @@ struct TableOfContentsTests {
         #expect(raw.contains("/Subtype /Link"))
         let destinations = (0..<pdf.pageCount).flatMap { pdf.page(at: $0)?.annotations ?? [] }
             .compactMap { ($0.action as? PDFActionGoTo)?.destination }
+        #expect(try TaggedPDFWriterTests.checkLinkAssociations(data) == 45)
         #expect(destinations.count == 45)
         for (index, destination) in destinations.enumerated() {
             #expect(destination.page?.string?.contains("ChapterNumber\(index + 1)End") == true)

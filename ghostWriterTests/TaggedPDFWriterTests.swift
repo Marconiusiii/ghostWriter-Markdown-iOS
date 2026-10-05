@@ -40,6 +40,88 @@ struct TaggedPDFWriterTests {
         )
     }
 
+    /// Resolve the final cross-reference table, rather than searching old
+    /// object revisions in the byte stream. Check both directions of every
+    /// annotation/tag relationship and retain the marked-content child.
+    static func checkLinkAssociations(_ data: Data) throws -> Int {
+        let provider = try #require(CGDataProvider(data: data as CFData))
+        let document = try #require(CGPDFDocument(provider))
+        var root: CGPDFDictionaryRef?
+        #expect(CGPDFDictionaryGetDictionary(try #require(document.catalog), "StructTreeRoot", &root))
+        var tree: CGPDFDictionaryRef?
+        #expect(CGPDFDictionaryGetDictionary(try #require(root), "ParentTree", &tree))
+        var numsRef: CGPDFArrayRef?
+        #expect(CGPDFDictionaryGetArray(try #require(tree), "Nums", &numsRef))
+        let nums = try #require(numsRef)
+        var seenKeys = Set<Int>()
+        var count = 0
+        for pageNumber in 1...document.numberOfPages {
+            let page = try #require(document.page(at: pageNumber)?.dictionary)
+            var annotsRef: CGPDFArrayRef?
+            guard CGPDFDictionaryGetArray(page, "Annots", &annotsRef), let annots = annotsRef else { continue }
+            for index in 0..<CGPDFArrayGetCount(annots) {
+                var annotationRef: CGPDFDictionaryRef?
+                #expect(CGPDFArrayGetDictionary(annots, index, &annotationRef))
+                let annotation = try #require(annotationRef)
+                var subtype: UnsafePointer<CChar>?
+                guard CGPDFDictionaryGetName(annotation, "Subtype", &subtype),
+                      subtype.map({ String(cString: $0) }) == "Link" else { continue }
+                count += 1
+                var key: CGPDFInteger = -1
+                #expect(CGPDFDictionaryGetInteger(annotation, "StructParent", &key))
+                #expect(key >= document.numberOfPages)
+                #expect(seenKeys.insert(key).inserted)
+                var linkRef: CGPDFDictionaryRef?
+                for entry in stride(from: 0, to: CGPDFArrayGetCount(nums), by: 2) {
+                    var candidate: CGPDFInteger = -1
+                    #expect(CGPDFArrayGetInteger(nums, entry, &candidate))
+                    if candidate == key {
+                        #expect(CGPDFArrayGetDictionary(nums, entry + 1, &linkRef))
+                    }
+                }
+                let link = try #require(linkRef)
+                var role: UnsafePointer<CChar>?
+                #expect(CGPDFDictionaryGetName(link, "S", &role))
+                #expect(role.map { String(cString: $0) } == "Link")
+                var childrenRef: CGPDFArrayRef?
+                #expect(CGPDFDictionaryGetArray(link, "K", &childrenRef))
+                let children = try #require(childrenRef)
+                #expect(CGPDFArrayGetCount(children) == 2)
+                var mcid: CGPDFInteger = -1
+                #expect(CGPDFArrayGetInteger(children, 0, &mcid))
+                #expect(mcid >= 0)
+                var objectRef: CGPDFDictionaryRef?
+                #expect(CGPDFArrayGetDictionary(children, 1, &objectRef))
+                let object = try #require(objectRef)
+                var kind: UnsafePointer<CChar>?
+                #expect(CGPDFDictionaryGetName(object, "Type", &kind))
+                #expect(kind.map { String(cString: $0) } == "OBJR")
+                var target: CGPDFDictionaryRef?
+                #expect(CGPDFDictionaryGetDictionary(object, "Obj", &target))
+                #expect(target == annotation)
+                var targetPage: CGPDFDictionaryRef?
+                #expect(CGPDFDictionaryGetDictionary(object, "Pg", &targetPage))
+                #expect(targetPage == page)
+                // The page's existing MCID mapping must still reference this Link.
+                var pageKey: CGPDFInteger = -1
+                #expect(CGPDFDictionaryGetInteger(page, "StructParents", &pageKey))
+                var pageParentsRef: CGPDFArrayRef?
+                #expect(CGPDFArrayGetArray(nums, pageKey * 2 + 1, &pageParentsRef))
+                var contentParent: CGPDFDictionaryRef?
+                #expect(CGPDFArrayGetDictionary(try #require(pageParentsRef), mcid, &contentParent))
+                #expect(contentParent == link)
+            }
+        }
+        return count
+    }
+
+    @Test func wrappedAndAdjacentLinksHaveAnnotationParents() throws {
+        let longLabel = String(repeating: "Long linked text with accents áéíóú. ", count: 70)
+        let markdown = "[First](https://example.com/first) and [Second](https://example.com/second)\n\n[\(longLabel)](https://example.com/long)"
+        let data = try makePDF(markdown: markdown)
+        #expect(try Self.checkLinkAssociations(data) > 10)
+    }
+
     // MARK: - Document validity
 
     @Test func producesAReadablePDF() throws {
