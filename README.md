@@ -90,7 +90,7 @@ and compilations. PDF contents include final page numbers. Standard Word output 
 [Word export and JSON stylesheet instructions](Documentation/Word%20export.md)
 explain the supported settings and field behavior.
 [Download the default example](Documentation/word-theme.json) or the
-[manuscript example](Documentation/word-manuscript.json) to create a stylesheet.
+[manuscript example](Documentation/Author%20testing/word-manuscript.json) to create a stylesheet.
 
 
 ## Features
