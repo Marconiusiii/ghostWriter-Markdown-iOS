@@ -6,6 +6,11 @@ struct AcknowledgementsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Spanish translation") {
+                    Text(verbatim: "Jose María Ortiz")
+                    Text(verbatim: "Mónica Montes")
+                }
+
                 Section("ZIPFoundation") {
                     Link(
                         "Project website",

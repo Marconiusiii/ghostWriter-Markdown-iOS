@@ -1,0 +1,33 @@
+{
+  "workbookSHA256": "0301ebc882fef1b6a5f510c3c18d893b491af385477829e14afe97a2e4547466",
+  "source": "Translator follow-up supplied by the user; explanatory paragraph drafted and approved for implementation by the user, pending translator review.",
+  "translations": {
+    "Dismiss": {
+      "value": "Ocultar",
+      "reviewed": true
+    },
+    "Editing": {
+      "value": "Edición",
+      "reviewed": true
+    },
+    "Rounded": {
+      "value": "Redondeada",
+      "reviewed": true
+    },
+    "Friendly Haunting Received": {
+      "value": "¡Aparición amistosa recibida!",
+      "reviewed": true
+    },
+    "ghostWriter has no ads or subscriptions. If it helps you write, you can support future updates with one of these optional friendly hauntings. Every option offers the same heartfelt thank-you.": {
+      "value": "ghostWriter no tiene anuncios ni suscripciones. Si te ayuda a escribir, puedes apoyar futuras actualizaciones con estas compras opcionales, llamadas «apariciones amistosas». No desbloquean ninguna función. Todas las opciones reciben el mismo agradecimiento.",
+      "reviewed": false
+    }
+  },
+  "terminology": {
+    "Friendly hauntings": "Apariciones amistosas"
+  },
+  "credits": [
+    "Jose María Ortiz",
+    "Mónica Montes"
+  ]
+}

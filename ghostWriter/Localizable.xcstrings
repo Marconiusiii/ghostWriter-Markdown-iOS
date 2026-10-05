@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Spanish translation" : {
+      "comment" : "Acknowledgements section identifying the Spanish translators. New label awaiting translator review.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Traducción al español"
+          }
+        }
+      }
+    },
     "" : {
 
     },
@@ -2566,7 +2577,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Encantamiento amistoso recibido"
+            "value" : "¡Aparición amistosa recibida!"
           }
         }
       }
@@ -2609,8 +2620,8 @@
       "localizations" : {
         "es" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "ghostWriter no tiene anuncios ni suscripciones. Si te ayuda a escribir, puedes apoyar futuras actualizaciones con uno de estos encantamientos amistosos opcionales. Todas las opciones ofrecen el mismo agradecimiento sincero."
+            "state" : "needs_review",
+            "value" : "ghostWriter no tiene anuncios ni suscripciones. Si te ayuda a escribir, puedes apoyar futuras actualizaciones con estas compras opcionales, llamadas «apariciones amistosas». No desbloquean ninguna función. Todas las opciones reciben el mismo agradecimiento."
           }
         }
       }

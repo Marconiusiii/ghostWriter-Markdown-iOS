@@ -19,6 +19,9 @@ parser.add_argument("workbook", type=Path)
 parser.add_argument("--apply", action="store_true")
 args = parser.parse_args()
 digest = hashlib.sha256(args.workbook.read_bytes()).hexdigest()
+follow_up = json.loads((ROOT / "Documentation/Spanish translation follow-up.json").read_text())
+# These decisions supersede this specific returned workbook, not later reviews.
+overrides = follow_up["translations"] if digest == follow_up["workbookSHA256"] else {}
 book = openpyxl.load_workbook(args.workbook, read_only=True, data_only=True)
 catalog_path = ROOT / "ghostWriter/Localizable.xcstrings"
 catalog = json.loads(catalog_path.read_text())
@@ -27,6 +30,7 @@ source = "\n".join(p.read_text() for p in (ROOT / "ghostWriter").rglob("*.swift"
 source += "\n" + (ROOT / "ghostWriter/Resources/ghostWriter Help Manual.md").read_text()
 printf = re.compile(r"%(?:\d+\$)?(?:[-+ #0]*\d*(?:\.\d+)?)?(?:ll|l|z)?[@diuoxXfFeEgGcCsSp%]")
 accepted, retired, pending = [], [], []
+drafts = []
 seen = set()
 counts = Counter()
 for sheet_name in ["Interface", "Accessibility", "Help and onboarding", "Exports"]:
@@ -39,7 +43,12 @@ for sheet_name in ["Interface", "Accessibility", "Help and onboarding", "Exports
         assert identifier not in seen, f"Duplicate ID: {identifier}"
         seen.add(identifier)
         counts[status] += 1
-        if status not in ("Approved", "Changed"):
+        override = overrides.get(english)
+        if override:
+            draft, correction = override["value"], None
+            status = "Approved" if override["reviewed"] else "Needs review"
+            notes = "Follow-up explanatory draft; exact wording awaits translator review."
+        if status not in ("Approved", "Changed") and not override:
             pending.append((identifier, status, english, notes or ""))
             continue
         translation = correction or draft
@@ -51,14 +60,18 @@ for sheet_name in ["Interface", "Accessibility", "Help and onboarding", "Exports
             continue
         entry = strings.setdefault(english, {"extractionState": "manual"})
         entry.setdefault("localizations", {})["es"] = {
-            "stringUnit": {"state": "translated", "value": translation}
+            "stringUnit": {"state": "translated" if status == "Approved" or status == "Changed" else "needs_review", "value": translation}
         }
         # Dynamic Help text is looked up at runtime, so preserve its manual key.
         if sheet_name == "Help and onboarding":
             entry["extractionState"] = "manual"
         if entry.get("extractionState") == "manual":
             entry["generatesSymbol"] = False
-        accepted.append(identifier)
+        if status in ("Approved", "Changed"):
+            accepted.append(identifier)
+        else:
+            drafts.append(identifier)
+            pending.append((identifier, status, english, notes))
 
 welcome_rows = list(book["Welcome document"].values)[2:]
 english_welcome = "\n".join(row[2] or "" for row in welcome_rows).rstrip() + "\n"
@@ -86,11 +99,21 @@ report = [
     f"Returned workbook: {args.workbook.name}", "",
     f"Workbook SHA-256: `{digest}`", "",
     "The returned workbook is preserved unchanged. Corrections take precedence over drafts; the translators entered their changes in the Spanish draft column in this return.", "",
-    f"Imported {len(accepted)} reviewed current catalog strings and the reviewed Welcome document. {len(retired)} reviewed entries no longer match current source and were not imported. {len(pending)} catalog entries remain pending.", "",
+    f"Imported {len(accepted)} reviewed current catalog strings and the reviewed Welcome document, plus {len(drafts)} follow-up draft(s) marked Needs review. {len(retired)} reviewed entries no longer match current source and were not imported. {len(pending)} workbook entries remain pending.", "",
     "The Spanish interface release hold remains in place. New stylesheet documentation needs a Spanish draft and review in the next workbook. Existing unreviewed translations are retained as drafts, not newly approved. The English and bundled Help documents remain English until a complete Spanish manual is prepared.", "",
     "Spanish Grade 1 remains the default. Grade 2 has not received a full translator braille test; it must not be described as validated.", "",
-    "## Questions to resolve", "",
 ]
+if overrides:
+    report += ["## Translator follow-up", "",
+               "The five context questions have been answered. The following confirmations supersede the original workbook:", ""]
+    report += [f"- {english}: {value['value']}" for english, value in overrides.items() if value["reviewed"]]
+    report += [f"- {english}: {spanish}" for english, spanish in follow_up["terminology"].items()]
+    report += ["", "The support explanation now identifies optional purchases and states that they unlock no features. Its exact Spanish wording is a draft awaiting translator review:", ""]
+    report += [value["value"] for value in overrides.values() if not value["reviewed"]]
+    report += ["", "Acknowledgements credits: " + "; ".join(follow_up["credits"]) + ". The new Spanish translation section label also needs translator review.", ""]
+report += ["## Questions to resolve", ""]
+if not any(item[1] == "Question" for item in pending):
+    report += ["No original context questions remain unresolved.", ""]
 for identifier, status, english, notes in pending:
     if status == "Question":
         report += [f"- {identifier}: {english}. Translator note: {notes}"]
@@ -98,7 +121,7 @@ report += ["", "## Reviewed entries whose source changed or was removed", ""]
 report += [f"- {identifier}: {english}" for identifier, english in retired]
 report += ["", "## Pending export and interface entries", "", ", ".join(item[0] for item in pending), "",
            "## Imported catalog IDs", "", ", ".join(accepted), "",
-           "## Workbook status totals", ""]
+           "## Original workbook status totals (before follow-up)", ""]
 report += [f"- {status}: {count}" for status, count in sorted(counts.items())]
 report_text = "\n".join(report) + "\n"
 if args.apply:
