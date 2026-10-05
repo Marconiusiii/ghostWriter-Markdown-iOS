@@ -84,7 +84,9 @@ Choose a named JSON stylesheet when exporting a Word document or compilation.
 Stylesheets can control fonts, paragraph spacing, first-paragraph indentation
 after headings, widow/orphan control, and keeping paragraphs together. Header
 and footer templates can include document information, running headings, page
-numbers, and the export date. Standard Word output remains available.
+numbers, and the export date. Stylesheets can also add a linked table of contents.
+HTML and PDF exports offer an optional Table of Contents toggle for documents
+and compilations. PDF contents include final page numbers. Standard Word output remains available.
 [Word export and JSON stylesheet instructions](Documentation/Word%20export.md)
 explain the supported settings and field behavior.
 [Download the default example](Documentation/word-theme.json) or the

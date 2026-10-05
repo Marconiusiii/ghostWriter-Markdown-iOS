@@ -8,12 +8,40 @@
     "keepLinesTogether": false
   },
   "headings": {
-    "1": { "firstLineIndent": 0, "keepWithNext": true, "keepLinesTogether": true },
-    "2": { "firstLineIndent": 0, "keepWithNext": true, "keepLinesTogether": true }
+    "1": {
+      "firstLineIndent": 0,
+      "keepWithNext": true,
+      "keepLinesTogether": true
+    },
+    "2": {
+      "firstLineIndent": 0,
+      "keepWithNext": true,
+      "keepLinesTogether": true
+    }
   },
-  "paragraphAfterHeading": { "headingLevels": [1, 2], "firstLineIndent": 0 },
-  "metadata": { "author": "Your name" },
-  "header": { "template": "{{author}}: {{heading1}}", "alignment": "left" },
-  "footer": { "template": "{{title}} | {{pageNumber}}", "alignment": "center" },
-  "differentFirstPage": true
+  "paragraphAfterHeading": {
+    "headingLevels": [
+      1,
+      2
+    ],
+    "firstLineIndent": 0
+  },
+  "metadata": {
+    "author": "Your name"
+  },
+  "header": {
+    "template": "{{author}}: {{heading1}}",
+    "alignment": "left"
+  },
+  "footer": {
+    "template": "{{title}} | {{pageNumber}}",
+    "alignment": "center"
+  },
+  "differentFirstPage": true,
+  "tableOfContents": {
+    "minimumLevel": 1,
+    "maximumLevel": 3,
+    "pageNumbers": true,
+    "pageBreakAfter": true
+  }
 }

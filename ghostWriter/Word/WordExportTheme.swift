@@ -18,6 +18,7 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
     var differentFirstPage: Bool?
     var paragraphAfterHeading: WordThemeFollowingParagraph?
     var metadata: WordThemeMetadata?
+    var tableOfContents: WordThemeContents?
 
     static let maximumBytes = 65_536
 
@@ -36,7 +37,7 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
             guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 throw WordThemeError.invalid("The Word Stylesheet must contain an object.")
             }
-            try checkKeys(object, allowed: ["version", "body", "headings", "quote", "code", "list", "table", "page", "title", "subtitle", "thematicBreak", "header", "footer", "differentFirstPage", "paragraphAfterHeading", "metadata"], path: "theme")
+            try checkKeys(object, allowed: ["version", "body", "headings", "quote", "code", "list", "table", "page", "title", "subtitle", "thematicBreak", "header", "footer", "differentFirstPage", "paragraphAfterHeading", "metadata", "tableOfContents"], path: "theme")
             let styleKeys: Set<String> = ["font", "size", "color", "bold", "italic", "spaceBefore", "spaceAfter", "lineSpacing", "alignment", "firstLineIndent", "pageBreakBefore", "pageBreakAfter", "keepWithNext", "widowControl", "keepLinesTogether"]
             for name in ["body", "quote", "code", "list", "table", "title", "subtitle"] where object[name] != nil {
                 try checkKeys(try dictionary(object[name], path: name), allowed: name == "table" ? styleKeys.subtracting(["pageBreakBefore", "pageBreakAfter"]) : styleKeys, path: name)
@@ -65,6 +66,9 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
             if let value = object["metadata"] {
                 try checkKeys(try dictionary(value, path: "metadata"), allowed: ["title", "subtitle", "author"], path: "metadata")
             }
+            if let value = object["tableOfContents"] {
+                try checkKeys(try dictionary(value, path: "tableOfContents"), allowed: ["title", "minimumLevel", "maximumLevel", "pageNumbers", "pageBreakAfter"], path: "tableOfContents")
+            }
             let theme = try JSONDecoder().decode(Self.self, from: data)
             guard theme.version == 1 else { throw WordThemeError.invalid("version must be 1.") }
             for (path, style) in [("body", theme.body), ("quote", theme.quote), ("code", theme.code), ("list", theme.list), ("table", theme.table), ("title", theme.title), ("subtitle", theme.subtitle)] {
@@ -77,6 +81,7 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
             try theme.footer?.validate(path: "footer")
             try theme.paragraphAfterHeading?.validate()
             try theme.metadata?.validate()
+            try theme.tableOfContents?.validate()
             return theme
         } catch let error as WordThemeError { throw error }
         catch let error as DecodingError {
@@ -264,5 +269,24 @@ nonisolated enum WordThemeTemplate {
         guard !rest.contains("}}") else { throw WordThemeError.invalid("Unmatched placeholder braces in \(path).") }
         result.append(.text(String(rest)))
         return result
+    }
+}
+
+nonisolated struct WordThemeContents: Codable, Equatable, Sendable {
+    var title: String?
+    var minimumLevel: Int?
+    var maximumLevel: Int?
+    var pageNumbers: Bool?
+    var pageBreakAfter: Bool?
+
+    func validate() throws {
+        let lower = minimumLevel ?? 1
+        let upper = maximumLevel ?? 3
+        guard (1...6).contains(lower), (lower...6).contains(upper) else {
+            throw WordThemeError.invalid("tableOfContents levels must be from 1 to 6, with minimumLevel no greater than maximumLevel.")
+        }
+        if let title, title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || title.count > 128 || title.unicodeScalars.contains(where: { CharacterSet.controlCharacters.union(.newlines).contains($0) }) {
+            throw WordThemeError.invalid("tableOfContents.title must contain 1 to 128 characters on one line.")
+        }
     }
 }

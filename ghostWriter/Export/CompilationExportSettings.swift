@@ -8,6 +8,11 @@ nonisolated struct CompilationExportSettings: Sendable {
     var powerPointTheme = PowerPointTheme.warmPaper
     var powerPointFont = PowerPointFont.arial
     var headingChoices: [CompilationFormat: Bool] = [:]
+    var contentsChoices: [CompilationFormat: Bool] = [:]
+    var includesTableOfContents: Bool {
+        get { contentsChoices[format] ?? false }
+        set { contentsChoices[format] = newValue }
+    }
     var pageChoices: [CompilationFormat: Bool] = [:]
     var preservesHeadings: Bool {
         get { format == .word ? word.preservesHeadingStructure : headingChoices[format] ?? true }

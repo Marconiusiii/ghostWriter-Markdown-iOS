@@ -14,7 +14,8 @@ nonisolated enum MarkdownRenderer {
         from markdown: String,
         title: String? = nil,
         sourceDirectory: URL? = nil,
-        embedLocalImages: Bool = false
+        embedLocalImages: Bool = false,
+        includesTableOfContents: Bool = false
     ) -> String {
         let document = MarkdownDocumentParser.parse(markdown)
         var blocks = document.blocks
@@ -25,10 +26,18 @@ nonisolated enum MarkdownRenderer {
             blocks.insert(.heading(level: 1, content: [.text(trimmedTitle)]), at: 0)
         }
 
-        var output = Renderer(
-            sourceDirectory: sourceDirectory,
-            embedLocalImages: embedLocalImages
-        ).render(blocks)
+        var renderer = Renderer(sourceDirectory: sourceDirectory, embedLocalImages: embedLocalImages,
+                                identifiesHeadings: includesTableOfContents)
+        var output: String
+        if includesTableOfContents {
+            let opening = ExportTableOfContents.hasOpeningTitle(blocks) ? 1 : 0
+            let headings = Array(ExportDocument(blocks: blocks).headings().dropFirst(opening))
+            output = renderer.render(Array(blocks.prefix(opening)))
+                + ExportTableOfContents.html(headings)
+                + renderer.render(Array(blocks.dropFirst(opening)))
+        } else {
+            output = renderer.render(blocks)
+        }
 
         if document.blocks.isEmpty {
             output += "<p class=\"empty-state\">This document is empty.</p>"
@@ -90,15 +99,19 @@ nonisolated enum MarkdownRenderer {
     private struct Renderer {
         var sourceDirectory: URL?
         var embedLocalImages: Bool
+        var identifiesHeadings = false
+        var headingCounter = 0
 
-        func render(_ blocks: [ExportBlock]) -> String {
-            blocks.map(render).joined()
+        mutating func render(_ blocks: [ExportBlock]) -> String {
+            blocks.map { render($0) }.joined()
         }
 
-        private func render(_ block: ExportBlock) -> String {
+        private mutating func render(_ block: ExportBlock) -> String {
             switch block {
             case .heading(let level, let content):
-                return "<h\(level)>\(inline(content))</h\(level)>"
+                if !content.isEffectivelyEmpty { headingCounter += 1 }
+                let id = identifiesHeadings && !content.isEffectivelyEmpty ? " id=\"heading-\(headingCounter)\"" : ""
+                return "<h\(level)\(id)>\(inline(content))</h\(level)>"
             case .paragraph(let content):
                 let body = inline(content)
                 return body.isEmpty ? "" : "<p>\(body)</p>"
@@ -117,7 +130,7 @@ nonisolated enum MarkdownRenderer {
             }
         }
 
-        private func renderList(_ list: ExportList) -> String {
+        private mutating func renderList(_ list: ExportList) -> String {
             let tag = list.isOrdered ? "ol" : "ul"
             var attributes = list.isOrdered && list.start != 1
                 ? " start=\"\(list.start)\""

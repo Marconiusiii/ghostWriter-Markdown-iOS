@@ -23,6 +23,11 @@ struct CompilationFormatOptions: View {
                 }
             }
         }
+        if options.format == .html || options.format == .pdf {
+            Section {
+                Toggle("Table of Contents", isOn: $options.includesTableOfContents)
+            }
+        }
         switch options.format {
         case .word: EmptyView()
         case .powerPoint:

@@ -16,9 +16,9 @@ import Foundation
 
 nonisolated enum EPUBWriter {
 
-    static func compilationHTML(title: String, document: ExportDocument, sourceDirectory: URL, language: String) -> String {
+    static func compilationHTML(title: String, document: ExportDocument, sourceDirectory: URL, language: String, includesTableOfContents: Bool = false) -> String {
         let resources = collectImageResources(document, sourceDirectory: sourceDirectory)
-        var output = contentDocument(title: title, language: language, document: document, includeTitleHeading: false, imageResources: resources)
+        var output = contentDocument(title: title, language: language, document: document, includeTitleHeading: false, imageResources: resources, includesTableOfContents: includesTableOfContents)
         for image in resources.images {
             output = output.replacingOccurrences(of: "src=\"\(image.href)\"", with: "src=\"data:\(image.mediaType);base64,\(image.data.base64EncodedString())\"")
         }
@@ -282,9 +282,10 @@ nonisolated enum EPUBWriter {
         language: String,
         document: ExportDocument,
         includeTitleHeading: Bool,
-        imageResources: ImageResources
+        imageResources: ImageResources,
+        includesTableOfContents: Bool = false
     ) -> String {
-        var builder = ContentBuilder(imageResources: imageResources, localTargets: compilationLinkTargets(document))
+        var builder = ContentBuilder(imageResources: imageResources, localTargets: compilationLinkTargets(document), skipsEmptyHeadingIdentifiers: includesTableOfContents)
         var body = ""
 
         if includeTitleHeading {
@@ -292,12 +293,20 @@ nonisolated enum EPUBWriter {
             body += "<h1 id=\"heading-\(builder.headingCounter)\">\(escape(title))</h1>\n"
         }
 
+        let opening = ExportTableOfContents.hasOpeningTitle(document.blocks) ? 1 : 0
+        let contents = includesTableOfContents ? ExportTableOfContents.html(Array(document.headings().dropFirst(opening))) : ""
         if document.compilationSections.isEmpty {
-            body += builder.render(document.blocks)
+            body += builder.render(Array(document.blocks.prefix(opening))) + contents
+            body += builder.render(Array(document.blocks.dropFirst(opening)))
         } else {
             for (index, section) in document.compilationSections.enumerated() {
                 body += "<section id=\"document-\(index + 1)\" epub:type=\"chapter\" lang=\"\(escape(section.language))\" xml:lang=\"\(escape(section.language))\">\n"
-                body += builder.render(Array(document.blocks[section.start..<section.end]))
+                if index == 0 && includesTableOfContents {
+                    body += builder.render(Array(document.blocks[section.start..<(section.start + opening)])) + contents
+                    body += builder.render(Array(document.blocks[(section.start + opening)..<section.end]))
+                } else {
+                    body += builder.render(Array(document.blocks[section.start..<section.end]))
+                }
                 body += "</section>\n"
             }
         }
@@ -326,6 +335,7 @@ nonisolated enum EPUBWriter {
         var headingCounter = 0
         let imageResources: ImageResources
         let localTargets: Set<String>
+        var skipsEmptyHeadingIdentifiers = false
 
         mutating func render(_ blocks: [ExportBlock]) -> String {
             var output = ""
@@ -333,9 +343,11 @@ nonisolated enum EPUBWriter {
             for block in blocks {
                 switch block {
                 case .heading(let level, let content):
-                    headingCounter += 1
+                    let identifies = !skipsEmptyHeadingIdentifiers || !content.isEffectivelyEmpty
+                    if identifies { headingCounter += 1 }
                     let clamped = min(max(level, 1), 6)
-                    output += "<h\(clamped) id=\"heading-\(headingCounter)\">"
+                    let id = identifies ? " id=\"heading-\(headingCounter)\"" : ""
+                    output += "<h\(clamped)\(id)>"
                         + inline(content) + "</h\(clamped)>\n"
 
                 case .paragraph(let content):

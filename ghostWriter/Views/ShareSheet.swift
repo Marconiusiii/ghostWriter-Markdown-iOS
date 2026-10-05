@@ -113,6 +113,8 @@ struct EditorShareView: View {
     /// eBraille leaves to the reading system.
     @State private var eBrailleMetadata: EBrailleMetadata?
     @State private var brfOptions: BRFExportOptions?
+    @State private var contentsConfirmed = false
+    @State private var includesTableOfContents = false
     @State private var wordConfirmed = false
     @State private var wordStylesheet = ""
     @State private var powerPointOptions: PowerPointExportOptions?
@@ -140,6 +142,16 @@ struct EditorShareView: View {
                     }
                 }
 
+            } else if (format == .html || format == .pdf), !contentsConfirmed {
+                NavigationStack {
+                    Form {
+                        Toggle("Table of Contents", isOn: $includesTableOfContents)
+                        Button("Export and share…") { contentsConfirmed = true }
+                    }
+                    .navigationTitle(format == .html ? String(localized: "HTML export") : String(localized: "PDF export"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onClose) } }
+                }
             } else if format == .word, !wordConfirmed {
                 NavigationStack {
                     Form {
@@ -199,6 +211,7 @@ struct EditorShareView: View {
 
     private var isReadyToPrepare: Bool {
         switch format {
+        case .html, .pdf: return contentsConfirmed
         case .word: return wordConfirmed
         case .eBraille: return eBrailleMetadata != nil
         case .brf: return brfOptions != nil
@@ -228,6 +241,7 @@ struct EditorShareView: View {
         let powerPoint = powerPointOptions
         let usesSmartPunctuation = settings.usesSmartPunctuation
         let thematicSeparator = settings.thematicSeparator
+        let includesTableOfContents = includesTableOfContents
 
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
             do {
@@ -246,7 +260,8 @@ struct EditorShareView: View {
                         powerPointOptions: powerPoint,
                         wordOptions: word,
                         usesSmartPunctuation: usesSmartPunctuation,
-                        thematicSeparator: thematicSeparator
+                        thematicSeparator: thematicSeparator,
+                        includesTableOfContents: includesTableOfContents
                     )
                 )
             } catch {
@@ -278,7 +293,8 @@ nonisolated enum EditorShareFileWriter {
         powerPointOptions: PowerPointExportOptions? = nil,
         wordOptions: WordExportOptions? = nil,
         usesSmartPunctuation: Bool = false,
-        thematicSeparator: ThematicSeparator = .none
+        thematicSeparator: ThematicSeparator = .none,
+        includesTableOfContents: Bool = false
     ) async throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -326,7 +342,8 @@ nonisolated enum EditorShareFileWriter {
                 markdown: usesSmartPunctuation ? try SmartPunctuation.markdown(markdown) : markdown,
                 format: .html,
                 sourceDirectory: sourceDirectory,
-                documentLanguage: documentLanguage
+                documentLanguage: documentLanguage,
+                includesTableOfContents: includesTableOfContents
             )
             try contents.write(to: url, atomically: true, encoding: .utf8)
             return url
@@ -369,7 +386,8 @@ nonisolated enum EditorShareFileWriter {
                 markdown: markdown,
                 sourceDirectory: sourceDirectory,
                 documentLanguage: documentLanguage,
-                preparedDocument: preparedDocument
+                preparedDocument: preparedDocument,
+                includesTableOfContents: includesTableOfContents
             )
             try data.write(to: url, options: .atomic)
             return url
@@ -498,7 +516,8 @@ enum ShareItemBuilder {
         format: Format,
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
-        thematicSeparator: ThematicSeparator = .none
+        thematicSeparator: ThematicSeparator = .none,
+        includesTableOfContents: Bool = false
     ) -> String {
         switch format {
         case .markdown:
@@ -513,7 +532,8 @@ enum ShareItemBuilder {
                     from: markdown,
                     title: title,
                     sourceDirectory: sourceDirectory,
-                    embedLocalImages: true
+                    embedLocalImages: true,
+                    includesTableOfContents: includesTableOfContents
                 )
             )
         }

@@ -47,9 +47,27 @@ nonisolated enum TaggedPDFWriter {
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
         preparedDocument: ExportDocument? = nil,
-        startsDocumentsOnNewPages: Bool = false
+        startsDocumentsOnNewPages: Bool = false,
+        includesTableOfContents: Bool = false
     ) throws -> Data {
         let document = preparedDocument ?? MarkdownDocumentParser.parse(markdown)
+        var pages: [String: Int] = [:]
+        // The contents changes pagination. Re-render until every printed page
+        // reference matches its heading destination in that same rendering.
+        for _ in 0..<12 {
+            try Task.checkCancellation()
+            let result = try render(title: title, document: document, sourceDirectory: sourceDirectory,
+                                    documentLanguage: documentLanguage, startsDocumentsOnNewPages: startsDocumentsOnNewPages,
+                                    contentsPages: includesTableOfContents ? pages : nil)
+            if !includesTableOfContents || result.pages == pages { return result.data }
+            pages = result.pages
+        }
+        throw PDFExportError.contentsPaginationFailed
+    }
+
+    private static func render(title: String, document: ExportDocument, sourceDirectory: URL?,
+                               documentLanguage: String, startsDocumentsOnNewPages: Bool,
+                               contentsPages: [String: Int]?) throws -> (data: Data, pages: [String: Int]) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let data = NSMutableData()
@@ -91,6 +109,15 @@ nonisolated enum TaggedPDFWriter {
         // The language is not set here. CGPDFContext accepts a languageText
         // property and then discards it, so it is written into the catalog
         // after the file is closed — see PDFLanguageTag.
+        let generatedTitle = document.compilationSections.isEmpty && !trimmedTitle.isEmpty && !startsWithMatchingHeading(document, title: trimmedTitle)
+        let opening = !generatedTitle && ExportTableOfContents.hasOpeningTitle(document.blocks) ? 1 : 0
+        let headings = Array(document.headings(startingAt: generatedTitle ? 2 : 1).dropFirst(opening))
+        func contents(_ state: inout RenderState) {
+            guard let contentsPages, !headings.isEmpty else { return }
+            drawHeading(level: 2, content: [.text("Table of Contents")], state: &state, registersDestination: false)
+            draw([ExportTableOfContents.list(headings, pages: contentsPages)], state: &state)
+            newPage(&state)
+        }
         tagged(.document, state: &state) { state in
             // A leading title heading gives the document an H1 even when the
             // body does not open with one, which is what a screen reader's
@@ -104,7 +131,9 @@ nonisolated enum TaggedPDFWriter {
             }
 
             if document.compilationSections.isEmpty {
-                draw(document.blocks, state: &state)
+                draw(Array(document.blocks.prefix(opening)), state: &state)
+                contents(&state)
+                draw(Array(document.blocks.dropFirst(opening)), state: &state)
             } else {
                 for (index, section) in document.compilationSections.enumerated() {
                     if Task.isCancelled { break }
@@ -114,7 +143,13 @@ nonisolated enum TaggedPDFWriter {
                     }
                     state.pendingDocumentDestination = "document-\(index + 1)"
                     tagged(.section, properties: [.languageText: section.language], state: &state) { state in
-                        draw(Array(document.blocks[section.start..<section.end]), state: &state)
+                        if index == 0 {
+                            draw(Array(document.blocks[section.start..<(section.start + opening)]), state: &state)
+                            contents(&state)
+                            draw(Array(document.blocks[(section.start + opening)..<section.end]), state: &state)
+                        } else {
+                            draw(Array(document.blocks[section.start..<section.end]), state: &state)
+                        }
                     }
                 }
             }
@@ -139,10 +174,7 @@ nonisolated enum TaggedPDFWriter {
 
         // CGPDFContext writes no language attribute, and a tagged PDF without
         // one fails an accessibility audit, so it is added to the finished file.
-        return PDFLanguageTag.adding(
-            language: documentLanguage,
-            to: completedStructure
-        )
+        return (PDFLanguageTag.adding(language: documentLanguage, to: completedStructure), state.headingPages)
     }
 
     private static func startsWithMatchingHeading(
@@ -184,6 +216,8 @@ nonisolated enum TaggedPDFWriter {
         var actualTexts: [String] = []
         var sectionLanguages: [String] = []
         var headingCounter = 0
+        var pageNumber = 1
+        var headingPages: [String: Int] = [:]
         var pendingDocumentDestination: String?
 
         var availableWidth: CGFloat {
@@ -205,6 +239,7 @@ nonisolated enum TaggedPDFWriter {
     /// the active hierarchy before the break and reopen the same hierarchy on
     /// the new page so every page has a valid marked-content relationship.
     private static func newPage(_ state: inout RenderState) {
+        state.pageNumber += 1
         if state.pageIsOpen {
             for _ in state.activeTags.reversed() {
                 CGPDFContextEndTag(state.context)
@@ -464,7 +499,8 @@ nonisolated enum TaggedPDFWriter {
     private static func drawHeading(
         level: Int,
         content: [ExportInline],
-        state: inout RenderState
+        state: inout RenderState,
+        registersDestination: Bool = true
     ) {
         guard !content.isEffectivelyEmpty else { return }
 
@@ -484,11 +520,15 @@ nonisolated enum TaggedPDFWriter {
         let needed = PDFTextLayout.height(of: lines) + metrics.body * 2
         ensureSpace(needed, state: &state)
 
-        state.headingCounter += 1
-        state.context.addDestination("heading-\(state.headingCounter)" as CFString, at: CGPoint(x: state.originX, y: state.cursor))
-        if let destination = state.pendingDocumentDestination {
-            state.context.addDestination(destination as CFString, at: CGPoint(x: state.originX, y: state.cursor))
-            state.pendingDocumentDestination = nil
+        if registersDestination {
+            state.headingCounter += 1
+            let identifier = "heading-\(state.headingCounter)"
+            state.headingPages[identifier] = state.pageNumber
+            state.context.addDestination(identifier as CFString, at: CGPoint(x: state.originX, y: state.cursor))
+            if let destination = state.pendingDocumentDestination {
+                state.context.addDestination(destination as CFString, at: CGPoint(x: state.originX, y: state.cursor))
+                state.pendingDocumentDestination = nil
+            }
         }
         tagged(headingTag(level: level), state: &state) { state in
             drawLines(lines, attributed: attributed, state: &state)
@@ -1116,9 +1156,12 @@ nonisolated enum TaggedPDFWriter {
 
 nonisolated enum PDFExportError: LocalizedError, Equatable, Sendable {
     case couldNotCreateDocument
+    case contentsPaginationFailed
 
     var errorDescription: String? {
         switch self {
+        case .contentsPaginationFailed:
+            return String(localized: "The table of contents could not be paginated. Turn off Table of Contents and export again.")
         case .couldNotCreateDocument:
             return String(localized: "The PDF could not be created.")
         }

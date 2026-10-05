@@ -182,6 +182,8 @@ Settings > Export > Thematic separator replaces Markdown thematic breaks with yo
 
 HTML preserves document structure, embeds supported attached images, and retains image descriptions. Its text size follows the app used to open it.
 
+When exporting HTML or PDF, turn on Table of Contents before choosing Export and share…. The toggle is off by default and is also available for compilations. The contents uses all nonempty heading levels in their final exported order, omits the opening title, and is omitted if no entries remain. HTML places a Table of Contents level 2 heading and a nested list of links after the opening title. PDF adds linked entries with final page numbers and begins the remaining content on a new page after the contents. A following Heading 2 is an ordinary contents entry in these formats.
+
 PDF produces tagged, fixed pages with headings, lists, tables, and image descriptions. Pages use US Letter with one-inch margins. Headings stay with the following text, and table rows stay together.
 
 EPUB produces a reflowable ebook with heading navigation and active links. For braille publications, see Braille exports.
@@ -228,7 +230,7 @@ A stylesheet can override the global thematic separator for Word, add paragraph 
 
 #### Word Stylesheet reference
 
-Every style sheet must contain version with the number 1. Existing version 1 files remain supported; older app builds may reject files containing the new optional properties. Optional top-level fields are body, headings, quote, code, list, table, page, title, subtitle, thematicBreak, header, footer, differentFirstPage, paragraphAfterHeading, and metadata. Use the exact field names and capitalization. The headings object accepts keys 1 through 6, written in quotes, to style the resulting Word heading levels after any compilation heading changes.
+Every style sheet must contain version with the number 1. Existing version 1 files remain supported; older app builds may reject files containing the new optional properties. Optional top-level fields are body, headings, quote, code, list, table, page, title, subtitle, thematicBreak, header, footer, differentFirstPage, paragraphAfterHeading, metadata, and tableOfContents. Use the exact field names and capitalization. The headings object accepts keys 1 through 6, written in quotes, to style the resulting Word heading levels after any compilation heading changes.
 
 The body, each heading, quote, code, list, and table objects accept font, size, color, bold, italic, spaceBefore, spaceAfter, lineSpacing, and alignment. Font is a name such as Georgia or Arial, with 1 to 128 characters and no control characters. Size is 1 to 200 points and is rounded to the nearest half point. Color is six hexadecimal digits without #, such as 203864. Bold and italic are true or false, without quotes.
 
@@ -239,6 +241,10 @@ The page object accepts width, height, top, right, bottom, and left, all in poin
 Body settings are inherited by paragraph styles unless a more specific style supplies its own setting. Standard heading sizes, bold headings, and monospaced code remain unless overridden in their respective objects. List settings style list text and paragraphs; numbering, starting numbers, and nesting still follow the source. Table settings style table text and paragraphs; table borders and header-row structure retain the standard output.
 
 Keep the JSON file at or below 64 KiB. Omit settings you do not want to change rather than writing null. Unknown fields, unsupported versions, incorrect value types, and out-of-range values prevent Word export and produce an error. Correct the named setting in word-theme.json and export again, or choose Standard Word output. JSON requires double quotes around field names and text values; comments and trailing commas are not allowed.
+
+tableOfContents enables a Word table of contents when present; omit it to leave contents out. Its optional fields are title (1 to 128 characters on one line; default Table of Contents), minimumLevel (default 1), maximumLevel (default 3), pageNumbers (default true), and pageBreakAfter (default true). Heading levels must be from 1 to 6, with minimumLevel no greater than maximumLevel. The contents follows the opening title and any recognized subtitle, excluding both from its entries. An ordinary Heading 2 remains an entry when title/subtitle styles are not both defined. Compilations use their final exported heading levels. No contents is inserted when no eligible headings remain.
+
+The Word contents includes links immediately. Word calculates its page numbers when fields are updated; cached page numbers are left blank until then. In Word, update the entire table after opening or editing the export, and before printing. Readers that do not update Word fields may show the linked entries without page numbers. The generated contents is outside its own source range, so it does not list itself.
 
 widowControl asks Word to keep at least two paragraph lines together at the top and bottom of a page. keepLinesTogether asks Word to keep a paragraph on one page when it fits. These differ from keepWithNext, which keeps a paragraph with the next paragraph. Set them on body or on a specific paragraph style. Word determines pagination using the fonts and page settings available when the document is opened.
 

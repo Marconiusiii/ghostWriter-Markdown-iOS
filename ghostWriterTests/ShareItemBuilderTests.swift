@@ -369,7 +369,7 @@ struct ShareItemBuilderTests {
         #expect(html.contains("src=\"data:image/svg+xml;base64,"))
         #expect(html.contains("alt=\"\" title=\"tactile\""))
         #expect(html.contains("<figcaption>Tactile graphic: A cute owl</figcaption>"))
-        #expect(!html.contains("image-fallback"))
+        #expect(!html.contains("class=\"image-fallback\""))
     }
 
     @Test func unsafeTactileSVGBecomesReadableHTMLFallback() throws {

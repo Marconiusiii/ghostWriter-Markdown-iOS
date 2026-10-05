@@ -28,6 +28,8 @@ nonisolated enum WordprocessingMLWriter {
         var openingRunStyle: WordThemeStyle?
         var inTable = false
         var followingParagraphIndent: Double?
+        var bookmarksHeadings = false
+        var headingNumber = 0
         var hyperlinks: [HyperlinkRelationship] = []
         var images: [ImagePart] = []
 
@@ -70,8 +72,11 @@ nonisolated enum WordprocessingMLWriter {
             uniqueKeysWithValues: numberingKeys.enumerated().map { ($0.element, $0.offset + 1) }
         )
         var context = WritingContext(sourceDirectory: sourceDirectory, theme: theme)
+        let contents = theme?.tableOfContents.map { WordContents(document: document, options: $0, recognizesSubtitle: theme?.title != nil && theme?.subtitle != nil) }
+        let hasContents = contents?.entries.isEmpty == false
+        context.bookmarksHeadings = hasContents
         var precedingHeading: Int?
-        let body = try document.blocks.map { block in
+        var body = try document.blocks.enumerated().map { index, block in
             context.followingParagraphIndent = nil
             switch block {
             case .table: precedingHeading = nil
@@ -88,8 +93,11 @@ nonisolated enum WordprocessingMLWriter {
                     precedingHeading = nil
                 }
             }
-            return try blockXML(block, numberingIDs: numberingIDs, context: &context)
+            let prefix = hasContents && index == contents?.insertionIndex
+                ? contents!.xml + "<w:bookmarkStart w:id=\"0\" w:name=\"GWContentsBody\"/>" : ""
+            return prefix + (try blockXML(block, numberingIDs: numberingIDs, context: &context))
         }.joined()
+        if hasContents { body += "<w:bookmarkEnd w:id=\"0\"/>" }
 
         let hyperlinkXML = context.hyperlinks.map { relationship in
             "<Relationship Id=\"\(relationship.id)\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink\" Target=\"\(xmlAttribute(relationship.target))\" TargetMode=\"External\"/>"
@@ -108,10 +116,13 @@ nonisolated enum WordprocessingMLWriter {
         let documentXML = xmlHeader + """
         <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:adec="http://schemas.microsoft.com/office/drawing/2017/decorative"><w:body>\(body)\(pageXML(theme?.page, parts: pageParts, differentFirstPage: theme?.differentFirstPage == true))</w:body></w:document>
         """
-        let documentRelationships = xmlHeader + """
+        var documentRelationships = xmlHeader + """
         <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>\(hyperlinkXML)\(imageXML)\(pageRelationships)</Relationships>
         """
 
+        if hasContents {
+            documentRelationships = documentRelationships.replacingOccurrences(of: "</Relationships>", with: "<Relationship Id=\"rIdSettings\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings\" Target=\"settings.xml\"/></Relationships>")
+        }
         var entries: [String: Data] = [
             "[Content_Types].xml": data(contentTypesXML(images: context.images).replacingOccurrences(of: "</Types>", with: pageOverrides + "</Types>")),
             "_rels/.rels": data(packageRelationshipsXML),
@@ -122,6 +133,11 @@ nonisolated enum WordprocessingMLWriter {
             "word/styles.xml": data(stylesXML(language: documentLanguage, theme: theme)),
             "word/numbering.xml": data(try numberingXML(keys: numberingKeys))
         ]
+        if hasContents {
+            entries["word/settings.xml"] = data(xmlHeader + "<w:settings xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:updateFields w:val=\"true\"/></w:settings>")
+            let types = String(decoding: entries["[Content_Types].xml"]!, as: UTF8.self)
+            entries["[Content_Types].xml"] = data(types.replacingOccurrences(of: "</Types>", with: "<Override PartName=\"/word/settings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml\"/></Types>"))
+        }
         for image in context.images {
             entries["word/media/\(image.fileName)"] = image.data
         }
@@ -215,7 +231,14 @@ nonisolated enum WordprocessingMLWriter {
             try Task.checkCancellation()
             return runXML($0, context: &context)
         }.joined()
-        return "<w:p>\(pPr)\(runs)\(pageBreakAfter ? "<w:r><w:br w:type=\"page\"/></w:r>" : "")</w:p>"
+        var start = ""
+        var end = ""
+        if context.bookmarksHeadings, paragraph.headingLevel != nil {
+            context.headingNumber += 1
+            start = "<w:bookmarkStart w:id=\"\(context.headingNumber)\" w:name=\"GWHeading\(context.headingNumber)\"/>"
+            end = "<w:bookmarkEnd w:id=\"\(context.headingNumber)\"/>"
+        }
+        return "<w:p>\(pPr)\(start)\(runs)\(end)\(pageBreakAfter ? "<w:r><w:br w:type=\"page\"/></w:r>" : "")</w:p>"
     }
 
     private static func runXML(
@@ -565,6 +588,12 @@ nonisolated enum WordprocessingMLWriter {
             return "<w:style w:type=\"\(type)\"\(defaultAttribute) w:styleId=\"\(id)\"><w:name w:val=\"\(name)\"/>\(basedOn)\(paragraph.isEmpty ? "" : "<w:pPr>" + paragraph + "</w:pPr>")\(run.isEmpty ? "" : "<w:rPr>" + run + "</w:rPr>")\(tableProperties)</w:style>"
         }
         xml += style("Normal", name: "Normal", value: theme?.body)
+        if theme?.tableOfContents != nil {
+            xml += style("TOCHeading", name: "TOC Heading", value: WordThemeStyle(size: 16, bold: true, firstLineIndent: 0, keepWithNext: true), pPr: "<w:outlineLvl w:val=\"1\"/>")
+            for level in 1...6 {
+                xml += style("TOC\(level)", name: "toc \(level)", value: WordThemeStyle(), pPr: "<w:tabs><w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"\(Int(((theme?.page?.width ?? 612) - (theme?.page?.left ?? 72) - (theme?.page?.right ?? 72)) * 20))\"/></w:tabs><w:ind w:left=\"\((level - 1) * 240)\" w:firstLine=\"0\"/>")
+            }
+        }
         for level in 1...6 {
             let defaultSize: Double? = [1: 16.0, 2: 14.0, 3: 13.0][level]
             xml += style("Heading\(level)", name: "heading \(level)", value: theme?.headings?[String(level)], pPr: "<w:outlineLvl w:val=\"\(level - 1)\"/>", defaultSize: defaultSize, bold: true)
