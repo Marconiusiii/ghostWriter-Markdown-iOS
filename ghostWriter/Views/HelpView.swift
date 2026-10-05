@@ -17,7 +17,7 @@ struct HelpView: View {
                     NavigationLink {
                         HelpCategoryView(category: category)
                     } label: {
-                        Text(category.title)
+                        Text(String(localized: String.LocalizationValue(category.title)))
                     }
                 }
             }
@@ -43,19 +43,19 @@ private struct HelpCategoryView: View {
                 DisclosureGroup {
                     topicContent(topic)
                 } label: {
-                    Text(topic.title)
+                    Text(String(localized: String.LocalizationValue(topic.title)))
                         .font(.headline)
                 }
             }
         }
-        .navigationTitle(category.title)
+        .navigationTitle(String(localized: String.LocalizationValue(category.title)))
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private func topicContent(_ topic: HelpTopic) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(topic.paragraphs, id: \.self) { paragraph in
-                Text(paragraph)
+                Text(String(localized: String.LocalizationValue(paragraph)))
                     .textSelection(.enabled)
                     .font(.body)
                     .foregroundStyle(Color.ghostText)
@@ -65,7 +65,7 @@ private struct HelpCategoryView: View {
                 DisclosureGroup {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(subtopic.paragraphs, id: \.self) { paragraph in
-                            Text(paragraph)
+                            Text(String(localized: String.LocalizationValue(paragraph)))
                                 .textSelection(.enabled)
                                 .font(.body)
                                 .foregroundStyle(Color.ghostText)
@@ -80,7 +80,7 @@ private struct HelpCategoryView: View {
                     }
                     .padding(.vertical, 4)
                 } label: {
-                    Text(subtopic.title)
+                    Text(String(localized: String.LocalizationValue(subtopic.title)))
                         .font(.headline)
                 }
             }

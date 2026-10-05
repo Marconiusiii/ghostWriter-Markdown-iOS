@@ -53,6 +53,7 @@ nonisolated enum WordCompilation {
                         }
                         paragraph.sourceDirectory = source.sourceDirectory
                         paragraph.language = source.language
+                        paragraph.startsSourceDocument = topLevel && offset == 0
                         if topLevel && offset == 0 && index > 0 {
                             paragraph.pageBreakBefore = options.startsDocumentsOnNewPages
                         }

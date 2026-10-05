@@ -69,4 +69,117 @@ struct WordExportThemeTests {
         for value in values { #expect(throws: (any Error).self) { try WordExportTheme.decode(Data(value.utf8)) } }
         #expect(throws: (any Error).self) { try WordExportTheme.decode(Data(repeating: 32, count: 65_537)) }
     }
+
+    private func parts(_ theme: String, blocks: [WordBlock], title: String = "Export title") throws -> [String: String] {
+        let data = try WordprocessingMLWriter.write(
+            title: title, document: WordDocumentModel(blocks: blocks),
+            theme: WordExportTheme.decode(Data(theme.utf8)), exportDate: Date(timeIntervalSince1970: 0)
+        )
+        return try WordPackage.entries(from: data, paths: ["word/document.xml", "word/styles.xml", "word/header.xml", "word/footer.xml", "docProps/core.xml"])
+            .mapValues { String(decoding: $0, as: UTF8.self) }
+    }
+
+    private func paragraph(_ text: String, in xml: String) throws -> String {
+        try #require(xml.components(separatedBy: "</w:p>").first { $0.contains(">\(text)</w:t>") })
+    }
+
+    @Test func firstBodyParagraphOverrideSkipsBlanksAndEndsAfterFirstParagraph() throws {
+        let output = try parts(#"{"version":1,"body":{"firstLineIndent":24},"paragraphAfterHeading":{"headingLevels":[1,2],"firstLineIndent":0}}"#, blocks: [
+            .paragraph(WordParagraph(runs: [WordRun(text: "Chapter")], headingLevel: 1)),
+            .paragraph(WordParagraph()),
+            .paragraph(WordParagraph(runs: [WordRun(text: "First")])),
+            .paragraph(WordParagraph(runs: [WordRun(text: "Second")])),
+            .paragraph(WordParagraph(runs: [WordRun(text: "Subsection")], headingLevel: 3)),
+            .paragraph(WordParagraph(runs: [WordRun(text: "Third")]))
+        ])
+        let xml = try #require(output["word/document.xml"])
+        #expect(try paragraph("First", in: xml).contains("w:firstLine=\"0\""))
+        #expect(try !paragraph("Second", in: xml).contains("w:firstLine"))
+        #expect(try !paragraph("Third", in: xml).contains("w:firstLine"))
+        #expect(output["word/styles.xml"]?.contains("w:firstLine=\"480\"") == true)
+        #expect(xml.contains("w:val=\"Heading1\""))
+    }
+
+    @Test func interveningBlocksAndSourceBoundariesEndIndentRule() throws {
+        let interruptions: [WordBlock] = [
+            .paragraph(WordParagraph(runs: [WordRun(text: "List")], list: WordListReference(level: 0, kind: .bullet))),
+            .paragraph(WordParagraph(runs: [WordRun(text: "Quote")], isBlockQuote: true)),
+            .paragraph(WordParagraph(runs: [WordRun(text: "Code")], isCodeBlock: true)),
+            .paragraph(WordParagraph(isThematicSeparator: true)),
+            .paragraph(WordParagraph(runs: [WordRun(image: WordImage(fileName: "missing.png"))])),
+            .paragraph(WordParagraph(startsSourceDocument: true)),
+            .table(WordTable(rows: [WordTableRow(cells: [[.paragraph(WordParagraph(runs: [WordRun(text: "Cell")]))]])]))
+        ]
+        for interruption in interruptions {
+            let output = try parts(#"{"version":1,"paragraphAfterHeading":{"headingLevels":[1],"firstLineIndent":0}}"#, blocks: [
+                .paragraph(WordParagraph(runs: [WordRun(text: "Heading")], headingLevel: 1)), interruption,
+                .paragraph(WordParagraph(runs: [WordRun(text: "Following")]))
+            ])
+            #expect(output["word/document.xml"]?.contains("w:firstLine") == false)
+        }
+    }
+
+    @Test func paragraphPaginationSupportsExplicitOverrides() throws {
+        let output = try parts(#"{"version":1,"body":{"widowControl":true,"keepLinesTogether":true},"headings":{"2":{"widowControl":false,"keepLinesTogether":false,"keepWithNext":true}}}"#, blocks: [])
+        let styles = try #require(output["word/styles.xml"])
+        let normal = try #require(styles.components(separatedBy: "</w:style>").first { $0.contains("w:styleId=\"Normal\"") })
+        let heading = try #require(styles.components(separatedBy: "</w:style>").first { $0.contains("w:styleId=\"Heading2\"") })
+        #expect(normal.contains("<w:widowControl w:val=\"1\"/>"))
+        #expect(normal.contains("<w:keepLines w:val=\"1\"/>"))
+        #expect(heading.contains("<w:widowControl w:val=\"0\"/>"))
+        #expect(heading.contains("<w:keepLines w:val=\"0\"/>"))
+        #expect(heading.contains("<w:keepNext w:val=\"1\"/>"))
+    }
+
+    @Test func templatesEscapeMetadataAndUseNativeHeadingAndPageFields() throws {
+        let output = try parts(#"{"version":1,"metadata":{"title":"A & B","subtitle":"<Subtitle>","author":"{{pageNumber}}"},"header":{"template":"{{title}} / {{subtitle}} / {{author}} / {{date}}"},"footer":{"template":"{{heading1}} / {{heading2}} / {{pageNumber}}"}}"#, blocks: [
+            .paragraph(WordParagraph(runs: [WordRun(text: "Chapter & one")], headingLevel: 1)),
+            .paragraph(WordParagraph(runs: [WordRun(text: "Section")], headingLevel: 2)),
+            .paragraph(WordParagraph(runs: [WordRun(text: "Chapter two")], headingLevel: 1))
+        ])
+        let header = try #require(output["word/header.xml"])
+        let footer = try #require(output["word/footer.xml"])
+        #expect(header.contains("A &amp; B"))
+        #expect(header.contains("&lt;Subtitle&gt;"))
+        #expect(header.contains("{{pageNumber}}"))
+        #expect(!header.contains("fldSimple"))
+        #expect(header.contains("1970-01-01"))
+        #expect(footer.contains("STYLEREF &quot;heading 1&quot;"))
+        #expect(footer.contains("STYLEREF &quot;heading 2&quot;"))
+        #expect(footer.contains("w:instr=\" PAGE \""))
+        #expect(footer.contains("Chapter &amp; one"))
+        #expect(output["docProps/core.xml"]?.contains("<dc:title>A &amp; B</dc:title>") == true)
+    }
+
+    @Test func missingMetadataAndHeadingLevelsHaveDefinedFallbacks() throws {
+        let output = try parts(#"{"version":1,"header":{"template":"{{title}}|{{subtitle}}|{{author}}|{{heading2}}"},"footer":{"text":"{{title}} ","pageNumber":true}}"#, blocks: [])
+        let header = try #require(output["word/header.xml"])
+        #expect(header.contains("Export title"))
+        #expect(!header.contains("STYLEREF"))
+        #expect(!header.contains("ghostWriter"))
+        #expect(output["word/footer.xml"]?.contains("{{title}} ") == true)
+        #expect(output["word/footer.xml"]?.contains("w:instr=\" PAGE \"") == true)
+    }
+
+    @Test func rejectsInvalidAdvancedSettingsBeforeExport() {
+        let fragments = [
+            #""paragraphAfterHeading":{"headingLevels":[],"firstLineIndent":0}"#,
+            #""paragraphAfterHeading":{"headingLevels":[1,1],"firstLineIndent":0}"#,
+            #""paragraphAfterHeading":{"headingLevels":[7],"firstLineIndent":0}"#,
+            #""paragraphAfterHeading":{"headingLevels":[1],"firstLineIndent":-1}"#,
+            #""body":{"widowControl":"true"}"#,
+            #""body":{"keepLinesTogether":1}"#,
+            #""metadata":{"author":null}"#,
+            #""metadata":{"author":"Line\nbreak"}"#,
+            #""header":{"template":"{{Title}}"}"#,
+            #""header":{"template":"{{unknown}}"}"#,
+            #""header":{"template":"{{title}"}"#,
+            #""header":{"template":"title}}"}"#,
+            #""header":{"template":"{{title}}","text":"Title"}"#,
+            #""footer":{"template":"{{pageNumber}}","pageNumber":false}"#
+        ]
+        for fragment in fragments {
+            #expect(throws: (any Error).self) { try WordExportTheme.decode(Data(("{\"version\":1," + fragment + "}").utf8)) }
+        }
+    }
 }

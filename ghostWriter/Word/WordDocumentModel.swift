@@ -22,6 +22,7 @@ nonisolated struct WordParagraph: Equatable, Sendable {
     var openingStyle: String?
     var sourceDirectory: URL?
     var language: String?
+    var startsSourceDocument = false
 }
 
 nonisolated struct WordRun: Equatable, Sendable {

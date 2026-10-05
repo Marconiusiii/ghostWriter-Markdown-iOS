@@ -27,6 +27,7 @@ nonisolated enum WordprocessingMLWriter {
         var theme: WordExportTheme?
         var openingRunStyle: WordThemeStyle?
         var inTable = false
+        var followingParagraphIndent: Double?
         var hyperlinks: [HyperlinkRelationship] = []
         var images: [ImagePart] = []
 
@@ -61,15 +62,33 @@ nonisolated enum WordprocessingMLWriter {
         document: WordDocumentModel,
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
-        theme: WordExportTheme? = nil
+        theme: WordExportTheme? = nil,
+        exportDate: Date = Date()
     ) throws -> Data {
         let numberingKeys = try collectNumberingKeys(document.blocks)
         let numberingIDs = Dictionary(
             uniqueKeysWithValues: numberingKeys.enumerated().map { ($0.element, $0.offset + 1) }
         )
         var context = WritingContext(sourceDirectory: sourceDirectory, theme: theme)
-        let body = try document.blocks.map {
-            try blockXML($0, numberingIDs: numberingIDs, context: &context)
+        var precedingHeading: Int?
+        let body = try document.blocks.map { block in
+            context.followingParagraphIndent = nil
+            switch block {
+            case .table: precedingHeading = nil
+            case .paragraph(let paragraph):
+                if paragraph.startsSourceDocument { precedingHeading = nil }
+                if let level = paragraph.headingLevel {
+                    precedingHeading = level
+                } else if paragraph.list != nil || paragraph.isBlockQuote || paragraph.isCodeBlock || paragraph.isThematicSeparator || paragraph.runs.contains(where: { $0.image != nil }) {
+                    precedingHeading = nil
+                } else if paragraph.runs.contains(where: { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                    if let level = precedingHeading, let rule = theme?.paragraphAfterHeading, rule.headingLevels.contains(level) {
+                        context.followingParagraphIndent = rule.firstLineIndent
+                    }
+                    precedingHeading = nil
+                }
+            }
+            return try blockXML(block, numberingIDs: numberingIDs, context: &context)
         }.joined()
 
         let hyperlinkXML = context.hyperlinks.map { relationship in
@@ -79,7 +98,7 @@ nonisolated enum WordprocessingMLWriter {
             "<Relationship Id=\"\(image.id)\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/\(xmlAttribute(image.fileName))\"/>"
         }.joined()
 
-        let pageParts = pageContentParts(theme)
+        let pageParts = try pageContentParts(theme, title: title, document: document, date: exportDate)
         let pageRelationships = pageParts.map { part in
             "<Relationship Id=\"rId\(part.name)\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/\(part.kind)\" Target=\"\(part.name).xml\"/>"
         }.joined()
@@ -96,7 +115,7 @@ nonisolated enum WordprocessingMLWriter {
         var entries: [String: Data] = [
             "[Content_Types].xml": data(contentTypesXML(images: context.images).replacingOccurrences(of: "</Types>", with: pageOverrides + "</Types>")),
             "_rels/.rels": data(packageRelationshipsXML),
-            "docProps/core.xml": data(corePropertiesXML(title: title, language: documentLanguage)),
+            "docProps/core.xml": data(corePropertiesXML(title: theme?.metadata?.title ?? title, language: documentLanguage, author: theme?.metadata?.author)),
             "docProps/app.xml": data(appPropertiesXML),
             "word/document.xml": data(documentXML),
             "word/_rels/document.xml.rels": data(documentRelationships),
@@ -169,6 +188,10 @@ nonisolated enum WordprocessingMLWriter {
             properties += "<w:pStyle w:val=\"ListParagraph\"/>"
         }
         var directStyle = openingStyle
+        if !context.inTable, let indent = context.followingParagraphIndent {
+            if directStyle == nil { directStyle = WordThemeStyle() }
+            directStyle?.firstLineIndent = indent
+        }
         if paragraph.pageBreakBefore {
             if directStyle == nil { directStyle = WordThemeStyle() }
             directStyle?.pageBreakBefore = true
@@ -423,8 +446,8 @@ nonisolated enum WordprocessingMLWriter {
     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>
     """
 
-    private static func corePropertiesXML(title: String, language: String) -> String {
-        xmlHeader + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><dc:title>\(xmlText(title))</dc:title><dc:creator>ghostWriter</dc:creator><dc:language>\(xmlText(language))</dc:language><cp:lastModifiedBy>ghostWriter</cp:lastModifiedBy></cp:coreProperties>"
+    private static func corePropertiesXML(title: String, language: String, author: String?) -> String {
+        xmlHeader + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><dc:title>\(xmlText(title))</dc:title><dc:creator>\(xmlText(author ?? "ghostWriter"))</dc:creator><dc:language>\(xmlText(language))</dc:language><cp:lastModifiedBy>ghostWriter</cp:lastModifiedBy></cp:coreProperties>"
     }
 
     private static let appPropertiesXML = xmlHeader + """
@@ -438,12 +461,49 @@ nonisolated enum WordprocessingMLWriter {
         var xml: String
     }
 
-    private static func pageContentParts(_ theme: WordExportTheme?) -> [PageContentPart] {
+    private static func pageContentParts(_ theme: WordExportTheme?, title: String, document: WordDocumentModel, date: Date) throws -> [PageContentPart] {
         var parts: [PageContentPart] = []
+        var headings: [Int: String] = [:]
+        for block in document.blocks {
+            if case .paragraph(let paragraph) = block, let level = paragraph.headingLevel, headings[level] == nil {
+                headings[level] = paragraph.runs.map(\.text).joined()
+            }
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        func textRun(_ text: String) -> String {
+            "<w:r><w:t xml:space=\"preserve\">\(xmlText(text))</w:t></w:r>"
+        }
+        func field(_ instruction: String, cached: String) -> String {
+            "<w:fldSimple w:instr=\"\(xmlAttribute(instruction))\" w:dirty=\"true\">\(textRun(cached))</w:fldSimple>"
+        }
         for (kind, value) in [("header", theme?.header), ("footer", theme?.footer)] {
             guard let value else { continue }
             let tag = kind == "header" ? "hdr" : "ftr"
-            let text = value.text.map { "<w:r><w:t xml:space=\"preserve\">\(xmlText($0))</w:t></w:r>" } ?? ""
+            var text = value.text.map(textRun) ?? ""
+            if let template = value.template {
+                text = try WordThemeTemplate.parts(template, path: "\(kind).template").map { part in
+                    switch part {
+                    case .text(let literal): return textRun(literal)
+                    case .field(let key):
+                        switch key {
+                        case "title": return textRun(theme?.metadata?.title ?? title)
+                        case "subtitle": return textRun(theme?.metadata?.subtitle ?? "")
+                        case "author": return textRun(theme?.metadata?.author ?? "")
+                        case "date": return textRun(formatter.string(from: date))
+                        case "pageNumber": return field(" PAGE ", cached: "1")
+                        case "heading1", "heading2":
+                            let level = key == "heading1" ? 1 : 2
+                            guard let cached = headings[level] else { return textRun("") }
+                            return field(" STYLEREF \"heading \(level)\" ", cached: cached)
+                        default: return "" // The parser rejects unsupported fields.
+                        }
+                    }
+                }.joined()
+            }
             let number = value.pageNumber == true ? "<w:fldSimple w:instr=\" PAGE \" w:dirty=\"true\"><w:r><w:t>1</w:t></w:r></w:fldSimple>" : ""
             let start = xmlHeader + "<w:\(tag) xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">"
             let paragraph = "<w:p><w:pPr><w:jc w:val=\"\(value.alignment ?? "left")\"/></w:pPr>\(text)\(number)</w:p>"
@@ -478,7 +538,9 @@ nonisolated enum WordprocessingMLWriter {
     private static func styleParagraphProperties(_ style: WordThemeStyle?, defaultLeftIndent: Double? = nil) -> String {
         var xml = ""
         if let value = style?.keepWithNext { xml += "<w:keepNext w:val=\"\(value ? 1 : 0)\"/>" }
+        if let value = style?.keepLinesTogether { xml += "<w:keepLines w:val=\"\(value ? 1 : 0)\"/>" }
         if let value = style?.pageBreakBefore { xml += value ? "<w:pageBreakBefore/>" : "<w:pageBreakBefore w:val=\"0\"/>" }
+        if let value = style?.widowControl { xml += "<w:widowControl w:val=\"\(value ? 1 : 0)\"/>" }
         var spacing = ""
         if let value = style?.spaceBefore { spacing += " w:before=\"\(Int((value * 20).rounded()))\"" }
         if let value = style?.spaceAfter { spacing += " w:after=\"\(Int((value * 20).rounded()))\"" }

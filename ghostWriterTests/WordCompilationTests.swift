@@ -7,6 +7,21 @@ struct WordCompilationTests {
         WordCompilationSource(title: title, markdown: markdown, sourceDirectory: directory, language: language)
     }
 
+    @Test func followingParagraphRuleUsesFinalCompilationHeadingLevels() throws {
+        var options = WordExportOptions()
+        options.preservesHeadingStructure = false
+        options.theme = try WordExportTheme.decode(Data(#"{"version":1,"paragraphAfterHeading":{"headingLevels":[1],"firstLineIndent":0},"header":{"template":"{{heading1}} / {{heading2}}"}}"#.utf8))
+        let data = try WordCompilation.write(title: "Book", sources: [source("First", "# First\n\nFirst body"), source("Second", "# Second\n\nSecond body")], options: options)
+        let entries = try WordPackage.entries(from: data, paths: ["word/document.xml", "word/header.xml"])
+        let xml = String(decoding: try #require(entries["word/document.xml"]), as: UTF8.self)
+        let paragraphs = xml.components(separatedBy: "</w:p>")
+        #expect(try #require(paragraphs.first { $0.contains(">First body</w:t>") }).contains("w:firstLine=\"0\""))
+        #expect(try !#require(paragraphs.first { $0.contains(">Second body</w:t>") }).contains("w:firstLine"))
+        let header = String(decoding: try #require(entries["word/header.xml"]), as: UTF8.self)
+        #expect(header.contains("STYLEREF &quot;heading 2&quot;"))
+        #expect(header.contains(">Second</w:t>"))
+    }
+
     @Test func headingsShiftOnceWithSingleTitleAndClampAtSix() throws {
         let sources = [source("First", "# First\n# Another\n##### Five\n###### Six"), source("Second", "# Second\n## Two")]
         var options = WordExportOptions()

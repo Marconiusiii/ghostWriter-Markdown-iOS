@@ -80,10 +80,15 @@ Creating Word document before presenting the Share Sheet.
 [Compilation export instructions](Documentation/Compilation%20export.md) explain
 format-specific controls, braille metadata, and portable asset packages.
 
-Settings > Export > Use Word Stylesheet applies `word-theme.json` from the Word Stylesheets folder inside the active local or iCloud ghostWriter folder to every Word export. If the file is absent, standard styling is used. [Word export and JSON style sheet instructions](Documentation/Word%20export.md)
-explain the controls, heading limit, supported fields, units, and validation.
-[Download the complete example](Documentation/word-theme.json) and change or omit
-optional settings to create a theme.
+Choose a named JSON stylesheet when exporting a Word document or compilation.
+Stylesheets can control fonts, paragraph spacing, first-paragraph indentation
+after headings, widow/orphan control, and keeping paragraphs together. Header
+and footer templates can include document information, running headings, page
+numbers, and the export date. Standard Word output remains available.
+[Word export and JSON stylesheet instructions](Documentation/Word%20export.md)
+explain the supported settings and field behavior.
+[Download the default example](Documentation/word-theme.json) or the
+[manuscript example](Documentation/word-manuscript.json) to create a stylesheet.
 
 
 ## Features

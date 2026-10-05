@@ -6,9 +6,9 @@ Markdown añade estructura mediante unos cuantos signos de puntuación comunes. 
 
 Este documento es tuyo. Léelo, edítalo o duplícalo antes de experimentar.
 
-## Empieza un nuevo párrafo
+## Iniciar un párrafo nuevo
 
-Pulsa Retorno dos veces para empezar un nuevo párrafo, dejando una línea vacía entre los párrafos. Pulsar Retorno una sola vez normalmente continúa el mismo párrafo al renderizar o exportar Markdown.
+Pulsa Intro dos veces para iniciar un párrafo nuevo y dejar una línea vacía entre párrafos. Al pulsar Intro una sola vez, el texto suele continuar en el mismo párrafo al renderizar o exportar Markdown.
 
 ```markdown
 Este es el primer párrafo.
@@ -56,7 +56,7 @@ Usa números para indicar una secuencia:
 2. Revisa el texto
 3. Comparte el archivo final
 
-Cuando Listas automáticas está activado, al pulsar Retorno continúa la lista actual. Pulsa Retorno en un elemento de lista vacío para terminar la lista.
+Cuando Listas automáticas está activado, al pulsar Intro continúa la lista actual. Pulsa Intro en un elemento de lista vacío para terminar la lista.
 
 También puedes crear una lista de tareas:
 
@@ -74,7 +74,7 @@ Usa dos asteriscos para darle énfasis fuerte:
 
 **Este texto aparece en negrita al renderizarse.**
 
-Usa dos virgulillas a cada lado para marcar algo como eliminado o que ya no se aplica:
+Usa dos virgulillas (tildes) a cada lado para marcar algo como eliminado o que ya no se aplica:
 
 ~~Este plan ha cambiado.~~
 

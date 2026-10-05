@@ -16,6 +16,8 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
     var header: WordThemePageContent?
     var footer: WordThemePageContent?
     var differentFirstPage: Bool?
+    var paragraphAfterHeading: WordThemeFollowingParagraph?
+    var metadata: WordThemeMetadata?
 
     static let maximumBytes = 65_536
 
@@ -34,8 +36,8 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
             guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 throw WordThemeError.invalid("The Word Stylesheet must contain an object.")
             }
-            try checkKeys(object, allowed: ["version", "body", "headings", "quote", "code", "list", "table", "page", "title", "subtitle", "thematicBreak", "header", "footer", "differentFirstPage"], path: "theme")
-            let styleKeys: Set<String> = ["font", "size", "color", "bold", "italic", "spaceBefore", "spaceAfter", "lineSpacing", "alignment", "firstLineIndent", "pageBreakBefore", "pageBreakAfter", "keepWithNext"]
+            try checkKeys(object, allowed: ["version", "body", "headings", "quote", "code", "list", "table", "page", "title", "subtitle", "thematicBreak", "header", "footer", "differentFirstPage", "paragraphAfterHeading", "metadata"], path: "theme")
+            let styleKeys: Set<String> = ["font", "size", "color", "bold", "italic", "spaceBefore", "spaceAfter", "lineSpacing", "alignment", "firstLineIndent", "pageBreakBefore", "pageBreakAfter", "keepWithNext", "widowControl", "keepLinesTogether"]
             for name in ["body", "quote", "code", "list", "table", "title", "subtitle"] where object[name] != nil {
                 try checkKeys(try dictionary(object[name], path: name), allowed: name == "table" ? styleKeys.subtracting(["pageBreakBefore", "pageBreakAfter"]) : styleKeys, path: name)
             }
@@ -54,8 +56,14 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
             }
             for key in ["header", "footer"] {
                 if let value = object[key] {
-                    try checkKeys(try dictionary(value, path: key), allowed: ["text", "pageNumber", "alignment"], path: key)
+                    try checkKeys(try dictionary(value, path: key), allowed: ["text", "pageNumber", "alignment", "template"], path: key)
                 }
+            }
+            if let value = object["paragraphAfterHeading"] {
+                try checkKeys(try dictionary(value, path: "paragraphAfterHeading"), allowed: ["headingLevels", "firstLineIndent"], path: "paragraphAfterHeading")
+            }
+            if let value = object["metadata"] {
+                try checkKeys(try dictionary(value, path: "metadata"), allowed: ["title", "subtitle", "author"], path: "metadata")
             }
             let theme = try JSONDecoder().decode(Self.self, from: data)
             guard theme.version == 1 else { throw WordThemeError.invalid("version must be 1.") }
@@ -67,6 +75,8 @@ nonisolated struct WordExportTheme: Codable, Equatable, Sendable {
             try theme.thematicBreak?.validate()
             try theme.header?.validate(path: "header")
             try theme.footer?.validate(path: "footer")
+            try theme.paragraphAfterHeading?.validate()
+            try theme.metadata?.validate()
             return theme
         } catch let error as WordThemeError { throw error }
         catch let error as DecodingError {
@@ -109,6 +119,8 @@ nonisolated struct WordThemeStyle: Codable, Equatable, Sendable {
     var pageBreakBefore: Bool?
     var pageBreakAfter: Bool?
     var keepWithNext: Bool?
+    var widowControl: Bool?
+    var keepLinesTogether: Bool?
 
     func validate(path: String) throws {
         if let font, font.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -180,6 +192,7 @@ nonisolated struct WordThemePageContent: Codable, Equatable, Sendable {
     var text: String?
     var pageNumber: Bool?
     var alignment: String?
+    var template: String?
 
     func validate(path: String) throws {
         if let alignment, !["left", "center", "right"].contains(alignment) {
@@ -188,5 +201,68 @@ nonisolated struct WordThemePageContent: Codable, Equatable, Sendable {
         if let text, text.count > 1024 || text.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
             throw WordThemeError.invalid("\(path).text must be at most 1024 characters on one line.")
         }
+        if let template {
+            guard text == nil, pageNumber == nil else {
+                throw WordThemeError.invalid("Use either \(path).template or \(path).text and pageNumber, not both.")
+            }
+            guard template.count <= 1024, !template.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
+                throw WordThemeError.invalid("\(path).template must be at most 1024 characters on one line.")
+            }
+            _ = try WordThemeTemplate.parts(template, path: "\(path).template")
+        }
+    }
+}
+
+nonisolated struct WordThemeFollowingParagraph: Codable, Equatable, Sendable {
+    var headingLevels: [Int]
+    var firstLineIndent: Double
+
+    func validate() throws {
+        guard !headingLevels.isEmpty, headingLevels.allSatisfy({ (1...6).contains($0) }), Set(headingLevels).count == headingLevels.count else {
+            throw WordThemeError.invalid("paragraphAfterHeading.headingLevels must contain distinct heading levels from 1 to 6.")
+        }
+        guard firstLineIndent.isFinite, (0...720).contains(firstLineIndent) else {
+            throw WordThemeError.invalid("paragraphAfterHeading.firstLineIndent must be between 0 and 720 points.")
+        }
+    }
+}
+
+nonisolated struct WordThemeMetadata: Codable, Equatable, Sendable {
+    var title: String?
+    var subtitle: String?
+    var author: String?
+
+    func validate() throws {
+        for (key, value) in [("title", title), ("subtitle", subtitle), ("author", author)] {
+            if let value, value.count > 1024 || value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
+                throw WordThemeError.invalid("metadata.\(key) must be at most 1024 characters on one line.")
+            }
+        }
+    }
+}
+
+/// Templates are parsed once into literal text and a closed set of fields.
+/// Literal metadata never gets reparsed as a template or Word field instruction.
+nonisolated enum WordThemeTemplate {
+    enum Part: Equatable { case text(String), field(String) }
+
+    static func parts(_ template: String, path: String) throws -> [Part] {
+        let allowed: Set<String> = ["title", "subtitle", "author", "heading1", "heading2", "pageNumber", "date"]
+        var rest = template[...]
+        var result: [Part] = []
+        while let open = rest.range(of: "{{") {
+            let prefix = String(rest[..<open.lowerBound])
+            guard !prefix.contains("}}") else { throw WordThemeError.invalid("Unmatched placeholder braces in \(path).") }
+            result.append(.text(prefix))
+            rest = rest[open.upperBound...]
+            guard let close = rest.range(of: "}}") else { throw WordThemeError.invalid("Unclosed placeholder in \(path).") }
+            let key = String(rest[..<close.lowerBound])
+            guard allowed.contains(key) else { throw WordThemeError.invalid("Unsupported placeholder {{\(key)}} in \(path).") }
+            result.append(.field(key))
+            rest = rest[close.upperBound...]
+        }
+        guard !rest.contains("}}") else { throw WordThemeError.invalid("Unmatched placeholder braces in \(path).") }
+        result.append(.text(String(rest)))
+        return result
     }
 }

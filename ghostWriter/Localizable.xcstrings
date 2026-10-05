@@ -5,7 +5,14 @@
 
     },
     "%@ — unavailable" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ — no disponible"
+          }
+        }
+      }
     },
     "%@ and everything inside it will move to Recently Deleted." : {
       "comment" : "LibraryView.swift:352",
@@ -13,19 +20,42 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ y todo su contenido se moverán a Eliminados recientemente."
+            "value" : "%@ y todo su contenido se moverá a Eliminados recientemente."
           }
         }
       }
     },
     "%@ excluded" : {
-      "comment" : "Spoken confirmation after excluding a file or folder from future compilations."
+      "comment" : "Spoken confirmation after excluding a file or folder from future compilations.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ excluido"
+          }
+        }
+      }
     },
     "%@ Folder" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carpeta %@"
+          }
+        }
+      }
     },
     "%@ included" : {
-      "comment" : "Spoken confirmation after including a file or folder in future compilations."
+      "comment" : "Spoken confirmation after including a file or folder in future compilations.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ incluido"
+          }
+        }
+      }
     },
     "%@ is not yet available on this device." : {
       "comment" : "DocumentStore.swift:715",
@@ -100,6 +130,12 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@: %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: %@"
           }
         }
       }
@@ -185,6 +221,12 @@
             "state" : "new",
             "value" : "%1$lld of %2$lld documents prepared"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld de %lld documentos preparados"
+          }
         }
       }
     },
@@ -194,6 +236,12 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$lld of %2$lld documents processed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld de %lld documentos procesados"
           }
         }
       }
@@ -278,7 +326,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Una carpeta no se puede mover dentro de sí misma."
+            "value" : "No se puede mover una carpeta dentro de sí misma."
           }
         }
       }
@@ -300,10 +348,12 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alguna palabra aparecía mal escrita, con letras transpuestas o cambiadas. Volvían al código, encontraban los errores y los corregían. Al volver a renderizar, ocurrían cosas aún más inquietantes: aparecían palabras nuevas, otras se duplicaban e incluso surgían pequeños emojis de fantasmas. ¡Cada renderizado provocaba todavía más caos!"
+            "value" : "Alguna palabra mal escrita por aquí y por allá, otras con las letras cambiadas o intercambiadas de sitio. Volvían a su código, encontraban los errores y los corregían. Pero al darle otra vez a renderizar, se desataba un caos todavía más fantasmagórico: aparecían palabras nuevas, otras se duplicaban e incluso surgían pequeños emojis de fantasmas por todas partes. ¡Cada renderizado provocaba aún más caos!"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "About" : {
       "comment" : "SettingsView.swift:254",
@@ -325,7 +375,9 @@
             "value" : "Agradecimientos"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Add a description to the tactile graphic %@ before exporting." : {
       "comment" : "EBrailleWriter.swift:834",
@@ -344,7 +396,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Añade un encabezado comenzando una línea con una almohadilla, como # Introducción."
+            "value" : "Añadir un encabezado comenzando una línea con una almohadilla, como # Introducción."
           }
         }
       }
@@ -404,7 +456,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Anuncia los avisos del nivel Ligero y las estructuras Markdown completadas mientras escribes."
+            "value" : "Anuncia los avisos incluidos en la verbosidad media y las estructuras Markdown completas mientras escribes."
           }
         }
       }
@@ -415,7 +467,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Anuncia los cambios de lista, los niveles de sangría y las acciones de Insertar."
+            "value" : "Anuncia cambios de lista, niveles de indentación e inserciones."
           }
         }
       }
@@ -448,10 +500,12 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mientras las víctimas... ejem... las personas usuarias practicaban Markdown, pulsaban el botón Renderizar para comprobar cómo se formaba la estructura HTML. Sin embargo, cada vez que examinaban el resultado renderizado, algo no estaba bien."
+            "value" : "Mientras las víctimas... ejem... los usuarios practicaban Markdown, pulsaban el botón Renderizar para comprobar cómo se formaba la estructura HTML. Sin embargo, cada vez que examinaban el resultado renderizado, algo no estaba bien."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Ask for a Title" : {
       "comment" : "NewDocumentCreationMode.swift:19",
@@ -540,7 +594,9 @@
             "value" : "Atrás"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Back to %@" : {
       "comment" : "LibraryView.swift:594",
@@ -689,7 +745,14 @@
       }
     },
     "Changes the file list information" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambia la información de la lista de archivos"
+          }
+        }
+      }
     },
     "Character Count" : {
       "comment" : "SettingsView.swift:419",
@@ -703,7 +766,14 @@
       }
     },
     "Characters" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Caracteres"
+          }
+        }
+      }
     },
     "Checking iCloud Drive." : {
       "comment" : "DocumentStorage.swift:135",
@@ -919,7 +989,14 @@
 
     },
     "Compilation Status" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado de inclusión en compilaciones"
+          }
+        }
+      }
     },
     "Complete document" : {
       "comment" : "EBrailleMetadataSettingsView.swift:99",
@@ -944,7 +1021,9 @@
             "value" : "Continuar a la biblioteca"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Continues bullets and numbering when you press return" : {
       "comment" : "SettingsView.swift:120",
@@ -952,7 +1031,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Continúa las viñetas y la numeración al pulsar Retorno"
+            "value" : "Continúa las viñetas y la numeración al pulsar Intro"
           }
         }
       }
@@ -971,7 +1050,16 @@
     },
     "Copies Markdown, plain-text, Word, or PowerPoint documents into ghostWriter" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia documentos de Markdown, texto sin formato, Word o PowerPoint en ghostWriter"
+          }
+        }
+      },
+      "generatesSymbol" : false
     },
     "Copy Email Address" : {
       "comment" : "SettingsView.swift:322",
@@ -985,7 +1073,16 @@
       }
     },
     "Copy JSON to Clipboard" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar JSON al portapapeles"
+          }
+        }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Copyright date" : {
       "comment" : "EBrailleMetadataSettingsView.swift:90",
@@ -1059,7 +1156,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se pudo crear un documento porque el almacenamiento de documentos seleccionado no está disponible."
+            "value" : "No se pudo crear un documento porque el almacenamiento seleccionado no está disponible."
           }
         }
       }
@@ -1373,7 +1470,14 @@
       }
     },
     "Counts Markdown source, including syntax, spaces, and line breaks. Files and folders excluded from compilations are also excluded from these totals. Sentence counts use automatic language analysis of the Markdown source." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuenta el código fuente Markdown, incluidos la sintaxis, los espacios y los saltos de línea. Los archivos y las carpetas excluidos de las compilaciones también se excluyen de estos totales. El recuento de frases utiliza un análisis automático del idioma del código fuente Markdown."
+          }
+        }
+      }
     },
     "Create" : {
       "comment" : "NewDocumentView.swift:54",
@@ -1398,10 +1502,24 @@
       }
     },
     "Creating %@ compilation…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creando compilación en %@…"
+          }
+        }
+      }
     },
     "Creation Dates" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechas de creación"
+          }
+        }
+      }
     },
     "Current" : {
       "comment" : "ICloudMigrationView.swift:34",
@@ -1644,7 +1762,16 @@
     },
     "Document Import" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importación de documentos"
+          }
+        }
+      },
+      "generatesSymbol" : false
     },
     "Document language" : {
       "comment" : "DocumentLanguageView.swift:93",
@@ -1735,7 +1862,9 @@
             "value" : "De forma predeterminada, los documentos se almacenan En este dispositivo. Puedes activar más tarde la sincronización opcional con iCloud Drive en Ajustes."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Documents are stored only on this device." : {
       "comment" : "DocumentStorage.swift:131",
@@ -1749,7 +1878,14 @@
       }
     },
     "Documents counted" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Documentos contados"
+          }
+        }
+      }
     },
     "Documents sync with iCloud Drive." : {
       "comment" : "DocumentStorage.swift:137",
@@ -1763,7 +1899,14 @@
       }
     },
     "Don’t Save" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No guardar"
+          }
+        }
+      }
     },
     "Done" : {
       "comment" : "MarkdownReferenceView.swift:42",
@@ -1777,7 +1920,14 @@
       }
     },
     "Done Editing" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminar edición"
+          }
+        }
+      }
     },
     "Double-tap to exclude" : {
 
@@ -1866,7 +2016,14 @@
       }
     },
     "Edit" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar"
+          }
+        }
+      }
     },
     "Edit defaults" : {
       "comment" : "SettingsView.swift:213",
@@ -1881,16 +2038,44 @@
       }
     },
     "Edit Document Order" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar orden de documentos"
+          }
+        }
+      }
     },
     "Edit Documents" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar documentos"
+          }
+        }
+      }
     },
     "Edit File Order" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar orden de archivos"
+          }
+        }
+      }
     },
     "Edit Files" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar archivos"
+          }
+        }
+      }
     },
     "Editing" : {
       "comment" : "SettingsView.swift:109",
@@ -1926,7 +2111,14 @@
       }
     },
     "Editor Verbosity" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbosidad del editor"
+          }
+        }
+      }
     },
     "Education level" : {
       "comment" : "EBrailleMetadataSettingsView.swift:145",
@@ -2157,10 +2349,12 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Con el tiempo lo convertí en un verdadero editor de Markdown y en un sistema educativo que utilicé con estudiantes durante una clase de Markdown. Dejé los sucesos inquietantes como una opción que se podía activar en los ajustes."
+            "value" : "Con el tiempo, acabé convirtiéndolo en un editor de Markdown de verdad y en una herramienta educativa que usaron mis alumnos durante una clase de Markdown que impartí, y dejé los efectos fantasmales como una opción que se podía activar en los ajustes."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Every item in Recently Deleted will be permanently deleted. This cannot be undone." : {
       "comment" : "RecentlyDeletedView.swift:121",
@@ -2174,10 +2368,24 @@
       }
     },
     "Exclude from Compilations" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excluir de las compilaciones"
+          }
+        }
+      }
     },
     "Excluded from Compilations" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excluido de las compilaciones"
+          }
+        }
+      }
     },
     "Explore Welcome Document" : {
       "comment" : "WelcomeView.swift:40",
@@ -2188,10 +2396,19 @@
             "value" : "Explorar el documento de bienvenida"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Export" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportar"
+          }
+        }
+      }
     },
     "Export and share…" : {
       "comment" : "BRFOptionsView.swift:147",
@@ -2208,7 +2425,14 @@
 
     },
     "Export Compilation…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportar compilación…"
+          }
+        }
+      }
     },
     "Export format" : {
 
@@ -2247,7 +2471,14 @@
       }
     },
     "File List Verbosity" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbosidad de la lista de archivos"
+          }
+        }
+      }
     },
     "Files" : {
       "comment" : "SettingsView.swift:64",
@@ -2264,7 +2495,14 @@
 
     },
     "Files not counted" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivos no contados"
+          }
+        }
+      }
     },
     "Fills in new eBraille exports. You can edit these values before sharing." : {
       "comment" : "SettingsView.swift:219",
@@ -2378,7 +2616,16 @@
       }
     },
     "ghostWriter Help Manual" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual de ayuda de ghostWriter"
+          }
+        }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "ghostWriter includes a Welcome document in your Library. Open it to read, edit, and render examples of the Markdown supported by the app." : {
       "comment" : "WelcomeView.swift:29",
@@ -2386,10 +2633,12 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ghostWriter incluye un documento de bienvenida en tu biblioteca. Ábrelo para leer, editar y renderizar ejemplos del Markdown compatible con la app."
+            "value" : "ghostWriter incluye un documento de bienvenida en tu biblioteca. Ábrelo para leer, editar y renderizar ejemplos de Markdown compatible con la app."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "ghostWriter Markdown" : {
       "comment" : "LibraryView.swift:375",
@@ -2411,7 +2660,9 @@
             "value" : "ghostWriter Markdown es un editor accesible de texto sin formato para notas, artículos, listas y mucho más."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "ghostWriter will move your complete library from iCloud Drive onto this device. After verification, those documents will no longer sync through iCloud." : {
       "comment" : "ICloudMigrationView.swift:81",
@@ -2514,10 +2765,19 @@
             "value" : "Ayuda"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Help Manual could not be saved" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar el manual de ayuda"
+          }
+        }
+      }
     },
     "Hidden slides" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -2587,7 +2847,9 @@
             "value" : "Originalmente creé la versión web de ghostWriter como una pequeña broma. Comenzó como un inocente editor de Markdown: un área de texto sencilla, una sección con el resultado renderizado, referencias de código y una experiencia agradable que no despertaba sospechas."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "I've left out the ghosts for now in this iOS version, but who knows, they may haunt it in the future!" : {
       "comment" : "WhyGhostWriterView.swift:25",
@@ -2598,7 +2860,9 @@
             "value" : "Por ahora he dejado fuera a los fantasmas de esta versión para iOS, pero quién sabe: ¡puede que la acechen en el futuro!"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "iCloud Drive" : {
       "comment" : "DocumentStorage.swift:24",
@@ -2712,7 +2976,16 @@
     },
     "Importing documents…" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importando documentos…"
+          }
+        }
+      },
+      "generatesSymbol" : false
     },
     "Include" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -2730,10 +3003,24 @@
       }
     },
     "Include in Compilations" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incluir en las compilaciones"
+          }
+        }
+      }
     },
     "Included in Compilations" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incluido en las compilaciones"
+          }
+        }
+      }
     },
     "Indentation" : {
       "comment" : "SettingsView.swift:110",
@@ -2741,7 +3028,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sangría"
+            "value" : "Indentación"
           }
         }
       }
@@ -2835,7 +3122,16 @@
       }
     },
     "JSON copied to clipboard." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "JSON copiado al portapapeles."
+          }
+        }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Jump" : {
       "comment" : "EditorView.swift:304",
@@ -2934,7 +3230,9 @@
             "value" : "liblouis"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "liblouis is free software licensed under the GNU Lesser General Public License, version 2.1 or later. The project website provides the corresponding upstream source. Distribution of an app that statically links this library may require additional materials or permissions; this acknowledgement is not a claim that every distribution obligation is satisfied." : {
       "comment" : "AcknowledgementsView.swift:24",
@@ -2945,7 +3243,9 @@
             "value" : "liblouis es software libre con licencia GNU Lesser General Public License, versión 2.1 o posterior. El sitio web del proyecto proporciona el código fuente original correspondiente. La distribución de una app que enlace estáticamente esta biblioteca puede requerir materiales o permisos adicionales; este agradecimiento no afirma que se hayan cumplido todas las obligaciones de distribución."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Light" : {
       "comment" : "AppSettings.swift:53",
@@ -2953,7 +3253,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Claro"
+            "value" : "Medio"
           }
         }
       }
@@ -3057,7 +3357,14 @@
       }
     },
     "Manual" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual"
+          }
+        }
+      }
     },
     "Markdown" : {
       "comment" : "EditorView.swift:100",
@@ -3090,7 +3397,9 @@
             "value" : "Markdown utiliza signos de puntuación sencillos para crear encabezados, listas, enlaces, énfasis, tablas y otras estructuras del documento. Puedes usar Insertar cuando no quieras escribir la sintaxis."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Match the cells per line and lines per page to the layout selected in your embossing software." : {
       "comment" : "BRFOptionsView.swift",
@@ -3129,7 +3438,14 @@
       }
     },
     "Modified Dates" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechas de modificación"
+          }
+        }
+      }
     },
     "Monospaced" : {
       "comment" : "AppSettings.swift:80",
@@ -3427,7 +3743,14 @@
       }
     },
     "Opening document…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abriendo documento…"
+          }
+        }
+      }
     },
     "Opens an in-app email with app and system information included" : {
       "comment" : "SettingsView.swift:251",
@@ -3435,7 +3758,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abre un correo dentro de la app con información de la app y del sistema"
+            "value" : "Abre un correo dentro de la app con información de esta y del sistema"
           }
         }
       }
@@ -3479,7 +3802,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abre la historia de ghostWriter"
+            "value" : "Descubre la historia de ghostWriter"
           }
         }
       }
@@ -3529,7 +3852,14 @@
       }
     },
     "Partial total" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total parcial"
+          }
+        }
+      }
     },
     "Password-protected PowerPoint presentations cannot be imported." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -3645,7 +3975,9 @@
             "value" : "Exportación a PowerPoint"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "PowerPoint Import" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
@@ -3682,7 +4014,9 @@
             "value" : "Preparando el documento de bienvenida"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Presentation" : {
       "comment" : "PowerPointWriter.swift",
@@ -3743,7 +4077,9 @@
             "value" : "Sitio web del proyecto"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "Publisher" : {
       "comment" : "EBrailleMetadataSettingsView.swift:115",
@@ -3978,7 +4314,14 @@
       }
     },
     "Save changes to ghostWriter Help Manual?" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Guardar los cambios en el manual de ayuda de ghostWriter?"
+          }
+        }
+      }
     },
     "Save Mine as a Copy" : {
       "comment" : "EditorView.swift:343",
@@ -4003,7 +4346,14 @@
       }
     },
     "Save your changes to the Help document, or choose Don’t Save to discard them and return to the Library." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guarda los cambios en el documento de ayuda o elige No guardar para descartarlos y volver a la biblioteca."
+          }
+        }
+      }
     },
     "Search" : {
       "comment" : "LibraryView.swift:503",
@@ -4073,7 +4423,14 @@
       }
     },
     "Sentences" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frases"
+          }
+        }
+      }
     },
     "Serif" : {
       "comment" : "AppSettings.swift:83",
@@ -4087,7 +4444,14 @@
       }
     },
     "Set eBraille Defaults" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Establecer valores predeterminados de eBraille"
+          }
+        }
+      }
     },
     "Settings" : {
       "comment" : "LibraryView.swift:386",
@@ -4272,7 +4636,7 @@
     },
     "Square brackets hold link text or an image description, and parentheses hold the address. An image with a description is ordinary. An image with empty brackets is decorative. Choose Image from Files or Image from Photo Library in Insert Actions to attach an ordinary image. Add the exact title tactile to mark an SVG, PNG, or JPG as a tactile graphic." : {
       "comment" : "MarkdownReferenceView.swift:120",
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4280,7 +4644,8 @@
             "value" : "Los corchetes contienen el texto del enlace o la descripción de una imagen, y los paréntesis contienen la dirección. Una imagen con descripción es ordinaria. Una imagen con corchetes vacíos es decorativa. Elige Imagen desde Archivos o Imagen desde la fototeca en Acciones de inserción para adjuntar una imagen ordinaria. Añade el título exacto tactile para marcar un archivo SVG, PNG o JPG como gráfico táctil."
           }
         }
-      }
+      },
+      "generatesSymbol" : false
     },
     "Standard Word output" : {
 
@@ -4426,7 +4791,16 @@
     },
     "Tables" : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tablas"
+          }
+        }
+      },
+      "generatesSymbol" : false
     },
     "Tabs" : {
       "comment" : "AppSettings.swift:24",
@@ -4573,7 +4947,9 @@
             "value" : "No se encontró el documento de bienvenida incluido."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "The document could not be translated into %@." : {
       "comment" : "LiblouisBridge.swift:167",
@@ -4599,7 +4975,16 @@
     },
     "The documents were imported." : {
       "comment" : "PowerPoint import options, progress, or conversion notice.",
-      "extractionState" : "manual"
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se importaron los documentos."
+          }
+        }
+      },
+      "generatesSymbol" : false
     },
     "The EPUB could not be created." : {
       "comment" : "EPUBPackage.swift:80",
@@ -4635,7 +5020,8 @@
             "value" : "La fuente «%@» no está disponible en este dispositivo. Elige otra familia tipográfica."
           }
         }
-      }
+      },
+      "generatesSymbol" : false
     },
     "The image %@ could not be included in the PowerPoint presentation." : {
       "comment" : "PowerPointWriter.swift",
@@ -4924,7 +5310,9 @@
             "value" : "No se pudo preparar ahora el documento de bienvenida. Puedes continuar a la biblioteca y ghostWriter lo volverá a intentar la próxima vez que se abra."
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "The Word document contains unreadable %@." : {
       "comment" : "WordDocumentModel.swift:92",
@@ -4971,7 +5359,14 @@
       }
     },
     "Thematic separator" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Separador temático"
+          }
+        }
+      }
     },
     "Theme" : {
       "comment" : "SettingsView.swift:167",
@@ -5044,7 +5439,14 @@
       }
     },
     "Total Word Count" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Número total de palabras"
+          }
+        }
+      }
     },
     "Try Again" : {
       "comment" : "EditorView.swift:317",
@@ -5069,7 +5471,14 @@
       }
     },
     "Unable to count document" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede contar el documento"
+          }
+        }
+      }
     },
     "Unified English Braille, grade 1 (uncontracted)" : {
       "comment" : "BrailleTranslator.swift:68",
@@ -5171,7 +5580,14 @@
       }
     },
     "Use smart punctuation" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar puntuación inteligente"
+          }
+        }
+      }
     },
     "Use Today’s Date" : {
       "comment" : "NewDocumentCreationMode.swift:21",
@@ -5277,7 +5693,9 @@
             "value" : "Te damos la bienvenida a ghostWriter Markdown"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
     },
     "When App Opens" : {
       "comment" : "SettingsView.swift:71",
@@ -5346,7 +5764,14 @@
       }
     },
     "Word export" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportación a Word"
+          }
+        }
+      }
     },
     "Word Import" : {
       "comment" : "LibraryView.swift:361",
@@ -5364,10 +5789,24 @@
 
     },
     "Words" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palabras"
+          }
+        }
+      }
     },
     "Your changes are still open. Try Save again, or go Back and choose Don’t Save." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los cambios siguen abiertos. Vuelve a intentar guardarlos o pulsa Atrás y elige No guardar."
+          }
+        }
+      }
     },
     "Your documents are stored in the ghostWriter folder, which you can open in the Files app." : {
       "comment" : "SettingsView.swift:257",
@@ -5423,7 +5862,1905 @@
             "value" : "ZIPFoundation"
           }
         }
-      }
+      },
+      "extractionState" : "manual",
+      "generatesSymbol" : false
+    },
+    "A stylesheet can override the global thematic separator for Word, add paragraph indentation and pagination, and supply headers, footers, and page numbers. Plain Text continues using the global thematic separator. Fonts are not embedded, so Word may substitute an unavailable font." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una hoja de estilo puede sustituir el separador temático global en Word, añadir sangría y paginación a los párrafos e incluir encabezados, pies de página y números de página. Texto sin formato sigue utilizando el separador temático global. Las fuentes no se incrustan, por lo que Word puede sustituir una fuente que no esté disponible."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Accessibility and Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesibilidad y ajustes"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Additional eBraille details include source work, publisher, rights, subject, description, and education level." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los datos adicionales de eBraille incluyen la obra de origen, la editorial, los derechos, el tema, la descripción y el nivel educativo."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Appearance contains Theme and Editor Font. Status Bar displays document information below the editor; Customize Status Bar chooses what it shows. Render Sound plays when rendering and follows the device’s silent switch." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apariencia contiene Tema y Fuente del editor. La barra de estado muestra información del documento debajo del editor; Personalizar barra de estado permite elegir qué se muestra. El sonido de renderizado se reproduce al renderizar y respeta el interruptor de silencio del dispositivo."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Appearance contains Theme and Editor Font. Status Bar displays document information below the editor; Customize Status Bar chooses what it shows. Turn on Sentences to include the document’s sentence count; this option is off by default. Render Sound plays when rendering and follows the device’s silent switch." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apariencia contiene Tema y Fuente del editor. La barra de estado muestra información del documento debajo del editor; Personalizar barra de estado permite elegir qué se muestra. Activa Oraciones para incluir el recuento de oraciones del documento; esta opción está desactivada de forma predeterminada. El sonido de renderizado se reproduce al renderizar y respeta el interruptor de silencio del dispositivo."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Begin a heading with a number sign and a space, such as # My title. Use ## for a subsection and ### for a section within it. Heading levels run from 1 to 6 and give your document a structure readers can navigate." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia un encabezado con un signo de número y un espacio, como # Mi título. Usa ## para una subsección y ### para una sección dentro de ella. Los niveles de encabezado van del 1 al 6 y dan al documento una estructura por la que los lectores pueden navegar."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Blocks…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloques…"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Body settings are inherited by paragraph styles unless a more specific style supplies its own setting. Standard heading sizes, bold headings, and monospaced code remain unless overridden in their respective objects. List settings style list text and paragraphs; numbering, starting numbers, and nesting still follow the source. Table settings style table text and paragraphs; table borders and header-row structure retain the standard output." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los estilos de párrafo heredan los ajustes de body, salvo que un estilo más específico proporcione su propio valor. Se mantienen los tamaños estándar de los encabezados, los encabezados en negrita y el código monoespaciado, a menos que se sustituyan en sus objetos respectivos. Los ajustes de list dan formato al texto y los párrafos de las listas; la numeración, los números iniciales y la anidación siguen el original. Los ajustes de table dan formato al texto y los párrafos de las tablas; los bordes y la estructura de la fila de encabezado mantienen el formato estándar."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Braille Ready Format creates fixed-layout Unified English Braille with a .brf filename. Choose Braille display or Emboss on paper. Common page uses 40 cells by 25 lines. Select Custom braille page to choose another number of cells and lines. Lists use braille bullets, tables become labeled rows, tasks state Completed or Not completed, and images become labeled descriptions." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formato Braille Ready crea braille inglés unificado con una distribución fija y un nombre de archivo terminado en .brf. Elige Línea braille o Imprimir en papel. Página común utiliza 40 celdas por 25 líneas. Selecciona Página braille personalizada para elegir otra cantidad de celdas y líneas. Las listas utilizan viñetas braille, las tablas se convierten en filas con etiquetas, las tareas indican Completada o No completada y las imágenes se convierten en descripciones con etiquetas."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Braille Ready Format writes a link label followed by its address in parentheses. A link whose label is already the address appears once. Internal document links include the link text without the fragment address. eBraille and EPUB retain active links." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formato Braille Ready escribe el texto de un enlace seguido de su dirección entre paréntesis. Si el texto del enlace ya es la dirección, aparece una sola vez. Los enlaces internos del documento incluyen el texto del enlace sin la dirección del fragmento. eBraille y EPUB conservan los enlaces activos."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Braille exports" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportaciones a braille"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Bulleted and numbered lists retain their structure and nesting. Ordinary tables become markdown tables; tables with merged cells become labeled text rows. Text formatting includes bold, italic, underline, and strikethrough. Supported web and email links remain active. Internal slide links become plain text." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las listas con viñetas y las listas numeradas conservan su estructura y anidación. Las tablas normales se convierten en tablas Markdown; las tablas con celdas combinadas se convierten en filas de texto con etiquetas. El formato del texto incluye negrita, cursiva, subrayado y tachado. Los enlaces web y de correo electrónico compatibles permanecen activos. Los enlaces internos entre diapositivas se convierten en texto sin formato."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose Import and select one or more .pptx presentations from Files. Choose the content to include, then activate Import as Markdown. Each presentation becomes a separate document in the current folder. The original files are unchanged." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Importar y selecciona una o más presentaciones .pptx en Archivos. Elige el contenido que quieres incluir y activa Importar como Markdown. Cada presentación se convierte en un documento independiente en la carpeta actual. Los archivos originales no se modifican."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose Import in the Library and select a .docx file. ghostWriter converts it into a Markdown copy. Review the converted document before continuing: Markdown preserves structure but cannot reproduce every Word feature." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Importar en la biblioteca y selecciona un archivo .docx. ghostWriter lo convierte en una copia en Markdown. Revisa el documento convertido antes de continuar: Markdown conserva la estructura, pero no puede reproducir todas las funciones de Word."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose Insert, then Image from Files or Image from Photo Library to attach a picture. Enter alternative text describing what the image communicates, or mark it decorative if it adds no information. The image is stored with the document and referenced in its Markdown." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Insertar y, después, Imagen de Archivos o Imagen de la fototeca para adjuntar una imagen. Introduce un texto alternativo que describa lo que comunica la imagen, o márcala como decorativa si no aporta información. La imagen se guarda junto con el documento y se referencia en su Markdown."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose Jump to Line in File Actions, enter a line number starting at 1, and choose Jump to place the cursor at that line." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Ir a la línea en Acciones de archivo, introduce un número de línea a partir de 1 y elige Ir para colocar el cursor en esa línea."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose Manual sorting to arrange items yourself. With Search cleared and at least two items available, choose Edit, move items with the reorder controls, then choose Done Editing. Folders and unpinned documents can be arranged together." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige el orden Manual para organizar los elementos a tu gusto. Con la búsqueda vacía y al menos dos elementos disponibles, elige Editar, mueve los elementos con los controles de reordenación y elige Terminar edición. Las carpetas y los documentos sin fijar se pueden organizar juntos."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose Markdown to continue editing the source, Plain Text for text without Markdown marks, HTML for a web document, Word Document for a Word file, or PDF for fixed pages. EPUB is a reflowable ebook, PowerPoint is a presentation, and eBraille and Braille Ready Format provide braille output." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Markdown para seguir editando el código fuente, Texto sin formato para obtener texto sin marcas Markdown, HTML para un documento web, Documento de Word para un archivo de Word o PDF para páginas fijas. EPUB es un libro electrónico con redistribución del contenido, PowerPoint es una presentación, y eBraille y Formato Braille Ready ofrecen contenido en braille."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose New Folder to create a folder in your current location. Open a folder to work inside it, and use Back to return to its parent." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Nueva carpeta para crear una carpeta en la ubicación actual. Abre una carpeta para trabajar dentro de ella y usa Atrás para volver a la carpeta que la contiene."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose New in the Library to create a document. Depending on When Starting a New Document in Settings, you will be asked for a name or the document will use today’s date. Choose a document in the Library to open it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Nuevo en la biblioteca para crear un documento. Según la opción \"Al iniciar un documento nuevo\" en Ajustes, se te pedirá un nombre o el documento utilizará la fecha de hoy. Elige un documento de la biblioteca para abrirlo."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose Presentation theme and Font family to set the presentation’s appearance. These choices are remembered for future exports. Themes affect slide backgrounds, text, and links; image colors are unchanged." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Tema de la presentación y Familia de fuentes para definir la apariencia de la presentación. Estas opciones se recuerdan para futuras exportaciones. Los temas afectan a los fondos, el texto y los enlaces de las diapositivas; los colores de las imágenes no cambian."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose Tactile Graphic for an SVG, PNG, or JPG prepared for tactile presentation. Supply a description so readers can understand its purpose." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Gráfico táctil para un SVG, PNG o JPG preparado para una presentación táctil. Proporciona una descripción para que los lectores comprendan su propósito."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose a stylesheet with the wheel picker when exporting a Word document or compilation. Standard Word output uses normal formatting. Your selection is remembered for the next Word export." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige una hoja de estilo con el selector ajustable al exportar un documento o una compilación a Word. Formato estándar de Word utiliza el formato habitual. Tu selección se recuerda para la próxima exportación a Word."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose eBraille for a reflowable braille publication with heading navigation and active links, or Braille Ready Format for fixed-layout braille. The output filenames end in .ebrl and .brf respectively." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige eBraille para una publicación braille con redistribución del contenido, navegación por encabezados y enlaces activos, o Formato Braille Ready para braille con una distribución fija. Los nombres de archivo resultantes terminan en .ebrl y .brf, respectivamente."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Choose the options for your format, then Export and share…. Preparation progress identifies the current document and how many documents have been prepared, including any needed iCloud downloads. The app then creates the output and opens the Share Sheet. Cancel stops the export. If a document or linked file cannot be read, the app reports an error." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige las opciones del formato y, después, Exportar y compartir…. El progreso de preparación identifica el documento actual y cuántos documentos se han preparado, incluidas las descargas necesarias de iCloud. A continuación, la app crea el archivo y abre la hoja para compartir. Cancelar detiene la exportación. Si no se puede leer un documento o un archivo enlazado, la app informa de un error."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Code, link destinations, and image paths are left unchanged. Existing curly punctuation and ellipses are kept. Dashes and runs of four or more periods are not converted. For braille output, punctuation is converted before translation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El código, los destinos de los enlaces y las rutas de las imágenes no se modifican. Se conservan la puntuación tipográfica y los puntos suspensivos que ya existan. Los guiones y las secuencias de cuatro o más puntos no se convierten. En la salida en braille, la puntuación se convierte antes de la transcripción."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Code…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código…"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Compilation Export" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportación de compilación"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Creating and opening documents" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear y abrir documentos"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Default stylesheet example:" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejemplo de hoja de estilo predeterminada:"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Delete moves an item to Deleted. Restore returns it to its previous folder if that folder still exists, or to Documents otherwise. Deleting and restoring a folder keeps its contents together. Permanent deletion cannot be undone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar mueve un elemento a Eliminados. Restaurar lo devuelve a su carpeta anterior si esta sigue existiendo o, de lo contrario, a Documentos. Al eliminar y restaurar una carpeta, su contenido permanece junto. La eliminación permanente no se puede deshacer."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "EPUB produces a reflowable ebook with heading navigation and active links. For braille publications, see Braille exports." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EPUB produce un libro electrónico con redistribución del contenido, navegación por encabezados y enlaces activos. Para publicaciones braille, consulta Exportaciones a braille."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Each document uses its opening Heading 1 as its title, or its filename if it has no opening Heading 1. Document name names the output file; it does not create a title page." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cada documento utiliza su encabezado de nivel 1 inicial como título o, si no lo tiene, su nombre de archivo. Nombre del documento asigna el nombre del archivo resultante; no crea una portada."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Editing contains Indentation, Automatic Lists, and Keyboard Shortcuts. VoiceOver Settings controls editing feedback and heading navigation; see VoiceOver for details." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edición contiene Sangría, Listas automáticas y Atajos de teclado. Ajustes de VoiceOver controla la información de edición y la navegación por encabezados; consulta VoiceOver para obtener más detalles."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Embedded PNG, JPEG, and safe SVG pictures are saved with the markdown document using relative references. Existing alternative text is retained. Missing descriptions are reported after import. Unsupported or unavailable images keep their descriptions when available. Linked external images are not downloaded." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las imágenes PNG, JPEG y SVG seguras incrustadas se guardan junto con el documento Markdown mediante referencias relativas. Se conserva el texto alternativo existente. Después de la importación se informa de las descripciones que faltan. Las imágenes no compatibles o no disponibles conservan sus descripciones cuando las tienen. Las imágenes externas enlazadas no se descargan."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Emphasis…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Énfasis…"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Enable Keyboard Shortcuts under Editing in Settings to use the app’s hardware keyboard commands." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa Atajos de teclado en Ajustes, dentro de Edición, para utilizar los comandos de la app con un teclado físico."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Export contains Use smart punctuation and Thematic separator. Choose a Word stylesheet in the Word export flow. Their Help topics explain what they change. Set eBraille Defaults under eBraille metadata supplies information for new exports." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportación contiene Usar puntuación inteligente y Separador temático. Elige una hoja de estilo de Word al exportar a Word. Los temas de ayuda explican qué modifican. Establecer valores predeterminados de eBraille, en Metadatos de eBraille, proporciona información para las nuevas exportaciones."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "File word count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Número de palabras de un archivo"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Files can be accessed through whatever storage apps you have available through the iOS Files app, so OneDrive, Google Drive, Dropbox, and more can be used. Files imported from there will be copied into the currently selected ghostWriter storage location, either iCloud or on-device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes acceder a los archivos mediante las apps de almacenamiento disponibles en la app Archivos de iOS, como OneDrive, Google Drive, Dropbox y otras. Los archivos importados desde allí se copiarán a la ubicación de almacenamiento seleccionada en ghostWriter, ya sea iCloud o el dispositivo."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Finding and organizing documents" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar y organizar documentos"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Folder statistics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estadísticas de carpetas"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Fonts, colors, text size, alignment, columns, headers and footers, page breaks, merged table cells, and embedded objects such as charts are not retained." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se conservan las fuentes, los colores, el tamaño del texto, la alineación, las columnas, los encabezados y pies de página, los saltos de página, las celdas combinadas de las tablas ni los objetos incrustados, como los gráficos."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Footnotes are imported as markdown footnote references with their text collected at the end of the document. Tracked insertions are imported as ordinary text, and tracked deletions are discarded. Comments are not imported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las notas al pie se importan como referencias de notas al pie de Markdown, con su texto reunido al final del documento. Las inserciones del control de cambios se importan como texto normal y las eliminaciones se descartan. Los comentarios no se importan."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "For Markdown export, enabling this option can also change the spelling and spacing of Markdown syntax. Leave it off when you need an unchanged copy of a single document’s Markdown." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la exportación a Markdown, activar esta opción también puede cambiar la escritura y el espaciado de la sintaxis Markdown. Déjala desactivada cuando necesites una copia sin cambios del Markdown de un solo documento."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "For eBraille, select grade 1 or grade 2 and enter the author, producer, copyright date, and whether the export contains the complete document. Enter the date as a year, year and month, or full date, such as 2026, 2026-04, or 2026-04-17." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para eBraille, selecciona grado 1 o grado 2 e introduce el autor, el productor, la fecha de copyright y si la exportación contiene el documento completo. Introduce la fecha como un año, un año y un mes o una fecha completa, por ejemplo, 2026, 2026-04 o 2026-04-17."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "For embossed pages, Include braille page numbers places each number at the bottom right and reserves the final line. Turn it off to use every selected line for document content. Set paper size, physical margins, binding margins, and single-sided or interpoint output in the embossing software." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para las páginas impresas en braille, Incluir números de página braille coloca cada número en la esquina inferior derecha y reserva la última línea. Desactívalo para utilizar todas las líneas seleccionadas para el contenido del documento. Configura el tamaño del papel, los márgenes físicos, los márgenes de encuadernación y la impresión a una cara o interpunto en el software de impresión braille."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "For folders, swipe left for Move and Delete, or right for Rename. Touch and hold either kind of item for its full actions menu." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En las carpetas, desliza hacia la izquierda para Mover y Eliminar, o hacia la derecha para Renombrar. Mantén pulsado cualquier tipo de elemento para abrir su menú completo de acciones."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Getting started with Markdown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primeros pasos con Markdown"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Grade 1 is uncontracted Unified English Braille. Grade 2 is contracted Unified English Braille. Code blocks keep their line breaks and spacing and use uncontracted braille." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El grado 1 es braille no contraído. El grado 2 es braille contraído. Los bloques de código conservan los saltos de línea y el espaciado, y utilizan braille sin contracciones."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "HTML preserves document structure, embeds supported attached images, and retains image descriptions. Its text size follows the app used to open it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTML conserva la estructura del documento, incrusta las imágenes adjuntas compatibles y conserva las descripciones de las imágenes. El tamaño del texto depende de la app utilizada para abrirlo."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Heading Swipe Navigation moves between headings in the editor. Swipe right with three fingers for the next heading, or left with three fingers for the previous heading. These gestures are not available while using Braille Screen Input or when assigned to other VoiceOver commands." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Navegación por encabezados con gestos permite moverse entre los encabezados del editor. Desliza hacia la derecha con tres dedos para ir al encabezado siguiente o hacia la izquierda con tres dedos para ir al anterior. Estos gestos no están disponibles al utilizar Entrada braille en pantalla ni cuando están asignados a otros comandos de VoiceOver."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Headings become Word heading styles, lists become Word lists, and tables use their first row as column headings. Links and supported text formatting are retained. Quotes and code blocks receive paragraph styles." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los encabezados se convierten en estilos de encabezado de Word, las listas se convierten en listas de Word y las tablas utilizan su primera fila como encabezados de columna. Se conservan los enlaces y el formato de texto compatible. Las citas y los bloques de código reciben estilos de párrafo."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Headings organize sections; lists organize related items or steps. Use a block quote for quoted material, inline code for short literal text, and a code block for several preformatted lines. A horizontal rule marks a thematic break." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los encabezados organizan secciones; las listas organizan elementos relacionados o pasos. Usa una cita en bloque para el material citado, código en línea para texto literal breve y un bloque de código para varias líneas con formato predefinido. Una regla horizontal marca una separación temática."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Headings…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encabezados…"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "If the output arrives as a ZIP, extract it before opening the document and keep the extracted files together so linked images and attachments remain available. Format-specific topics explain Word styles, presentation structure, ebook output, and braille settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si el resultado es un ZIP, extráelo antes de abrir el documento y conserva los archivos extraídos juntos para que las imágenes y los adjuntos enlazados sigan disponibles. Los temas específicos de cada formato explican los estilos de Word, la estructura de las presentaciones, los libros electrónicos y los ajustes de braille."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Image from Web inserts a link to an image at an http:// or https:// address. Rendering may contact that website to load the image, and the image remains dependent on its availability." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen desde la web inserta un enlace a una imagen con una dirección http:// o https://. Al renderizar, la app puede conectarse a ese sitio web para cargar la imagen, que sigue dependiendo de su disponibilidad."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Image from Web…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen desde la web…"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Images and descriptions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imágenes y descripciones"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Images in an imported Word document are saved alongside the markdown file and referenced by name. Alternative text is carried across, and images marked decorative in Word import with empty alternative text. An image without alternative text is reported after import so you can add a description." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las imágenes de un documento de Word importado se guardan junto al archivo Markdown y se referencian por su nombre. Se conserva el texto alternativo, y las imágenes marcadas como decorativas en Word se importan con el texto alternativo vacío. Después de la importación se informa de las imágenes sin texto alternativo para que puedas añadir una descripción."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Import copies Markdown, plain-text, Word, or PowerPoint files from Files into your current folder. Word and PowerPoint documents are converted to Markdown. If a name is already in use, the copy receives a numbered name. See the format-specific topics for conversion options and limitations." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importar copia archivos de Markdown, texto sin formato, Word o PowerPoint desde Archivos a la carpeta actual. Los documentos de Word y PowerPoint se convierten a Markdown. Si un nombre ya está en uso, la copia recibe un nombre numerado. Consulta los temas de cada formato para conocer las opciones y limitaciones de conversión."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Importing Word documents" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importar documentos de Word"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Importing a Word document brings across headings, paragraphs, bulleted and numbered lists including nested levels and custom starting numbers, tables, block quotes, code blocks, and links. Bold, italic, underline, strikethrough, and inline code are preserved. Underline becomes a <u> tag, because markdown has no underline syntax of its own." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al importar un documento de Word se conservan los encabezados, los párrafos, las listas con viñetas y numeradas, incluidos los niveles anidados y los números iniciales personalizados, las tablas, las citas en bloque, los bloques de código y los enlaces. Se conservan la negrita, la cursiva, el subrayado, el tachado y el código en línea. El subrayado se convierte en una etiqueta <u>, porque Markdown no tiene una sintaxis propia para el subrayado."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "In Files, add named JSON files to Word Stylesheets in your active ghostWriter storage location. The folder is created when you open Word export options. A Large Print stylesheet is supplied once. Existing word-theme.json files are supported. The folder is reserved for stylesheets and does not appear among writing documents." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En Archivos, añade archivos JSON con nombre a Word Stylesheets en la ubicación de almacenamiento activa de ghostWriter. La carpeta se crea al abrir las opciones de exportación a Word. Se proporciona una vez la hoja de estilo Large Print. Los archivos word-theme.json existentes son compatibles. La carpeta está reservada para hojas de estilo y no aparece entre los documentos de escritura."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "In compilations, only the first source document can supply the opening title and subtitle pair. Preserve individual document heading structure must be on. Generated filename headings do not create a pair." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En las compilaciones, solo el primer documento de origen puede proporcionar el par inicial de título y subtítulo. Debe estar activada la opción Conservar la estructura de encabezados de cada documento. Los encabezados generados a partir de nombres de archivo no crean un par."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "In the Library, Command-N creates a document, Command-O imports files, and Command-comma opens Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la biblioteca, Comando-N crea un documento, Comando-O importa archivos y Comando-coma abre Ajustes."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "In the editor, choose File Actions > Share, then an export format. When the output is ready, choose an app or Save to Files from the Share Sheet. Library file actions also offer sharing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En el editor, elige Acciones de archivo > Compartir y, después, un formato de exportación. Cuando el archivo esté listo, elige una app o Guardar en Archivos en la hoja para compartir. Las acciones de los archivos de la biblioteca también permiten compartir."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "In the editor, use Command-S for Save Now, Command-F for Find and Replace, Command-R for Render, Command-Shift-O for Outline, Command-Shift-I for Insert, Command-J for Jump to Line, and Command-W to close the editor." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En el editor, usa Comando-S para Guardar ahora, Comando-F para Buscar y reemplazar, Comando-R para Renderizar, Comando-Mayúsculas-O para Esquema, Comando-Mayúsculas-I para Insertar, Comando-J para Ir a la línea y Comando-W para cerrar el editor."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Keep the JSON file at or below 64 KiB. Omit settings you do not want to change rather than writing null. Unknown fields, unsupported versions, incorrect value types, and out-of-range values prevent Word export and produce an error. Correct the named setting in word-theme.json and export again, or choose Standard Word output. JSON requires double quotes around field names and text values; comments and trailing commas are not allowed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantén el archivo JSON en 64 KiB o menos. Omite los ajustes que no quieras cambiar en lugar de escribir null. Los campos desconocidos, las versiones no compatibles, los tipos de valor incorrectos y los valores fuera de rango impiden la exportación a Word y generan un error. Corrige el ajuste indicado en word-theme.json y vuelve a exportar, o elige Formato estándar de Word. JSON requiere comillas dobles alrededor de los nombres de campo y los valores de texto; no permite comentarios ni comas finales."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Keyboard shortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atajos de teclado"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Legacy .ppt files and password-protected presentations are not supported. Other limits include 500 slides and 4,096 internal files and folders. When a size or complexity limit is reached, the message identifies that limit. Invalid presentations do not create a markdown document; other valid files in the batch can still import." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se admiten los archivos antiguos .ppt ni las presentaciones protegidas con contraseña. Otros límites son 500 diapositivas y 4.096 archivos y carpetas internos. Cuando se alcanza un límite de tamaño o complejidad, el mensaje identifica ese límite. Las presentaciones no válidas no generan un documento Markdown; los demás archivos válidos del lote sí pueden importarse."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Library and storage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblioteca y almacenamiento"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Link…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enlace…"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Lists and indentation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listas y sangría"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Lists…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listas…"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Markdown and writing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Markdown y escritura"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Markdown lets you write a formatted document using plain text. You type simple punctuation marks for headings, lists, and emphasis, then use Render to read the formatted result." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Markdown permite escribir un documento con formato utilizando texto sin formato. Escribes signos de puntuación sencillos para los encabezados, las listas y el énfasis, y después usas Renderizar para leer el resultado con formato."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Markdown retains editable Markdown syntax. A compilation combines the sources into normalized Markdown, which can change syntax and spacing. If assets are included in a ZIP, extract it and keep the files together." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Markdown conserva la sintaxis Markdown editable. Una compilación combina los originales en Markdown normalizado, lo que puede cambiar la sintaxis y el espaciado. Si se incluyen recursos en un ZIP, extráelo y conserva los archivos juntos."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Open File Actions > Markdown Reference in the editor for explanations and examples you can copy, including links, images, tables, and code." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre Acciones de archivo > Referencia de Markdown en el editor para consultar explicaciones y ejemplos que puedes copiar, incluidos enlaces, imágenes, tablas y código."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Open ghostWriter Help Manual in the library or from the button at the top of Help. The manual is editable immediately, but changes are not saved automatically. When you go Back with changes, choose Save to keep them, Don’t Save to discard them and return to the Library, or Cancel to continue editing. File Actions > Save Now explicitly saves your changes. Previously saved changes remain when you reopen the manual." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre el Manual de ayuda de ghostWriter en la biblioteca o desde el botón situado al principio de la sección Ayuda situada en Ajustes. El manual se puede editar de inmediato, pero los cambios no se guardan automáticamente. Si pulsas Atrás con cambios pendientes, elige Guardar para conservarlos, No guardar para descartarlos y volver a la biblioteca, o Cancelar para seguir editando. Acciones de archivo > Guardar ahora guarda expresamente tus cambios. Los cambios guardados anteriormente permanecen al volver a abrir el manual."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Optional title and subtitle definitions format only an opening Heading 1 immediately followed by Heading 2, allowing blank lines. Both definitions must be present. When the pair qualifies, its Heading 1 supplies the title even if the filename is different. Any intervening content, a missing definition, or a missing heading leaves both headings with standard formatting. Later pairs do not qualify. They remain Word Heading 1 and Heading 2 for structure and heading navigation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las definiciones opcionales title y subtitle solo dan formato a un encabezado de nivel 1 inicial seguido inmediatamente de un encabezado de nivel 2; se permiten líneas vacías entre ellos. Ambas definiciones deben estar presentes. Si el par cumple las condiciones, el encabezado de nivel 1 proporciona el título, aunque el nombre del archivo sea distinto. Si hay contenido intermedio, falta una definición o falta un encabezado, ambos conservan el formato estándar. Los pares posteriores no cumplen las condiciones. Siguen siendo encabezados de nivel 1 y 2 de Word para la estructura y la navegación por encabezados."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Optional title and subtitle objects accept the same properties as other paragraph styles. Define both to enable opening-pair formatting. The default example and Large Print stylesheet omit both." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los objetos opcionales title y subtitle admiten las mismas propiedades que los demás estilos de párrafo. Define ambos para activar el formato del par inicial. El ejemplo predeterminado y la hoja de estilo Large Print omiten ambos."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Outline and formatted preview" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esquema y vista previa con formato"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Outline lists your headings in document order and identifies their levels. Choose a heading to move to that part of the document." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esquema enumera los encabezados en el orden del documento e identifica sus niveles. Elige un encabezado para ir a esa parte del documento."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "PDF produces tagged, fixed pages with headings, lists, tables, and image descriptions. Pages use US Letter with one-inch margins. Headings stay with the following text, and table rows stay together." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF produce páginas fijas etiquetadas con encabezados, listas, tablas y descripciones de imágenes. Las páginas utilizan tamaño Carta de EE. UU. con márgenes de una pulgada. Los encabezados permanecen junto al texto siguiente y las filas de las tablas no se dividen."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Pin keeps documents at the beginning of the document group. In Manual order, pinned documents can be reordered within their own group. Pinning does not affect compilation exports." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fijar mantiene los documentos al principio del grupo de documentos. En el orden Manual, los documentos fijados se pueden reordenar dentro de su propio grupo. Fijar documentos no afecta a las exportaciones de compilaciones."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Plain Text removes Markdown syntax while retaining readable structure. Level 1 and 2 headings are underlined, deeper headings state their level, lists keep bullets and numbers, and tables become aligned columns." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto sin formato elimina la sintaxis Markdown y conserva una estructura legible. Los encabezados de nivel 1 y 2 se subrayan, los de niveles inferiores indican su nivel, las listas conservan las viñetas y los números, y las tablas se convierten en columnas alineadas."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "PowerPoint allows up to four included images per slide. If a slide contains too much text, too many images, or a table that is too wide or tall, divide the content with another level 2 heading. Tables keep readable text sizes. The exporter does not automatically split crowded slides." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPoint permite hasta cuatro imágenes incluidas por diapositiva. Si una diapositiva contiene demasiado texto, demasiadas imágenes o una tabla demasiado ancha o alta, divide el contenido con otro encabezado de nivel 2. Las tablas mantienen tamaños de texto legibles. El exportador no divide automáticamente las diapositivas sobrecargadas."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "PowerPoint creates a widescreen .pptx presentation. A level 1 heading before the first slide titles the presentation. Content before the first level 2 heading appears on the title slide. Each level 2 heading begins and titles a new slide. Deeper headings and paragraphs become slide text. Put three asterisks on a line by themselves to begin speaker notes, which continue until the next level 2 heading." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPoint crea una presentación .pptx panorámica. Un encabezado de nivel 1 antes de la primera diapositiva da título a la presentación. El contenido anterior al primer encabezado de nivel 2 aparece en la diapositiva de título. Cada encabezado de nivel 2 inicia y titula una diapositiva nueva. Los encabezados de niveles inferiores y los párrafos se convierten en texto de la diapositiva. Escribe tres asteriscos solos en una línea para iniciar las notas del orador, que continúan hasta el siguiente encabezado de nivel 2."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "PowerPoint import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importación de PowerPoint"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "PowerPoint includes attached images from Files or the Photo Library and PNG, JPEG, or SVG images linked with HTTPS addresses. Images retain their alternative text. SVG images become high-resolution PNG pictures, preserving their colors and transparency. Unavailable, invalid, or oversized images are skipped while the rest of the presentation exports." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPoint incluye las imágenes adjuntas desde Archivos o la fototeca y las imágenes PNG, JPEG o SVG enlazadas mediante direcciones HTTPS. Las imágenes conservan su texto alternativo. Las imágenes SVG se convierten en imágenes PNG de alta resolución y conservan sus colores y transparencia. Las imágenes no disponibles, no válidas o demasiado grandes se omiten, mientras que el resto de la presentación se exporta."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "PowerPoint keeps bulleted and numbered lists, including nested levels. Task lists become list items beginning with Completed or Not completed, not interactive checkboxes. Links remain clickable, including links inside table cells. Quotes become paragraphs introduced by Quote, and code blocks become monospaced text without syntax highlighting." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PowerPoint conserva las listas con viñetas y numeradas, incluidos los niveles anidados. Las listas de tareas se convierten en elementos que empiezan por Completada o No completada, no en casillas interactivas. Los enlaces siguen siendo activables, incluidos los de las celdas de las tablas. Las citas se convierten en párrafos introducidos por Cita, y los bloques de código se convierten en texto monoespaciado sin resaltado de sintaxis."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "PowerPoint tables become editable tables with a header row. Column alignment, supported text formatting, and links are retained. Tables use the selected theme, and text wraps inside cells. Tables and surrounding text stay in Markdown order. Images referenced inside cells appear as separate slide pictures. Tables in speaker notes remain labeled text rows." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las tablas de PowerPoint se convierten en tablas editables con una fila de encabezado. Se conservan la alineación de las columnas, el formato de texto compatible y los enlaces. Las tablas utilizan el tema seleccionado y el texto se ajusta dentro de las celdas. Las tablas y el texto que las rodea mantienen el orden de Markdown. Las imágenes referenciadas dentro de las celdas aparecen como imágenes independientes en la diapositiva. Las tablas de las notas del orador permanecen como filas de texto con etiquetas."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Presentations up to 512 MiB per file are supported. Turn off Images before activating Import as Markdown to skip loading and extracting pictures. The original presentation is unchanged. Images have a separate size allowance from slide text and notes; pictures that exceed image limits are omitted with a notice." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se admiten presentaciones de hasta 512 MiB por archivo. Desactiva Imágenes antes de activar Importar como Markdown para omitir la carga y extracción de imágenes. La presentación original no se modifica. Las imágenes tienen un límite de tamaño independiente del texto y las notas de las diapositivas; las que superan los límites se omiten con un aviso."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Preserve individual document heading structure keeps each document’s heading levels. Turn it off to keep only the first document’s title at Heading 1 and move the remaining headings down one level. Heading 6 stays at Heading 6, so original Heading 5 and Heading 6 headings can end up at the same level. This option is available for Word, PDF, HTML, Markdown, EPUB, and eBraille." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conservar la estructura de encabezados de cada documento mantiene los niveles de encabezado de cada documento. Desactívalo para mantener solo el título del primer documento en el nivel 1 y bajar los demás encabezados un nivel. Los encabezados de nivel 6 permanecen en el nivel 6, por lo que los encabezados originales de los niveles 5 y 6 pueden quedar en el mismo nivel. Esta opción está disponible para Word, PDF, HTML, Markdown, EPUB y eBraille."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Press Escape to dismiss the editor keyboard." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsa Escape para ocultar el teclado del editor."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Press Return twice to start a new paragraph. This leaves one empty line between paragraphs. Lines without an empty line separating them will get parsed as a single paragraph when rendered or exported." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsa Retorno dos veces para iniciar un párrafo nuevo. Esto deja una línea vacía entre párrafos. Las líneas que no estén separadas por una línea vacía se interpretarán como un solo párrafo al renderizar o exportar."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Progress appears while documents are read or downloaded. If a file cannot be read, the result is marked Partial total and identifies the omitted files. Cancel stops the count." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El progreso se muestra mientras se leen o descargan los documentos. Si no se puede leer un archivo, el resultado se marca como Total parcial e identifica los archivos omitidos. Cancelar detiene el recuento."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Progress appears while the file is read or downloaded. Cancel stops the count. If the file cannot be read, the screen explains the problem." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El progreso se muestra mientras se lee o descarga el archivo. Cancelar detiene el recuento. Si no se puede leer el archivo, la pantalla explica el problema."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Put **two asterisks** around bold text or *one asterisk* around italic text. Begin a bulleted item with a hyphen and a space, or a numbered item with 1. and a space. The Insert feature can add formatting for you when working in the Editor." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coloca **dos asteriscos** alrededor del texto en negrita o *un asterisco* alrededor del texto en cursiva. Inicia un elemento con viñeta con un guion y un espacio, o un elemento numerado con 1. y un espacio. La función Insertar puede añadir el formato mientras trabajas en el editor."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Render opens a formatted HTML preview. Use it to read your work with its headings, paragraphs, lists, and other formatting applied. Choose Done to return to the editor." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renderizar abre una vista previa HTML con formato. Úsala para leer tu trabajo con los encabezados, los párrafos, las listas y los demás formatos aplicados. Elige Listo para volver al editor."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Review the result before publication. The conversion uses surrounding text to interpret punctuation and can mistake unusual quotations, leading apostrophes, abbreviations, or measurement marks. It does not apply language-specific quotation styles or spacing, or correct existing curly punctuation." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa el resultado antes de publicarlo. La conversión utiliza el texto circundante para interpretar la puntuación y puede confundir las citas poco habituales, los apóstrofos iniciales, las abreviaturas o los signos de medidas. No aplica estilos de comillas ni espaciados específicos de cada idioma, ni corrige las comillas tipográficas existentes."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Saving and storage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardado y almacenamiento"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Search in the Library checks document names and contents." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La búsqueda en la biblioteca examina los nombres y el contenido de los documentos."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Settings > Export > Thematic separator chooses a centered decoration for Markdown thematic breaks such as --- on their own line. None omits the separator. The same choice applies to Plain Text and to compilations unless the selected Word stylesheet specifies thematicBreak." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes > Exportación > Separador temático permite elegir un adorno centrado para las separaciones temáticas de Markdown, como --- en una línea independiente. Ninguno omite el separador. La misma opción se aplica a Texto sin formato y a las compilaciones, salvo que la hoja de estilo de Word seleccionada especifique thematicBreak."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Settings > Export > Thematic separator replaces Markdown thematic breaks with your chosen decoration in Plain Text and Word exports. None omits them. Plain Text centers the characters with spaces within 72 columns; their appearance depends on the font and app used to read the file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes > Exportación > Separador temático sustituye las separaciones temáticas de Markdown por el adorno que elijas en las exportaciones a Texto sin formato y Word. Con «Ninguno», se omiten. En Texto sin formato, los caracteres se centran con espacios dentro de 72 columnas; su aspecto final depende de la fuente y de la app con la que se abra el archivo."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Settings > VoiceOver Settings > File List Verbosity controls the information shown and spoken in Library rows. Creation Dates and Modified Dates independently show or hide file dates. Compilation Status shows a checkmark-in-circle for included files and folders or a minus-in-circle for excluded ones. VoiceOver speaks “Included in Compilations” or “Excluded from Compilations” as part of the row. These reflect each item’s saved inclusion preference. All three options are on by default." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes > Ajustes de VoiceOver > Verbosidad de la lista de archivos controla la información que se muestra y se anuncia en las filas de la biblioteca. Fechas de creación y Fechas de modificación muestran u ocultan las fechas de los archivos de forma independiente. Estado de inclusión en compilaciones muestra una marca de verificación dentro de un círculo para los archivos y las carpetas incluidos, o un signo menos dentro de un círculo para los excluidos. VoiceOver anuncia «Incluido en las compilaciones» o «Excluido de las compilaciones» como parte de la fila. Estos estados reflejan la preferencia de inclusión guardada de cada elemento. Las tres opciones están activadas de forma predeterminada."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Settings > VoiceOver Settings contains Verbosity and Heading Swipe Navigation. VoiceOver Verbosity controls Markdown editing announcements. Off makes no Markdown editing announcements. Light announces list changes, indentation levels, and Insert actions. Full also announces completed Markdown structures as you type." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes > Ajustes de VoiceOver contiene Verbosidad y Navegación por encabezados con gestos. Verbosidad de VoiceOver controla los anuncios de edición de Markdown. Desactivada no realiza anuncios de edición de Markdown. Medio anuncia los cambios de las listas, los niveles de sangría y las acciones de Insertar. Completa también anuncia las estructuras Markdown completadas mientras escribes."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Sharing a document" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir un documento"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Sharing and compilations" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir y crear compilaciones"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Slide text, tables, images, speaker notes, text formatting, and links are included by default. Hidden slides are excluded. Additional options include decorative images, slide numbers, dates, and headers and footers. Your choices are remembered and apply to every presentation in the selected batch." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El texto de las diapositivas, las tablas, las imágenes, las notas del orador, el formato del texto y los enlaces se incluyen de forma predeterminada. Las diapositivas ocultas se excluyen. Las opciones adicionales incluyen imágenes decorativas, números de diapositiva, fechas y encabezados y pies de página. Tus opciones se recuerdan y se aplican a todas las presentaciones del lote seleccionado."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Slide titles become level 2 headings. A first slide identified as a title slide becomes a level 1 heading instead. Untitled slides use Slide followed by their original slide number. Repeated titles remain separate sections. Speaker notes follow three asterisks on a line by themselves." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los títulos de las diapositivas se convierten en encabezados de nivel 2. Si la primera diapositiva se identifica como diapositiva de título, se convierte en un encabezado de nivel 1. Las diapositivas sin título utilizan Diapositiva seguido de su número original. Los títulos repetidos permanecen como secciones independientes. Las notas del orador aparecen después de tres asteriscos solos en una línea."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Slides follow presentation order. Objects follow their stored order, with grouped objects kept together. Visually arranged columns may need editing afterward. Fonts, colors, exact layout, animations, and transitions are not retained. Charts, SmartArt, equations, audio, video, and embedded objects are not converted into editable equivalents. Available descriptions are retained for unsupported objects." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las diapositivas mantienen el orden de la presentación. Los objetos siguen el orden en que están almacenados, y los objetos agrupados permanecen juntos. Las columnas organizadas visualmente pueden necesitar edición posterior. No se conservan las fuentes, los colores, la distribución exacta, las animaciones ni las transiciones. Los gráficos, SmartArt, las ecuaciones, el audio, el vídeo y los objetos incrustados no se convierten en equivalentes editables. Se conservan las descripciones disponibles de los objetos no compatibles."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Smart punctuation in exports" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puntuación inteligente en las exportaciones"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "SpaceBefore and spaceAfter set paragraph spacing from 0 to 720 points. Use the JSON spellings spaceBefore and spaceAfter, starting with a lowercase s. LineSpacing is a multiplier from 0.5 to 5, such as 1.5 for one-and-a-half spacing; its JSON spelling is lineSpacing. Alignment is left, center, right, or justify, in quotes. Spacing and alignment in code apply to code-block paragraphs; inline code uses only the font, size, color, bold, and italic settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SpaceBefore y spaceAfter establecen el espaciado de los párrafos de 0 a 720 puntos. Usa los nombres JSON spaceBefore y spaceAfter, con s minúscula inicial. LineSpacing es un multiplicador de 0.5 a 5, como 1.5 para un interlineado de uno y medio; su nombre en JSON es lineSpacing. alignment puede ser left, center, right o justify, entre comillas. El espaciado y la alineación de code se aplican a los párrafos de los bloques de código; el código en línea solo utiliza los ajustes font, size, color, bold e italic."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Table asks for the number of columns and rows. The first row contains column headings and counts toward the number of rows. Give each row a clear first entry if it needs a label." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tabla solicita el número de columnas y filas. La primera fila contiene los encabezados de columna y se incluye en el número de filas. Da a cada fila una primera entrada clara si necesita una etiqueta."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Table…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tabla…"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Tactile Graphic…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gráfico táctil…"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Task items begin with Completed or Not completed rather than interactive checkboxes. Review the result in Word when preparing a document for publication." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los elementos de tarea empiezan por Completada o No completada en lugar de utilizar casillas interactivas. Revisa el resultado en Word al preparar un documento para su publicación."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Text, PDF, and ebook formats" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formatos de texto, PDF y libros electrónicos"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "The app remembers your braille grade, producer name, and last Braille Ready Format layout. A compilation uses one selected braille code for the entire output, including documents whose source languages differ. Page numbering continues across the combined BRF output." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La app recuerda el grado de braille, el nombre del productor y la última distribución de Formato Braille Ready. Una compilación utiliza un único código braille seleccionado para todo el resultado, incluidos los documentos con distintos idiomas de origen. La numeración de páginas continúa a lo largo del BRF combinado."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "The body, each heading, quote, code, list, and table objects accept font, size, color, bold, italic, spaceBefore, spaceAfter, lineSpacing, and alignment. Font is a name such as Georgia or Arial, with 1 to 128 characters and no control characters. Size is 1 to 200 points and is rounded to the nearest half point. Color is six hexadecimal digits without #, such as 203864. Bold and italic are true or false, without quotes." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los objetos body, cada encabezado, quote, code, list y table admiten font, size, color, bold, italic, spaceBefore, spaceAfter, lineSpacing y alignment. font es un nombre como Georgia o Arial, de 1 a 128 caracteres y sin caracteres de control. size va de 1 a 200 puntos y se redondea al medio punto más cercano. color contiene seis dígitos hexadecimales sin #, como 203864. bold e italic son true o false, sin comillas."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "The exporter checks the files and explains invalid or unavailable choices. Correct the reported problem or choose Standard Word output. A selected file is read again at export time so changes apply to the next export." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El exportador comprueba los archivos y explica las opciones no válidas o no disponibles. Corrige el problema indicado o elige Formato estándar de Word. El archivo seleccionado se vuelve a leer al exportar, por lo que los cambios se aplican a la siguiente exportación."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "The initial order comes from saved Manual order, regardless of the Library’s current sort or pinned documents. Choose Edit to rearrange files and folders, then Done Editing to return to selection. Moving a folder moves its contents together. These changes apply only to this export." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El orden inicial procede del orden Manual guardado, independientemente del orden actual de la biblioteca o de los documentos fijados. Elige Editar para reorganizar los archivos y las carpetas y, después, Terminar edición para volver a la selección. Al mover una carpeta, su contenido se mueve junto con ella. Estos cambios solo se aplican a esta exportación."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "The page object accepts width, height, top, right, bottom, and left, all in points. There are 72 points in an inch. Width and height must each be 144 to 1584 points. Margins must each be 0 to 720 points and must leave at least 72 points of content width and height. Without page settings, Word output uses US Letter, 612 by 792 points, with 72-point margins. Paragraph and page measurements are rounded to the nearest twentieth of a point." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El objeto page admite width, height, top, right, bottom y left, todos en puntos. Una pulgada equivale a 72 puntos. width y height deben estar entre 144 y 1584 puntos. Cada margen debe estar entre 0 y 720 puntos y dejar al menos 72 puntos de ancho y de alto para el contenido. Sin ajustes de página, la exportación a Word utiliza tamaño Carta de EE. UU., de 612 por 792 puntos, con márgenes de 72 puntos. Las medidas de párrafos y páginas se redondean a la vigésima parte de un punto más cercana."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "The result reports words, sentences, characters, and documents counted out of all Markdown documents in the folder and nested folders. Words use the same count as the editor; characters include Markdown marks, spaces, and line breaks. Sentences use automatic language analysis of the source; headings and list fragments can count as sentences." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El resultado muestra las palabras, las frases, los caracteres y los documentos contados del total de documentos Markdown de la carpeta y sus subcarpetas. Las palabras utilizan el mismo recuento que el editor; los caracteres incluyen las marcas Markdown, los espacios y los saltos de línea. Las frases se cuentan mediante un análisis automático del idioma del original; los encabezados y los fragmentos de listas pueden contar como frases."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "To combine a folder’s documents, choose Export Compilation… from its context menu or VoiceOver Actions. Inside an open folder, use its heading actions. Enter Document name and choose Export format." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para combinar los documentos de una carpeta, elige Exportar compilación… en su menú contextual o en las acciones de VoiceOver. Dentro de una carpeta abierta, utiliza las acciones de su encabezado. Introduce el Nombre del documento y elige el Formato de exportación."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "To combine several documents into one output, use Export Compilation… on their folder. The following topics explain compilation choices and the details of each format." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para combinar varios documentos en un solo archivo, utiliza Exportar compilación… en su carpeta. Los temas siguientes explican las opciones de compilación y los detalles de cada formato."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "To export your open document, choose File Actions > Share > Word Document. To combine documents, choose Export Compilation… on a folder and select Word Document. When the file is ready, share it or choose Save to Files." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para exportar el documento abierto, elige Acciones de archivo > Compartir > Documento de Word. Para combinar documentos, elige Exportar compilación… en una carpeta y selecciona Documento de Word. Cuando el archivo esté listo, compártelo o elige Guardar en Archivos."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "To save an inclusion preference for future exports, use Exclude from Compilations or Include in Compilations in a file or folder’s Library actions, an open folder’s heading actions, or the editor’s File Actions. These saved exclusions also apply to folder word, sentence, and character totals. Exporting a folder directly always uses that folder as the scope, even if it is excluded from compilations of its parent." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para guardar una preferencia de inclusión para futuras exportaciones, utiliza Excluir de las compilaciones o Incluir en las compilaciones en las acciones de un archivo o una carpeta de la biblioteca, en las acciones del encabezado de una carpeta abierta o en Acciones de archivo del editor. Estas exclusiones guardadas también se aplican a los totales de palabras, frases y caracteres de las carpetas. Al exportar una carpeta directamente, siempre se utiliza esa carpeta como ámbito, aunque esté excluida de las compilaciones de su carpeta superior."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Touch and hold a file or folder to open its actions, or use its VoiceOver Actions. These include renaming, moving, and deleting; files also offer actions such as duplication and sharing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantén pulsado un archivo o una carpeta para abrir sus acciones, o utiliza las acciones de VoiceOver. Estas incluyen renombrar, mover y eliminar; los archivos también ofrecen acciones como duplicar y compartir."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Touch gestures" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestos táctiles"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Turn on Settings > Export > Use smart punctuation to convert straight quotes and apostrophes to curly marks and three periods to an ellipsis (…). It applies to individual and compilation exports in every format. Your saved documents and punctuation in the editor are unchanged." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa Ajustes > Exportación > Usar puntuación tipográfica para convertir las comillas y los apóstrofos rectos en curvos, y tres puntos seguidos en puntos suspensivos (…). Se aplica a las exportaciones individuales y a las recopilaciones en todos los formatos. Tus documentos guardados y la puntuación del editor no se modifican."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Turning off Slide text omits body paragraphs and lists but keeps slide headings. Turning off Text formatting keeps the words without emphasis. Turning off Links keeps the link text without its destination. Turning off Images omits pictures and their references. For notes-only import, turn off Slide text, Tables, and Images while leaving Speaker notes on." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivar Texto de las diapositivas omite los párrafos y las listas del cuerpo, pero conserva los encabezados de las diapositivas. Desactivar Formato del texto conserva las palabras sin énfasis. Desactivar Enlaces conserva el texto del enlace sin su destino. Desactivar Imágenes omite las imágenes y sus referencias. Para importar solo las notas, desactiva Texto de las diapositivas, Tablas e Imágenes, y deja activada Notas del orador."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Use Indent and Outdent above the on-screen keyboard to change the nesting level of the current line or selected lines. Choose tabs, two spaces, or four spaces in Settings > Editing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Aumentar sangría y Reducir sangría encima del teclado en pantalla para cambiar el nivel de anidación de la línea actual o de las líneas seleccionadas. Elige tabulaciones, dos espacios o cuatro espacios en Ajustes > Edición."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Use Insert to add formatting at the cursor or apply supported formatting to selected text. For a link, selected text becomes the suggested link text. Enter a destination such as https://example.com or mailto:name@example.com." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Insertar para añadir formato en la posición del cursor o aplicar un formato compatible al texto seleccionado. Para un enlace, el texto seleccionado se convierte en el texto sugerido del enlace. Introduce un destino como https://example.com o mailto:name@example.com."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Use Sort to choose Sort By and Sort Order. The Library and each folder remember their own sorting choices. Last Opened sorts by when documents were most recently opened in the editor." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Ordenar para elegir el criterio (Ordenar por) y el sentido (Ascendente o Descendente). La Biblioteca y cada carpeta recuerdan su propia ordenación. Última apertura ordena los documentos según la última vez que se abrieron en el editor."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Use Total Word Count to check the length of a folder’s Markdown documents, including nested folders. Totals include words, sentences, characters, and the number of documents counted. Saved compilation exclusions also exclude files and folders from all these totals. Find it in the folder’s context menu or accessibility actions, or in its heading actions when the folder is open." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Número total de palabras para comprobar la extensión de los documentos Markdown de una carpeta, incluidas las subcarpetas. Los totales incluyen palabras, oraciones, caracteres y el número de documentos contados. Las exclusiones de compilaciones guardadas también excluyen archivos y carpetas de todos estos totales. Encontrarás esta opción en el menú contextual o en las acciones de accesibilidad de la carpeta, o en las acciones de su encabezado cuando esté abierta."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Use VoiceOver Actions on Library files and folders to reach their available commands. An open folder’s heading also offers folder actions." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa las acciones de VoiceOver en los archivos y las carpetas de la biblioteca para acceder a los comandos disponibles. El encabezado de una carpeta abierta también ofrece acciones de carpeta."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Use Word Count in a file’s context menu or VoiceOver actions to check its words, sentences, and characters without opening the editor. Words use the editor’s counting rules. Characters include Markdown syntax, spaces, and line breaks; sentence counts use automatic language analysis of the source. A file can be counted individually even when it is excluded from compilation totals." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa Número de palabras en el menú contextual o en las acciones de VoiceOver de un archivo para comprobar sus palabras, frases y caracteres sin abrir el editor. Las palabras siguen las reglas de recuento del editor. Los caracteres incluyen la sintaxis Markdown, los espacios y los saltos de línea; las frases se cuentan mediante un análisis automático del idioma del original. Un archivo se puede contar individualmente aunque esté excluido de los totales de compilaciones."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Use the switches in Files and folders to select what to include. Expand a folder to choose individual items inside it. Turning off a folder excludes all of its contents; turning it back on restores the individual selections." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa los selectores de Archivos y carpetas para seleccionar qué incluir. Expande una carpeta para elegir elementos individuales de su interior. Desactivar una carpeta excluye todo su contenido; volver a activarla restaura las selecciones individuales."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "VoiceOver" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VoiceOver"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "When App Opens chooses whether to begin in the Library, a new document, or your last document. When Starting a New Document chooses whether to ask for a name or use today’s date." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al abrir la app permite elegir si se empieza en la biblioteca, en un documento nuevo o en el último documento. Al iniciar un documento nuevo permite elegir si se pide un nombre o se utiliza la fecha de hoy."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "When Automatic Lists is enabled, pressing Return after a bullet, numbered item, or task continues that list. Press Return on an empty list item to end the list." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuando Listas automáticas está activado, pulsar Retorno después de una viñeta, un elemento numerado o una tarea continúa la lista. Pulsa Retorno en un elemento de lista vacío para terminar la lista."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Without VoiceOver, swipe on Library items to reveal common actions. Swipe left on a document for Share and Delete, or right for Pin or Unpin. A failed download also offers Retry Download." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin VoiceOver, desliza sobre los elementos de la biblioteca para mostrar las acciones habituales. Desliza hacia la izquierda sobre un documento para Compartir y Eliminar, o hacia la derecha para Fijar o Desfijar. Si una descarga falla, también aparece Reintentar descarga."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Word Export" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportación a Word"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Word Stylesheet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoja de estilo de Word"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Word Stylesheet reference" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Referencia de hojas de estilo de Word"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Word and PDF offer Start each document on a new page. Turn it off to let the documents flow together. In Word, an empty paragraph separates documents, as if you pressed Return twice between them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word y PDF ofrecen Iniciar cada documento en una página nueva. Desactívalo para que los documentos continúen uno tras otro. En Word, un párrafo vacío separa los documentos, como si pulsaras Retorno dos veces entre ellos."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Word and Powerpoint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word y PowerPoint"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Word uses standard styling by default. For a custom theme, follow Word Stylesheet. Compilation Export explains document order, page breaks, and heading levels; Smart punctuation in exports explains optional punctuation conversion." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word utiliza el formato estándar de forma predeterminada. Para un tema personalizado, consulta Hoja de estilo de Word. Exportación de compilaciones explica el orden de los documentos, los saltos de página y los niveles de encabezado; Puntuación inteligente en las exportaciones explica la conversión opcional de la puntuación."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Write and revise your Markdown in the editor. File Actions dismisses the keyboard and opens a sheet with saving, sharing, Find and Replace, Jump to Line, and the Markdown Reference. Choose Cancel to return to File Actions without selecting a command." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escribe y revisa tu Markdown en el editor. Acciones de archivo oculta el teclado y abre una hoja con opciones para guardar, compartir, Buscar y reemplazar, Ir a la línea y Referencia de Markdown. Elige Cancelar para volver a Acciones de archivo sin seleccionar ningún comando."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Write and revise your Markdown in the editor. File Actions provides saving, sharing, Find and Replace, Jump to Line, and the Markdown Reference." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escribe y revisa tu Markdown en el editor. Acciones de archivo ofrece opciones para guardar, compartir, Buscar y reemplazar, Ir a la línea y Referencia de Markdown."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Writing and editing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escritura y edición"
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "Your documents are ordinary Markdown files in the ghostWriter folder, which you can also open in Files. Settings > Files > Document Storage chooses on-device or iCloud storage. Follow the prompts when changing locations." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus documentos son archivos Markdown normales en la carpeta ghostWriter, que también puedes abrir en Archivos. Ajustes > Archivos > Almacenamiento de documentos permite elegir entre el dispositivo e iCloud. Sigue las indicaciones al cambiar de ubicación."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "ghostWriter saves automatically after you pause typing and when the app moves into the background. Choose Save Now in File Actions to request an immediate save." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ghostWriter guarda automáticamente cuando dejas de escribir durante un momento y cuando la app pasa a segundo plano. Elige Guardar ahora en Acciones de archivo para solicitar que se guarde de inmediato."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "header and footer each accept text, pageNumber, and alignment. Text is literal text of at most 1024 characters on one line. pageNumber is true or false and appends an automatic Word page number after the text. Include any wanted space in the text, such as Page followed by a space. Alignment is left, center, or right; the default is left." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "header y footer admiten text, pageNumber y alignment. text contiene texto literal de un máximo de 1024 caracteres en una sola línea. pageNumber es true o false y añade un número de página automático de Word después del texto. Incluye en el texto los espacios que quieras, como Página seguida de un espacio. alignment puede ser left, center o right; el valor predeterminado es left."
+          }
+        }
+      },
+      "generatesSymbol" : false
+    },
+    "thematicBreak accepts behavior set to separator, omit, or pageBreak. For separator, supply text containing 1 to 128 characters on one line. Omit text for the other behaviors. If thematicBreak is absent, the global thematic separator applies." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "thematicBreak admite behavior con los valores separator, omit o pageBreak. Para separator, proporciona text con entre 1 y 128 caracteres en una sola línea. Omite text para los demás comportamientos. Si thematicBreak no está presente, se aplica el separador temático global."
+          }
+        }
+      },
+      "generatesSymbol" : false
     }
   },
   "version" : "1.0"
