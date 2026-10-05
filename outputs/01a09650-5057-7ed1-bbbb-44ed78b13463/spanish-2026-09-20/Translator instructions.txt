@@ -1,0 +1,46 @@
+ghostWriter Spanish translation review
+20 September 2026
+
+You do not need Xcode or developer tools.
+
+1. Start here
+Review the Spanish drafts and enter changes in Translator correction. Use Review status to choose Needs review, Approved, Changed, or Question. Enter questions in Translator notes. Terminology provides reference wording.
+
+2. Blank fields
+Translator correction is intentionally blank until you enter a replacement. A blank Translator notes or Translator decision or notes field means no note has been entered. A blank Protected placeholders field means there are no protected placeholders. In Welcome document, the Markdown line type identifies blank source lines; leave their source and draft cells empty to preserve paragraph spacing.
+
+3. What changed
+336 new strings and Help passages and 12 new Welcome lines have been added. 21 obsolete entries have been removed. Existing approvals, corrections, and questions remain on entries still in use.
+
+4. Prior work
+273 approved entries remain approved. Your previous edits in Spanish draft have been preserved, including entries marked Changed. You do not need to approve unchanged entries again.
+
+5. Translation
+Every nonblank source entry has a Spanish draft. New drafts are marked Needs review. Read English source, Spanish draft, and Usage. If a draft needs changes, enter the complete replacement in Translator correction and set Review status to Changed.
+
+6. Approval
+If the Spanish draft is correct, set Review status to Approved. If a correction is already present, Approved means you approve that correction. Otherwise the Spanish draft is the proposed wording.
+
+7. Questions
+Set Review status to Question and explain the missing context in Translator notes. Additional context for Dismiss, Editing, Rounded, and Light is in Usage. Previous questions have not been marked resolved.
+
+8. Keep identifiers
+Do not change Stable ID, English source, or Protected placeholders. Keep placeholders such as %@, %lld, and positional forms such as %1$@ intact. They insert names, counts, or other values.
+
+9. Markdown
+Translate prose and link descriptions. Keep Markdown markers, link destinations, filenames, JSON field names, and the literal tactile image title unchanged. Keep code examples unchanged unless the instruction specifically asks for translated example text.
+
+10. Welcome
+The Welcome document tab follows the current English document order. Each line has a stable ID. Review the Spanish drafts, retain Markdown syntax, and use the included English document for context. Blank lines preserve paragraph spacing.
+
+11. Help
+Help and onboarding includes text from the Help screen and bundled Help Manual. Similar passages may appear in both places. Review each listed Spanish draft. The current English manual is included for context.
+
+12. Spoken wording
+Review accessibility labels as text that will be heard without visual context. Keep control names consistent with the Interface tab and Terminology.
+
+13. Braille
+The braille checklist covers BRF only, in Spanish grade 1 and grade 2. Follow Spanish braille review checklist.txt and use Spanish braille test document.md. Record Passed, Failed, or Not tested for each run. eBraille interface and Help text still need language review in this workbook.
+
+14. Return
+Return this XLSX with the same sheet names and columns, plus your completed braille checklist and any failing export files. Save as XLSX even if you use another spreadsheet app.

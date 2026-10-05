@@ -1,0 +1,86 @@
+Spanish braille review checklist
+20 September 2026
+
+Purpose
+
+Check the Spanish BRF output produced by ghostWriter, separately from the Spanish interface translation. A person who reads Spanish braille should perform these checks. Use the Spanish braille standard appropriate to your readers and record its name or a reference. Do not assume a grade 2 result is correct just because it differs from grade 1.
+
+What you need
+
+1. The current ghostWriter Markdown test build. Record its version and build number.
+2. Spanish braille test document.md from this package.
+3. A braille display, embosser, or BRF reader that lets you inspect the exported braille cells.
+
+Speech or a print preview alone cannot confirm the braille cells. If suitable equipment or software is unavailable, mark that run Not tested and explain what is missing. You can still complete the spreadsheet translation review.
+
+Prepare the source
+
+1. Import Spanish braille test document.md into the Library and open it in the editor.
+2. Open File Actions, then Document Language. Set Document language to Spanish and choose Save. Control names may appear in Spanish on your device.
+3. Read the source once. Keep an unchanged copy so you can compare every export against it.
+4. Record your app build, operating system, braille reader and version, device model, and Spanish braille standard below.
+
+BRF runs
+
+1. Open File Actions, then Share, then Braille Ready Format.
+2. Set Braille code explicitly to Spanish braille, grade 1 (uncontracted). Do not select a UEB option.
+3. For a braille display, set Use to Braille display. For an embosser, set Use to Embossed Output and choose a layout supported by your equipment. Record the selection.
+4. Choose Export and share, then save the file with a name such as Spanish-grade1.brf.
+5. Open the saved file as BRF in your braille reader. Use its BRF import settings so the already-translated cells are not translated a second time. Record any encoding or braille table settings the reader requires.
+6. Perform the content checks below and record the result for run B1.
+7. Export again with Spanish braille, grade 2 (contracted), save as Spanish-grade2.brf, and repeat the checks for B2.
+
+Content checks for every run
+
+C1. Accents and letters: inspect á, é, í, ó, ú, ü, ñ and their uppercase forms. Compare individual cells with your Spanish braille standard.
+C2. Punctuation: inspect opening and closing question and exclamation marks, quotations, parentheses, commas, semicolons, and ellipses. Check punctuation next to accented words.
+C3. Capitals and numbers: check lowercase words, initial capitals, all-capital words, whole numbers, decimal comma, date, and time. Note incorrect or missing indicators and transitions back to letters.
+C4. Grade: inspect the ordinary sentences and longer paragraphs. For grade 1, check the uncontracted spelling. For grade 2, check contractions and their permitted contexts against your standard. Identify specific words when reporting a difference.
+C5. Structure: check that headings, paragraphs, lists, quotations, links, emphasis, and the small table remain understandable and in source order. Record lost words, unexpected Markdown markers, or confusing boundaries. Formats and readers may present structure differently; describe the actual result.
+C6. Completeness: read through the final sentence. Check that no text is missing, duplicated, or in the wrong order.
+
+Additional BRF pagination run P1
+
+If you can inspect page boundaries, export grade 1 with Use set to Embossed Output, Layout set to Common page, 40 cells by 25 lines, and Include braille page numbers enabled. Use the longer paragraphs to inspect line wrapping, page transitions, and page numbers. Check for truncated or repeated text. Record whether you checked the file in a reader or physically embossed it. If you cannot inspect page boundaries, mark P1 Not tested.
+
+Results
+
+Reviewer:
+Date:
+App version and build:
+Operating system:
+Braille device:
+Reader software and version:
+Reader BRF encoding/table settings:
+Spanish braille standard or reference:
+
+For each run, enter Passed, Failed, or Not tested. Passed means you checked all applicable content items. State any untested item separately.
+
+B1. BRF, Spanish grade 1:
+Use and layout:
+Result:
+Failed or untested check IDs and notes:
+
+B2. BRF, Spanish grade 2:
+Use and layout:
+Result:
+Failed or untested check IDs and notes:
+
+P1. BRF pagination, Spanish grade 1:
+Reader or physical embossing:
+Result:
+Notes:
+
+Report a problem
+
+Copy this block for each problem. Attach the exported file that shows it. Do not edit the failing export before returning it.
+
+Run and check ID:
+Export filename:
+Source heading and exact Spanish text:
+Page/line or other location in the reader:
+Observed result (include Unicode braille or dot numbers if possible):
+Expected result and standard/reference:
+Steps to reproduce:
+
+Return this completed checklist with the XLSX workbook and any failing exports. Leave the sample Markdown unchanged, or attach a separate copy if an additional example is needed.
