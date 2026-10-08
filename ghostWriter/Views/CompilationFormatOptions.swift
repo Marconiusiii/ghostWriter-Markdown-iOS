@@ -25,6 +25,7 @@ struct CompilationFormatOptions: View {
         }
         if options.format == .html || options.format == .pdf {
             Section {
+                if options.format == .html { HTMLStylePicker(selection: $options.htmlStyle) }
                 Toggle("Table of Contents", isOn: $options.includesTableOfContents)
             }
         }

@@ -16,13 +16,22 @@ import Foundation
 
 nonisolated enum EPUBWriter {
 
-    static func compilationHTML(title: String, document: ExportDocument, sourceDirectory: URL, language: String, includesTableOfContents: Bool = false) -> String {
+    static func compilationHTML(title: String, document: ExportDocument, sourceDirectory: URL, language: String, includesTableOfContents: Bool = false, htmlStyle: HTMLExportStyle = .standard) -> String {
         let resources = collectImageResources(document, sourceDirectory: sourceDirectory)
         var output = contentDocument(title: title, language: language, document: document, includeTitleHeading: false, imageResources: resources, includesTableOfContents: includesTableOfContents)
         for image in resources.images {
             output = output.replacingOccurrences(of: "src=\"\(image.href)\"", with: "src=\"data:\(image.mediaType);base64,\(image.data.base64EncodedString())\"")
         }
-        return output.replacingOccurrences(of: "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\"/>", with: "<style>body { max-width: 48em; margin: auto; padding: 1em; line-height: 1.5; } section + section { margin-top: 2em; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; } th, td { border: 1px solid; padding: 0.4em; } pre { white-space: pre-wrap; }</style>")
+        if htmlStyle == .ghostWriter {
+            output = output.replacingOccurrences(of: "<table>", with: "<div class=\"table-scroll\" tabindex=\"0\"><table>")
+                .replacingOccurrences(of: "</table>", with: "</table></div>")
+        }
+        output = output.replacingOccurrences(
+            of: "<link rel=\"stylesheet\" type=\"text/css\" href=\"style.css\"/>",
+            with: "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/><style>\(HTMLTemplate.exportStylesheet(for: htmlStyle))</style>"
+        )
+        return output.replacingOccurrences(of: "<body>", with: "<body><main>")
+            .replacingOccurrences(of: "</body>", with: "</main></body>")
     }
 
     static func write(

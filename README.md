@@ -86,7 +86,8 @@ after headings, widow/orphan control, and keeping paragraphs together. Header
 and footer templates can include document information, running headings, page
 numbers, and the export date. Stylesheets can also add a linked table of contents.
 HTML and PDF exports offer an optional Table of Contents toggle for documents
-and compilations. PDF contents include final page numbers. Standard Word output remains available.
+and compilations. HTML offers Standard styling or a ghostWriter theme that automatically
+follows the reader’s light or dark appearance. PDF contents include final page numbers. Standard Word output remains available.
 [Word export and JSON stylesheet instructions](Documentation/Word%20export.md)
 explain the supported settings and field behavior.
 [Download the default example](Documentation/word-theme.json) or the

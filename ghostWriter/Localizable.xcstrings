@@ -1,6 +1,28 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "HTML style": {
+      "comment": "HTML export style picker. Spanish wording awaits translator review.",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Estilo HTML"
+          }
+        }
+      }
+    },
+    "Standard": {
+      "comment": "HTML export style picker. Spanish wording awaits translator review.",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "needs_review",
+            "value": "Estándar"
+          }
+        }
+      }
+    },
     "" : {
 
     },

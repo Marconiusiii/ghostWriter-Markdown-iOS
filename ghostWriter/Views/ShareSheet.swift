@@ -115,6 +115,7 @@ struct EditorShareView: View {
     @State private var brfOptions: BRFExportOptions?
     @State private var contentsConfirmed = false
     @State private var includesTableOfContents = false
+    @State private var htmlStyle = HTMLExportStyle.standard
     @State private var wordConfirmed = false
     @State private var wordStylesheet = ""
     @State private var powerPointOptions: PowerPointExportOptions?
@@ -145,6 +146,7 @@ struct EditorShareView: View {
             } else if (format == .html || format == .pdf), !contentsConfirmed {
                 NavigationStack {
                     Form {
+                        if format == .html { HTMLStylePicker(selection: $htmlStyle) }
                         Toggle("Table of Contents", isOn: $includesTableOfContents)
                         Button("Export and share…") { contentsConfirmed = true }
                     }
@@ -242,6 +244,7 @@ struct EditorShareView: View {
         let usesSmartPunctuation = settings.usesSmartPunctuation
         let thematicSeparator = settings.thematicSeparator
         let includesTableOfContents = includesTableOfContents
+        let htmlStyle = htmlStyle
 
         let result = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error> in
             do {
@@ -261,7 +264,8 @@ struct EditorShareView: View {
                         wordOptions: word,
                         usesSmartPunctuation: usesSmartPunctuation,
                         thematicSeparator: thematicSeparator,
-                        includesTableOfContents: includesTableOfContents
+                        includesTableOfContents: includesTableOfContents,
+                        htmlStyle: htmlStyle
                     )
                 )
             } catch {
@@ -294,7 +298,8 @@ nonisolated enum EditorShareFileWriter {
         wordOptions: WordExportOptions? = nil,
         usesSmartPunctuation: Bool = false,
         thematicSeparator: ThematicSeparator = .none,
-        includesTableOfContents: Bool = false
+        includesTableOfContents: Bool = false,
+        htmlStyle: HTMLExportStyle = .standard
     ) async throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -343,7 +348,8 @@ nonisolated enum EditorShareFileWriter {
                 format: .html,
                 sourceDirectory: sourceDirectory,
                 documentLanguage: documentLanguage,
-                includesTableOfContents: includesTableOfContents
+                includesTableOfContents: includesTableOfContents,
+                htmlStyle: htmlStyle
             )
             try contents.write(to: url, atomically: true, encoding: .utf8)
             return url
@@ -517,7 +523,8 @@ enum ShareItemBuilder {
         sourceDirectory: URL? = nil,
         documentLanguage: String = DocumentLanguage.resolvedTag(""),
         thematicSeparator: ThematicSeparator = .none,
-        includesTableOfContents: Bool = false
+        includesTableOfContents: Bool = false,
+        htmlStyle: HTMLExportStyle = .standard
     ) -> String {
         switch format {
         case .markdown:
@@ -528,6 +535,7 @@ enum ShareItemBuilder {
             return HTMLTemplate.exportDocument(
                 title: title,
                 language: documentLanguage,
+                style: htmlStyle,
                 body: MarkdownRenderer.html(
                     from: markdown,
                     title: title,

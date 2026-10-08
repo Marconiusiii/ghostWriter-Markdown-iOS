@@ -180,7 +180,7 @@ Plain Text removes Markdown syntax while retaining readable structure. Level 1 a
 
 Settings > Export > Thematic separator replaces Markdown thematic breaks with your chosen decoration in Plain Text and Word exports. None omits them. Plain Text centers the characters with spaces within 72 columns; their appearance depends on the font and app used to read the file.
 
-HTML preserves document structure, embeds supported attached images, and retains image descriptions. Its text size follows the app used to open it.
+HTML preserves document structure, embeds supported attached images, and retains image descriptions. Choose Standard or ghostWriter with the HTML style picker when exporting a document or compilation. The ghostWriter style automatically follows the reader’s light or dark appearance. Its styling is included in the exported file and works offline. Text size follows the app used to open it.
 
 When exporting HTML or PDF, turn on Table of Contents before choosing Export and share…. The toggle is off by default and is also available for compilations. The contents uses all nonempty heading levels in their final exported order, omits the opening title, and is omitted if no entries remain. HTML places a collapsed Table of Contents disclosure after the opening title. Activate its summary to show or hide the nested heading links. PDF adds linked entries with final page numbers and begins the remaining content on a new page after the contents. A following Heading 2 is an ordinary contents entry in these formats.
 

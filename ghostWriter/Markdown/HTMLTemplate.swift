@@ -54,11 +54,15 @@ nonisolated enum HTMLTemplate {
     static func exportDocument(
         title: String,
         language: String = DocumentLanguage.resolvedTag(""),
+        style: HTMLExportStyle = .standard,
         body: String
     ) -> String {
+        let exportBody = style == .ghostWriter
+            ? body.replacingOccurrences(of: "<div class=\"table-scroll\">", with: "<div class=\"table-scroll\" tabindex=\"0\">")
+            : body
         let content = body.isEmpty
             ? "<p class=\"empty-state\">This document is empty.</p>"
-            : body
+            : exportBody
 
         return """
         <!DOCTYPE html>
@@ -68,7 +72,7 @@ nonisolated enum HTMLTemplate {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>\(MarkdownRenderer.escape(title))</title>
         <style>
-        \(exportStylesheet)
+        \(exportStylesheet(for: style))
         </style>
         </head>
         <body>
@@ -260,14 +264,314 @@ nonisolated enum HTMLTemplate {
         """
     }
 
+    /// Shared export CSS, independent of the in-app preview's text sizing.
+    static func exportStylesheet(for style: HTMLExportStyle) -> String {
+        style == .ghostWriter ? ghostWriterExportStylesheet : exportStylesheet
+    }
+
+    private static let ghostWriterExportStylesheet = """
+    /* Colors */
+    :root {
+    \tcolor-scheme: light dark;
+    \t--page-background: #f5f0e8;
+    \t--text-color: #1f1b18;
+    \t--heading-color: #23433a;
+    \t--secondary-text-color: #534a42;
+    \t--link-color: #0d4f8f;
+    \t--code-background: #ece4d6;
+    \t--table-header-background: #d7e4dd;
+    \t--border-color: #827666;
+    \t--focus-color: #a83b12;
+    }
+
+    @media (prefers-color-scheme: dark) {
+    \t:root {
+    \t\t--page-background: #13100f;
+    \t\t--text-color: #f2ebe1;
+    \t\t--heading-color: #b7d7c9;
+    \t\t--secondary-text-color: #d1c4b8;
+    \t\t--link-color: #8dc2ff;
+    \t\t--code-background: #312926;
+    \t\t--table-header-background: #2b342f;
+    \t\t--border-color: #96897c;
+    \t\t--focus-color: #f28d49;
+    \t}
+    }
+
+    @media (forced-colors: active) {
+    \t:root {
+    \t\t--page-background: Canvas;
+    \t\t--text-color: CanvasText;
+    \t\t--heading-color: CanvasText;
+    \t\t--secondary-text-color: CanvasText;
+    \t\t--link-color: LinkText;
+    \t\t--code-background: Canvas;
+    \t\t--table-header-background: Canvas;
+    \t\t--border-color: CanvasText;
+    \t\t--focus-color: Highlight;
+    \t}
+    }
+
+    @media print {
+    \t:root {
+    \t\tcolor-scheme: light;
+    \t\t--page-background: #ffffff;
+    \t\t--text-color: #000000;
+    \t\t--heading-color: #000000;
+    \t\t--secondary-text-color: #000000;
+    \t\t--link-color: #000000;
+    \t\t--code-background: #ffffff;
+    \t\t--table-header-background: #ffffff;
+    \t\t--border-color: #000000;
+    \t\t--focus-color: #000000;
+    \t}
+    }
+
+    /* Document */
+    * {
+    \tbox-sizing: border-box;
+    }
+
+    html {
+    \tfont-size: 100%;
+    \t-webkit-text-size-adjust: 100%;
+    }
+
+    body {
+    \tmargin: 0;
+    \tpadding: 1rem;
+    \tfont-family: -apple-system, system-ui, Georgia, serif;
+    \tline-height: 1.6;
+    \tcolor: var(--text-color);
+    \tbackground: var(--page-background);
+    \toverflow-wrap: anywhere;
+    }
+
+    main {
+    \tmax-width: 42rem;
+    \tmargin: 0 auto;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+    \tcolor: var(--heading-color);
+    \tline-height: 1.25;
+    \tmargin: 1.5em 0 0.5em;
+    }
+
+    h1 {
+    \tfont-size: 1.8rem;
+    }
+
+    h2 {
+    \tfont-size: 1.5rem;
+    }
+
+    h3 {
+    \tfont-size: 1.3rem;
+    }
+
+    h4 {
+    \tfont-size: 1.15rem;
+    }
+
+    h5, h6 {
+    \tfont-size: 1rem;
+    }
+
+    :first-child {
+    \tmargin-top: 0;
+    }
+
+    p, li {
+    \tmargin: 0 0 0.85em;
+    }
+
+    a {
+    \tcolor: var(--link-color);
+    \ttext-decoration: underline;
+    \ttext-underline-offset: 0.15em;
+    }
+
+    code {
+    \tfont-family: ui-monospace, "SF Mono", Menlo, monospace;
+    \tfont-size: 0.92em;
+    \tpadding: 0.1em 0.3em;
+    \tborder-radius: 0.25em;
+    \tbackground: var(--code-background);
+    }
+
+    pre {
+    \twhite-space: pre-wrap;
+    \toverflow-wrap: anywhere;
+    \tpadding: 0.9em 1em;
+    \tborder-radius: 0.6em;
+    \tbackground: var(--code-background);
+    \toverflow-x: auto;
+    }
+
+    pre code {
+    \tpadding: 0;
+    \tbackground: none;
+    }
+
+    blockquote {
+    \tmargin: 0 0 1em;
+    \tpadding-inline-start: 1em;
+    \tborder-inline-start: 0.25em solid var(--border-color);
+    \tcolor: var(--secondary-text-color);
+    }
+
+    hr {
+    \tborder: 0;
+    \tborder-top: 1px solid var(--border-color);
+    \tmargin: 1.5em 0;
+    }
+
+    img {
+    \tmax-width: 100%;
+    \theight: auto;
+    }
+
+    figure.tactile-graphic {
+    \tmargin: 1.5em 0;
+    }
+
+    figure.tactile-graphic figcaption {
+    \tmargin-top: 0.4em;
+    \tcolor: var(--secondary-text-color);
+    \tfont-style: italic;
+    }
+
+    .table-scroll {
+    \tmax-width: 100%;
+    \toverflow-x: auto;
+    }
+
+    table {
+    \toverflow-wrap: anywhere;
+    \twidth: 100%;
+    \tborder-collapse: collapse;
+    \tmargin: 0 0 1em;
+    }
+
+    th, td {
+    \tpadding: 0.5em 0.7em;
+    \tborder: 1px solid var(--border-color);
+    \ttext-align: start;
+    }
+
+    th {
+    \tbackground: var(--table-header-background);
+    }
+
+    .align-leading {
+    \ttext-align: start;
+    }
+
+    .align-center {
+    \ttext-align: center;
+    }
+
+    .align-trailing {
+    \ttext-align: end;
+    }
+
+    .image-fallback {
+    \tfont-style: italic;
+    }
+
+    ul.contains-task-list {
+    \tlist-style: none;
+    \tpadding-left: 1.2em;
+    }
+
+    li.task-list-item {
+    \tmargin-left: -1.2em;
+    }
+
+    .task-indicator {
+    \tbox-sizing: border-box;
+    \tdisplay: inline-block;
+    \tposition: relative;
+    \twidth: 1em;
+    \theight: 1em;
+    \tmargin-right: 0.4em;
+    \tborder: 2px solid currentColor;
+    \tborder-radius: 0.15em;
+    \tvertical-align: -0.1em;
+    }
+
+    .task-indicator.completed::after {
+    \tcontent: "";
+    \tposition: absolute;
+    \tleft: 0.23em;
+    \ttop: 0.01em;
+    \twidth: 0.25em;
+    \theight: 0.55em;
+    \tborder: solid currentColor;
+    \tborder-width: 0 0.14em 0.14em 0;
+    \ttransform: rotate(45deg);
+    }
+
+    .task-status {
+    \tfont-weight: 600;
+    }
+
+    .empty-state {
+    \tcolor: var(--secondary-text-color);
+    \tfont-style: italic;
+    }
+
+    a:focus-visible, :focus-visible {
+    \toutline: 3px solid var(--focus-color);
+    \toutline-offset: 2px;
+    }
+
+    section + section {
+    \tmargin-block-start: 2rem;
+    }
+
+    summary {
+    \tcursor: pointer;
+    \tpadding-block: 0.5em;
+    }
+
+    summary h2 {
+    \tdisplay: inline;
+    \tmargin: 0;
+    }
+
+    details {
+    \tmargin-block: 1.5em;
+    }
+
+    details > ul {
+    \tmargin-block-start: 1em;
+    }
+
+    details a {
+    \tdisplay: inline-block;
+    \tpadding-block: 0.2em;
+    }
+
+    @media print {
+    \tbody {
+    \t\tpadding: 0;
+    \t}
+    \tmain {
+    \t\tmax-width: none;
+    \t}
+    }
+    """
+
     private static let exportStylesheet = """
     :root { color-scheme: light dark; }
     body {
-      margin: 0 auto;
-      padding: 2rem 1rem;
-      max-width: 42rem;
-      font-family: -apple-system, system-ui, Georgia, serif;
-      line-height: 1.6;
+    \tmargin: 0 auto;
+    \tpadding: 2rem 1rem;
+    \tmax-width: 42rem;
+    \tfont-family: -apple-system, system-ui, Georgia, serif;
+    \tline-height: 1.6;
     }
     h1, h2, h3, h4, h5, h6 { line-height: 1.25; }
     img { max-width: 100%; height: auto; }
@@ -286,26 +590,26 @@ nonisolated enum HTMLTemplate {
     ul.contains-task-list { list-style: none; padding-left: 1.2em; }
     li.task-list-item { margin-left: -1.2em; }
     .task-indicator {
-      box-sizing: border-box;
-      display: inline-block;
-      position: relative;
-      width: 1em;
-      height: 1em;
-      margin-right: 0.4em;
-      border: 2px solid currentColor;
-      border-radius: 0.15em;
-      vertical-align: -0.1em;
+    \tbox-sizing: border-box;
+    \tdisplay: inline-block;
+    \tposition: relative;
+    \twidth: 1em;
+    \theight: 1em;
+    \tmargin-right: 0.4em;
+    \tborder: 2px solid currentColor;
+    \tborder-radius: 0.15em;
+    \tvertical-align: -0.1em;
     }
     .task-indicator.completed::after {
-      content: "";
-      position: absolute;
-      left: 0.23em;
-      top: 0.01em;
-      width: 0.25em;
-      height: 0.55em;
-      border: solid currentColor;
-      border-width: 0 0.14em 0.14em 0;
-      transform: rotate(45deg);
+    \tcontent: "";
+    \tposition: absolute;
+    \tleft: 0.23em;
+    \ttop: 0.01em;
+    \twidth: 0.25em;
+    \theight: 0.55em;
+    \tborder: solid currentColor;
+    \tborder-width: 0 0.14em 0.14em 0;
+    \ttransform: rotate(45deg);
     }
     .task-status { font-weight: 600; }
     """

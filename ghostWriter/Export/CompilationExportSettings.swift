@@ -4,6 +4,7 @@ nonisolated struct CompilationExportSettings: Sendable {
     var thematicSeparator = ThematicSeparator.none
     var usesSmartPunctuation = false
     var format = CompilationFormat.word
+    var htmlStyle = HTMLExportStyle.standard
     var word = WordExportOptions()
     var powerPointTheme = PowerPointTheme.warmPaper
     var powerPointFont = PowerPointFont.arial

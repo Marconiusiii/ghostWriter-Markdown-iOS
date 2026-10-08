@@ -29,7 +29,7 @@ nonisolated enum CompilationFileWriter {
                 case .markdown:
                     data = Data(CompilationMarkdownWriter.write(document).utf8)
                 case .html:
-                    data = Data(EPUBWriter.compilationHTML(title: title, document: document, sourceDirectory: root, language: language, includesTableOfContents: settings.includesTableOfContents).utf8)
+                    data = Data(EPUBWriter.compilationHTML(title: title, document: document, sourceDirectory: root, language: language, includesTableOfContents: settings.includesTableOfContents, htmlStyle: settings.htmlStyle).utf8)
                 case .pdf:
                     data = try TaggedPDFWriter.write(title: title, markdown: "", sourceDirectory: root, documentLanguage: language, preparedDocument: document, startsDocumentsOnNewPages: settings.startsOnNewPages, includesTableOfContents: settings.includesTableOfContents)
                 case .epub:
