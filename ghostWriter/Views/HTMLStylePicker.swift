@@ -11,11 +11,15 @@ struct HTMLStylePicker: View {
     @Binding var selection: HTMLExportStyle
 
     var body: some View {
-        Picker("HTML style", selection: $selection) {
-            Text("Standard").tag(HTMLExportStyle.standard)
-            Text(verbatim: "ghostWriter").tag(HTMLExportStyle.ghostWriter)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("HTML style")
+                .accessibilityHidden(true)
+            Picker("HTML style", selection: $selection) {
+                Text("Standard").tag(HTMLExportStyle.standard)
+                Text(verbatim: "ghostWriter").tag(HTMLExportStyle.ghostWriter)
+            }
+            .pickerStyle(.wheel)
+            .accessibilityLabel("HTML style")
         }
-        .pickerStyle(.menu)
-        .accessibilityLabel("HTML style")
     }
 }

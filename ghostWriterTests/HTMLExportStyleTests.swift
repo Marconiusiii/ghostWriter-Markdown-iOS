@@ -23,7 +23,7 @@ struct HTMLExportStyleTests {
                 let html = try String(contentsOf: url, encoding: .utf8)
                 #expect(html.contains(HTMLTemplate.exportStylesheet(for: style)))
                 #expect(!html.split(separator: "\n", omittingEmptySubsequences: false).contains { $0.first == " " })
-                #expect(html.contains("prefers-color-scheme: dark") == (style == .ghostWriter))
+                #expect(html.contains("prefers-color-scheme: dark"))
                 #expect(html.contains("<main>"))
                 #expect(html.contains("name=\"viewport\""))
                 #expect(html.contains("<details><summary><h2>Table of Contents</h2></summary>"))
@@ -39,7 +39,7 @@ struct HTMLExportStyleTests {
     @Test func standardIsTheDefaultAndThemeSupportsReaderPreferences() {
         #expect(CompilationExportSettings().htmlStyle == .standard)
         let standard = HTMLTemplate.exportDocument(title: "Title", body: "<p>Text</p>")
-        #expect(!standard.contains("--page-background"))
+        #expect(standard.contains(HTMLTemplate.exportStylesheet(for: .standard)))
         let css = HTMLTemplate.exportStylesheet(for: .ghostWriter)
         #expect(css.contains("font-size: 100%"))
         #expect(css.contains("@media (prefers-color-scheme: dark)"))
@@ -49,8 +49,9 @@ struct HTMLExportStyleTests {
         #expect(css.contains("text-decoration: underline"))
     }
 
-    @Test func exportColorsAreAtTheTopAndIndentationUsesTabs() throws {
-        let css = HTMLTemplate.exportStylesheet(for: .ghostWriter)
+    @Test(arguments: HTMLExportStyle.allCases)
+    func exportColorsAreAtTheTopAndIndentationUsesTabs(style: HTMLExportStyle) throws {
+        let css = HTMLTemplate.exportStylesheet(for: style)
         let sections = css.components(separatedBy: "/* Document */")
         #expect(sections.count == 2)
         #expect(sections[0].hasPrefix("/* Colors */\n:root {"))
@@ -63,12 +64,13 @@ struct HTMLExportStyleTests {
             #expect(!output.split(separator: "\n").contains { $0.first == " " })
         }
         let body = "<pre><code>    keep these four spaces\n\tkeep this tab</code></pre>"
-        let html = HTMLTemplate.exportDocument(title: "Code", style: .ghostWriter, body: body)
+        let html = HTMLTemplate.exportDocument(title: "Code", style: style, body: body)
         #expect(html.contains(body))
     }
 
-    @Test func themePaletteMeetsContrastMinimums() throws {
-        let css = HTMLTemplate.exportStylesheet(for: .ghostWriter)
+    @Test(arguments: HTMLExportStyle.allCases)
+    func themePaletteMeetsContrastMinimums(style: HTMLExportStyle) throws {
+        let css = HTMLTemplate.exportStylesheet(for: style)
         func palette(_ dark: Bool) throws -> [String: String] {
             // Read actual exported declarations in order, including dark overrides.
             let expression = try NSRegularExpression(pattern: #"--([a-z-]+):\s*(#[a-fA-F0-9]{6})"#)

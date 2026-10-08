@@ -565,30 +565,153 @@ nonisolated enum HTMLTemplate {
     """
 
     private static let exportStylesheet = """
-    :root { color-scheme: light dark; }
+    /* Colors */
+    :root {
+    \tcolor-scheme: light dark;
+    \t--page-background: #ffffff;
+    \t--text-color: #202020;
+    \t--heading-color: #202020;
+    \t--secondary-text-color: #505050;
+    \t--link-color: #004b87;
+    \t--code-background: #f0f0f0;
+    \t--table-header-background: #eeeeee;
+    \t--border-color: #767676;
+    \t--focus-color: #005fcc;
+    }
+
+    @media (prefers-color-scheme: dark) {
+    \t:root {
+    \t\t--page-background: #181818;
+    \t\t--text-color: #eeeeee;
+    \t\t--heading-color: #eeeeee;
+    \t\t--secondary-text-color: #cccccc;
+    \t\t--link-color: #9ecbff;
+    \t\t--code-background: #282828;
+    \t\t--table-header-background: #303030;
+    \t\t--border-color: #aaaaaa;
+    \t\t--focus-color: #ffbf47;
+    \t}
+    }
+
+    @media (forced-colors: active) {
+    \t:root {
+    \t\t--page-background: Canvas;
+    \t\t--text-color: CanvasText;
+    \t\t--heading-color: CanvasText;
+    \t\t--secondary-text-color: CanvasText;
+    \t\t--link-color: LinkText;
+    \t\t--code-background: Canvas;
+    \t\t--table-header-background: Canvas;
+    \t\t--border-color: CanvasText;
+    \t\t--focus-color: Highlight;
+    \t}
+    }
+
+    @media print {
+    \t:root {
+    \t\tcolor-scheme: light;
+    \t\t--page-background: #ffffff;
+    \t\t--text-color: #000000;
+    \t\t--heading-color: #000000;
+    \t\t--secondary-text-color: #000000;
+    \t\t--link-color: #000000;
+    \t\t--code-background: #ffffff;
+    \t\t--table-header-background: #ffffff;
+    \t\t--border-color: #000000;
+    \t\t--focus-color: #000000;
+    \t}
+    }
+
+    /* Document */
     body {
+    \tcolor: var(--text-color);
+    \tbackground: var(--page-background);
     \tmargin: 0 auto;
     \tpadding: 2rem 1rem;
     \tmax-width: 42rem;
     \tfont-family: -apple-system, system-ui, Georgia, serif;
     \tline-height: 1.6;
     }
-    h1, h2, h3, h4, h5, h6 { line-height: 1.25; }
-    img { max-width: 100%; height: auto; }
-    figure.tactile-graphic { margin: 1.5rem 0; }
-    figure.tactile-graphic figcaption { margin-top: 0.4rem; font-style: italic; }
-    pre { padding: 1rem; overflow-x: auto; background: rgba(127,127,127,0.12); border-radius: 0.5rem; }
-    code { font-family: ui-monospace, Menlo, monospace; }
-    blockquote { margin-inline: 0; padding-left: 1rem; border-left: 0.25rem solid currentColor; }
-    .table-scroll { max-width: 100%; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 0.5rem 0.7rem; border: 1px solid currentColor; text-align: left; }
-    .align-leading { text-align: left; }
-    .align-center { text-align: center; }
-    .align-trailing { text-align: right; }
-    .image-fallback { font-style: italic; }
-    ul.contains-task-list { list-style: none; padding-left: 1.2em; }
-    li.task-list-item { margin-left: -1.2em; }
+
+    h1, h2, h3, h4, h5, h6 {
+    \tcolor: var(--heading-color);
+    \tline-height: 1.25;
+    }
+
+    img {
+    \tmax-width: 100%;
+    \theight: auto;
+    }
+
+    figure.tactile-graphic {
+    \tmargin: 1.5rem 0;
+    }
+
+    figure.tactile-graphic figcaption {
+    \tcolor: var(--secondary-text-color);
+    \tmargin-top: 0.4rem;
+    \tfont-style: italic;
+    }
+
+    pre {
+    \tpadding: 1rem;
+    \toverflow-x: auto;
+    \tbackground: var(--code-background);
+    \tborder-radius: 0.5rem;
+    }
+
+    code {
+    \tfont-family: ui-monospace, Menlo, monospace;
+    }
+
+    blockquote {
+    \tcolor: var(--secondary-text-color);
+    \tmargin-inline: 0;
+    \tpadding-left: 1rem;
+    \tborder-left: 0.25rem solid var(--border-color);
+    }
+
+    .table-scroll {
+    \tmax-width: 100%;
+    \toverflow-x: auto;
+    }
+
+    table {
+    \twidth: 100%;
+    \tborder-collapse: collapse;
+    }
+
+    th, td {
+    \tpadding: 0.5rem 0.7rem;
+    \tborder: 1px solid var(--border-color);
+    \ttext-align: left;
+    }
+
+    .align-leading {
+    \ttext-align: left;
+    }
+
+    .align-center {
+    \ttext-align: center;
+    }
+
+    .align-trailing {
+    \ttext-align: right;
+    }
+
+    .image-fallback {
+    \tfont-style: italic;
+    }
+
+    ul.contains-task-list {
+    \tlist-style: none;
+    \tpadding-left: 1.2em;
+    }
+
+    li.task-list-item {
+    \tmargin-left: -1.2em;
+    }
+
     .task-indicator {
     \tbox-sizing: border-box;
     \tdisplay: inline-block;
@@ -600,6 +723,7 @@ nonisolated enum HTMLTemplate {
     \tborder-radius: 0.15em;
     \tvertical-align: -0.1em;
     }
+
     .task-indicator.completed::after {
     \tcontent: "";
     \tposition: absolute;
@@ -611,6 +735,32 @@ nonisolated enum HTMLTemplate {
     \tborder-width: 0 0.14em 0.14em 0;
     \ttransform: rotate(45deg);
     }
-    .task-status { font-weight: 600; }
+
+    .task-status {
+    \tfont-weight: 600;
+    }
+
+    a {
+    \tcolor: var(--link-color);
+    \ttext-decoration: underline;
+    }
+
+    th {
+    \tbackground: var(--table-header-background);
+    }
+
+    hr {
+    \tborder: 0;
+    \tborder-top: 1px solid var(--border-color);
+    }
+
+    .empty-state {
+    \tcolor: var(--secondary-text-color);
+    }
+
+    :focus-visible {
+    \toutline: 3px solid var(--focus-color);
+    \toutline-offset: 2px;
+    }
     """
 }

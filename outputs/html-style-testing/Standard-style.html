@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML style sample</title>
+<style>
+/* Colors */
+:root {
+	color-scheme: light dark;
+	--page-background: #ffffff;
+	--text-color: #202020;
+	--heading-color: #202020;
+	--secondary-text-color: #505050;
+	--link-color: #004b87;
+	--code-background: #f0f0f0;
+	--table-header-background: #eeeeee;
+	--border-color: #767676;
+	--focus-color: #005fcc;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--page-background: #181818;
+		--text-color: #eeeeee;
+		--heading-color: #eeeeee;
+		--secondary-text-color: #cccccc;
+		--link-color: #9ecbff;
+		--code-background: #282828;
+		--table-header-background: #303030;
+		--border-color: #aaaaaa;
+		--focus-color: #ffbf47;
+	}
+}
+
+@media (forced-colors: active) {
+	:root {
+		--page-background: Canvas;
+		--text-color: CanvasText;
+		--heading-color: CanvasText;
+		--secondary-text-color: CanvasText;
+		--link-color: LinkText;
+		--code-background: Canvas;
+		--table-header-background: Canvas;
+		--border-color: CanvasText;
+		--focus-color: Highlight;
+	}
+}
+
+@media print {
+	:root {
+		color-scheme: light;
+		--page-background: #ffffff;
+		--text-color: #000000;
+		--heading-color: #000000;
+		--secondary-text-color: #000000;
+		--link-color: #000000;
+		--code-background: #ffffff;
+		--table-header-background: #ffffff;
+		--border-color: #000000;
+		--focus-color: #000000;
+	}
+}
+
+/* Document */
+body {
+	color: var(--text-color);
+	background: var(--page-background);
+	margin: 0 auto;
+	padding: 2rem 1rem;
+	max-width: 42rem;
+	font-family: -apple-system, system-ui, Georgia, serif;
+	line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+	color: var(--heading-color);
+	line-height: 1.25;
+}
+
+img {
+	max-width: 100%;
+	height: auto;
+}
+
+figure.tactile-graphic {
+	margin: 1.5rem 0;
+}
+
+figure.tactile-graphic figcaption {
+	color: var(--secondary-text-color);
+	margin-top: 0.4rem;
+	font-style: italic;
+}
+
+pre {
+	padding: 1rem;
+	overflow-x: auto;
+	background: var(--code-background);
+	border-radius: 0.5rem;
+}
+
+code {
+	font-family: ui-monospace, Menlo, monospace;
+}
+
+blockquote {
+	color: var(--secondary-text-color);
+	margin-inline: 0;
+	padding-left: 1rem;
+	border-left: 0.25rem solid var(--border-color);
+}
+
+.table-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+th, td {
+	padding: 0.5rem 0.7rem;
+	border: 1px solid var(--border-color);
+	text-align: left;
+}
+
+.align-leading {
+	text-align: left;
+}
+
+.align-center {
+	text-align: center;
+}
+
+.align-trailing {
+	text-align: right;
+}
+
+.image-fallback {
+	font-style: italic;
+}
+
+ul.contains-task-list {
+	list-style: none;
+	padding-left: 1.2em;
+}
+
+li.task-list-item {
+	margin-left: -1.2em;
+}
+
+.task-indicator {
+	box-sizing: border-box;
+	display: inline-block;
+	position: relative;
+	width: 1em;
+	height: 1em;
+	margin-right: 0.4em;
+	border: 2px solid currentColor;
+	border-radius: 0.15em;
+	vertical-align: -0.1em;
+}
+
+.task-indicator.completed::after {
+	content: "";
+	position: absolute;
+	left: 0.23em;
+	top: 0.01em;
+	width: 0.25em;
+	height: 0.55em;
+	border: solid currentColor;
+	border-width: 0 0.14em 0.14em 0;
+	transform: rotate(45deg);
+}
+
+.task-status {
+	font-weight: 600;
+}
+
+a {
+	color: var(--link-color);
+	text-decoration: underline;
+}
+
+th {
+	background: var(--table-header-background);
+}
+
+hr {
+	border: 0;
+	border-top: 1px solid var(--border-color);
+}
+
+.empty-state {
+	color: var(--secondary-text-color);
+}
+
+:focus-visible {
+	outline: 3px solid var(--focus-color);
+	outline-offset: 2px;
+}
+</style>
+</head>
+<body>
+<main>
+<h1>HTML style sample</h1>
+<details><summary><h2>Table of Contents</h2></summary><ul><li><a href="#chapter">Chapter</a></li></ul></details>
+<h2 id="chapter">Chapter</h2><p>This sample uses the Standard export stylesheet. <a href="#table">Follow this link to the table.</a></p>
+<blockquote><p>A quotation uses a contrasting border and readable text.</p></blockquote>
+<pre><code>long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_long_code_token_</code></pre>
+<div class="table-scroll"><table id="table"><thead><tr><th>Item</th><th>Description</th></tr></thead><tbody><tr><td>Example</td><td>LongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWordLongWord</td></tr></tbody></table></div>
+</main>
+</body>
+</html>
