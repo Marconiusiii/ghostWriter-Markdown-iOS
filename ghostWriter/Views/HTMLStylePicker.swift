@@ -19,6 +19,7 @@ struct HTMLStylePicker: View {
                 Text(verbatim: "ghostWriter").tag(HTMLExportStyle.ghostWriter)
             }
             .pickerStyle(.wheel)
+            .accessibilityElement(children: .contain)
             .accessibilityLabel("HTML style")
         }
     }
